@@ -32,6 +32,7 @@ import {
 import { api, instrumentClient, type Account, type Diagnostic, type Instrument, type InstrumentAlternative, type InstrumentType, type Holding, type RankedInstrument, type ReferenceRate, type Snapshot, type Summary, type TaxRate } from './api';
 import { Chip, chipColor } from './Chip';
 import { DataTable, TableAction, TableActions, type DataColumn, type SortDirection } from './DataTable';
+import { CompareModal } from './CompareModal';
 import { InvestModal } from './InvestModal';
 import { SettingsModal } from './SettingsModal';
 import { UpdateSituationModal } from './UpdateSituationModal';
@@ -630,6 +631,10 @@ function InstrumentFinder({ instruments, reload }: { instruments: Instrument[]; 
   }
   const bounds = pageBounds(sortedRows.length, page, pageSize);
   const visibleRows = sortedRows.slice(bounds.start, bounds.end);
+  const [selectedCompareISINs, setSelectedCompareISINs] = useState<string[]>([]);
+  const [compareModalOpened, setCompareModalOpened] = useState(false);
+  const selectedCompareInstruments = instruments.filter(i => selectedCompareISINs.includes(i.isin));
+
   const streamLabel = streamProgress?.mode === 'discover' ? 'Discovering remaining UCITS ETFs' : streamProgress?.mode === 'oldest' ? 'Refreshing oldest profiles first' : 'Refreshing missing profiles';
   const show = (column: InstrumentColumn) => visibleColumns.includes(column);
   const toggleColumn = (column: InstrumentColumn) => setVisibleColumns(current => current.includes(column) ? current.filter(item => item !== column) : [...current, column]);
@@ -643,6 +648,21 @@ function InstrumentFinder({ instruments, reload }: { instruments: Instrument[]; 
     { key: 'actions', render: item => <TableActions><TableAction label={`Open ${item.isin} on justETF`} href={item.source_url} disabled={!item.source_url}>↗</TableAction></TableActions> },
   ];
   const catalogColumns: DataColumn<CatalogRow>[] = [
+    {
+      key: 'select_compare',
+      render: (item: CatalogRow) => (
+        <Checkbox
+          aria-label={`Select ${item.instrument.isin} for comparison`}
+          checked={selectedCompareISINs.includes(item.instrument.isin)}
+          onChange={e => {
+            const isin = item.instrument.isin;
+            setSelectedCompareISINs(curr =>
+              e.currentTarget.checked ? [...curr, isin] : curr.filter(i => i !== isin)
+            );
+          }}
+        />
+      ),
+    },
     { key: 'starred', sortable: true, render: item => <TableAction label={item.instrument.starred ? `Unstar ${item.instrument.isin}` : `Star ${item.instrument.isin}`} color="yellow" variant={item.instrument.starred ? 'light' : 'subtle'} onClick={() => void star(item.instrument)}>{item.instrument.starred ? '★' : '☆'}</TableAction> },
     ...(ranked.length > 0 ? [{ key: 'score', label: 'Score', sortable: true, render: (item: CatalogRow) => <Tooltip label={`Cost ${(item.cost * 100).toFixed(0)} · tracking diff ${(item.tracking_difference * 100).toFixed(0)} · tracking error ${(item.tracking_error * 100).toFixed(0)} · size ${(item.size * 100).toFixed(0)} · age ${(item.age * 100).toFixed(0)}`}><Chip size="lg" variant="filled" colorKey="Score">{item.total.toFixed(1)}</Chip></Tooltip> }] : []),
     ...(similarity ? [{ key: 'similarity', label: 'Similarity', sortable: true, render: (item: CatalogRow) => item.similarity ? <Stack gap={4}><Group gap={4}>{item.similarity.better && <Chip size="xs">Strictly better</Chip>}<Chip size="xs">{item.similarity.match === 'exact_index' ? 'Same index' : 'Same exposure'}</Chip></Group><Text size="xs" c="dimmed">{item.similarity.reasons.join(' · ')}</Text></Stack> : '—' }] : []),
@@ -692,6 +712,29 @@ function InstrumentFinder({ instruments, reload }: { instruments: Instrument[]; 
     </SimpleGrid><Button mt="md" onClick={() => void rank()}>Rank {rankableCount} refreshed UCITS ETFs</Button></Paper>
     {similarity && <Alert color="blue" title={similarTo ? `Similar to ${similarTo.ticker || similarTo.name}` : `Similarity filter: ${similarity}`} withCloseButton onClose={() => setSimilarityFilter()}>{loadingAlternatives ? 'Loading comparable instruments…' : `${alternatives.length} comparable instruments · remove this filter to return to the full catalog.`}</Alert>}
     {loadingAlternatives ? <Group justify="center" p="xl"><Loader /></Group> : rows.length === 0 ? <Empty title={similarity ? 'No comparable instruments' : 'No instrument data'} text={similarity ? 'Refresh more comparable profiles, then retry.' : 'Sync the justETF catalog, load one by ticker or ISIN, or add one manually.'} /> : <Stack gap="sm">
+      {selectedCompareISINs.length > 0 && (
+        <Paper p="xs" radius="md" withBorder bg="var(--mantine-color-teal-0)">
+          <Group justify="space-between" align="center">
+            <Group gap="xs">
+              <Badge color="teal" size="md">{selectedCompareISINs.length} Selected</Badge>
+              <Text fw={600} size="sm">Select 2 to 5 instruments to compare side-by-side</Text>
+            </Group>
+            <Group gap="xs">
+              <Button
+                size="xs"
+                color="teal"
+                disabled={selectedCompareISINs.length < 2 || selectedCompareISINs.length > 5}
+                onClick={() => setCompareModalOpened(true)}
+              >
+                Compare {selectedCompareISINs.length} Selected Side-by-Side
+              </Button>
+              <Button size="xs" variant="subtle" color="gray" onClick={() => setSelectedCompareISINs([])}>
+                Clear Selection
+              </Button>
+            </Group>
+          </Group>
+        </Paper>
+      )}
       <DataTable rows={visibleRows} columns={catalogColumns} rowKey={item => item.instrument.id} minWidth={1100} sort={ranked.length > 0 || similarity ? localSortKey : catalog.sort} direction={ranked.length > 0 || similarity ? localSortDir : catalog.direction} onSort={(key, direction) => {
         if (ranked.length > 0 || similarity) {
           setLocalSortKey(key);
@@ -719,6 +762,12 @@ function InstrumentFinder({ instruments, reload }: { instruments: Instrument[]; 
       <Group justify="space-between"><Group gap="xs"><Text size="sm" c="dimmed">Rows per page</Text><Select size="xs" w={82} aria-label="Rows per page" value={String(pageSize)} data={['10', '25', '50', '100']} onChange={value => setPageSize(Number(value ?? 50))} /></Group>{bounds.pages > 1 && <Pagination size="sm" total={bounds.pages} value={bounds.current} onChange={setPage} />}</Group>
     </Stack>}
     <InstrumentModal key={editing?.id ?? 'new'} opened={opened} close={() => setOpened(false)} instrument={editing} saved={async () => { setOpened(false); setRanked([]); await reload(); }} />
+    <CompareModal
+      opened={compareModalOpened}
+      onClose={() => setCompareModalOpened(false)}
+      instruments={selectedCompareInstruments}
+      onShowAlternatives={showAlternatives}
+    />
   </Stack>;
 }
 
