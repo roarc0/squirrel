@@ -8,9 +8,8 @@ LOOT is local-first and optimized for occasional rough updates. Prefer explainab
 - [x] Add **backup and restore** under Settings.
   - Export a timestamped `.tar.gz` containing the SQLite database and configuration.
   - Validate an archive before restore and create an automatic rollback backup first.
-- [ ] Add **Hide balances** to the header and remember it as a local UI preference. Do not rewrite the startup YAML from the browser.
-- [ ] Add a **target drift** summary: highlight holdings materially above or below their planned allocation.
-- [ ] Add a simple **Invest €X** helper that allocates a new contribution toward underweight holdings without tracking individual PAC purchases.
+- [x] Add **Hide balances** to the header and remember it as a local UI preference. Do not rewrite the startup YAML from the browser.
+- [x] Add a **target drift** summary & **Invest €X** helper that allocates a new contribution toward underweight holdings without tracking individual PAC purchases.
 - [ ] Consolidate all migrations use a better tool like goose
 - [ ] Analyze home workspaces/console for more modern go/ts patterns but don't copy the whole documentation part. just the nice technologies and dependencies in go/ts that are clearly better than the ones we have.
 

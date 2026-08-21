@@ -31,6 +31,7 @@ import {
 import { api, instrumentClient, type Account, type Instrument, type InstrumentAlternative, type InstrumentType, type Holding, type RankedInstrument, type ReferenceRate, type Snapshot, type Summary, type TaxRate } from './api';
 import { Chip, chipColor } from './Chip';
 import { DataTable, TableAction, TableActions, type DataColumn, type SortDirection } from './DataTable';
+import { InvestModal } from './InvestModal';
 import { SettingsModal } from './SettingsModal';
 import { UpdateSituationModal } from './UpdateSituationModal';
 import { chartGeometry, matchesExactFilters, pageBounds, performanceMood } from './visual';
@@ -41,8 +42,10 @@ const n = (value: Numeric | undefined) => (value === '' || value === undefined ?
 const minor = (value: Numeric | undefined) => Math.round(n(value) * 100);
 const bps = (value: Numeric | undefined) => Math.round(n(value) * 100);
 const percent = (value: number | undefined) => value === undefined || !Number.isFinite(value) ? '—' : `${(value / 100).toFixed(2)}%`;
-const money = (value: number | undefined, currency: string) => value === undefined || !Number.isFinite(value) ? '—' :
-  new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 }).format(value / 100);
+let hideBalancesGlobal = false;
+const money = (value: number | undefined, currency: string) =>
+  hideBalancesGlobal ? '••••••' : (value === undefined || !Number.isFinite(value) ? '—' :
+  new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 }).format(value / 100));
 const investedMoney = (invested: number, current: number, currency: string) => invested > 0 || current === 0 ? money(invested, currency) : '—';
 const instrumentLabels: Record<InstrumentType, string> = { etf: 'ETF', etc: 'ETC', etn: 'ETN', fund: 'Fund', stock: 'Stock', bond: 'Bond', crypto: 'Crypto', commodity: 'Commodity', real_estate: 'Real estate', other: 'Other' };
 const label = (value: string) => value.replaceAll('_', ' ').replace(/^./, character => character.toUpperCase());
@@ -87,8 +90,17 @@ export default function App() {
 
   const [updateModalOpened, setUpdateModalOpened] = useState(false);
   const [settingsModalOpened, setSettingsModalOpened] = useState(false);
+  const [hideBalances, setHideBalances] = useState(() => {
+    try { return localStorage.getItem('loot.hideBalances') === 'true'; } catch { return false; }
+  });
+
+  useEffect(() => {
+    hideBalancesGlobal = hideBalances;
+    try { localStorage.setItem('loot.hideBalances', String(hideBalances)); } catch { /* optional */ }
+  }, [hideBalances]);
 
   if (!data) return <Group justify="center" h="100vh">{error ? <Alert color="red">{error}</Alert> : <Loader />}</Group>;
+  hideBalancesGlobal = hideBalances;
   return (
     <main className="shell">
       <Group justify="space-between" align="end" mb="xl">
@@ -99,6 +111,9 @@ export default function App() {
         <Group>
           <Button color="teal" variant="light" onClick={() => setUpdateModalOpened(true)}>Update situation</Button>
           <Button variant="default" onClick={() => setSettingsModalOpened(true)}>Settings</Button>
+          <Button variant="default" title={hideBalances ? 'Show balances' : 'Hide balances'} onClick={() => setHideBalances(v => !v)}>
+            {hideBalances ? '🙈 Hide' : '👁️ Show'}
+          </Button>
           <ThemeToggle />
         </Group>
       </Group>
@@ -338,11 +353,13 @@ function Holdings({ holdings, accounts, instruments, taxRates, reload }: { holdi
     { key: 'tax', label: 'Tax', sortable: true, render: holding => percent(holding.tax_bps) },
     { key: 'actions', render: holding => <TableActions><TableAction label={`Edit ${holding.instrument_name}`} onClick={() => open(holding)}>✎</TableAction><TableAction label={`Delete ${holding.instrument_name}`} color="red" onClick={() => void remove(holding)}>×</TableAction></TableActions> },
   ];
-  return <Stack gap="lg"><Group justify="space-between"><Box><Title order={2}>Holdings</Title><Text c="dimmed">Actual allocation uses current holding values within each currency; planned allocation is your target.</Text></Box><Button disabled={!ready} onClick={() => open()}>Add holding</Button></Group>
+  const [investOpened, setInvestOpened] = useState(false);
+  return <Stack gap="lg"><Group justify="space-between"><Box><Title order={2}>Holdings</Title><Text c="dimmed">Actual allocation uses current holding values within each currency; planned allocation is your target.</Text></Box><Group gap="sm"><Button variant="light" color="teal" disabled={!ready} onClick={() => setInvestOpened(true)}>Invest & Rebalance</Button><Button disabled={!ready} onClick={() => open()}>Add holding</Button></Group></Group>
     {(error || table.sortError) && <Alert color="red">{error || table.sortError}</Alert>}
     {activeHoldings.length > 0 && <><MultiSelect w="100%" maw={360} searchable clearable label="Accounts" placeholder="All accounts" value={accountIDs} data={activeAccounts.map(account => ({ value: String(account.id), label: account.name }))} onChange={setAccountIDs} />{visibleHoldings.length > 0 && <SimpleGrid cols={{ base: 1, md: Math.min(2, Math.max(1, totals.size)) }}>{[...totals].map(([currency, summary]) => <Card key={currency} className="metric" p="lg" radius="lg"><Group justify="space-between" align="start"><Box><Text size="xs" c="dimmed">Visible holdings · {currency}</Text><Text size="xl" fw={750}>{money(summary.value, currency)}</Text></Box><Text size="sm" c="dimmed">{summary.count} {summary.count === 1 ? 'holding' : 'holdings'}</Text></Group><Group justify="space-between" align="center" mt={5}><Text size="xs" c="dimmed">Invested {investedMoney(summary.invested, summary.value, currency)}</Text><PerformanceResult value={summary.value} invested={summary.invested} currency={currency} /></Group><AllocationBar total={summary.value} segments={[...summary.classes].map(([assetClass, value]) => ({ label: label(assetClass), value }))} /></Card>)}</SimpleGrid>}</>}
     {!ready ? <Empty title="Accounts and instruments required" text="Add an active account and an instrument before recording a holding." /> : activeHoldings.length === 0 ? <Empty title="No active holdings" text="Add an investment or restore an archived account." /> : visibleHoldings.length === 0 ? <Empty title="No matching holdings" text="Choose another account or clear the filter." /> : <DataTable rows={visibleHoldings} columns={columns} rowKey={holding => holding.id} minWidth={1080} sort={table.sort} direction={table.direction} onSort={(key, direction) => void table.sortRows(key, direction)} />}
     <HoldingModal key={editing?.id ?? 'new'} opened={opened} close={() => setOpened(false)} holding={editing} accounts={activeAccounts} instruments={instruments} taxRates={taxRates} saved={async () => { setOpened(false); await reload(); }} />
+    <InvestModal opened={investOpened} onClose={() => setInvestOpened(false)} holdings={holdings} reload={reload} />
   </Stack>;
 }
 
