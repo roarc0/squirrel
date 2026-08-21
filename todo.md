@@ -18,7 +18,7 @@ LOOT is local-first and optimized for occasional rough updates. Prefer explainab
 - [ ] Make comparison cohorts explicit and conservative: same asset class first, then same normalized index or equivalent exposure. Never compare bonds with equity.
 - [x] Add a side-by-side comparison for 2–5 selected instruments using the existing instrument columns.
 - [ ] Explain every alternative result: peer-group match, TER difference, size difference, replication/policy changes, and missing data.
-- [ ] Add catalog health indicators: total discovered, refreshed, stale, failed, excluded, and oldest refresh date.
+- [x] Add catalog health indicators: total discovered, refreshed, stale, failed, excluded, and oldest refresh date.
 - [ ] Add saved instrument filters only if the current issuer/type/asset-class filters become repetitive in real use.
 - [ ] Version the ranking weights so a score remains understandable after the algorithm changes.
 
