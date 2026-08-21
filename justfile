@@ -4,7 +4,7 @@ generate:
 	cd proto && just generate
 
 ui: generate
-	cd ui && npm ci && npm run build
+	cd ui && npm run build
 
 run *args: ui
 	CGO_ENABLED=0 go run ./backend/cmd/loot {{args}}
