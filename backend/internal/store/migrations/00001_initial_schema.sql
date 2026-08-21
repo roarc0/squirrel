@@ -1,3 +1,4 @@
+-- +goose Up
 CREATE TABLE reference_rates (
     code TEXT PRIMARY KEY,
     label TEXT NOT NULL,
@@ -10,9 +11,9 @@ CREATE TABLE accounts (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
     institution TEXT NOT NULL DEFAULT '',
-	account_type TEXT NOT NULL DEFAULT 'other' CHECK (account_type IN ('bank', 'broker', 'other')),
-	preferred INTEGER NOT NULL DEFAULT 0 CHECK (preferred IN (0, 1)),
-	archived INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1)),
+    account_type TEXT NOT NULL DEFAULT 'other' CHECK (account_type IN ('bank', 'broker', 'other')),
+    preferred INTEGER NOT NULL DEFAULT 0 CHECK (preferred IN (0, 1)),
+    archived INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1)),
     currency TEXT NOT NULL CHECK (length(currency) = 3),
     balance_minor INTEGER NOT NULL CHECK (balance_minor >= 0),
     tax_bps INTEGER NOT NULL DEFAULT 0 CHECK (tax_bps BETWEEN 0 AND 10000),
@@ -40,16 +41,16 @@ CREATE TABLE instruments (
     isin TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     ticker TEXT NOT NULL DEFAULT '',
-	instrument_type TEXT NOT NULL DEFAULT 'etf' CHECK (instrument_type IN ('etf', 'etc', 'etn', 'fund', 'stock', 'bond', 'crypto', 'commodity', 'real_estate', 'other')),
-	provider TEXT NOT NULL DEFAULT '',
-	index_name TEXT NOT NULL DEFAULT '',
-	investment_focus TEXT NOT NULL DEFAULT '',
-	asset_class TEXT NOT NULL DEFAULT '',
-	strategy TEXT NOT NULL DEFAULT '',
-	currency_hedged INTEGER NOT NULL DEFAULT 0 CHECK (currency_hedged IN (0, 1)),
-	starred INTEGER NOT NULL DEFAULT 0 CHECK (starred IN (0, 1)),
-	data_status TEXT NOT NULL DEFAULT 'enriched' CHECK (data_status IN ('catalog', 'enriched')),
-	distribution TEXT NOT NULL CHECK (distribution IN ('accumulating', 'distributing')),
+    instrument_type TEXT NOT NULL DEFAULT 'etf' CHECK (instrument_type IN ('etf', 'etc', 'etn', 'fund', 'stock', 'bond', 'crypto', 'commodity', 'real_estate', 'other')),
+    provider TEXT NOT NULL DEFAULT '',
+    index_name TEXT NOT NULL DEFAULT '',
+    investment_focus TEXT NOT NULL DEFAULT '',
+    asset_class TEXT NOT NULL DEFAULT '',
+    strategy TEXT NOT NULL DEFAULT '',
+    currency_hedged INTEGER NOT NULL DEFAULT 0 CHECK (currency_hedged IN (0, 1)),
+    starred INTEGER NOT NULL DEFAULT 0 CHECK (starred IN (0, 1)),
+    data_status TEXT NOT NULL DEFAULT 'enriched' CHECK (data_status IN ('catalog', 'enriched')),
+    distribution TEXT NOT NULL CHECK (distribution IN ('accumulating', 'distributing')),
     replication TEXT NOT NULL CHECK (replication IN ('physical_full', 'physical_sampling', 'synthetic')),
     domicile TEXT NOT NULL DEFAULT '',
     fund_currency TEXT NOT NULL CHECK (length(fund_currency) = 3),
@@ -61,7 +62,7 @@ CREATE TABLE instruments (
     ucits INTEGER NOT NULL DEFAULT 0 CHECK (ucits IN (0, 1)),
     source_url TEXT NOT NULL DEFAULT '',
     refreshed_at TEXT NOT NULL,
-	enriched_at TEXT NOT NULL DEFAULT '',
+    enriched_at TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -102,3 +103,13 @@ CREATE TABLE snapshot_entries (
     value_minor INTEGER NOT NULL DEFAULT 0 CHECK (value_minor >= 0),
     tax_bps INTEGER NOT NULL CHECK (tax_bps BETWEEN 0 AND 10000)
 );
+
+-- +goose Down
+DROP TABLE snapshot_entries;
+DROP TABLE snapshots;
+DROP TABLE holdings;
+DROP TABLE instrument_exclusions;
+DROP TABLE instruments;
+DROP TABLE interest_tiers;
+DROP TABLE accounts;
+DROP TABLE reference_rates;

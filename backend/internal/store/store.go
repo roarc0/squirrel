@@ -4,7 +4,7 @@ import (
 	"cmp"
 	"context"
 	"database/sql"
-	_ "embed"
+	"embed"
 	"errors"
 	"fmt"
 	"os"
@@ -13,39 +13,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pressly/goose/v3"
+
 	"loot/backend/internal/portfolio"
 
 	_ "modernc.org/sqlite"
 )
 
-const schemaVersion = 9
-
-//go:embed schema.sql
-var schema string
-
-//go:embed migration2.sql
-var migration2 string
-
-//go:embed migration3.sql
-var migration3 string
-
-//go:embed migration4.sql
-var migration4 string
-
-//go:embed migration5.sql
-var migration5 string
-
-//go:embed migration6.sql
-var migration6 string
-
-//go:embed migration7.sql
-var migration7 string
-
-//go:embed migration8.sql
-var migration8 string
-
-//go:embed migration9.sql
-var migration9 string
+//go:embed migrations/*.sql
+var embedMigrations embed.FS
 
 type Store struct{ db *sql.DB }
 
@@ -78,51 +54,37 @@ func Open(path string) (*Store, error) {
 }
 
 func migrate(db *sql.DB) error {
-	var version int
-	if err := db.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil {
-		return fmt.Errorf("read schema version: %w", err)
+	// Handle backward compatibility for databases migrated with legacy PRAGMA user_version
+	var userVersion int
+	if err := db.QueryRow(`PRAGMA user_version`).Scan(&userVersion); err == nil && userVersion > 0 {
+		var hasGooseTable int
+		err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='goose_db_version'`).Scan(&hasGooseTable)
+		if err == nil && hasGooseTable == 0 {
+			// Pre-initialize goose version tracking for legacy DBs already at schema version 1..9
+			if _, err := db.Exec(`
+				CREATE TABLE goose_db_version (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					version_id INTEGER NOT NULL,
+					is_applied INTEGER NOT NULL,
+					tstamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+				);
+				INSERT INTO goose_db_version (version_id, is_applied) VALUES (1, 1);
+			`); err != nil {
+				return fmt.Errorf("initialize goose version table for legacy database: %w", err)
+			}
+		}
 	}
-	if version > schemaVersion {
-		return fmt.Errorf("database schema %d is newer than supported schema %d", version, schemaVersion)
+
+	goose.SetBaseFS(embedMigrations)
+	goose.SetLogger(goose.NopLogger())
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		return fmt.Errorf("set goose dialect: %w", err)
 	}
-	if version == schemaVersion {
-		return backfillInstrumentTypes(db)
+
+	if err := goose.Up(db, "migrations"); err != nil {
+		return fmt.Errorf("run goose migrations: %w", err)
 	}
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	var migration string
-	switch version {
-	case 0:
-		migration = schema
-	case 1:
-		migration = migration2 + "\n" + migration3 + "\n" + migration4 + "\n" + migration5 + "\n" + migration6 + "\n" + migration7 + "\n" + migration8 + "\n" + migration9
-	case 2:
-		migration = migration3 + "\n" + migration4 + "\n" + migration5 + "\n" + migration6 + "\n" + migration7 + "\n" + migration8 + "\n" + migration9
-	case 3:
-		migration = migration4 + "\n" + migration5 + "\n" + migration6 + "\n" + migration7 + "\n" + migration8 + "\n" + migration9
-	case 4:
-		migration = migration5 + "\n" + migration6 + "\n" + migration7 + "\n" + migration8 + "\n" + migration9
-	case 5:
-		migration = migration6 + "\n" + migration7 + "\n" + migration8 + "\n" + migration9
-	case 6:
-		migration = migration7 + "\n" + migration8 + "\n" + migration9
-	case 7:
-		migration = migration8 + "\n" + migration9
-	case 8:
-		migration = migration9
-	}
-	if _, err := tx.Exec(migration); err != nil {
-		return fmt.Errorf("migrate schema from version %d: %w", version, err)
-	}
-	if _, err := tx.Exec(fmt.Sprintf(`PRAGMA user_version = %d`, schemaVersion)); err != nil {
-		return fmt.Errorf("set schema version: %w", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return err
-	}
+
 	return backfillInstrumentTypes(db)
 }
 

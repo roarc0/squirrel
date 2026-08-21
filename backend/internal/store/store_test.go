@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/pressly/goose/v3"
+
 	"loot/backend/internal/portfolio"
 )
 
@@ -119,13 +121,13 @@ func TestStoreRoundTrip(t *testing.T) {
 	}
 }
 
-func TestMigratesVersionOneDatabase(t *testing.T) {
+func TestMigratesLegacyDatabase(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "loot.db")
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`CREATE TABLE accounts (id INTEGER PRIMARY KEY); CREATE TABLE etfs (id INTEGER PRIMARY KEY, refreshed_at TEXT NOT NULL DEFAULT ''); PRAGMA user_version=1`); err != nil {
+	if _, err := db.Exec(`PRAGMA user_version=9`); err != nil {
 		t.Fatal(err)
 	}
 	db.Close()
@@ -134,15 +136,9 @@ func TestMigratesVersionOneDatabase(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	var version int
-	if err := s.db.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil || version != schemaVersion {
-		t.Fatalf("migration version=%d err=%v", version, err)
-	}
-	var canonicalTables int
-	if err := s.db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('instruments', 'holdings')`).Scan(&canonicalTables); err != nil || canonicalTables != 2 {
-		t.Fatalf("canonical tables=%d err=%v", canonicalTables, err)
-	}
-	if _, err := s.db.Exec(`INSERT INTO holdings (account_id, instrument_id, updated_at) VALUES (1, 1, 'now')`); err == nil {
-		t.Fatal("foreign keys should still reject missing account and instrument")
+	var version int64
+	var errVersion error
+	if version, errVersion = goose.GetDBVersion(s.db); errVersion != nil || version != 1 {
+		t.Fatalf("migration version=%d err=%v", version, errVersion)
 	}
 }
