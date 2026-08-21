@@ -84,12 +84,16 @@ func (s *Server) ListAccounts(ctx context.Context, req *connect.Request[portv1.L
 			"name":      func(a, b portfolio.Account) int { return cmp.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)) },
 			"type":      func(a, b portfolio.Account) int { return cmp.Compare(a.Type, b.Type) },
 			"cash":      func(a, b portfolio.Account) int { return cmp.Compare(a.BalanceMinor, b.BalanceMinor) },
+			"balance":   func(a, b portfolio.Account) int { return cmp.Compare(a.BalanceMinor, b.BalanceMinor) },
 			"holdings":  func(a, b portfolio.Account) int { return cmp.Compare(a.HoldingsValueMinor, b.HoldingsValueMinor) },
 			"total":     func(a, b portfolio.Account) int { return cmp.Compare(a.TotalAssetsMinor, b.TotalAssetsMinor) },
 			"gross":     func(a, b portfolio.Account) int { return cmp.Compare(a.GrossRevenueMinor, b.GrossRevenueMinor) },
 			"per_day":   func(a, b portfolio.Account) int { return cmp.Compare(a.GrossRevenueMinor, b.GrossRevenueMinor) },
+			"perDay":    func(a, b portfolio.Account) int { return cmp.Compare(a.GrossRevenueMinor, b.GrossRevenueMinor) },
 			"per_month": func(a, b portfolio.Account) int { return cmp.Compare(a.GrossRevenueMinor, b.GrossRevenueMinor) },
+			"perMonth":  func(a, b portfolio.Account) int { return cmp.Compare(a.GrossRevenueMinor, b.GrossRevenueMinor) },
 			"per_year":  func(a, b portfolio.Account) int { return cmp.Compare(a.GrossRevenueMinor, b.GrossRevenueMinor) },
+			"perYear":   func(a, b portfolio.Account) int { return cmp.Compare(a.GrossRevenueMinor, b.GrossRevenueMinor) },
 			"net":       func(a, b portfolio.Account) int { return cmp.Compare(a.NetRevenueMinor, b.NetRevenueMinor) },
 		}
 		if err := sortSlice(sortField, accounts, columns); err != nil {

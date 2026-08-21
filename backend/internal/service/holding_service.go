@@ -33,16 +33,18 @@ func (s *Server) ListHoldings(ctx context.Context, req *connect.Request[portv1.L
 		})
 	} else {
 		columns := map[string]func(portfolio.Holding, portfolio.Holding) int{
-			"account":  func(a, b portfolio.Holding) int { return cmp.Compare(strings.ToLower(a.AccountName), strings.ToLower(b.AccountName)) },
-			"name":     func(a, b portfolio.Holding) int { return cmp.Compare(strings.ToLower(a.InstrumentName), strings.ToLower(b.InstrumentName)) },
-			"isin":     func(a, b portfolio.Holding) int { return cmp.Compare(a.InstrumentISIN, b.InstrumentISIN) },
-			"type":     func(a, b portfolio.Holding) int { return cmp.Compare(a.InstrumentType, b.InstrumentType) },
-			"asset":    func(a, b portfolio.Holding) int { return cmp.Compare(a.AssetClass, b.AssetClass) },
-			"invested": func(a, b portfolio.Holding) int { return cmp.Compare(a.InvestedMinor, b.InvestedMinor) },
-			"value":    func(a, b portfolio.Holding) int { return cmp.Compare(a.ValueMinor, b.ValueMinor) },
-			"profit":   func(a, b portfolio.Holding) int { return cmp.Compare(a.ValueMinor-a.InvestedMinor, b.ValueMinor-b.InvestedMinor) },
-			"planned":  func(a, b portfolio.Holding) int { return cmp.Compare(a.PlannedBPS, b.PlannedBPS) },
-			"actual":   func(a, b portfolio.Holding) int { return cmp.Compare(a.ActualBPS, b.ActualBPS) },
+			"account":     func(a, b portfolio.Holding) int { return cmp.Compare(strings.ToLower(a.AccountName), strings.ToLower(b.AccountName)) },
+			"name":        func(a, b portfolio.Holding) int { return cmp.Compare(strings.ToLower(a.InstrumentName), strings.ToLower(b.InstrumentName)) },
+			"isin":        func(a, b portfolio.Holding) int { return cmp.Compare(a.InstrumentISIN, b.InstrumentISIN) },
+			"type":        func(a, b portfolio.Holding) int { return cmp.Compare(a.InstrumentType, b.InstrumentType) },
+			"asset":       func(a, b portfolio.Holding) int { return cmp.Compare(a.AssetClass, b.AssetClass) },
+			"asset_class": func(a, b portfolio.Holding) int { return cmp.Compare(a.AssetClass, b.AssetClass) },
+			"assetClass":  func(a, b portfolio.Holding) int { return cmp.Compare(a.AssetClass, b.AssetClass) },
+			"invested":    func(a, b portfolio.Holding) int { return cmp.Compare(a.InvestedMinor, b.InvestedMinor) },
+			"value":       func(a, b portfolio.Holding) int { return cmp.Compare(a.ValueMinor, b.ValueMinor) },
+			"profit":      func(a, b portfolio.Holding) int { return cmp.Compare(a.ValueMinor-a.InvestedMinor, b.ValueMinor-b.InvestedMinor) },
+			"planned":     func(a, b portfolio.Holding) int { return cmp.Compare(a.PlannedBPS, b.PlannedBPS) },
+			"actual":      func(a, b portfolio.Holding) int { return cmp.Compare(a.ActualBPS, b.ActualBPS) },
 		}
 		if err := sortSlice(sortField, holdings, columns); err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)

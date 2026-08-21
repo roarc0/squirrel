@@ -29,11 +29,13 @@ func (s *Server) ListSnapshots(ctx context.Context, req *connect.Request[portv1.
 		})
 	} else {
 		columns := map[string]func(portfolio.Snapshot, portfolio.Snapshot) int{
-			"date":      func(a, b portfolio.Snapshot) int { return cmp.Compare(a.ObservedOn, b.ObservedOn) },
-			"cash":      func(a, b portfolio.Snapshot) int { return cmp.Compare(a.CashMinor, b.CashMinor) },
-			"invested":  func(a, b portfolio.Snapshot) int { return cmp.Compare(a.InvestedMinor, b.InvestedMinor) },
-			"portfolio": func(a, b portfolio.Snapshot) int { return cmp.Compare(a.PortfolioMinor, b.PortfolioMinor) },
-			"total":     func(a, b portfolio.Snapshot) int { return cmp.Compare(a.TotalMinor, b.TotalMinor) },
+			"date":        func(a, b portfolio.Snapshot) int { return cmp.Compare(a.ObservedOn, b.ObservedOn) },
+			"observed_on": func(a, b portfolio.Snapshot) int { return cmp.Compare(a.ObservedOn, b.ObservedOn) },
+			"observedOn":  func(a, b portfolio.Snapshot) int { return cmp.Compare(a.ObservedOn, b.ObservedOn) },
+			"cash":        func(a, b portfolio.Snapshot) int { return cmp.Compare(a.CashMinor, b.CashMinor) },
+			"invested":    func(a, b portfolio.Snapshot) int { return cmp.Compare(a.InvestedMinor, b.InvestedMinor) },
+			"portfolio":   func(a, b portfolio.Snapshot) int { return cmp.Compare(a.PortfolioMinor, b.PortfolioMinor) },
+			"total":       func(a, b portfolio.Snapshot) int { return cmp.Compare(a.TotalMinor, b.TotalMinor) },
 		}
 		if err := sortSlice(sortField, snapshots, columns); err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
