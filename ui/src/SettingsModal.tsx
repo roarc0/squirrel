@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Modal,
   Button,
@@ -9,7 +9,8 @@ import {
   Alert,
   Divider,
   FileInput,
-  ThemeIcon,
+  NumberInput,
+  Select,
 } from '@mantine/core';
 import { exportBackup, restoreBackup } from './api';
 
@@ -20,11 +21,28 @@ type Props = {
 };
 
 export function SettingsModal({ opened, onClose, reload }: Props) {
+  const [monthlyExpenses, setMonthlyExpenses] = useState<number>(() => {
+    try { return Number(localStorage.getItem('loot.monthlyExpenses') || 0); } catch { return 0; }
+  });
+  const [reserveMonths, setReserveMonths] = useState<string>(() => {
+    try { return localStorage.getItem('loot.reserveMonths') || '6'; } catch { return '6'; }
+  });
+
   const [exporting, setExporting] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+
+  const targetReserve = (monthlyExpenses || 0) * Number(reserveMonths || 6);
+
+  const saveReserveSettings = (exp: number, months: string) => {
+    try {
+      localStorage.setItem('loot.monthlyExpenses', String(exp || 0));
+      localStorage.setItem('loot.reserveMonths', months);
+      void reload();
+    } catch { /* preference persistence is optional */ }
+  };
 
   const handleExport = async () => {
     setExporting(true);
@@ -77,12 +95,57 @@ export function SettingsModal({ opened, onClose, reload }: Props) {
     <Modal
       opened={opened}
       onClose={onClose}
-      title={<Text fw={700} size="lg">Settings & Data Protection</Text>}
+      title={<Text fw={700} size="lg">Settings & Data Preferences</Text>}
       size="lg"
     >
       <Stack gap="md">
         {error && <Alert color="red" withCloseButton onClose={() => setError('')}>{error}</Alert>}
         {notice && <Alert color="teal" withCloseButton onClose={() => setNotice('')}>{notice}</Alert>}
+
+        <Paper withBorder p="md" radius="md">
+          <Text fw={600} size="sm" mb={4}>Emergency Cash Reserve (3–6 Months)</Text>
+          <Text size="xs" c="dimmed" mb="md">
+            Specify your estimated monthly living expenses to calculate your target emergency cash buffer. Portfolio diagnostics will notify you if your cash balance falls below or excessively exceeds your target.
+          </Text>
+
+          <Group justify="space-between" align="flex-start" wrap="wrap">
+            <NumberInput
+              label="Monthly Expenses (€)"
+              prefix="€ "
+              placeholder="e.g. 2,000"
+              min={0}
+              value={monthlyExpenses || ''}
+              onChange={val => {
+                const nextExp = Number(val || 0);
+                setMonthlyExpenses(nextExp);
+                saveReserveSettings(nextExp, reserveMonths);
+              }}
+              style={{ width: 180 }}
+            />
+            <Select
+              label="Emergency Reserve Buffer"
+              value={reserveMonths}
+              onChange={val => {
+                const nextMonths = val || '6';
+                setReserveMonths(nextMonths);
+                saveReserveSettings(monthlyExpenses, nextMonths);
+              }}
+              data={[
+                { value: '3', label: '3 Months' },
+                { value: '6', label: '6 Months (Recommended)' },
+                { value: '9', label: '9 Months' },
+                { value: '12', label: '12 Months' },
+              ]}
+              style={{ width: 220 }}
+            />
+            <Stack gap={2} align="end" style={{ alignSelf: 'center' }}>
+              <Text size="xs" c="dimmed">Target Emergency Reserve</Text>
+              <Text fw={750} size="lg" c="teal">
+                {new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(targetReserve)}
+              </Text>
+            </Stack>
+          </Group>
+        </Paper>
 
         <Paper withBorder p="md" radius="md">
           <Text fw={600} size="sm" mb={4}>Export Data Backup</Text>

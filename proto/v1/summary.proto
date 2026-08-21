@@ -39,7 +39,9 @@ message Summary {
   repeated Diagnostic diagnostics = 3;
 }
 
-message GetSummaryRequest {}
+message GetSummaryRequest {
+  optional int64 target_cash_minor = 1;
+}
 
 message GetSummaryResponse {
   Summary summary = 1;

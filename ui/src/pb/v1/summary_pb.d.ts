@@ -201,6 +201,11 @@ export declare class Summary extends Message<Summary> {
  * @generated from message v1.GetSummaryRequest
  */
 export declare class GetSummaryRequest extends Message<GetSummaryRequest> {
+  /**
+   * @generated from field: optional int64 target_cash_minor = 1;
+   */
+  targetCashMinor?: bigint;
+
   constructor(data?: PartialMessage<GetSummaryRequest>);
 
   static readonly runtime: typeof proto3;

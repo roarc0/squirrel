@@ -291,7 +291,18 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
   // Summary
   if (path === '/api/summary' && method === 'GET') {
-    const res = await summaryClient.getSummary({});
+    let targetCashMinor: bigint | undefined = undefined;
+    try {
+      const exp = Number(localStorage.getItem('loot.monthlyExpenses') || 0);
+      const months = Number(localStorage.getItem('loot.reserveMonths') || 6);
+      if (exp > 0) {
+        targetCashMinor = BigInt(Math.round(exp * months * 100));
+      }
+    } catch { /* optional */ }
+
+    const res = await summaryClient.getSummary({
+      targetCashMinor: targetCashMinor,
+    });
     const summary: Summary = {
       base_currency: res.summary?.baseCurrency ?? 'EUR',
       currencies: (res.summary?.currencies ?? []).map((c: any) => ({

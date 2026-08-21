@@ -25,7 +25,7 @@ type Diagnostic struct {
 	ISIN      string             `json:"isin,omitempty"`
 }
 
-func EvaluateDiagnostics(accounts []Account, holdings []Holding, instruments []Instrument, now time.Time) []Diagnostic {
+func EvaluateDiagnostics(accounts []Account, holdings []Holding, instruments []Instrument, targetCashMinor int64, now time.Time) []Diagnostic {
 	var results []Diagnostic
 
 	instByISIN := make(map[string]Instrument, len(instruments))
@@ -33,7 +33,7 @@ func EvaluateDiagnostics(accounts []Account, holdings []Holding, instruments []I
 		instByISIN[strings.ToUpper(inst.ISIN)] = inst
 	}
 
-	// 1. Excessive Idle Cash Check
+	// 1. Emergency Reserve & Cash Diagnostic
 	var totalCashMinor, totalHoldingMinor int64
 	for _, acc := range accounts {
 		if !acc.Archived {
@@ -45,7 +45,32 @@ func EvaluateDiagnostics(accounts []Account, holdings []Holding, instruments []I
 	}
 	totalAssetsMinor := totalCashMinor + totalHoldingMinor
 
-	if totalAssetsMinor > 200_000 && totalCashMinor > 200_000 {
+	if targetCashMinor > 0 {
+		if totalCashMinor < targetCashMinor {
+			results = append(results, Diagnostic{
+				ID:       "cash_below_reserve",
+				Category: "cash",
+				Severity: SeverityInfo,
+				Title:    "Cash Below Emergency Reserve Target",
+				Message: fmt.Sprintf(
+					"Your liquid cash (€%.2f) is below your configured emergency reserve target (€%.2f). Consider allocating surplus income to build your cash buffer.",
+					float64(totalCashMinor)/100, float64(targetCashMinor)/100,
+				),
+			})
+		} else if totalCashMinor > targetCashMinor+500_00 { // > €500 surplus over target
+			surplusMinor := totalCashMinor - targetCashMinor
+			results = append(results, Diagnostic{
+				ID:       "excessive_cash_reserve",
+				Category: "cash",
+				Severity: SeverityWarning,
+				Title:    "Cash Exceeds Emergency Reserve Target",
+				Message: fmt.Sprintf(
+					"Your liquid cash (€%.2f) exceeds your configured emergency reserve target (€%.2f) by €%.2f. Consider placing excess cash in yield accounts or investing.",
+					float64(totalCashMinor)/100, float64(targetCashMinor)/100, float64(surplusMinor)/100,
+				),
+			})
+		}
+	} else if totalAssetsMinor > 200_000 && totalCashMinor > 200_000 {
 		cashPct := float64(totalCashMinor) / float64(totalAssetsMinor) * 100
 		if cashPct > 35.0 {
 			results = append(results, Diagnostic{
@@ -54,7 +79,7 @@ func EvaluateDiagnostics(accounts []Account, holdings []Holding, instruments []I
 				Severity: SeverityWarning,
 				Title:    "High Idle Cash Ratio",
 				Message: fmt.Sprintf(
-					"Cash represents %.1f%% of your total portfolio (€%.2f cash / €%.2f total). Consider allocating unneeded cash toward investments or yield accounts.",
+					"Cash represents %.1f%% of your total portfolio (€%.2f cash / €%.2f total). Consider configuring an emergency cash reserve under Settings.",
 					cashPct, float64(totalCashMinor)/100, float64(totalAssetsMinor)/100,
 				),
 			})

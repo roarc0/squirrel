@@ -116,7 +116,12 @@ func (s *Server) GetSummary(ctx context.Context, req *connect.Request[portv1.Get
 		return cmp.Compare(a.Currency, b.Currency)
 	})
 
-	rawDiagnostics := portfolio.EvaluateDiagnostics(accounts, holdings, instruments, time.Now())
+	var targetCashMinor int64
+	if req.Msg.TargetCashMinor != nil {
+		targetCashMinor = *req.Msg.TargetCashMinor
+	}
+
+	rawDiagnostics := portfolio.EvaluateDiagnostics(accounts, holdings, instruments, targetCashMinor, time.Now())
 	pbDiagnostics := make([]*portv1.Diagnostic, len(rawDiagnostics))
 	for i, d := range rawDiagnostics {
 		pbDiagnostics[i] = &portv1.Diagnostic{

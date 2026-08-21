@@ -69,7 +69,9 @@ export const Summary = /*@__PURE__*/ proto3.makeMessageType(
  */
 export const GetSummaryRequest = /*@__PURE__*/ proto3.makeMessageType(
   "v1.GetSummaryRequest",
-  [],
+  () => [
+    { no: 1, name: "target_cash_minor", kind: "scalar", T: 3 /* ScalarType.INT64 */, opt: true },
+  ],
 );
 
 /**
