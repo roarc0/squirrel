@@ -4,11 +4,11 @@ ui:
     cd ui && npm ci && npm run build
 
 run *args: ui
-    CGO_ENABLED=0 go run . {{args}}
+    CGO_ENABLED=0 go run ./cmd/loot {{args}}
 
 build: ui
     mkdir -p bin
-    CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version={{version}}" -o bin/loot .
+    CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version={{version}}" -o bin/loot ./cmd/loot
 
 test: ui
     CGO_ENABLED=0 go test ./...

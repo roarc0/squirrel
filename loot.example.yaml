@@ -1,5 +1,5 @@
 listen: 127.0.0.1:7340
-database: loot.db
+database: data/loot.db
 base_currency: EUR
 log_level: info
 justetf_enrich_interval: 10s

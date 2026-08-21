@@ -8,13 +8,13 @@ Local portfolio and cash-yield dashboard. The React/TypeScript UI is embedded in
 - Node.js and npm
 - [`just`](https://github.com/casey/just#installation)
 
-On macOS with Homebrew, install anything missing with:
+On macOS with Homebrew, or Linux with APT, DNF, Pacman, APK, or Zypper, install anything missing with:
 
 ```sh
 ./scripts/install-tools.sh
 ```
 
-`just` is a Rust program, so it cannot be installed with `go install`; the script uses its supported Homebrew package. LOOT currently needs no extra Go-installed development tools.
+`just` is a Rust program, so it cannot be installed with `go install`; the script uses a [supported native package](https://github.com/casey/just#packages). LOOT currently needs no extra Go-installed development tools.
 
 ## Run
 
@@ -38,6 +38,8 @@ just build
 
 Only `just build` creates a persistent binary, at `bin/loot`. Open <http://127.0.0.1:7340>. Financial amounts are stored as integer minor units; rates are stored in basis points.
 
+The default database is `data/loot.db` inside the project. The entire `data/` directory is ignored by Git; back it up separately.
+
 ## Test
 
 ```sh
@@ -46,6 +48,7 @@ just test
 
 ## Architecture
 
+- `cmd/loot`: application entrypoint and process lifecycle.
 - `internal/portfolio`: dependency-free financial calculations, instrument validation, and ETF ranking.
 - `internal/justetf`: user-triggered screener catalog sync, ticker/ISIN lookup, and profile parsing.
 - `internal/store`: SQLite schema and queries. It is the only package that knows SQL.

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -26,6 +25,7 @@ type Config struct {
 func Load(path string) (Config, error) {
 	cfg := Config{
 		Listen:                "127.0.0.1:7340",
+		Database:              "data/loot.db",
 		BaseCurrency:          "EUR",
 		LogLevel:              "info",
 		JustETFEnrichInterval: 10 * time.Second,
@@ -34,12 +34,6 @@ func Load(path string) (Config, error) {
 			{Code: "IT_GOVERNMENT_BOND", Label: "Italy · government/white-list bonds", RateBPS: 1250},
 		},
 	}
-	if dir, err := os.UserConfigDir(); err == nil {
-		cfg.Database = defaultDatabasePath(dir)
-	} else {
-		cfg.Database = "loot.db"
-	}
-
 	if path != "" {
 		f, err := os.Open(path)
 		if err != nil {
@@ -63,17 +57,6 @@ func Load(path string) (Config, error) {
 		return Config{}, err
 	}
 	return cfg, nil
-}
-
-func defaultDatabasePath(configDir string) string {
-	current := filepath.Join(configDir, "loot", "loot.db")
-	legacy := filepath.Join(configDir, "port", "port.db")
-	if _, err := os.Stat(current); errors.Is(err, os.ErrNotExist) {
-		if _, err := os.Stat(legacy); err == nil {
-			return legacy
-		}
-	}
-	return current
 }
 
 func (c Config) validate() error {

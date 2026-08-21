@@ -21,16 +21,12 @@ func TestLoadJustETFInterval(t *testing.T) {
 	}
 }
 
-func TestDefaultDatabaseKeepsLegacyData(t *testing.T) {
-	dir := t.TempDir()
-	legacy := filepath.Join(dir, "port", "port.db")
-	if err := os.MkdirAll(filepath.Dir(legacy), 0o700); err != nil {
+func TestDefaultDatabaseUsesProjectDataDirectory(t *testing.T) {
+	cfg, err := Load("")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(legacy, nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if got := defaultDatabasePath(dir); got != legacy {
-		t.Fatalf("database=%q want %q", got, legacy)
+	if cfg.Database != "data/loot.db" {
+		t.Fatalf("database=%q", cfg.Database)
 	}
 }
