@@ -767,10 +767,10 @@ function InstrumentFinder({ instruments, reload }: { instruments: Instrument[]; 
     {similarity && <Alert color="blue" title={similarTo ? `Similar to ${similarTo.ticker || similarTo.name}` : `Similarity filter: ${similarity}`} withCloseButton onClose={() => setSimilarityFilter()}>{loadingAlternatives ? 'Loading comparable instruments…' : `${alternatives.length} comparable instruments · remove this filter to return to the full catalog.`}</Alert>}
     {loadingAlternatives ? <Group justify="center" p="xl"><Loader /></Group> : rows.length === 0 ? <Empty title={similarity ? 'No comparable instruments' : 'No instrument data'} text={similarity ? 'Refresh more comparable profiles, then retry.' : 'Sync the justETF catalog, load one by ticker or ISIN, or add one manually.'} /> : <Stack gap="sm">
       {selectedCompareISINs.length > 0 && (
-        <Paper p="xs" radius="md" withBorder bg="var(--mantine-color-teal-0)">
+        <Paper p="sm" radius="lg" className="metric">
           <Group justify="space-between" align="center">
             <Group gap="xs">
-              <Badge color="teal" size="md">{selectedCompareISINs.length} Selected</Badge>
+              <Badge color="teal" size="md" variant="filled">{selectedCompareISINs.length} Selected</Badge>
               <Text fw={600} size="sm">Select 2 to 5 instruments to compare side-by-side</Text>
             </Group>
             <Group gap="xs">
@@ -782,14 +782,14 @@ function InstrumentFinder({ instruments, reload }: { instruments: Instrument[]; 
               >
                 Compare {selectedCompareISINs.length} Selected Side-by-Side
               </Button>
-              <Button size="xs" variant="subtle" color="gray" onClick={() => setSelectedCompareISINs([])}>
+              <Button size="xs" variant="default" onClick={() => setSelectedCompareISINs([])}>
                 Clear Selection
               </Button>
             </Group>
           </Group>
         </Paper>
       )}
-      <DataTable rows={visibleRows} columns={catalogColumns} rowKey={item => item.instrument.id} minWidth={1100} sort={ranked.length > 0 || similarity ? localSortKey : catalog.sort} direction={ranked.length > 0 || similarity ? localSortDir : catalog.direction} onSort={(key, direction) => {
+      <DataTable rows={visibleRows} columns={catalogColumns} rowKey={item => item.instrument.id} minWidth={1250} sort={ranked.length > 0 || similarity ? localSortKey : catalog.sort} direction={ranked.length > 0 || similarity ? localSortDir : catalog.direction} onSort={(key, direction) => {
         if (ranked.length > 0 || similarity) {
           setLocalSortKey(key);
           setLocalSortDir(direction);
