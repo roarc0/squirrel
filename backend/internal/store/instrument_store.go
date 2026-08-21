@@ -218,12 +218,12 @@ func (s *Store) ListInstrumentsForEnrichment(ctx context.Context, mode string) (
 	}
 	result := instruments[:0]
 	for _, instrument := range instruments {
-		if (mode == "missing" && instrument.DataStatus == portfolio.InstrumentStatusCatalog) || (mode == "oldest" && instrument.DataStatus == portfolio.InstrumentStatusEnriched) {
+		if ((mode == "missing" || mode == "discover") && instrument.DataStatus == portfolio.InstrumentStatusCatalog) || (mode == "oldest" && instrument.DataStatus == portfolio.InstrumentStatusEnriched) {
 			result = append(result, instrument)
 		}
 	}
-	if mode != "missing" && mode != "oldest" {
-		return nil, errors.New("enrichment mode must be missing or oldest")
+	if mode != "missing" && mode != "oldest" && mode != "discover" {
+		return nil, errors.New("enrichment mode must be missing, discover, or oldest")
 	}
 	if mode == "oldest" {
 		slices.SortStableFunc(result, func(a, b portfolio.Instrument) int {
