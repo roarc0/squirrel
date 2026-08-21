@@ -15,7 +15,12 @@ import (
 //go:embed migrations/*.sql
 var embedMigrations embed.FS
 
-type Store struct{ db *sql.DB }
+type Store struct {
+	db     *sql.DB
+	dbPath string
+}
+
+func (s *Store) DBPath() string { return s.dbPath }
 
 func Open(path string) (*Store, error) {
 	if path != ":memory:" {
@@ -42,7 +47,7 @@ func Open(path string) (*Store, error) {
 			return nil, fmt.Errorf("protect database: %w", err)
 		}
 	}
-	return &Store{db: db}, nil
+	return &Store{db: db, dbPath: path}, nil
 }
 
 func (s *Store) Close() error { return s.db.Close() }

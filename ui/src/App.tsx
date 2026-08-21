@@ -31,6 +31,7 @@ import {
 import { api, instrumentClient, type Account, type Instrument, type InstrumentAlternative, type InstrumentType, type Holding, type RankedInstrument, type ReferenceRate, type Snapshot, type Summary, type TaxRate } from './api';
 import { Chip, chipColor } from './Chip';
 import { DataTable, TableAction, TableActions, type DataColumn, type SortDirection } from './DataTable';
+import { SettingsModal } from './SettingsModal';
 import { UpdateSituationModal } from './UpdateSituationModal';
 import { chartGeometry, matchesExactFilters, pageBounds, performanceMood } from './visual';
 
@@ -85,6 +86,7 @@ export default function App() {
   useEffect(() => void load(), [load]);
 
   const [updateModalOpened, setUpdateModalOpened] = useState(false);
+  const [settingsModalOpened, setSettingsModalOpened] = useState(false);
 
   if (!data) return <Group justify="center" h="100vh">{error ? <Alert color="red">{error}</Alert> : <Loader />}</Group>;
   return (
@@ -96,6 +98,7 @@ export default function App() {
         </Box>
         <Group>
           <Button color="teal" variant="light" onClick={() => setUpdateModalOpened(true)}>Update situation</Button>
+          <Button variant="default" onClick={() => setSettingsModalOpened(true)}>Settings</Button>
           <ThemeToggle />
         </Group>
       </Group>
@@ -117,6 +120,11 @@ export default function App() {
         onClose={() => setUpdateModalOpened(false)}
         accounts={data.accounts}
         holdings={data.holdings}
+        reload={load}
+      />
+      <SettingsModal
+        opened={settingsModalOpened}
+        onClose={() => setSettingsModalOpened(false)}
         reload={load}
       />
     </main>

@@ -7,6 +7,7 @@ import { InstrumentService } from './pb/v1/instrument_connect.js';
 import { RateService } from './pb/v1/rate_connect.js';
 import { SnapshotService } from './pb/v1/snapshot_connect.js';
 import { SummaryService } from './pb/v1/summary_connect.js';
+import { SystemService } from './pb/v1/system_connect.js';
 
 const transport = createConnectTransport({
   baseUrl: '',
@@ -18,6 +19,7 @@ export const instrumentClient: any = createPromiseClient(InstrumentService as an
 export const rateClient: any = createPromiseClient(RateService as any, transport);
 export const snapshotClient: any = createPromiseClient(SnapshotService as any, transport);
 export const summaryClient: any = createPromiseClient(SummaryService as any, transport);
+export const systemClient: any = createPromiseClient(SystemService as any, transport);
 
 export type ReferenceRate = {
   code: string;
@@ -603,4 +605,14 @@ export async function updateSituation(params: {
     observedOn: params.observedOn,
   });
   return Boolean(res.snapshotSaved);
+}
+
+export async function exportBackup(): Promise<{ data: Uint8Array; filename: string }> {
+  const res = await systemClient.exportBackup({});
+  return { data: res.backupTarGz, filename: res.filename || 'loot-backup.tar.gz' };
+}
+
+export async function restoreBackup(fileBytes: Uint8Array): Promise<{ success: boolean; message: string }> {
+  const res = await systemClient.restoreBackup({ backupTarGz: fileBytes });
+  return { success: Boolean(res.success), message: res.message || 'Restored successfully' };
 }

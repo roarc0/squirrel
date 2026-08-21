@@ -5,7 +5,7 @@ LOOT is local-first and optimized for occasional rough updates. Prefer explainab
 ## Now — protect data and simplify updates
 
 - [x] Add a compact **Update situation** screen: edit account cash and current holding values in one place, then optionally save a dated snapshot.
-- [ ] Add **backup and restore** under Settings.
+- [x] Add **backup and restore** under Settings.
   - Export a timestamped `.tar.gz` containing the SQLite database and configuration.
   - Validate an archive before restore and create an automatic rollback backup first.
 - [ ] Add **Hide balances** to the header and remember it as a local UI preference. Do not rewrite the startup YAML from the browser.

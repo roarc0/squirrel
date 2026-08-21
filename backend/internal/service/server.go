@@ -47,6 +47,7 @@ func New(data *store.Store, baseCurrency string, taxRates []portfolio.TaxRate, p
 	mux.Handle(portv1connect.NewInstrumentServiceHandler(s))
 	mux.Handle(portv1connect.NewHoldingServiceHandler(s))
 	mux.Handle(portv1connect.NewSnapshotServiceHandler(s))
+	mux.Handle(portv1connect.NewSystemServiceHandler(s))
 
 	// UI fallback handler
 	mux.Handle("/", ui.Handler())

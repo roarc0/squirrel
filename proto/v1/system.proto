@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package v1;
+
+option go_package = "loot/proto/gen/go/v1;portv1";
+
+message ExportBackupRequest {}
+
+message ExportBackupResponse {
+  bytes backup_tar_gz = 1;
+  string filename = 2;
+}
+
+message RestoreBackupRequest {
+  bytes backup_tar_gz = 1;
+}
+
+message RestoreBackupResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+service SystemService {
+  rpc ExportBackup(ExportBackupRequest) returns (ExportBackupResponse);
+  rpc RestoreBackup(RestoreBackupRequest) returns (RestoreBackupResponse);
+}
