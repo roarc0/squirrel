@@ -796,7 +796,7 @@ function InstrumentFinder({ instruments, reload }: { instruments: Instrument[]; 
           </Group>
         </Paper>
       )}
-      <DataTable rows={visibleRows} columns={catalogColumns} rowKey={item => item.instrument.id} minWidth={1250} sort={ranked.length > 0 || similarity ? localSortKey : catalog.sort} direction={ranked.length > 0 || similarity ? localSortDir : catalog.direction} onSort={(key, direction) => {
+      <DataTable rows={visibleRows} columns={catalogColumns} rowKey={item => item.instrument.id} minWidth={950} sort={ranked.length > 0 || similarity ? localSortKey : catalog.sort} direction={ranked.length > 0 || similarity ? localSortDir : catalog.direction} onSort={(key, direction) => {
         if (ranked.length > 0 || similarity) {
           setLocalSortKey(key);
           setLocalSortDir(direction);

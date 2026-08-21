@@ -23,7 +23,7 @@ export function DataTable<T>({ rows, columns, rowKey, minWidth = 800, toolbar, s
 }) {
   return <Paper className="metric" radius="lg" p="md">
     {toolbar}
-    <Table.ScrollContainer minWidth={minWidth}><Table tabularNums verticalSpacing="md">
+    <Table.ScrollContainer minWidth={minWidth}><Table tabularNums verticalSpacing="sm" horizontalSpacing="xs">
       <Table.Thead><Table.Tr>{columns.map(column => <Table.Th key={column.key}>
         {column.sortable && onSort ? <UnstyledButton fw={650} onClick={() => onSort(column.key, sort === column.key && direction === 'asc' ? 'desc' : 'asc')}>
           {column.label} {sort === column.key ? direction === 'asc' ? '↑' : '↓' : ''}
@@ -36,7 +36,7 @@ export function DataTable<T>({ rows, columns, rowKey, minWidth = 800, toolbar, s
 
 export function TableActions({ children }: { children: ReactNode }) {
   return (
-    <Group gap={4} justify="end" wrap="wrap" style={{ maxWidth: 96, marginLeft: 'auto' }}>
+    <Group gap={3} justify="end" wrap="wrap" style={{ width: 56, minWidth: 56, marginLeft: 'auto' }}>
       {children}
     </Group>
   );
@@ -51,6 +51,6 @@ export function TableAction({ label, children, color, disabled, href, onClick, v
   onClick?: () => void;
   variant?: 'light' | 'subtle';
 }) {
-  if (href && !disabled) return <Tooltip label={label}><ActionIcon component="a" href={href} target="_blank" rel="noreferrer" aria-label={label} size="sm" color={color} variant={variant}>{children}</ActionIcon></Tooltip>;
-  return <Tooltip label={label}><ActionIcon aria-label={label} size="sm" color={color} variant={variant} disabled={disabled} onClick={onClick}>{children}</ActionIcon></Tooltip>;
+  if (href && !disabled) return <Tooltip label={label}><ActionIcon component="a" href={href} target="_blank" rel="noreferrer" aria-label={label} size="xs" color={color} variant={variant}>{children}</ActionIcon></Tooltip>;
+  return <Tooltip label={label}><ActionIcon aria-label={label} size="xs" color={color} variant={variant} disabled={disabled} onClick={onClick}>{children}</ActionIcon></Tooltip>;
 }
