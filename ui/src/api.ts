@@ -73,7 +73,22 @@ export type CurrencySummary = {
   allocations: { asset_class: string; value_minor: number }[] | null;
 };
 
-export type Summary = { base_currency: string; currencies: CurrencySummary[] | null };
+export type Diagnostic = {
+  id: string;
+  category: string;
+  severity: 'info' | 'warning' | 'alert';
+  title: string;
+  message: string;
+  holding_id?: number;
+  account_id?: number;
+  isin?: string;
+};
+
+export type Summary = {
+  base_currency: string;
+  currencies: CurrencySummary[];
+  diagnostics?: Diagnostic[];
+};
 
 export type InstrumentType = 'etf' | 'etc' | 'etn' | 'fund' | 'stock' | 'bond' | 'crypto' | 'commodity' | 'real_estate' | 'other';
 
@@ -293,6 +308,16 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
           asset_class: a.assetClass,
           value_minor: num(a.valueMinor),
         })),
+      })),
+      diagnostics: (res.summary?.diagnostics ?? []).map((d: any) => ({
+        id: d.id,
+        category: d.category,
+        severity: d.severity,
+        title: d.title,
+        message: d.message,
+        holding_id: optNum(d.holdingId) ?? undefined,
+        account_id: optNum(d.accountId) ?? undefined,
+        isin: optStr(d.isin),
       })),
     };
     return summary as unknown as T;

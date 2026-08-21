@@ -1,0 +1,168 @@
+package portfolio
+
+import (
+	"fmt"
+	"strings"
+	"time"
+)
+
+type DiagnosticSeverity string
+
+const (
+	SeverityInfo    DiagnosticSeverity = "info"
+	SeverityWarning DiagnosticSeverity = "warning"
+	SeverityAlert   DiagnosticSeverity = "alert"
+)
+
+type Diagnostic struct {
+	ID        string             `json:"id"`
+	Category  string             `json:"category"` // cash, drift, cost, overlap, stale, tax
+	Severity  DiagnosticSeverity `json:"severity"`
+	Title     string             `json:"title"`
+	Message   string             `json:"message"`
+	HoldingID int64              `json:"holding_id,omitempty"`
+	AccountID int64              `json:"account_id,omitempty"`
+	ISIN      string             `json:"isin,omitempty"`
+}
+
+func EvaluateDiagnostics(accounts []Account, holdings []Holding, instruments []Instrument, now time.Time) []Diagnostic {
+	var results []Diagnostic
+
+	instByISIN := make(map[string]Instrument, len(instruments))
+	for _, inst := range instruments {
+		instByISIN[strings.ToUpper(inst.ISIN)] = inst
+	}
+
+	// 1. Excessive Idle Cash Check
+	var totalCashMinor, totalHoldingMinor int64
+	for _, acc := range accounts {
+		if !acc.Archived {
+			totalCashMinor += acc.BalanceMinor
+		}
+	}
+	for _, h := range holdings {
+		totalHoldingMinor += h.ValueMinor
+	}
+	totalAssetsMinor := totalCashMinor + totalHoldingMinor
+
+	if totalAssetsMinor > 200_000 && totalCashMinor > 200_000 {
+		cashPct := float64(totalCashMinor) / float64(totalAssetsMinor) * 100
+		if cashPct > 35.0 {
+			results = append(results, Diagnostic{
+				ID:       "excessive_cash",
+				Category: "cash",
+				Severity: SeverityWarning,
+				Title:    "High Idle Cash Ratio",
+				Message: fmt.Sprintf(
+					"Cash represents %.1f%% of your total portfolio (€%.2f cash / €%.2f total). Consider allocating unneeded cash toward investments or yield accounts.",
+					cashPct, float64(totalCashMinor)/100, float64(totalAssetsMinor)/100,
+				),
+			})
+		}
+	}
+
+	// 2. Target Allocation Drift Check
+	for _, h := range holdings {
+		if h.PlannedBPS > 0 && totalHoldingMinor > 0 {
+			actualBPS := int64(float64(h.ValueMinor) * 10000 / float64(totalHoldingMinor))
+			driftBPS := actualBPS - h.PlannedBPS
+			if driftBPS > 500 || driftBPS < -500 { // > 5% drift
+				direction := "above"
+				if driftBPS < 0 {
+					direction = "below"
+				}
+				results = append(results, Diagnostic{
+					ID:        fmt.Sprintf("target_drift_%d", h.ID),
+					Category:  "drift",
+					Severity:  SeverityWarning,
+					Title:     "Target Allocation Drift",
+					Message:   fmt.Sprintf("%s is %.1f%% %s planned target (Planned: %.1f%%, Actual: %.1f%%). Use Invest & Rebalance to realign.", h.InstrumentName, float64(absInt64(driftBPS))/100, direction, float64(h.PlannedBPS)/100, float64(actualBPS)/100),
+					HoldingID: h.ID,
+					ISIN:      h.InstrumentISIN,
+				})
+			}
+		}
+	}
+
+	// 3. High TER Check
+	for _, h := range holdings {
+		inst, exists := instByISIN[strings.ToUpper(h.InstrumentISIN)]
+		if exists && inst.TERBPS > 40 { // TER > 0.40%
+			results = append(results, Diagnostic{
+				ID:        fmt.Sprintf("high_ter_%s", inst.ISIN),
+				Category:  "cost",
+				Severity:  SeverityWarning,
+				Title:     "High Expense Ratio (TER)",
+				Message:   fmt.Sprintf("%s has a TER of %.2f%%. Consider searching for lower-cost ETF alternatives.", inst.Name, float64(inst.TERBPS)/100),
+				HoldingID: h.ID,
+				ISIN:      inst.ISIN,
+			})
+		}
+	}
+
+	// 4. Duplicated Index Exposure Overlap
+	exposureHoldings := make(map[string][]Holding)
+	for _, h := range holdings {
+		inst, exists := instByISIN[strings.ToUpper(h.InstrumentISIN)]
+		if exists && inst.IndexName != "" {
+			idxKey := strings.ToLower(strings.TrimSpace(inst.IndexName))
+			exposureHoldings[idxKey] = append(exposureHoldings[idxKey], h)
+		}
+	}
+	for idxKey, hGroup := range exposureHoldings {
+		if len(hGroup) >= 2 {
+			names := make([]string, len(hGroup))
+			for i, h := range hGroup {
+				names[i] = h.InstrumentName
+			}
+			results = append(results, Diagnostic{
+				ID:       fmt.Sprintf("overlap_%s", idxKey),
+				Category: "overlap",
+				Severity: SeverityInfo,
+				Title:    "Overlapping Exposure Detected",
+				Message:  fmt.Sprintf("Multiple holdings (%s) track the same index exposure (%q). Consider consolidating to simplify management.", strings.Join(names, ", "), hGroup[0].InstrumentName),
+			})
+		}
+	}
+
+	// 5. Stale Instrument Data Check
+	for _, h := range holdings {
+		inst, exists := instByISIN[strings.ToUpper(h.InstrumentISIN)]
+		if exists {
+			if inst.DataStatus == InstrumentStatusCatalog {
+				results = append(results, Diagnostic{
+					ID:        fmt.Sprintf("stale_catalog_%s", inst.ISIN),
+					Category:  "stale",
+					Severity:  SeverityInfo,
+					Title:     "Instrument Profile Not Refreshed",
+					Message:   fmt.Sprintf("%s has basic catalog data. Refresh profile to retrieve TER, fund size, and tracking error metrics.", inst.Name),
+					HoldingID: h.ID,
+					ISIN:      inst.ISIN,
+				})
+			} else if inst.EnrichedAt != "" {
+				if parsed, err := time.Parse(time.RFC3339, inst.EnrichedAt); err == nil {
+					if now.Sub(parsed) > 30*24*time.Hour {
+						results = append(results, Diagnostic{
+							ID:        fmt.Sprintf("stale_days_%s", inst.ISIN),
+							Category:  "stale",
+							Severity:  SeverityInfo,
+							Title:     "Stale Instrument Profile",
+							Message:   fmt.Sprintf("%s profile was last refreshed %d days ago.", inst.Name, int(now.Sub(parsed).Hours()/24)),
+							HoldingID: h.ID,
+							ISIN:      inst.ISIN,
+						})
+					}
+				}
+			}
+		}
+	}
+
+	return results
+}
+
+func absInt64(v int64) int64 {
+	if v < 0 {
+		return -v
+	}
+	return v
+}

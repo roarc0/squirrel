@@ -36,6 +36,23 @@ export const CurrencySummary = /*@__PURE__*/ proto3.makeMessageType(
 );
 
 /**
+ * @generated from message v1.Diagnostic
+ */
+export const Diagnostic = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.Diagnostic",
+  () => [
+    { no: 1, name: "id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "category", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "severity", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "title", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "message", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "holding_id", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 7, name: "account_id", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 8, name: "isin", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ],
+);
+
+/**
  * @generated from message v1.Summary
  */
 export const Summary = /*@__PURE__*/ proto3.makeMessageType(
@@ -43,6 +60,7 @@ export const Summary = /*@__PURE__*/ proto3.makeMessageType(
   () => [
     { no: 1, name: "base_currency", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "currencies", kind: "message", T: CurrencySummary, repeated: true },
+    { no: 3, name: "diagnostics", kind: "message", T: Diagnostic, repeated: true },
   ],
 );
 

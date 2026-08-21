@@ -22,9 +22,21 @@ message CurrencySummary {
   repeated InstrumentAllocation allocations = 10;
 }
 
+message Diagnostic {
+  string id = 1;
+  string category = 2;
+  string severity = 3;
+  string title = 4;
+  string message = 5;
+  int64 holding_id = 6;
+  int64 account_id = 7;
+  string isin = 8;
+}
+
 message Summary {
   string base_currency = 1;
   repeated CurrencySummary currencies = 2;
+  repeated Diagnostic diagnostics = 3;
 }
 
 message GetSummaryRequest {}

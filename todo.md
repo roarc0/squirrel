@@ -24,7 +24,7 @@ LOOT is local-first and optimized for occasional rough updates. Prefer explainab
 
 ## Next — diagnostics without AI
 
-- [ ] Add deterministic warnings for:
+- [x] Add deterministic warnings for:
   - excessive idle cash relative to planned allocation;
   - target-allocation drift;
   - unusually high TER or account fees;

@@ -105,6 +105,65 @@ export declare class CurrencySummary extends Message<CurrencySummary> {
 }
 
 /**
+ * @generated from message v1.Diagnostic
+ */
+export declare class Diagnostic extends Message<Diagnostic> {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string category = 2;
+   */
+  category: string;
+
+  /**
+   * @generated from field: string severity = 3;
+   */
+  severity: string;
+
+  /**
+   * @generated from field: string title = 4;
+   */
+  title: string;
+
+  /**
+   * @generated from field: string message = 5;
+   */
+  message: string;
+
+  /**
+   * @generated from field: int64 holding_id = 6;
+   */
+  holdingId: bigint;
+
+  /**
+   * @generated from field: int64 account_id = 7;
+   */
+  accountId: bigint;
+
+  /**
+   * @generated from field: string isin = 8;
+   */
+  isin: string;
+
+  constructor(data?: PartialMessage<Diagnostic>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.Diagnostic";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Diagnostic;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): Diagnostic;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): Diagnostic;
+
+  static equals(a: Diagnostic | PlainMessage<Diagnostic> | undefined, b: Diagnostic | PlainMessage<Diagnostic> | undefined): boolean;
+}
+
+/**
  * @generated from message v1.Summary
  */
 export declare class Summary extends Message<Summary> {
@@ -117,6 +176,11 @@ export declare class Summary extends Message<Summary> {
    * @generated from field: repeated v1.CurrencySummary currencies = 2;
    */
   currencies: CurrencySummary[];
+
+  /**
+   * @generated from field: repeated v1.Diagnostic diagnostics = 3;
+   */
+  diagnostics: Diagnostic[];
 
   constructor(data?: PartialMessage<Summary>);
 

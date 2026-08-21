@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActionIcon,
   Alert,
+  Badge,
   Box,
   Button,
   Card,
@@ -148,7 +149,30 @@ export default function App() {
 
 function Overview({ data, reload }: { data: Data; reload: () => Promise<void> }) {
   const currencies = data.summary.currencies ?? [];
+  const diagnostics = data.summary.diagnostics ?? [];
   return <Stack gap="xl">
+    {diagnostics.length > 0 && (
+      <Paper withBorder p="md" radius="lg">
+        <Group justify="space-between" mb="xs">
+          <Group gap="xs">
+            <Badge color="orange" size="lg" variant="light">Portfolio Diagnostics</Badge>
+            <Text fw={650} size="sm">{diagnostics.length} rule-based observation{diagnostics.length === 1 ? '' : 's'}</Text>
+          </Group>
+        </Group>
+        <Stack gap="xs">
+          {diagnostics.map(diag => (
+            <Alert
+              key={diag.id}
+              color={diag.severity === 'warning' ? 'orange' : diag.severity === 'alert' ? 'red' : 'blue'}
+              title={diag.title}
+              variant="light"
+            >
+              {diag.message}
+            </Alert>
+          ))}
+        </Stack>
+      </Paper>
+    )}
     {currencies.length === 0 ? <Empty title="No accounts yet" text="Add a bank or brokerage account to see your allocation." /> : currencies.map(item => {
       const allocations = (item.allocations ?? []).filter(allocation => allocation.value_minor > 0);
       return (
