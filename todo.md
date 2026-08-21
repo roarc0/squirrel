@@ -10,7 +10,7 @@ LOOT is local-first and optimized for occasional rough updates. Prefer explainab
   - Validate an archive before restore and create an automatic rollback backup first.
 - [x] Add **Hide balances** to the header and remember it as a local UI preference. Do not rewrite the startup YAML from the browser.
 - [x] Add a **target drift** summary & **Invest €X** helper that allocates a new contribution toward underweight holdings without tracking individual PAC purchases.
-- [ ] Consolidate all migrations use a better tool like goose
+- [x] Consolidate all migrations use a better tool like goose
 - [ ] Analyze home workspaces/console for more modern go/ts patterns but don't copy the whole documentation part. just the nice technologies and dependencies in go/ts that are clearly better than the ones we have.
 
 ## Next — improve instrument analysis
