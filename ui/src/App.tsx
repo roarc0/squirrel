@@ -246,6 +246,39 @@ function DiagnosticsTab({
   );
 }
 
+function TERMetric({ holdings, instruments, currency }: { holdings: Holding[]; instruments: Instrument[]; currency: string }) {
+  const instMap = new Map<number, Instrument>(instruments.map(i => [i.id, i]));
+  let totalVal = 0;
+  let weightedTERNum = 0;
+  let annualFeeDrag = 0;
+
+  for (const h of holdings) {
+    if ((h.currency ?? 'EUR') === currency) {
+      const inst = instMap.get(h.instrument_id);
+      const terBps = inst?.ter_bps ?? 0;
+      totalVal += h.value_minor;
+      weightedTERNum += h.value_minor * terBps;
+      annualFeeDrag += Math.round((h.value_minor * terBps) / 10000);
+    }
+  }
+
+  const weightedTER = totalVal > 0 ? (weightedTERNum / totalVal / 100).toFixed(2) : '0.00';
+
+  return (
+    <Card className="metric" p="lg" radius="lg">
+      <Text size="sm" c="dimmed">Weighted Expense (TER)</Text>
+      <Group justify="space-between" align="baseline" mt={5}>
+        <Text size="xl" fw={750}>{totalVal > 0 ? `${weightedTER}%` : '—'}</Text>
+        {annualFeeDrag > 0 && (
+          <Text size="xs" fw={700} c="orange" title="Estimated annual ETF TER cost">
+            -{money(annualFeeDrag, currency)}/yr
+          </Text>
+        )}
+      </Group>
+    </Card>
+  );
+}
+
 function Overview({ data, reload, onSwitchTab }: { data: Data; reload: () => Promise<void>; onSwitchTab: (tab: string) => void }) {
   const currencies = data.summary.currencies ?? [];
   const diagnostics = data.summary.diagnostics ?? [];
@@ -271,10 +304,11 @@ function Overview({ data, reload, onSwitchTab }: { data: Data; reload: () => Pro
       return (
       <Box key={item.currency}>
         <Group justify="space-between" mb="sm"><Title order={3}>{item.currency} assets</Title><Text c="dimmed">Current rough situation</Text></Group>
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 5 }}>
           <Metric label="Cash balance" value={money(item.balance_minor, item.currency)} />
           <InvestmentMetric value={item.portfolio_minor} invested={item.invested_minor} currency={item.currency} />
           <PerformanceMetric value={item.portfolio_minor} invested={item.invested_minor} currency={item.currency} />
+          <TERMetric holdings={data.holdings} instruments={data.instruments} currency={item.currency} />
           <Metric label="Total wealth" value={money(item.total_minor, item.currency)} positive />
         </SimpleGrid>
         <Paper className="metric" p="lg" radius="lg" mt="md">
@@ -451,10 +485,22 @@ function Holdings({ holdings, accounts, instruments, taxRates, reload }: { holdi
   const ready = activeAccounts.length > 0 && instruments.length > 0;
   const activeHoldings = table.rows.filter(holding => activeAccountIDs.has(holding.account_id));
   const visibleHoldings = activeHoldings.filter(holding => accountIDs.length === 0 || accountIDs.includes(String(holding.account_id)));
-  const totals = new Map<string, { value: number; invested: number; count: number; classes: Map<string, number> }>();
+  const instMap = new Map<number, Instrument>(instruments.map(i => [i.id, i]));
+  const totals = new Map<string, { value: number; invested: number; count: number; weightedTERNum: number; annualFeeDrag: number; classes: Map<string, number> }>();
   for (const holding of visibleHoldings) {
-    const currency = holding.currency ?? 'EUR'; const summary = totals.get(currency) ?? { value: 0, invested: 0, count: 0, classes: new Map<string, number>() }; const assetClass = holding.asset_class || 'other';
-    summary.value += holding.value_minor; summary.invested += holding.invested_minor; summary.count++; summary.classes.set(assetClass, (summary.classes.get(assetClass) ?? 0) + holding.value_minor); totals.set(currency, summary);
+    const currency = holding.currency ?? 'EUR';
+    const summary = totals.get(currency) ?? { value: 0, invested: 0, count: 0, weightedTERNum: 0, annualFeeDrag: 0, classes: new Map<string, number>() };
+    const assetClass = holding.asset_class || 'other';
+    const inst = instMap.get(holding.instrument_id);
+    const terBps = inst?.ter_bps ?? 0;
+
+    summary.value += holding.value_minor;
+    summary.invested += holding.invested_minor;
+    summary.count++;
+    summary.weightedTERNum += holding.value_minor * terBps;
+    summary.annualFeeDrag += Math.round((holding.value_minor * terBps) / 10000);
+    summary.classes.set(assetClass, (summary.classes.get(assetClass) ?? 0) + holding.value_minor);
+    totals.set(currency, summary);
   }
   const actualBPS = (holding: Holding) => { const total = totals.get(holding.currency ?? 'EUR')?.value ?? 0; return total > 0 ? Math.round(holding.value_minor * 10_000 / total) : 0; };
   const columns: DataColumn<Holding>[] = [
@@ -473,7 +519,7 @@ function Holdings({ holdings, accounts, instruments, taxRates, reload }: { holdi
   const [investOpened, setInvestOpened] = useState(false);
   return <Stack gap="lg"><Group justify="space-between"><Box><Title order={2}>Holdings</Title><Text c="dimmed">Actual allocation uses current holding values within each currency; planned allocation is your target.</Text></Box><Group gap="sm"><Button variant="light" color="teal" disabled={!ready} onClick={() => setInvestOpened(true)}>Invest & Rebalance</Button><Button disabled={!ready} onClick={() => open()}>Add holding</Button></Group></Group>
     {(error || table.sortError) && <Alert color="red">{error || table.sortError}</Alert>}
-    {activeHoldings.length > 0 && <><MultiSelect w="100%" maw={360} searchable clearable label="Accounts" placeholder="All accounts" value={accountIDs} data={activeAccounts.map(account => ({ value: String(account.id), label: account.name }))} onChange={setAccountIDs} />{visibleHoldings.length > 0 && <SimpleGrid cols={{ base: 1, md: Math.min(2, Math.max(1, totals.size)) }}>{[...totals].map(([currency, summary]) => <Card key={currency} className="metric" p="lg" radius="lg"><Group justify="space-between" align="start"><Box><Text size="xs" c="dimmed">Visible holdings · {currency}</Text><Text size="xl" fw={750}>{money(summary.value, currency)}</Text></Box><Text size="sm" c="dimmed">{summary.count} {summary.count === 1 ? 'holding' : 'holdings'}</Text></Group><Group justify="space-between" align="center" mt={5}><Text size="xs" c="dimmed">Invested {investedMoney(summary.invested, summary.value, currency)}</Text><PerformanceResult value={summary.value} invested={summary.invested} currency={currency} /></Group><AllocationBar total={summary.value} segments={[...summary.classes].map(([assetClass, value]) => ({ label: label(assetClass), value }))} /></Card>)}</SimpleGrid>}</>}
+    {activeHoldings.length > 0 && <><MultiSelect w="100%" maw={360} searchable clearable label="Accounts" placeholder="All accounts" value={accountIDs} data={activeAccounts.map(account => ({ value: String(account.id), label: account.name }))} onChange={setAccountIDs} />{visibleHoldings.length > 0 && <SimpleGrid cols={{ base: 1, md: Math.min(2, Math.max(1, totals.size)) }}>{[...totals].map(([currency, summary]) => <Card key={currency} className="metric" p="lg" radius="lg"><Group justify="space-between" align="start"><Box><Text size="xs" c="dimmed">Visible holdings · {currency}</Text><Text size="xl" fw={750}>{money(summary.value, currency)}</Text></Box><Text size="sm" c="dimmed">{summary.count} {summary.count === 1 ? 'holding' : 'holdings'}</Text></Group><Group justify="space-between" align="center" mt={5}><Text size="xs" c="dimmed">Invested {investedMoney(summary.invested, summary.value, currency)}</Text><PerformanceResult value={summary.value} invested={summary.invested} currency={currency} /></Group><Group justify="space-between" align="center" mt={3}><Text size="xs" c="dimmed">Weighted TER: <Text span fw={700} c="dimmed">{summary.value > 0 ? `${(summary.weightedTERNum / summary.value / 100).toFixed(2)}%` : '0.00%'}</Text></Text><Text size="xs" c="dimmed">Fee drag: <Text span fw={700} c="orange">-{money(summary.annualFeeDrag, currency)}/yr</Text></Text></Group><AllocationBar total={summary.value} segments={[...summary.classes].map(([assetClass, value]) => ({ label: label(assetClass), value }))} /></Card>)}</SimpleGrid>}</>}
     {!ready ? <Empty title="Accounts and instruments required" text="Add an active account and an instrument before recording a holding." /> : activeHoldings.length === 0 ? <Empty title="No active holdings" text="Add an investment or restore an archived account." /> : visibleHoldings.length === 0 ? <Empty title="No matching holdings" text="Choose another account or clear the filter." /> : <DataTable rows={visibleHoldings} columns={columns} rowKey={holding => holding.id} minWidth={1080} sort={table.sort} direction={table.direction} onSort={(key, direction) => void table.sortRows(key, direction)} />}
     <HoldingModal key={editing?.id ?? 'new'} opened={opened} close={() => setOpened(false)} holding={editing} accounts={activeAccounts} instruments={instruments} taxRates={taxRates} saved={async () => { setOpened(false); await reload(); }} />
     <InvestModal opened={investOpened} onClose={() => setInvestOpened(false)} holdings={holdings} reload={reload} />
