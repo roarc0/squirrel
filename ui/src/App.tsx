@@ -791,7 +791,16 @@ function InstrumentFinder({ instruments, reload }: { instruments: Instrument[]; 
       }} toolbar={<>
         <Group justify="space-between" mb="sm">
           <TextInput style={{ flex: 1, maxWidth: 440 }} placeholder="Search name, ticker, ISIN, issuer, index…" value={localQuery} onChange={event => setLocalQuery(event.currentTarget.value)} />
-          <Group><Text size="sm" c="dimmed">Showing {matchingRows.length ? bounds.start + 1 : 0}–{bounds.end} of {matchingRows.length}</Text><Button size="xs" variant="light" onClick={() => setFiltersOpen(current => !current)}>Filters{activeFilterCount ? ` (${activeFilterCount})` : ''}</Button><Button size="xs" variant="light" onClick={() => setColumnsOpen(current => !current)}>Columns</Button></Group>
+          <Group>
+            <Text size="sm" c="dimmed">
+              Showing {matchingRows.length ? bounds.start + 1 : 0}–{bounds.end} of {matchingRows.length}
+              {matchingRows.some(r => r.instrument.ter_bps > 0)
+                ? ` · Avg TER ${(matchingRows.filter(r => r.instrument.ter_bps > 0).reduce((sum, r) => sum + r.instrument.ter_bps, 0) / Math.max(1, matchingRows.filter(r => r.instrument.ter_bps > 0).length) / 100).toFixed(2)}%`
+                : ''}
+            </Text>
+            <Button size="xs" variant="light" onClick={() => setFiltersOpen(current => !current)}>Filters{activeFilterCount ? ` (${activeFilterCount})` : ''}</Button>
+            <Button size="xs" variant="light" onClick={() => setColumnsOpen(current => !current)}>Columns</Button>
+          </Group>
         </Group>
         {filtersOpen && <Card withBorder padding="sm" mb="sm"><SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
           <Select size="xs" searchable clearable label="Issuer" placeholder="All issuers" value={filters.issuer || null} data={issuerOptions} onChange={value => setFilters(current => ({ ...current, issuer: value === null ? '' : String(value) }))} />
