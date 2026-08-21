@@ -35,7 +35,11 @@ export function DataTable<T>({ rows, columns, rowKey, minWidth = 800, toolbar, s
 }
 
 export function TableActions({ children }: { children: ReactNode }) {
-  return <Group gap={6} justify="end" wrap="nowrap">{children}</Group>;
+  return (
+    <Group gap={4} justify="end" wrap="wrap" style={{ maxWidth: 96, marginLeft: 'auto' }}>
+      {children}
+    </Group>
+  );
 }
 
 export function TableAction({ label, children, color, disabled, href, onClick, variant = 'light' }: {
@@ -47,6 +51,6 @@ export function TableAction({ label, children, color, disabled, href, onClick, v
   onClick?: () => void;
   variant?: 'light' | 'subtle';
 }) {
-  if (href && !disabled) return <Tooltip label={label}><ActionIcon component="a" href={href} target="_blank" rel="noreferrer" aria-label={label} size="md" color={color} variant={variant}>{children}</ActionIcon></Tooltip>;
-  return <Tooltip label={label}><ActionIcon aria-label={label} size="md" color={color} variant={variant} disabled={disabled} onClick={onClick}>{children}</ActionIcon></Tooltip>;
+  if (href && !disabled) return <Tooltip label={label}><ActionIcon component="a" href={href} target="_blank" rel="noreferrer" aria-label={label} size="sm" color={color} variant={variant}>{children}</ActionIcon></Tooltip>;
+  return <Tooltip label={label}><ActionIcon aria-label={label} size="sm" color={color} variant={variant} disabled={disabled} onClick={onClick}>{children}</ActionIcon></Tooltip>;
 }
