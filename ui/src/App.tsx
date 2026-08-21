@@ -29,7 +29,7 @@ import {
   useComputedColorScheme,
   useMantineColorScheme,
 } from '@mantine/core';
-import { api, instrumentClient, type Account, type Instrument, type InstrumentAlternative, type InstrumentType, type Holding, type RankedInstrument, type ReferenceRate, type Snapshot, type Summary, type TaxRate } from './api';
+import { api, instrumentClient, type Account, type Diagnostic, type Instrument, type InstrumentAlternative, type InstrumentType, type Holding, type RankedInstrument, type ReferenceRate, type Snapshot, type Summary, type TaxRate } from './api';
 import { Chip, chipColor } from './Chip';
 import { DataTable, TableAction, TableActions, type DataColumn, type SortDirection } from './DataTable';
 import { InvestModal } from './InvestModal';
@@ -91,6 +91,9 @@ export default function App() {
 
   const [updateModalOpened, setUpdateModalOpened] = useState(false);
   const [settingsModalOpened, setSettingsModalOpened] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>(() =>
+    new URLSearchParams(window.location.search).has('similarity') ? 'instruments' : 'overview'
+  );
   const [hideBalances, setHideBalances] = useState(() => {
     try { return localStorage.getItem('loot.hideBalances') === 'true'; } catch { return false; }
   });
@@ -102,6 +105,7 @@ export default function App() {
 
   if (!data) return <Group justify="center" h="100vh">{error ? <Alert color="red">{error}</Alert> : <Loader />}</Group>;
   hideBalancesGlobal = hideBalances;
+  const diagnosticsCount = data.summary.diagnostics?.length ?? 0;
   return (
     <main className="shell">
       <Group justify="space-between" align="end" mb="xl">
@@ -119,17 +123,30 @@ export default function App() {
         </Group>
       </Group>
       {error && <Alert color="red" mb="md" withCloseButton onClose={() => setError('')}>{error}</Alert>}
-      <Tabs defaultValue={new URLSearchParams(window.location.search).has('similarity') ? 'instruments' : 'overview'} keepMounted={false}>
+      <Tabs value={activeTab} onChange={val => setActiveTab(val || 'overview')} keepMounted={false}>
         <Tabs.List mb="xl">
           <Tabs.Tab value="overview">Overview</Tabs.Tab>
           <Tabs.Tab value="accounts">Accounts</Tabs.Tab>
           <Tabs.Tab value="holdings">Holdings</Tabs.Tab>
           <Tabs.Tab value="instruments">Instruments</Tabs.Tab>
+          <Tabs.Tab
+            value="diagnostics"
+            rightSection={diagnosticsCount > 0 ? <Badge size="xs" color="orange" circle>{diagnosticsCount}</Badge> : undefined}
+          >
+            Diagnostics
+          </Tabs.Tab>
         </Tabs.List>
-        <Tabs.Panel value="overview"><Overview data={data} reload={load} /></Tabs.Panel>
+        <Tabs.Panel value="overview"><Overview data={data} reload={load} onSwitchTab={setActiveTab} /></Tabs.Panel>
         <Tabs.Panel value="accounts"><Accounts accounts={data.accounts} rates={data.rates} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
         <Tabs.Panel value="holdings"><Holdings holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
         <Tabs.Panel value="instruments"><InstrumentFinder instruments={data.instruments} reload={load} /></Tabs.Panel>
+        <Tabs.Panel value="diagnostics">
+          <DiagnosticsTab
+            diagnostics={data.summary.diagnostics ?? []}
+            onOpenSettings={() => setSettingsModalOpened(true)}
+            onOpenInvest={() => setActiveTab('holdings')}
+          />
+        </Tabs.Panel>
       </Tabs>
       <UpdateSituationModal
         opened={updateModalOpened}
@@ -147,30 +164,105 @@ export default function App() {
   );
 }
 
-function Overview({ data, reload }: { data: Data; reload: () => Promise<void> }) {
+function DiagnosticsTab({
+  diagnostics,
+  onOpenSettings,
+  onOpenInvest,
+}: {
+  diagnostics: Diagnostic[];
+  onOpenSettings: () => void;
+  onOpenInvest: () => void;
+}) {
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const categories = ['all', 'cash', 'drift', 'cost', 'overlap', 'stale'];
+  const filtered = selectedCategory === 'all'
+    ? diagnostics
+    : diagnostics.filter(d => d.category === selectedCategory);
+
+  return (
+    <Stack gap="lg">
+      <Group justify="space-between" align="start">
+        <Box>
+          <Title order={2}>Portfolio Diagnostics</Title>
+          <Text c="dimmed">Deterministic rule-based observations to keep your portfolio optimized.</Text>
+        </Box>
+        <Group gap="xs">
+          {categories.map(cat => {
+            const count = cat === 'all' ? diagnostics.length : diagnostics.filter(d => d.category === cat).length;
+            if (cat !== 'all' && count === 0) return null;
+            return (
+              <Button
+                key={cat}
+                size="xs"
+                variant={selectedCategory === cat ? 'filled' : 'light'}
+                color={selectedCategory === cat ? 'teal' : 'gray'}
+                onClick={() => setSelectedCategory(cat)}
+              >
+                {label(cat)} ({count})
+              </Button>
+            );
+          })}
+        </Group>
+      </Group>
+
+      {diagnostics.length === 0 ? (
+        <Empty
+          title="All systems optimal"
+          text="No diagnostic warnings or allocation issues detected across your portfolio."
+        />
+      ) : (
+        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+          {filtered.map(diag => (
+            <Card key={diag.id} withBorder radius="lg" p="lg" shadow="xs">
+              <Group justify="space-between" align="start" mb="xs">
+                <Badge
+                  color={diag.severity === 'warning' ? 'orange' : diag.severity === 'alert' ? 'red' : 'blue'}
+                  variant="light"
+                  size="sm"
+                >
+                  {diag.category.toUpperCase()} · {diag.severity}
+                </Badge>
+              </Group>
+              <Text fw={700} size="md" mb={4}>{diag.title}</Text>
+              <Text size="sm" c="dimmed" mb="md">{diag.message}</Text>
+              <Group justify="end">
+                {diag.category === 'cash' && (
+                  <Button size="xs" variant="light" color="teal" onClick={onOpenSettings}>
+                    Configure Emergency Reserve
+                  </Button>
+                )}
+                {diag.category === 'drift' && (
+                  <Button size="xs" variant="light" color="teal" onClick={onOpenInvest}>
+                    Rebalance Portfolio
+                  </Button>
+                )}
+              </Group>
+            </Card>
+          ))}
+        </SimpleGrid>
+      )}
+    </Stack>
+  );
+}
+
+function Overview({ data, reload, onSwitchTab }: { data: Data; reload: () => Promise<void>; onSwitchTab: (tab: string) => void }) {
   const currencies = data.summary.currencies ?? [];
   const diagnostics = data.summary.diagnostics ?? [];
   return <Stack gap="xl">
     {diagnostics.length > 0 && (
       <Paper withBorder p="md" radius="lg">
-        <Group justify="space-between" mb="xs">
-          <Group gap="xs">
-            <Badge color="orange" size="lg" variant="light">Portfolio Diagnostics</Badge>
-            <Text fw={650} size="sm">{diagnostics.length} rule-based observation{diagnostics.length === 1 ? '' : 's'}</Text>
+        <Group justify="space-between" align="center">
+          <Group gap="sm">
+            <Badge color="orange" size="lg" variant="light">{diagnostics.length}</Badge>
+            <Box>
+              <Text fw={700} size="sm">Portfolio Diagnostics Detected</Text>
+              <Text size="xs" c="dimmed">{diagnostics[0].title}: {diagnostics[0].message.slice(0, 110)}...</Text>
+            </Box>
           </Group>
+          <Button size="xs" variant="light" color="orange" onClick={() => onSwitchTab('diagnostics')}>
+            View Diagnostics tab →
+          </Button>
         </Group>
-        <Stack gap="xs">
-          {diagnostics.map(diag => (
-            <Alert
-              key={diag.id}
-              color={diag.severity === 'warning' ? 'orange' : diag.severity === 'alert' ? 'red' : 'blue'}
-              title={diag.title}
-              variant="light"
-            >
-              {diag.message}
-            </Alert>
-          ))}
-        </Stack>
       </Paper>
     )}
     {currencies.length === 0 ? <Empty title="No accounts yet" text="Add a bank or brokerage account to see your allocation." /> : currencies.map(item => {
