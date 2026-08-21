@@ -469,9 +469,51 @@ function InstrumentFinder({ instruments, reload }: { instruments: Instrument[]; 
   const matchingRows = rows.filter(({ instrument }) =>
     (!query || [instrument.name, instrument.ticker, instrument.isin, instrument.provider, instrument.index_name, instrument.investment_focus, instrument.asset_class, instrument.instrument_type].some(value => value?.toLowerCase().includes(query))) &&
     matchesExactFilters({ issuer: instrument.provider ?? '', type: instrument.instrument_type, assetClass: instrument.asset_class ?? '', policy: instrument.distribution, replication: instrument.replication, domicile: instrument.domicile ?? '', currency: instrument.fund_currency, ucits: instrument.ucits }, filters));
+  const [localSortKey, setLocalSortKey] = useState<string>('');
+  const [localSortDir, setLocalSortDir] = useState<SortDirection>('asc');
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
-  const bounds = pageBounds(matchingRows.length, page, pageSize);
-  const visibleRows = matchingRows.slice(bounds.start, bounds.end);
+  const getRowSortValue = (row: CatalogRow, key: string): any => {
+    const inst = row.instrument;
+    switch (key) {
+      case 'starred': return inst.starred ? 1 : 0;
+      case 'score': return row.total;
+      case 'similarity': return row.similarity?.better ? 2 : row.similarity?.match === 'exact_index' ? 1 : 0;
+      case 'name': return (inst.name || '').toLowerCase();
+      case 'ticker': return (inst.ticker || '').toLowerCase();
+      case 'isin': return inst.isin || '';
+      case 'type': return inst.instrument_type || '';
+      case 'issuer': return (inst.provider || '').toLowerCase();
+      case 'asset_class':
+      case 'assetClass': return inst.asset_class || '';
+      case 'exposure': return (inst.index_name || inst.investment_focus || '').toLowerCase();
+      case 'policy': return inst.distribution || '';
+      case 'replication': return inst.replication || '';
+      case 'ter': return inst.ter_bps;
+      case 'size': return inst.fund_size_million;
+      case 'domicile': return inst.domicile || '';
+      case 'currency': return inst.fund_currency || '';
+      case 'inception': return inst.inception_date || '';
+      case 'tracking': return inst.tracking_difference_bps ?? 999999;
+      case 'enriched': return inst.enriched_at || '';
+      default: return 0;
+    }
+  };
+  const sortedRows = [...matchingRows];
+  if ((ranked.length > 0 || similarity) && localSortKey) {
+    sortedRows.sort((a, b) => {
+      const valA = getRowSortValue(a, localSortKey);
+      const valB = getRowSortValue(b, localSortKey);
+      let comp = 0;
+      if (typeof valA === 'string' && typeof valB === 'string') {
+        comp = valA.localeCompare(valB);
+      } else {
+        comp = (valA ?? 0) < (valB ?? 0) ? -1 : (valA ?? 0) > (valB ?? 0) ? 1 : 0;
+      }
+      return localSortDir === 'desc' ? -comp : comp;
+    });
+  }
+  const bounds = pageBounds(sortedRows.length, page, pageSize);
+  const visibleRows = sortedRows.slice(bounds.start, bounds.end);
   const streamLabel = streamProgress?.mode === 'discover' ? 'Discovering remaining UCITS ETFs' : streamProgress?.mode === 'oldest' ? 'Refreshing oldest profiles first' : 'Refreshing missing profiles';
   const show = (column: InstrumentColumn) => visibleColumns.includes(column);
   const toggleColumn = (column: InstrumentColumn) => setVisibleColumns(current => current.includes(column) ? current.filter(item => item !== column) : [...current, column]);
@@ -486,8 +528,8 @@ function InstrumentFinder({ instruments, reload }: { instruments: Instrument[]; 
   ];
   const catalogColumns: DataColumn<CatalogRow>[] = [
     { key: 'starred', sortable: true, render: item => <TableAction label={item.instrument.starred ? `Unstar ${item.instrument.isin}` : `Star ${item.instrument.isin}`} color="yellow" variant={item.instrument.starred ? 'light' : 'subtle'} onClick={() => void star(item.instrument)}>{item.instrument.starred ? '★' : '☆'}</TableAction> },
-    ...(ranked.length > 0 ? [{ key: 'score', label: 'Score', render: (item: CatalogRow) => <Tooltip label={`Cost ${(item.cost * 100).toFixed(0)} · tracking diff ${(item.tracking_difference * 100).toFixed(0)} · tracking error ${(item.tracking_error * 100).toFixed(0)} · size ${(item.size * 100).toFixed(0)} · age ${(item.age * 100).toFixed(0)}`}><Chip size="lg" variant="filled" colorKey="Score">{item.total.toFixed(1)}</Chip></Tooltip> }] : []),
-    ...(similarity ? [{ key: 'similarity', label: 'Similarity', render: (item: CatalogRow) => item.similarity ? <Stack gap={4}><Group gap={4}>{item.similarity.better && <Chip size="xs">Strictly better</Chip>}<Chip size="xs">{item.similarity.match === 'exact_index' ? 'Same index' : 'Same exposure'}</Chip></Group><Text size="xs" c="dimmed">{item.similarity.reasons.join(' · ')}</Text></Stack> : '—' }] : []),
+    ...(ranked.length > 0 ? [{ key: 'score', label: 'Score', sortable: true, render: (item: CatalogRow) => <Tooltip label={`Cost ${(item.cost * 100).toFixed(0)} · tracking diff ${(item.tracking_difference * 100).toFixed(0)} · tracking error ${(item.tracking_error * 100).toFixed(0)} · size ${(item.size * 100).toFixed(0)} · age ${(item.age * 100).toFixed(0)}`}><Chip size="lg" variant="filled" colorKey="Score">{item.total.toFixed(1)}</Chip></Tooltip> }] : []),
+    ...(similarity ? [{ key: 'similarity', label: 'Similarity', sortable: true, render: (item: CatalogRow) => item.similarity ? <Stack gap={4}><Group gap={4}>{item.similarity.better && <Chip size="xs">Strictly better</Chip>}<Chip size="xs">{item.similarity.match === 'exact_index' ? 'Same index' : 'Same exposure'}</Chip></Group><Text size="xs" c="dimmed">{item.similarity.reasons.join(' · ')}</Text></Stack> : '—' }] : []),
     { key: 'name', label: 'Instrument', sortable: true, render: item => <><Text fw={650}>{item.instrument.name}</Text><Chip size="xs" mt={3}>{productLabel(item.instrument)}</Chip></> },
     ...(show('ticker') ? [{ key: 'ticker', label: 'Ticker', sortable: true, render: (item: RankedInstrument) => <Text fw={650}>{item.instrument.ticker || '—'}</Text> }] : []),
     ...(show('isin') ? [{ key: 'isin', label: 'ISIN', sortable: true, render: (item: RankedInstrument) => <Text size="sm" ff="monospace">{item.instrument.isin}</Text> }] : []),
@@ -534,7 +576,14 @@ function InstrumentFinder({ instruments, reload }: { instruments: Instrument[]; 
     </SimpleGrid><Button mt="md" onClick={() => void rank()}>Rank {rankableCount} refreshed UCITS ETFs</Button></Paper>
     {similarity && <Alert color="blue" title={similarTo ? `Similar to ${similarTo.ticker || similarTo.name}` : `Similarity filter: ${similarity}`} withCloseButton onClose={() => setSimilarityFilter()}>{loadingAlternatives ? 'Loading comparable instruments…' : `${alternatives.length} comparable instruments · remove this filter to return to the full catalog.`}</Alert>}
     {loadingAlternatives ? <Group justify="center" p="xl"><Loader /></Group> : rows.length === 0 ? <Empty title={similarity ? 'No comparable instruments' : 'No instrument data'} text={similarity ? 'Refresh more comparable profiles, then retry.' : 'Sync the justETF catalog, load one by ticker or ISIN, or add one manually.'} /> : <Stack gap="sm">
-      <DataTable rows={visibleRows} columns={catalogColumns} rowKey={item => item.instrument.id} minWidth={1100} sort={catalog.sort} direction={catalog.direction} onSort={ranked.length > 0 || similarity ? undefined : (key, direction) => void catalog.sortRows(key, direction)} toolbar={<>
+      <DataTable rows={visibleRows} columns={catalogColumns} rowKey={item => item.instrument.id} minWidth={1100} sort={ranked.length > 0 || similarity ? localSortKey : catalog.sort} direction={ranked.length > 0 || similarity ? localSortDir : catalog.direction} onSort={(key, direction) => {
+        if (ranked.length > 0 || similarity) {
+          setLocalSortKey(key);
+          setLocalSortDir(direction);
+        } else {
+          void catalog.sortRows(key, direction);
+        }
+      }} toolbar={<>
         <Group justify="space-between" mb="sm">
           <TextInput style={{ flex: 1, maxWidth: 440 }} placeholder="Search name, ticker, ISIN, issuer, index…" value={localQuery} onChange={event => setLocalQuery(event.currentTarget.value)} />
           <Group><Text size="sm" c="dimmed">Showing {matchingRows.length ? bounds.start + 1 : 0}–{bounds.end} of {matchingRows.length}</Text><Button size="xs" variant="light" onClick={() => setFiltersOpen(current => !current)}>Filters{activeFilterCount ? ` (${activeFilterCount})` : ''}</Button><Button size="xs" variant="light" onClick={() => setColumnsOpen(current => !current)}>Columns</Button></Group>
