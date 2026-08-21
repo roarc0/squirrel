@@ -1,0 +1,6 @@
+.DS_Store
+/bin/
+/ui/node_modules/
+*.db
+*.db-shm
+*.db-wal

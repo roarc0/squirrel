@@ -1,0 +1,16 @@
+listen: 127.0.0.1:7340
+database: loot.db
+base_currency: EUR
+log_level: info
+justetf_enrich_interval: 10s
+
+# Italy defaults. Banca d'Italia: ordinary financial income is generally 26%;
+# Italian and white-list government bonds receive the 12.5% rate.
+# Source: https://economiapertutti.bancaditalia.it/aree-tematiche/risparmio-e-investimenti/i-titoli-di-stato/
+tax_rates:
+  - code: IT_ORDINARY
+    label: Italy · ordinary financial income
+    rate_bps: 2600
+  - code: IT_GOVERNMENT_BOND
+    label: Italy · government/white-list bonds
+    rate_bps: 1250

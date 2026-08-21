@@ -1,0 +1,41 @@
+:root {
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% -10%, color-mix(in srgb, var(--mantine-color-teal-7) 22%, transparent), transparent 34rem),
+    var(--mantine-color-body);
+  background-attachment: fixed;
+}
+
+.shell {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 30px 0 64px;
+}
+
+.brand {
+  letter-spacing: -0.045em;
+}
+
+.metric {
+  border: 1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5));
+  background: light-dark(rgba(255, 255, 255, 0.84), rgba(24, 31, 39, 0.84));
+  backdrop-filter: blur(16px);
+}
+
+.positive { color: var(--mantine-color-teal-6); }
+.muted { color: var(--mantine-color-dimmed); }
+.wealth-chart { width: 100%; height: auto; overflow: visible; color: var(--mantine-color-dimmed); }
+.wealth-chart text { fill: var(--mantine-color-dimmed); font-size: 11px; }
+.stable-chip { width: max-content; min-width: max-content; max-width: none; flex: 0 0 auto; overflow: visible; text-overflow: clip; }
+.stable-chip .mantine-Badge-label { overflow: visible; text-overflow: clip; }
+
+@media (max-width: 600px) {
+  .shell { width: min(100% - 20px, 1180px); padding-top: 18px; }
+}
