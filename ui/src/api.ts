@@ -589,3 +589,18 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
   throw new Error(`Unhandled Connect API call: ${method} ${path}`);
 }
+
+export async function updateSituation(params: {
+  accountUpdates: { accountId: bigint; balanceMinor: bigint }[];
+  holdingUpdates: { holdingId: bigint; valueMinor: bigint; investedMinor?: bigint }[];
+  saveSnapshot: boolean;
+  observedOn?: string;
+}): Promise<boolean> {
+  const res = await snapshotClient.updateSituation({
+    accountUpdates: params.accountUpdates.map(u => ({ accountId: u.accountId, balanceMinor: u.balanceMinor })),
+    holdingUpdates: params.holdingUpdates.map(u => ({ holdingId: u.holdingId, valueMinor: u.valueMinor, investedMinor: u.investedMinor })),
+    saveSnapshot: params.saveSnapshot,
+    observedOn: params.observedOn,
+  });
+  return Boolean(res.snapshotSaved);
+}

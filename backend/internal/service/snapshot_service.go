@@ -79,3 +79,32 @@ func (s *Server) DeleteSnapshot(ctx context.Context, req *connect.Request[portv1
 	}
 	return connect.NewResponse(&portv1.DeleteSnapshotResponse{}), nil
 }
+
+func (s *Server) UpdateSituation(ctx context.Context, req *connect.Request[portv1.UpdateSituationRequest]) (*connect.Response[portv1.UpdateSituationResponse], error) {
+	accountUpdates := make(map[int64]int64, len(req.Msg.AccountUpdates))
+	for _, u := range req.Msg.AccountUpdates {
+		accountUpdates[u.AccountId] = u.BalanceMinor
+	}
+
+	holdingValueUpdates := make(map[int64]int64, len(req.Msg.HoldingUpdates))
+	holdingInvestedUpdates := make(map[int64]*int64, len(req.Msg.HoldingUpdates))
+	for _, u := range req.Msg.HoldingUpdates {
+		holdingValueUpdates[u.HoldingId] = u.ValueMinor
+		if u.InvestedMinor != nil {
+			val := *u.InvestedMinor
+			holdingInvestedUpdates[u.HoldingId] = &val
+		}
+	}
+
+	observedOn := ""
+	if req.Msg.ObservedOn != nil {
+		observedOn = *req.Msg.ObservedOn
+	}
+
+	saved, err := s.store.UpdateSituation(ctx, accountUpdates, holdingValueUpdates, holdingInvestedUpdates, req.Msg.SaveSnapshot, observedOn)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
+	return connect.NewResponse(&portv1.UpdateSituationResponse{SnapshotSaved: saved}), nil
+}

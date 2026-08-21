@@ -102,3 +102,49 @@ export const DeleteSnapshotResponse = /*@__PURE__*/ proto3.makeMessageType(
   [],
 );
 
+/**
+ * @generated from message v1.AccountCashUpdate
+ */
+export const AccountCashUpdate = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.AccountCashUpdate",
+  () => [
+    { no: 1, name: "account_id", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 2, name: "balance_minor", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+  ],
+);
+
+/**
+ * @generated from message v1.HoldingValueUpdate
+ */
+export const HoldingValueUpdate = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.HoldingValueUpdate",
+  () => [
+    { no: 1, name: "holding_id", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 2, name: "value_minor", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 3, name: "invested_minor", kind: "scalar", T: 3 /* ScalarType.INT64 */, opt: true },
+  ],
+);
+
+/**
+ * @generated from message v1.UpdateSituationRequest
+ */
+export const UpdateSituationRequest = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.UpdateSituationRequest",
+  () => [
+    { no: 1, name: "account_updates", kind: "message", T: AccountCashUpdate, repeated: true },
+    { no: 2, name: "holding_updates", kind: "message", T: HoldingValueUpdate, repeated: true },
+    { no: 3, name: "save_snapshot", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 4, name: "observed_on", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+  ],
+);
+
+/**
+ * @generated from message v1.UpdateSituationResponse
+ */
+export const UpdateSituationResponse = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.UpdateSituationResponse",
+  () => [
+    { no: 1, name: "snapshot_saved", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+  ],
+);
+

@@ -31,6 +31,7 @@ import {
 import { api, instrumentClient, type Account, type Instrument, type InstrumentAlternative, type InstrumentType, type Holding, type RankedInstrument, type ReferenceRate, type Snapshot, type Summary, type TaxRate } from './api';
 import { Chip, chipColor } from './Chip';
 import { DataTable, TableAction, TableActions, type DataColumn, type SortDirection } from './DataTable';
+import { UpdateSituationModal } from './UpdateSituationModal';
 import { chartGeometry, matchesExactFilters, pageBounds, performanceMood } from './visual';
 
 type Data = { summary: Summary; accounts: Account[]; rates: ReferenceRate[]; taxRates: TaxRate[]; instruments: Instrument[]; holdings: Holding[]; snapshots: Snapshot[] };
@@ -83,6 +84,8 @@ export default function App() {
   }, []);
   useEffect(() => void load(), [load]);
 
+  const [updateModalOpened, setUpdateModalOpened] = useState(false);
+
   if (!data) return <Group justify="center" h="100vh">{error ? <Alert color="red">{error}</Alert> : <Loader />}</Group>;
   return (
     <main className="shell">
@@ -91,7 +94,10 @@ export default function App() {
           <Text size="xs" fw={700} c="teal" tt="uppercase" lts={2}>Know what you own</Text>
           <Title order={1} size="3rem" className="brand">LOOT</Title>
         </Box>
-        <ThemeToggle />
+        <Group>
+          <Button color="teal" variant="light" onClick={() => setUpdateModalOpened(true)}>Update situation</Button>
+          <ThemeToggle />
+        </Group>
       </Group>
       {error && <Alert color="red" mb="md" withCloseButton onClose={() => setError('')}>{error}</Alert>}
       <Tabs defaultValue={new URLSearchParams(window.location.search).has('similarity') ? 'instruments' : 'overview'} keepMounted={false}>
@@ -106,6 +112,13 @@ export default function App() {
         <Tabs.Panel value="holdings"><Holdings holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
         <Tabs.Panel value="instruments"><InstrumentFinder instruments={data.instruments} reload={load} /></Tabs.Panel>
       </Tabs>
+      <UpdateSituationModal
+        opened={updateModalOpened}
+        onClose={() => setUpdateModalOpened(false)}
+        accounts={data.accounts}
+        holdings={data.holdings}
+        reload={load}
+      />
     </main>
   );
 }

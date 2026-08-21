@@ -47,9 +47,32 @@ message DeleteSnapshotRequest {
 
 message DeleteSnapshotResponse {}
 
+message AccountCashUpdate {
+  int64 account_id = 1;
+  int64 balance_minor = 2;
+}
+
+message HoldingValueUpdate {
+  int64 holding_id = 1;
+  int64 value_minor = 2;
+  optional int64 invested_minor = 3;
+}
+
+message UpdateSituationRequest {
+  repeated AccountCashUpdate account_updates = 1;
+  repeated HoldingValueUpdate holding_updates = 2;
+  bool save_snapshot = 3;
+  optional string observed_on = 4;
+}
+
+message UpdateSituationResponse {
+  bool snapshot_saved = 1;
+}
+
 service SnapshotService {
   rpc ListSnapshots(ListSnapshotsRequest) returns (ListSnapshotsResponse);
   rpc CreateSnapshot(CreateSnapshotRequest) returns (CreateSnapshotResponse);
   rpc UpdateSnapshot(UpdateSnapshotRequest) returns (UpdateSnapshotResponse);
   rpc DeleteSnapshot(DeleteSnapshotRequest) returns (DeleteSnapshotResponse);
+  rpc UpdateSituation(UpdateSituationRequest) returns (UpdateSituationResponse);
 }

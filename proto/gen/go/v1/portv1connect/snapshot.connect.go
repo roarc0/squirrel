@@ -45,6 +45,9 @@ const (
 	// SnapshotServiceDeleteSnapshotProcedure is the fully-qualified name of the SnapshotService's
 	// DeleteSnapshot RPC.
 	SnapshotServiceDeleteSnapshotProcedure = "/v1.SnapshotService/DeleteSnapshot"
+	// SnapshotServiceUpdateSituationProcedure is the fully-qualified name of the SnapshotService's
+	// UpdateSituation RPC.
+	SnapshotServiceUpdateSituationProcedure = "/v1.SnapshotService/UpdateSituation"
 )
 
 // SnapshotServiceClient is a client for the v1.SnapshotService service.
@@ -53,6 +56,7 @@ type SnapshotServiceClient interface {
 	CreateSnapshot(context.Context, *connect.Request[v1.CreateSnapshotRequest]) (*connect.Response[v1.CreateSnapshotResponse], error)
 	UpdateSnapshot(context.Context, *connect.Request[v1.UpdateSnapshotRequest]) (*connect.Response[v1.UpdateSnapshotResponse], error)
 	DeleteSnapshot(context.Context, *connect.Request[v1.DeleteSnapshotRequest]) (*connect.Response[v1.DeleteSnapshotResponse], error)
+	UpdateSituation(context.Context, *connect.Request[v1.UpdateSituationRequest]) (*connect.Response[v1.UpdateSituationResponse], error)
 }
 
 // NewSnapshotServiceClient constructs a client for the v1.SnapshotService service. By default, it
@@ -90,15 +94,22 @@ func NewSnapshotServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(snapshotServiceMethods.ByName("DeleteSnapshot")),
 			connect.WithClientOptions(opts...),
 		),
+		updateSituation: connect.NewClient[v1.UpdateSituationRequest, v1.UpdateSituationResponse](
+			httpClient,
+			baseURL+SnapshotServiceUpdateSituationProcedure,
+			connect.WithSchema(snapshotServiceMethods.ByName("UpdateSituation")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // snapshotServiceClient implements SnapshotServiceClient.
 type snapshotServiceClient struct {
-	listSnapshots  *connect.Client[v1.ListSnapshotsRequest, v1.ListSnapshotsResponse]
-	createSnapshot *connect.Client[v1.CreateSnapshotRequest, v1.CreateSnapshotResponse]
-	updateSnapshot *connect.Client[v1.UpdateSnapshotRequest, v1.UpdateSnapshotResponse]
-	deleteSnapshot *connect.Client[v1.DeleteSnapshotRequest, v1.DeleteSnapshotResponse]
+	listSnapshots   *connect.Client[v1.ListSnapshotsRequest, v1.ListSnapshotsResponse]
+	createSnapshot  *connect.Client[v1.CreateSnapshotRequest, v1.CreateSnapshotResponse]
+	updateSnapshot  *connect.Client[v1.UpdateSnapshotRequest, v1.UpdateSnapshotResponse]
+	deleteSnapshot  *connect.Client[v1.DeleteSnapshotRequest, v1.DeleteSnapshotResponse]
+	updateSituation *connect.Client[v1.UpdateSituationRequest, v1.UpdateSituationResponse]
 }
 
 // ListSnapshots calls v1.SnapshotService.ListSnapshots.
@@ -121,12 +132,18 @@ func (c *snapshotServiceClient) DeleteSnapshot(ctx context.Context, req *connect
 	return c.deleteSnapshot.CallUnary(ctx, req)
 }
 
+// UpdateSituation calls v1.SnapshotService.UpdateSituation.
+func (c *snapshotServiceClient) UpdateSituation(ctx context.Context, req *connect.Request[v1.UpdateSituationRequest]) (*connect.Response[v1.UpdateSituationResponse], error) {
+	return c.updateSituation.CallUnary(ctx, req)
+}
+
 // SnapshotServiceHandler is an implementation of the v1.SnapshotService service.
 type SnapshotServiceHandler interface {
 	ListSnapshots(context.Context, *connect.Request[v1.ListSnapshotsRequest]) (*connect.Response[v1.ListSnapshotsResponse], error)
 	CreateSnapshot(context.Context, *connect.Request[v1.CreateSnapshotRequest]) (*connect.Response[v1.CreateSnapshotResponse], error)
 	UpdateSnapshot(context.Context, *connect.Request[v1.UpdateSnapshotRequest]) (*connect.Response[v1.UpdateSnapshotResponse], error)
 	DeleteSnapshot(context.Context, *connect.Request[v1.DeleteSnapshotRequest]) (*connect.Response[v1.DeleteSnapshotResponse], error)
+	UpdateSituation(context.Context, *connect.Request[v1.UpdateSituationRequest]) (*connect.Response[v1.UpdateSituationResponse], error)
 }
 
 // NewSnapshotServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -160,6 +177,12 @@ func NewSnapshotServiceHandler(svc SnapshotServiceHandler, opts ...connect.Handl
 		connect.WithSchema(snapshotServiceMethods.ByName("DeleteSnapshot")),
 		connect.WithHandlerOptions(opts...),
 	)
+	snapshotServiceUpdateSituationHandler := connect.NewUnaryHandler(
+		SnapshotServiceUpdateSituationProcedure,
+		svc.UpdateSituation,
+		connect.WithSchema(snapshotServiceMethods.ByName("UpdateSituation")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/v1.SnapshotService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SnapshotServiceListSnapshotsProcedure:
@@ -170,6 +193,8 @@ func NewSnapshotServiceHandler(svc SnapshotServiceHandler, opts ...connect.Handl
 			snapshotServiceUpdateSnapshotHandler.ServeHTTP(w, r)
 		case SnapshotServiceDeleteSnapshotProcedure:
 			snapshotServiceDeleteSnapshotHandler.ServeHTTP(w, r)
+		case SnapshotServiceUpdateSituationProcedure:
+			snapshotServiceUpdateSituationHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -193,4 +218,8 @@ func (UnimplementedSnapshotServiceHandler) UpdateSnapshot(context.Context, *conn
 
 func (UnimplementedSnapshotServiceHandler) DeleteSnapshot(context.Context, *connect.Request[v1.DeleteSnapshotRequest]) (*connect.Response[v1.DeleteSnapshotResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.SnapshotService.DeleteSnapshot is not implemented"))
+}
+
+func (UnimplementedSnapshotServiceHandler) UpdateSituation(context.Context, *connect.Request[v1.UpdateSituationRequest]) (*connect.Response[v1.UpdateSituationResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.SnapshotService.UpdateSituation is not implemented"))
 }

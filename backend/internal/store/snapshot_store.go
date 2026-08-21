@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -144,4 +145,58 @@ func (s *Store) DeleteSnapshot(ctx context.Context, id int64) error {
 		return errors.New("snapshot not found")
 	}
 	return nil
+}
+
+func (s *Store) UpdateSituation(ctx context.Context, accountUpdates map[int64]int64, holdingValueUpdates map[int64]int64, holdingInvestedUpdates map[int64]*int64, saveSnapshot bool, observedOn string) (bool, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	for accountID, balanceMinor := range accountUpdates {
+		if balanceMinor < 0 || balanceMinor > 1_000_000_000_000 {
+			return false, errors.New("account balance is outside the supported range")
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE accounts SET balance_minor=?, updated_at=? WHERE id=?`, balanceMinor, now, accountID); err != nil {
+			return false, fmt.Errorf("update account %d cash: %w", accountID, err)
+		}
+	}
+
+	for holdingID, valueMinor := range holdingValueUpdates {
+		if valueMinor < 0 || valueMinor > 1_000_000_000_000 {
+			return false, errors.New("holding value is outside the supported range")
+		}
+		if investedPtr := holdingInvestedUpdates[holdingID]; investedPtr != nil {
+			investedMinor := *investedPtr
+			if investedMinor < 0 || investedMinor > 1_000_000_000_000 {
+				return false, errors.New("invested value is outside the supported range")
+			}
+			if _, err := tx.ExecContext(ctx, `UPDATE holdings SET value_minor=?, invested_minor=?, updated_at=? WHERE id=?`, valueMinor, investedMinor, now, holdingID); err != nil {
+				return false, fmt.Errorf("update holding %d value and invested: %w", holdingID, err)
+			}
+		} else {
+			if _, err := tx.ExecContext(ctx, `UPDATE holdings SET value_minor=?, updated_at=? WHERE id=?`, valueMinor, now, holdingID); err != nil {
+				return false, fmt.Errorf("update holding %d value: %w", holdingID, err)
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+
+	if saveSnapshot {
+		if observedOn == "" {
+			observedOn = time.Now().Format(time.DateOnly)
+		}
+		if err := s.SaveSnapshot(ctx, observedOn); err != nil {
+			return false, fmt.Errorf("save snapshot: %w", err)
+		}
+		return true, nil
+	}
+
+	return false, nil
 }

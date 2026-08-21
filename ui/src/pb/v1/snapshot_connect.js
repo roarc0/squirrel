@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { CreateSnapshotRequest, CreateSnapshotResponse, DeleteSnapshotRequest, DeleteSnapshotResponse, ListSnapshotsRequest, ListSnapshotsResponse, UpdateSnapshotRequest, UpdateSnapshotResponse } from "./snapshot_pb.js";
+import { CreateSnapshotRequest, CreateSnapshotResponse, DeleteSnapshotRequest, DeleteSnapshotResponse, ListSnapshotsRequest, ListSnapshotsResponse, UpdateSituationRequest, UpdateSituationResponse, UpdateSnapshotRequest, UpdateSnapshotResponse } from "./snapshot_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -46,6 +46,15 @@ export const SnapshotService = {
       name: "DeleteSnapshot",
       I: DeleteSnapshotRequest,
       O: DeleteSnapshotResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc v1.SnapshotService.UpdateSituation
+     */
+    updateSituation: {
+      name: "UpdateSituation",
+      I: UpdateSituationRequest,
+      O: UpdateSituationResponse,
       kind: MethodKind.Unary,
     },
   }

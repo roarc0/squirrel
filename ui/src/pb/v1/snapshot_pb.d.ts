@@ -267,3 +267,129 @@ export declare class DeleteSnapshotResponse extends Message<DeleteSnapshotRespon
   static equals(a: DeleteSnapshotResponse | PlainMessage<DeleteSnapshotResponse> | undefined, b: DeleteSnapshotResponse | PlainMessage<DeleteSnapshotResponse> | undefined): boolean;
 }
 
+/**
+ * @generated from message v1.AccountCashUpdate
+ */
+export declare class AccountCashUpdate extends Message<AccountCashUpdate> {
+  /**
+   * @generated from field: int64 account_id = 1;
+   */
+  accountId: bigint;
+
+  /**
+   * @generated from field: int64 balance_minor = 2;
+   */
+  balanceMinor: bigint;
+
+  constructor(data?: PartialMessage<AccountCashUpdate>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.AccountCashUpdate";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AccountCashUpdate;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): AccountCashUpdate;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): AccountCashUpdate;
+
+  static equals(a: AccountCashUpdate | PlainMessage<AccountCashUpdate> | undefined, b: AccountCashUpdate | PlainMessage<AccountCashUpdate> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.HoldingValueUpdate
+ */
+export declare class HoldingValueUpdate extends Message<HoldingValueUpdate> {
+  /**
+   * @generated from field: int64 holding_id = 1;
+   */
+  holdingId: bigint;
+
+  /**
+   * @generated from field: int64 value_minor = 2;
+   */
+  valueMinor: bigint;
+
+  /**
+   * @generated from field: optional int64 invested_minor = 3;
+   */
+  investedMinor?: bigint;
+
+  constructor(data?: PartialMessage<HoldingValueUpdate>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.HoldingValueUpdate";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): HoldingValueUpdate;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): HoldingValueUpdate;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): HoldingValueUpdate;
+
+  static equals(a: HoldingValueUpdate | PlainMessage<HoldingValueUpdate> | undefined, b: HoldingValueUpdate | PlainMessage<HoldingValueUpdate> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.UpdateSituationRequest
+ */
+export declare class UpdateSituationRequest extends Message<UpdateSituationRequest> {
+  /**
+   * @generated from field: repeated v1.AccountCashUpdate account_updates = 1;
+   */
+  accountUpdates: AccountCashUpdate[];
+
+  /**
+   * @generated from field: repeated v1.HoldingValueUpdate holding_updates = 2;
+   */
+  holdingUpdates: HoldingValueUpdate[];
+
+  /**
+   * @generated from field: bool save_snapshot = 3;
+   */
+  saveSnapshot: boolean;
+
+  /**
+   * @generated from field: optional string observed_on = 4;
+   */
+  observedOn?: string;
+
+  constructor(data?: PartialMessage<UpdateSituationRequest>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.UpdateSituationRequest";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): UpdateSituationRequest;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): UpdateSituationRequest;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): UpdateSituationRequest;
+
+  static equals(a: UpdateSituationRequest | PlainMessage<UpdateSituationRequest> | undefined, b: UpdateSituationRequest | PlainMessage<UpdateSituationRequest> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.UpdateSituationResponse
+ */
+export declare class UpdateSituationResponse extends Message<UpdateSituationResponse> {
+  /**
+   * @generated from field: bool snapshot_saved = 1;
+   */
+  snapshotSaved: boolean;
+
+  constructor(data?: PartialMessage<UpdateSituationResponse>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.UpdateSituationResponse";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): UpdateSituationResponse;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): UpdateSituationResponse;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): UpdateSituationResponse;
+
+  static equals(a: UpdateSituationResponse | PlainMessage<UpdateSituationResponse> | undefined, b: UpdateSituationResponse | PlainMessage<UpdateSituationResponse> | undefined): boolean;
+}
+
