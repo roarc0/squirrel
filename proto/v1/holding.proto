@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package v1;
+
+option go_package = "loot/proto/gen/go/v1;portv1";
+
+message Holding {
+  int64 id = 1;
+  int64 account_id = 2;
+  int64 instrument_id = 3;
+  optional string account_name = 4;
+  optional string currency = 5;
+  optional string instrument_name = 6;
+  optional string instrument_isin = 7;
+  optional string instrument_ticker = 8;
+  optional string instrument_type = 9;
+  optional string asset_class = 10;
+  int64 invested_minor = 11;
+  int64 value_minor = 12;
+  int64 tax_bps = 13;
+  int64 planned_bps = 14;
+  int64 actual_bps = 15;
+}
+
+message ListHoldingsRequest {
+  optional string sort = 1;
+}
+
+message ListHoldingsResponse {
+  repeated Holding holdings = 1;
+}
+
+message CreateHoldingRequest {
+  Holding holding = 1;
+}
+
+message CreateHoldingResponse {
+  Holding holding = 1;
+}
+
+message UpdateHoldingRequest {
+  int64 id = 1;
+  Holding holding = 2;
+}
+
+message UpdateHoldingResponse {
+  Holding holding = 1;
+}
+
+message DeleteHoldingRequest {
+  int64 id = 1;
+}
+
+message DeleteHoldingResponse {}
+
+service HoldingService {
+  rpc ListHoldings(ListHoldingsRequest) returns (ListHoldingsResponse);
+  rpc CreateHolding(CreateHoldingRequest) returns (CreateHoldingResponse);
+  rpc UpdateHolding(UpdateHoldingRequest) returns (UpdateHoldingResponse);
+  rpc DeleteHolding(DeleteHoldingRequest) returns (DeleteHoldingResponse);
+}

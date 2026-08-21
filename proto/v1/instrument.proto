@@ -1,0 +1,191 @@
+syntax = "proto3";
+
+package v1;
+
+option go_package = "loot/proto/gen/go/v1;portv1";
+
+message Instrument {
+  int64 id = 1;
+  string isin = 2;
+  string name = 3;
+  optional string ticker = 4;
+  string instrument_type = 5;
+  optional string provider = 6;
+  optional string index_name = 7;
+  optional string investment_focus = 8;
+  optional string asset_class = 9;
+  optional string strategy = 10;
+  bool currency_hedged = 11;
+  bool starred = 12;
+  string data_status = 13;
+  string distribution = 14;
+  string replication = 15;
+  optional string domicile = 16;
+  string fund_currency = 17;
+  int64 ter_bps = 18;
+  int64 fund_size_million = 19;
+  optional string inception_date = 20;
+  optional int64 tracking_difference_bps = 21;
+  optional int64 tracking_error_bps = 22;
+  bool ucits = 23;
+  optional string source_url = 24;
+  optional string refreshed_at = 25;
+  optional string enriched_at = 26;
+}
+
+message InstrumentAlternative {
+  Instrument instrument = 1;
+  string match = 2;
+  bool better = 3;
+  double score = 4;
+  repeated string reasons = 5;
+}
+
+message RankWeights {
+  double cost = 1;
+  double tracking_difference = 2;
+  double tracking_error = 3;
+  double size = 4;
+  double age = 5;
+}
+
+message RankCriteria {
+  string index_query = 1;
+  string distribution = 2;
+  repeated string replications = 3;
+  repeated string domiciles = 4;
+  optional int64 max_ter_bps = 5;
+  int64 min_fund_size_million = 6;
+  double min_age_years = 7;
+  RankWeights weights = 8;
+}
+
+message RankedInstrument {
+  Instrument instrument = 1;
+  double total = 2;
+  double cost = 3;
+  double tracking_difference = 4;
+  double tracking_error = 5;
+  double size = 6;
+  double age = 7;
+}
+
+message EnrichmentProgress {
+  string mode = 1;
+  string phase = 2;
+  optional string current = 3;
+  int32 processed = 4;
+  int32 total = 5;
+  optional int32 available = 6;
+  int32 enriched = 7;
+  int32 skipped = 8;
+  int32 failed = 9;
+  bool done = 10;
+  optional string error = 11;
+}
+
+message ListInstrumentsRequest {
+  optional string sort = 1;
+}
+
+message ListInstrumentsResponse {
+  repeated Instrument instruments = 1;
+}
+
+message SearchInstrumentsRequest {
+  string query = 1;
+}
+
+message SearchInstrumentsResponse {
+  repeated Instrument instruments = 1;
+}
+
+message SyncInstrumentCatalogRequest {
+  int32 limit = 1;
+}
+
+message SyncInstrumentCatalogResponse {
+  int32 saved = 1;
+  int32 available = 2;
+}
+
+message EnrichInstrumentCatalogRequest {
+  int32 limit = 1;
+}
+
+message EnrichInstrumentCatalogResponse {
+  int32 enriched = 1;
+  int32 failed = 2;
+}
+
+message StreamInstrumentCatalogRequest {
+  string mode = 1;
+}
+
+message CreateInstrumentRequest {
+  Instrument instrument = 1;
+}
+
+message CreateInstrumentResponse {
+  Instrument instrument = 1;
+}
+
+message LookupInstrumentRequest {
+  string query = 1;
+}
+
+message LookupInstrumentResponse {
+  Instrument instrument = 1;
+}
+
+message ImportInstrumentsRequest {
+  repeated string isins = 1;
+}
+
+message ImportInstrumentsResponse {
+  repeated Instrument instruments = 1;
+}
+
+message DeleteInstrumentRequest {
+  int64 id = 1;
+}
+
+message DeleteInstrumentResponse {}
+
+message StarInstrumentRequest {
+  string isin = 1;
+  bool starred = 2;
+}
+
+message StarInstrumentResponse {}
+
+message GetInstrumentAlternativesRequest {
+  int64 id = 1;
+}
+
+message GetInstrumentAlternativesResponse {
+  repeated InstrumentAlternative alternatives = 1;
+}
+
+message RankInstrumentsRequest {
+  RankCriteria criteria = 1;
+}
+
+message RankInstrumentsResponse {
+  repeated RankedInstrument ranked_instruments = 1;
+}
+
+service InstrumentService {
+  rpc ListInstruments(ListInstrumentsRequest) returns (ListInstrumentsResponse);
+  rpc SearchInstruments(SearchInstrumentsRequest) returns (SearchInstrumentsResponse);
+  rpc SyncInstrumentCatalog(SyncInstrumentCatalogRequest) returns (SyncInstrumentCatalogResponse);
+  rpc EnrichInstrumentCatalog(EnrichInstrumentCatalogRequest) returns (EnrichInstrumentCatalogResponse);
+  rpc StreamInstrumentCatalog(StreamInstrumentCatalogRequest) returns (stream EnrichmentProgress);
+  rpc CreateInstrument(CreateInstrumentRequest) returns (CreateInstrumentResponse);
+  rpc LookupInstrument(LookupInstrumentRequest) returns (LookupInstrumentResponse);
+  rpc ImportInstruments(ImportInstrumentsRequest) returns (ImportInstrumentsResponse);
+  rpc DeleteInstrument(DeleteInstrumentRequest) returns (DeleteInstrumentResponse);
+  rpc StarInstrument(StarInstrumentRequest) returns (StarInstrumentResponse);
+  rpc GetInstrumentAlternatives(GetInstrumentAlternativesRequest) returns (GetInstrumentAlternativesResponse);
+  rpc RankInstruments(RankInstrumentsRequest) returns (RankInstrumentsResponse);
+}

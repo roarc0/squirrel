@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package v1;
+
+option go_package = "loot/proto/gen/go/v1;portv1";
+
+message Snapshot {
+  int64 id = 1;
+  string observed_on = 2;
+  string currency = 3;
+  int64 cash_minor = 4;
+  int64 invested_minor = 5;
+  int64 portfolio_minor = 6;
+  int64 total_minor = 7;
+}
+
+message ListSnapshotsRequest {
+  optional string sort = 1;
+}
+
+message ListSnapshotsResponse {
+  repeated Snapshot snapshots = 1;
+}
+
+message CreateSnapshotRequest {
+  string observed_on = 1;
+}
+
+message CreateSnapshotResponse {}
+
+message UpdateSnapshotRequest {
+  int64 id = 1;
+  string observed_on = 2;
+  string currency = 3;
+  int64 cash_minor = 4;
+  int64 invested_minor = 5;
+  int64 portfolio_minor = 6;
+}
+
+message UpdateSnapshotResponse {
+  Snapshot snapshot = 1;
+}
+
+message DeleteSnapshotRequest {
+  int64 id = 1;
+}
+
+message DeleteSnapshotResponse {}
+
+service SnapshotService {
+  rpc ListSnapshots(ListSnapshotsRequest) returns (ListSnapshotsResponse);
+  rpc CreateSnapshot(CreateSnapshotRequest) returns (CreateSnapshotResponse);
+  rpc UpdateSnapshot(UpdateSnapshotRequest) returns (UpdateSnapshotResponse);
+  rpc DeleteSnapshot(DeleteSnapshotRequest) returns (DeleteSnapshotResponse);
+}

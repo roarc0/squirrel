@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package v1;
+
+option go_package = "loot/proto/gen/go/v1;portv1";
+
+message InstrumentAllocation {
+  string asset_class = 1;
+  int64 value_minor = 2;
+}
+
+message CurrencySummary {
+  string currency = 1;
+  int64 balance_minor = 2;
+  int64 gross_revenue_minor = 3;
+  int64 tax_minor = 4;
+  int64 fees_minor = 5;
+  int64 net_revenue_minor = 6;
+  int64 invested_minor = 7;
+  int64 portfolio_minor = 8;
+  int64 total_minor = 9;
+  repeated InstrumentAllocation allocations = 10;
+}
+
+message Summary {
+  string base_currency = 1;
+  repeated CurrencySummary currencies = 2;
+}
+
+message GetSummaryRequest {}
+
+message GetSummaryResponse {
+  Summary summary = 1;
+}
+
+service SummaryService {
+  rpc GetSummary(GetSummaryRequest) returns (GetSummaryResponse);
+}

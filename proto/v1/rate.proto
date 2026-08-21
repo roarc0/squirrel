@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package v1;
+
+option go_package = "loot/proto/gen/go/v1;portv1";
+
+message ReferenceRate {
+  string code = 1;
+  string label = 2;
+  int64 rate_bps = 3;
+  string observed_on = 4;
+  optional string updated_at = 5;
+}
+
+message TaxRate {
+  string code = 1;
+  string label = 2;
+  int64 rate_bps = 3;
+}
+
+message ListReferenceRatesRequest {}
+
+message ListReferenceRatesResponse {
+  repeated ReferenceRate rates = 1;
+}
+
+message UpdateReferenceRateRequest {
+  ReferenceRate rate = 1;
+}
+
+message UpdateReferenceRateResponse {}
+
+message ListTaxRatesRequest {}
+
+message ListTaxRatesResponse {
+  repeated TaxRate rates = 1;
+}
+
+service RateService {
+  rpc ListReferenceRates(ListReferenceRatesRequest) returns (ListReferenceRatesResponse);
+  rpc UpdateReferenceRate(UpdateReferenceRateRequest) returns (UpdateReferenceRateResponse);
+  rpc ListTaxRates(ListTaxRatesRequest) returns (ListTaxRatesResponse);
+}

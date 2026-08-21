@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package v1;
+
+option go_package = "loot/proto/gen/go/v1;portv1";
+
+message InterestTier {
+  optional int64 id = 1;
+  optional int64 up_to_minor = 2;
+  optional int64 fixed_rate_bps = 3;
+  optional string reference_code = 4;
+  int64 spread_bps = 5;
+  optional int64 resolved_rate_bps = 6;
+}
+
+message Account {
+  int64 id = 1;
+  string name = 2;
+  string institution = 3;
+  string type = 4;
+  bool preferred = 5;
+  bool archived = 6;
+  string currency = 7;
+  int64 balance_minor = 8;
+  int64 tax_bps = 9;
+  int64 annual_fee_minor = 10;
+  repeated InterestTier tiers = 11;
+  int64 gross_revenue_minor = 12;
+  int64 tax_minor = 13;
+  int64 net_revenue_minor = 14;
+  int64 holding_count = 15;
+  int64 holdings_value_minor = 16;
+  int64 total_assets_minor = 17;
+}
+
+message ListAccountsRequest {
+  optional string sort = 1;
+}
+
+message ListAccountsResponse {
+  repeated Account accounts = 1;
+}
+
+message CreateAccountRequest {
+  Account account = 1;
+}
+
+message CreateAccountResponse {
+  Account account = 1;
+}
+
+message UpdateAccountRequest {
+  int64 id = 1;
+  Account account = 2;
+}
+
+message UpdateAccountResponse {
+  Account account = 1;
+}
+
+message DeleteAccountRequest {
+  int64 id = 1;
+}
+
+message DeleteAccountResponse {}
+
+service AccountService {
+  rpc ListAccounts(ListAccountsRequest) returns (ListAccountsResponse);
+  rpc CreateAccount(CreateAccountRequest) returns (CreateAccountResponse);
+  rpc UpdateAccount(UpdateAccountRequest) returns (UpdateAccountResponse);
+  rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse);
+}

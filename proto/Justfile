@@ -1,0 +1,5 @@
+default: generate
+
+generate:
+	rm -rf gen
+	buf generate

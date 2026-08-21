@@ -28,7 +28,7 @@ import {
   useComputedColorScheme,
   useMantineColorScheme,
 } from '@mantine/core';
-import { api, type Account, type Instrument, type InstrumentAlternative, type InstrumentType, type Holding, type RankedInstrument, type ReferenceRate, type Snapshot, type Summary, type TaxRate } from './api';
+import { api, instrumentClient, type Account, type Instrument, type InstrumentAlternative, type InstrumentType, type Holding, type RankedInstrument, type ReferenceRate, type Snapshot, type Summary, type TaxRate } from './api';
 import { Chip, chipColor } from './Chip';
 import { DataTable, TableAction, TableActions, type DataColumn, type SortDirection } from './DataTable';
 import { chartGeometry, matchesExactFilters, pageBounds, performanceMood } from './visual';
@@ -390,21 +390,28 @@ function InstrumentFinder({ instruments, reload }: { instruments: Instrument[]; 
   const streamEnrichment = async (mode: EnrichmentMode) => {
     const controller = new AbortController(); setStreamController(controller); setStreamProgress({ mode, phase: 'loading', processed: 0, total: 0, enriched: 0, skipped: 0, failed: 0, done: false }); setNotice(''); setError('');
     try {
-      const response = await fetch('/api/instruments/catalog/enrich/stream', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }), signal: controller.signal });
-      if (!response.ok) { const body = await response.json().catch(() => null) as { error?: string } | null; throw new Error(body?.error || `${response.status} ${response.statusText}`); }
-      if (!response.body) throw new Error('Streaming is unavailable in this browser');
-      const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffered = ''; let latest: EnrichmentProgress | undefined;
-      while (true) {
-        const { value, done } = await reader.read(); buffered += decoder.decode(value, { stream: !done });
-        const lines = buffered.split('\n'); buffered = lines.pop() ?? '';
-        for (const line of lines) { if (!line.trim()) continue; latest = JSON.parse(line) as EnrichmentProgress; setStreamProgress(latest); if (latest.error) throw new Error(latest.error); }
-        if (done) break;
+      let latest: EnrichmentProgress | undefined;
+      for await (const res of instrumentClient.streamInstrumentCatalog({ mode }, { signal: controller.signal })) {
+        latest = {
+          mode: res.mode,
+          phase: res.phase,
+          current: res.current ?? undefined,
+          processed: res.processed,
+          total: res.total,
+          available: res.available ?? undefined,
+          enriched: res.enriched,
+          skipped: res.skipped,
+          failed: res.failed,
+          done: res.done,
+          error: res.error ?? undefined,
+        };
+        setStreamProgress(latest);
+        if (latest.error) throw new Error(latest.error);
       }
-      if (buffered.trim()) { latest = JSON.parse(buffered) as EnrichmentProgress; setStreamProgress(latest); }
       if (latest) setNotice(`Finished: ${latest.enriched} refreshed, ${latest.skipped} non-UCITS skipped, ${latest.failed} failed.`);
       setRanked([]); await reload();
     } catch (cause) {
-      if (cause instanceof Error && cause.name === 'AbortError') { setNotice('Refresh stopped. Completed profiles were saved; the next run will resume from the remaining or oldest records.'); setRanked([]); await reload(); }
+      if (cause instanceof Error && (cause.name === 'AbortError' || cause.message.includes('canceled'))) { setNotice('Refresh stopped. Completed profiles were saved; the next run will resume from the remaining or oldest records.'); setRanked([]); await reload(); }
       else setError(cause instanceof Error ? cause.message : String(cause));
     } finally { setStreamController(current => current === controller ? undefined : current); }
   };
