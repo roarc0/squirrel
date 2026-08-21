@@ -106,7 +106,7 @@ func TestStoreRoundTrip(t *testing.T) {
 	}
 	corrected := snapshots[0]
 	corrected.ObservedOn, corrected.CashMinor, corrected.InvestedMinor, corrected.PortfolioMinor = "2026-08-22", 6_900_000, 1_100_000, 2_100_000
-	if err := s.UpdateSnapshot(ctx, corrected); err != nil {
+	if err := s.UpdateSnapshot(ctx, &corrected); err != nil {
 		t.Fatal(err)
 	}
 	snapshots, err = s.ListSnapshots(ctx)

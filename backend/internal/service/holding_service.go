@@ -1,0 +1,88 @@
+package service
+
+import (
+	"cmp"
+	"context"
+	"errors"
+	"slices"
+	"strings"
+
+	"connectrpc.com/connect"
+
+	"loot/backend/internal/portfolio"
+	portv1 "loot/proto/gen/go/v1"
+)
+
+func (s *Server) ListHoldings(ctx context.Context, req *connect.Request[portv1.ListHoldingsRequest]) (*connect.Response[portv1.ListHoldingsResponse], error) {
+	holdings, err := s.store.ListHoldings(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	sortField := ""
+	if req.Msg.Sort != nil {
+		sortField = *req.Msg.Sort
+	}
+
+	if sortField == "" {
+		slices.SortStableFunc(holdings, func(a, b portfolio.Holding) int {
+			if order := cmp.Compare(b.ValueMinor, a.ValueMinor); order != 0 {
+				return order
+			}
+			return cmp.Compare(strings.ToLower(a.InstrumentName), strings.ToLower(b.InstrumentName))
+		})
+	} else {
+		columns := map[string]func(portfolio.Holding, portfolio.Holding) int{
+			"account":  func(a, b portfolio.Holding) int { return cmp.Compare(strings.ToLower(a.AccountName), strings.ToLower(b.AccountName)) },
+			"name":     func(a, b portfolio.Holding) int { return cmp.Compare(strings.ToLower(a.InstrumentName), strings.ToLower(b.InstrumentName)) },
+			"isin":     func(a, b portfolio.Holding) int { return cmp.Compare(a.InstrumentISIN, b.InstrumentISIN) },
+			"type":     func(a, b portfolio.Holding) int { return cmp.Compare(a.InstrumentType, b.InstrumentType) },
+			"asset":    func(a, b portfolio.Holding) int { return cmp.Compare(a.AssetClass, b.AssetClass) },
+			"invested": func(a, b portfolio.Holding) int { return cmp.Compare(a.InvestedMinor, b.InvestedMinor) },
+			"value":    func(a, b portfolio.Holding) int { return cmp.Compare(a.ValueMinor, b.ValueMinor) },
+			"profit":   func(a, b portfolio.Holding) int { return cmp.Compare(a.ValueMinor-a.InvestedMinor, b.ValueMinor-b.InvestedMinor) },
+			"planned":  func(a, b portfolio.Holding) int { return cmp.Compare(a.PlannedBPS, b.PlannedBPS) },
+			"actual":   func(a, b portfolio.Holding) int { return cmp.Compare(a.ActualBPS, b.ActualBPS) },
+		}
+		if err := sortSlice(sortField, holdings, columns); err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+	}
+
+	pbHoldings := make([]*portv1.Holding, len(holdings))
+	for i, h := range holdings {
+		pbHoldings[i] = holdingToProto(h)
+	}
+	return connect.NewResponse(&portv1.ListHoldingsResponse{Holdings: pbHoldings}), nil
+}
+
+func (s *Server) CreateHolding(ctx context.Context, req *connect.Request[portv1.CreateHoldingRequest]) (*connect.Response[portv1.CreateHoldingResponse], error) {
+	if req.Msg.Holding == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("holding is required"))
+	}
+	holding := holdingFromProto(req.Msg.Holding)
+	holding.ID = 0
+	if err := s.store.SaveHolding(ctx, &holding); err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	return connect.NewResponse(&portv1.CreateHoldingResponse{Holding: holdingToProto(holding)}), nil
+}
+
+func (s *Server) UpdateHolding(ctx context.Context, req *connect.Request[portv1.UpdateHoldingRequest]) (*connect.Response[portv1.UpdateHoldingResponse], error) {
+	if req.Msg.Holding == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("holding is required"))
+	}
+	holding := holdingFromProto(req.Msg.Holding)
+	holding.ID = req.Msg.Id
+	if err := s.store.SaveHolding(ctx, &holding); err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	return connect.NewResponse(&portv1.UpdateHoldingResponse{Holding: holdingToProto(holding)}), nil
+}
+
+func (s *Server) DeleteHolding(ctx context.Context, req *connect.Request[portv1.DeleteHoldingRequest]) (*connect.Response[portv1.DeleteHoldingResponse], error) {
+	if err := s.store.DeleteHolding(ctx, req.Msg.Id); err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	return connect.NewResponse(&portv1.DeleteHoldingResponse{}), nil
+}
