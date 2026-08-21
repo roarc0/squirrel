@@ -31,7 +31,7 @@ type Client struct {
 }
 
 func New(profileInterval ...time.Duration) *Client {
-	interval := 10 * time.Second
+	interval := 2 * time.Second
 	if len(profileInterval) > 0 {
 		interval = profileInterval[0]
 	}

@@ -2,7 +2,7 @@ listen: 127.0.0.1:7340
 database: data/loot.db
 base_currency: EUR
 log_level: info
-justetf_enrich_interval: 10s
+justetf_enrich_interval: 2s
 
 # Italy defaults. Banca d'Italia: ordinary financial income is generally 26%;
 # Italian and white-list government bonds receive the 12.5% rate.

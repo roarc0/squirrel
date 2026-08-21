@@ -28,7 +28,7 @@ func Load(path string) (Config, error) {
 		Database:              "data/loot.db",
 		BaseCurrency:          "EUR",
 		LogLevel:              "info",
-		JustETFEnrichInterval: 10 * time.Second,
+		JustETFEnrichInterval: 2 * time.Second,
 		TaxRates: []portfolio.TaxRate{
 			{Code: "IT_ORDINARY", Label: "Italy · ordinary financial income", RateBPS: 2600},
 			{Code: "IT_GOVERNMENT_BOND", Label: "Italy · government/white-list bonds", RateBPS: 1250},
