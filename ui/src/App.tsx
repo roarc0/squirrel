@@ -43,7 +43,7 @@ import { AccountsView } from './views/AccountsView';
 import { HoldingsView } from './views/HoldingsView';
 import { InstrumentFinderView } from './views/InstrumentFinderView';
 import { DiagnosticsView } from './views/DiagnosticsView';
-import { AICopilotView } from './views/AICopilotView';
+import { AIAdvisorView } from './views/AIAdvisorView';
 import { chartGeometry, matchesExactFilters, pageBounds, performanceMood } from './visual';
 
 type Data = { summary: Summary; accounts: Account[]; rates: ReferenceRate[]; taxRates: TaxRate[]; instruments: Instrument[]; holdings: Holding[]; snapshots: Snapshot[] };
@@ -133,7 +133,7 @@ export default function App() {
           >
             Diagnostics
           </Tabs.Tab>
-          <Tabs.Tab value="copilot">🤖 AI Copilot</Tabs.Tab>
+          <Tabs.Tab value="advisor">🤖 AI Advisor</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="overview"><Overview data={data} reload={load} onSwitchTab={setActiveTab} /></Tabs.Panel>
         <Tabs.Panel value="accounts"><Accounts accounts={data.accounts} rates={data.rates} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
@@ -146,8 +146,8 @@ export default function App() {
             onOpenInvest={() => setActiveTab('holdings')}
           />
         </Tabs.Panel>
-        <Tabs.Panel value="copilot">
-          <AICopilotView
+        <Tabs.Panel value="advisor">
+          <AIAdvisorView
             summary={data.summary}
             accounts={data.accounts}
             holdings={data.holdings}

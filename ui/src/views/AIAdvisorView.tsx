@@ -45,7 +45,7 @@ function getSavedSettings(): AISettings {
   }
 }
 
-export function AICopilotView({
+export function AIAdvisorView({
   summary,
   accounts,
   holdings,
@@ -123,7 +123,7 @@ export function AICopilotView({
     setAdvice('');
 
     try {
-      const systemPrompt = `You are an expert, local-first financial portfolio copilot for LOOT. Analyze the user's anonymized portfolio context and answer their prompt concisely with actionable, structured bullet points. Never give legal or binding tax advice. Keep explanations simple, practical, and clear.`;
+      const systemPrompt = `You are an expert, local-first financial portfolio AI advisor for LOOT. Analyze the user's anonymized portfolio context and answer their prompt concisely with actionable, structured bullet points. Never give legal or binding tax advice. Keep explanations simple, practical, and clear.`;
 
       const userContent = `Portfolio Context:\n\`\`\`json\n${contextJSON}\n\`\`\`\n\nUser Question: ${queryText}`;
 
@@ -171,7 +171,7 @@ export function AICopilotView({
       <Group justify="space-between">
         <Box>
           <Group gap="xs">
-            <Title order={2}>AI Portfolio Copilot</Title>
+            <Title order={2}>AI Portfolio Advisor</Title>
             <Badge color="teal" variant="light">
               Local-First & Opt-In
             </Badge>
@@ -227,7 +227,7 @@ export function AICopilotView({
               Provider: <Text span fw={600}>{settings.provider}</Text> ({settings.model} @ {settings.endpoint})
             </Text>
             <Button loading={loading} color="teal" onClick={() => void askAI()}>
-              Ask Copilot
+              Ask AI Advisor
             </Button>
           </Group>
         </Stack>
@@ -268,7 +268,7 @@ export function AICopilotView({
         <Card className="metric" p="lg" radius="lg">
           <Group justify="space-between" mb="sm">
             <Text fw={700} color="teal">
-              🤖 Copilot Response
+              🤖 AI Advisor Response
             </Text>
             <Badge color="gray" variant="subtle">
               {settings.model}
@@ -325,7 +325,7 @@ function AISettingsModal({
   };
 
   return (
-    <Modal opened={opened} onClose={onClose} title="AI Copilot Provider Settings" size="md">
+    <Modal opened={opened} onClose={onClose} title="AI Advisor Provider Settings" size="md">
       <Stack gap="sm">
         <Select
           label="AI Provider"
