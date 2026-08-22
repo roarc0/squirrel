@@ -13,6 +13,7 @@ import {
   Select,
 } from '@mantine/core';
 import { exportBackup, restoreBackup } from './api';
+import { useConfirmDelete } from './components/ConfirmDeleteModal';
 
 type Props = {
   opened: boolean;
@@ -33,6 +34,7 @@ export function SettingsModal({ opened, onClose, reload }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const { confirmDelete, modal: confirmDeleteModal } = useConfirmDelete();
 
   const targetReserve = (monthlyExpenses || 0) * Number(reserveMonths || 6);
 
@@ -67,28 +69,30 @@ export function SettingsModal({ opened, onClose, reload }: Props) {
     }
   };
 
-  const handleRestore = async () => {
+  const handleRestore = () => {
     if (!file) return;
-    const confirm = window.confirm(
-      'Are you sure you want to restore this backup?\n\nAn automatic rollback copy will be saved before replacing your data.'
+    confirmDelete(
+      'database backup restoration',
+      file.name,
+      async () => {
+        setRestoring(true);
+        setError('');
+        setNotice('');
+        try {
+          const buffer = await file.arrayBuffer();
+          const fileBytes = new Uint8Array(buffer);
+          const res = await restoreBackup(fileBytes);
+          setNotice(res.message);
+          setFile(null);
+          await reload();
+        } catch (cause) {
+          setError(cause instanceof Error ? cause.message : String(cause));
+        } finally {
+          setRestoring(false);
+        }
+      },
+      'An automatic rollback copy will be saved before replacing your existing data.'
     );
-    if (!confirm) return;
-
-    setRestoring(true);
-    setError('');
-    setNotice('');
-    try {
-      const buffer = await file.arrayBuffer();
-      const fileBytes = new Uint8Array(buffer);
-      const res = await restoreBackup(fileBytes);
-      setNotice(res.message);
-      setFile(null);
-      await reload();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setRestoring(false);
-    }
   };
 
   return (
@@ -192,6 +196,7 @@ export function SettingsModal({ opened, onClose, reload }: Props) {
           </Button>
         </Group>
       </Stack>
+      {confirmDeleteModal}
     </Modal>
   );
 }

@@ -32,6 +32,8 @@ import { Chip } from '../Chip';
 import { Empty } from '../components/Empty';
 import { money, percent } from '../utils/format';
 
+import { useConfirmDelete } from '../components/ConfirmDeleteModal';
+
 export type DraftAllocation = {
   instrument_id?: number;
   isin?: string;
@@ -193,12 +195,16 @@ export function DraftPortfoliosView({
     setTimeout(() => setSuccess(''), 3000);
   };
 
-  const handleDelete = (id: string) => {
-    if (id.startsWith('preset-')) return;
-    const next = drafts.filter(d => d.id !== id);
-    setDrafts(next);
-    saveCustomDrafts(next);
-    setSelectedId(next[0]?.id || DEFAULT_PRESETS[0].id);
+  const { confirmDelete, modal: confirmDeleteModal } = useConfirmDelete();
+
+  const handleDelete = (draft: DraftPortfolio) => {
+    if (draft.id.startsWith('preset-')) return;
+    confirmDelete('draft portfolio', draft.name, () => {
+      const next = drafts.filter(d => d.id !== draft.id);
+      setDrafts(next);
+      saveCustomDrafts(next);
+      setSelectedId(next[0]?.id || DEFAULT_PRESETS[0].id);
+    });
   };
 
   const handleSaveDraftModal = () => {
@@ -429,7 +435,7 @@ export function DraftPortfoliosView({
                           variant="subtle"
                           color="red"
                           leftSection={<IconTrash size={14} />}
-                          onClick={() => handleDelete(activeDraft.id)}
+                          onClick={() => handleDelete(activeDraft)}
                         >
                           Delete
                         </Button>
@@ -762,6 +768,7 @@ export function DraftPortfoliosView({
           </Stack>
         </Modal>
       )}
+      {confirmDeleteModal}
     </Stack>
   );
 }

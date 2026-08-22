@@ -18,11 +18,12 @@ import {
   Title,
 } from '@mantine/core';
 import { api, type Holding, type Instrument, type Snapshot, type Summary } from '../api';
-import { useBackendRows, AllocationBar, PerformanceResult } from '../App';
+import { AllocationBar, PerformanceResult, useBackendRows } from '../App';
 import { Empty } from '../components/Empty';
-import { DataTable, type DataColumn } from '../DataTable';
-import { confirmDelete, investedMoney, label, money } from '../utils/format';
+import { DataTable, TableAction, TableActions, type DataColumn } from '../DataTable';
+import { investedMoney, label, money } from '../utils/format';
 import { chartGeometry } from '../visual';
+import { useConfirmDelete } from '../components/ConfirmDeleteModal';
 
 type Data = { summary: Summary; accounts: any[]; rates: any[]; taxRates: any[]; instruments: Instrument[]; holdings: Holding[]; snapshots: Snapshot[] };
 type Numeric = string | number;
@@ -281,14 +282,22 @@ export function OverviewView({ data, reload, onSwitchTab }: { data: Data; reload
 function SnapshotHistory({ snapshots, currency, reload }: { snapshots: Snapshot[]; currency: string; reload: () => Promise<void> }) {
   const [observedOn, setObservedOn] = useState(new Date().toISOString().slice(0, 10));
   const [saving, setSaving] = useState(false); const [editing, setEditing] = useState<Snapshot>(); const [error, setError] = useState('');
+  const { confirmDelete, modal: confirmDeleteModal } = useConfirmDelete();
   const table = useBackendRows('/api/snapshots', snapshots);
   const current = snapshots.filter(item => item.currency === currency).sort((a, b) => a.observed_on.localeCompare(b.observed_on));
+  const removeSnapshot = (item: Snapshot) => {
+    confirmDelete('snapshot', `${item.observed_on} (${money(item.total_minor, item.currency)})`, async () => {
+      await api(`/api/snapshots/${item.id}`, { method: 'DELETE' });
+      await reload();
+    });
+  };
   const columns: DataColumn<Snapshot>[] = [
     { key: 'date', label: 'Date', sortable: true, render: item => new Date(`${item.observed_on}T00:00:00`).toLocaleDateString() },
     { key: 'currency', label: 'Currency', sortable: true, render: item => item.currency },
     { key: 'cash', label: 'Cash', sortable: true, render: item => money(item.cash_minor, item.currency) },
     { key: 'portfolio', label: 'Investments', sortable: true, render: item => money(item.portfolio_minor, item.currency) },
     { key: 'total', label: 'Total', sortable: true, render: item => money(item.total_minor, item.currency) },
+    { key: 'actions', render: item => <TableActions><TableAction label="Edit snapshot" onClick={() => setEditing(item)}>✎</TableAction><TableAction label="Delete snapshot" color="red" onClick={() => removeSnapshot(item)}>×</TableAction></TableActions> },
   ];
   const save = async () => { setSaving(true); try { await api('/api/snapshots', { method: 'POST', body: JSON.stringify({ observed_on: observedOn }) }); setError(''); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } finally { setSaving(false); } };
   return <Stack gap="md"><Group justify="space-between" align="end"><Box><Title order={3}>Wealth history</Title><Text c="dimmed">A snapshot copies every account's cash and investment holdings for that date.</Text></Box><Group align="end"><TextInput type="date" label="Snapshot date" value={observedOn} onChange={event => setObservedOn(event.currentTarget.value)} /><Button loading={saving} onClick={() => void save()}>Save snapshot</Button></Group></Group>
@@ -296,6 +305,7 @@ function SnapshotHistory({ snapshots, currency, reload }: { snapshots: Snapshot[
     {current.length > 1 ? <WealthChart snapshots={current} currency={currency} /> : current.length === 1 && <Alert color="gray">Save one more snapshot to see the wealth trend.</Alert>}
     {snapshots.length === 0 ? <Empty title="No snapshots yet" text="Update your balances and holdings, then save the current situation." /> : <DataTable rows={table.sort ? table.rows : [...table.rows].reverse()} columns={columns} rowKey={item => `${item.id}-${item.currency}`} minWidth={820} sort={table.sort} direction={table.direction} onSort={(key, direction) => void table.sortRows(key, direction)} />}
     <SnapshotModal key={editing ? `${editing.id}-${editing.currency}` : 'closed'} snapshot={editing} close={() => setEditing(undefined)} saved={async () => { setEditing(undefined); await reload(); }} />
+    {confirmDeleteModal}
   </Stack>;
 }
 

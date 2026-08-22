@@ -44,8 +44,9 @@ import { Chip } from '../Chip';
 import { CompareModal } from '../CompareModal';
 import { Empty } from '../components/Empty';
 import { DataTable, TableAction, TableActions, type DataColumn, type SortDirection } from '../DataTable';
-import { confirmDelete, instrumentLabels, label, percent } from '../utils/format';
+import { confirmDelete as legacyConfirmDelete, instrumentLabels, label, percent } from '../utils/format';
 import { matchesExactFilters, pageBounds } from '../visual';
+import { useConfirmDelete } from '../components/ConfirmDeleteModal';
 
 type Numeric = string | number;
 const n = (value: Numeric | undefined) => (value === '' || value === undefined ? 0 : Number(value));
@@ -83,6 +84,7 @@ type CatalogRow = RankedInstrument & { similarity?: InstrumentAlternative };
 
 export function InstrumentFinderView({ instruments, reload }: { instruments: Instrument[]; reload: () => Promise<void> }) {
   const [opened, setOpened] = useState(false); const [editing, setEditing] = useState<Instrument>(); const [ranked, setRanked] = useState<RankedInstrument[]>([]); const [error, setError] = useState('');
+  const { confirmDelete, modal: confirmDeleteModal } = useConfirmDelete();
   const [lookupQuery, setLookupQuery] = useState(''); const [lookingUp, setLookingUp] = useState(false);
   const [searchResults, setSearchResults] = useState<Instrument[]>([]); const [selected, setSelected] = useState<string[]>([]); const [searching, setSearching] = useState(false); const [importing, setImporting] = useState(false);
   const [syncing, setSyncing] = useState(false); const [enriching, setEnriching] = useState(false); const [notice, setNotice] = useState(''); const [localQuery, setLocalQuery] = useState('');
@@ -136,7 +138,11 @@ export function InstrumentFinderView({ instruments, reload }: { instruments: Ins
   };
   const showAlternatives = (instrument: Instrument) => setSimilarityFilter(instrument.isin);
   const star = async (instrument: Instrument) => { try { await api(`/api/instruments/${encodeURIComponent(instrument.isin)}/star`, { method: 'PUT', body: JSON.stringify({ starred: !instrument.starred }) }); setRanked([]); setError(''); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } };
-  const remove = async (instrument: Instrument) => { if (confirmDelete('instrument', `${instrument.ticker || instrument.name} · ${instrument.isin}`, 'Remove its holdings first if this instrument is currently owned.')) { try { await api(`/api/instruments/${instrument.id}`, { method: 'DELETE' }); setRanked([]); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } } };
+  const remove = (instrument: Instrument) => {
+    confirmDelete('instrument', `${instrument.ticker || instrument.name} · ${instrument.isin}`, async () => {
+      try { await api(`/api/instruments/${instrument.id}`, { method: 'DELETE' }); setRanked([]); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    }, 'Remove its holdings first if this instrument is currently owned.');
+  };
   const open = (instrument?: Instrument) => { setEditing(instrument); setOpened(true); };
   const refreshedCount = instruments.filter(instrument => instrument.data_status === 'enriched').length;
   const rankableCount = instruments.filter(instrument => instrument.instrument_type === 'etf' && instrument.data_status === 'enriched' && instrument.ucits).length;
@@ -376,6 +382,7 @@ export function InstrumentFinderView({ instruments, reload }: { instruments: Ins
       instruments={selectedCompareInstruments}
       onShowAlternatives={showAlternatives}
     />
+    {confirmDeleteModal}
   </Stack>;
 }
 

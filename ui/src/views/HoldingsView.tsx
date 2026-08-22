@@ -24,8 +24,9 @@ import { Chip } from '../Chip';
 import { Empty } from '../components/Empty';
 import { DataTable, TableAction, TableActions, type DataColumn } from '../DataTable';
 import { InvestModal } from '../InvestModal';
-import { confirmDelete, instrumentLabels, investedMoney, label, money, percent } from '../utils/format';
+import { confirmDelete as legacyConfirmDelete, instrumentLabels, investedMoney, label, money, percent } from '../utils/format';
 import { DraftPortfoliosModal } from '../components/DraftPortfoliosModal';
+import { useConfirmDelete } from '../components/ConfirmDeleteModal';
 
 type Numeric = string | number;
 const n = (value: Numeric | undefined) => (value === '' || value === undefined ? 0 : Number(value));
@@ -48,11 +49,16 @@ export function HoldingsView({ holdings, accounts, instruments, taxRates, reload
   const [opened, setOpened] = useState(false); const [editing, setEditing] = useState<Holding>(); const [error, setError] = useState('');
   const [draftsOpened, setDraftsOpened] = useState(false);
   const [accountIDs, setAccountIDs] = useState<string[]>([]);
+  const { confirmDelete, modal: confirmDeleteModal } = useConfirmDelete();
   const table = useBackendRows('/api/holdings', holdings, 'value', 'desc');
   const activeAccounts = accounts.filter(account => !account.archived); const activeAccountIDs = new Set(activeAccounts.map(account => account.id));
   const accountMap = new Map<number, Account>(accounts.map(a => [a.id, a]));
   const open = (holding?: Holding) => { setEditing(holding); setOpened(true); };
-  const remove = async (holding: Holding) => { if (confirmDelete('holding', `${holding.instrument_name} · ${holding.account_name}`)) { try { await api(`/api/holdings/${holding.id}`, { method: 'DELETE' }); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } } };
+  const remove = (holding: Holding) => {
+    confirmDelete('holding', `${holding.instrument_name} · ${holding.account_name}`, async () => {
+      try { await api(`/api/holdings/${holding.id}`, { method: 'DELETE' }); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    });
+  };
   const ready = activeAccounts.length > 0 && instruments.length > 0;
   const activeHoldings = table.rows.filter(holding => activeAccountIDs.has(holding.account_id));
   const visibleHoldings = activeHoldings.filter(holding => accountIDs.length === 0 || accountIDs.includes(String(holding.account_id)));
@@ -198,6 +204,7 @@ export function HoldingsView({ holdings, accounts, instruments, taxRates, reload
     <HoldingModal key={editing?.id ?? 'new'} opened={opened} close={() => setOpened(false)} holding={editing} accounts={activeAccounts} holdings={holdings} instruments={instruments} taxRates={taxRates} saved={async () => { setOpened(false); await reload(); }} />
     <InvestModal opened={investOpened} onClose={() => setInvestOpened(false)} holdings={holdings} reload={reload} />
     <DraftPortfoliosModal opened={draftsOpened} onClose={() => setDraftsOpened(false)} holdings={holdings} instruments={instruments} reload={reload} />
+    {confirmDeleteModal}
   </Stack>;
 }
 

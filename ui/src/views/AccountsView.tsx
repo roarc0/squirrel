@@ -24,7 +24,8 @@ import { useBackendRows } from '../App';
 import { Chip } from '../Chip';
 import { Empty } from '../components/Empty';
 import { DataTable, TableAction, TableActions, type DataColumn } from '../DataTable';
-import { confirmDelete, money, percent } from '../utils/format';
+import { confirmDelete as legacyConfirmDelete, money, percent } from '../utils/format';
+import { useConfirmDelete } from '../components/ConfirmDeleteModal';
 
 type Numeric = string | number;
 const n = (value: Numeric | undefined) => (value === '' || value === undefined ? 0 : Number(value));
@@ -40,9 +41,15 @@ export function AccountsView({ accounts, rates, taxRates, reload }: { accounts: 
   const [opened, setOpened] = useState(false);
   const [editing, setEditing] = useState<Account>();
   const [error, setError] = useState('');
+  const { confirmDelete, modal: confirmDeleteModal } = useConfirmDelete();
   const table = useBackendRows('/api/accounts', accounts, 'total', 'desc');
   const open = (account?: Account) => { setEditing(account); setOpened(true); };
-  const remove = async (account: Account) => { if (confirmDelete('account', account.name, 'Its current holdings will also be removed. Saved snapshots stay intact.')) { await api(`/api/accounts/${account.id}`, { method: 'DELETE' }); await reload(); } };
+  const remove = (account: Account) => {
+    confirmDelete('account', account.name, async () => {
+      await api(`/api/accounts/${account.id}`, { method: 'DELETE' });
+      await reload();
+    }, 'Its current holdings will also be removed. Saved snapshots stay intact.');
+  };
   const toggleArchived = async (account: Account) => { try { await api(`/api/accounts/${account.id}`, { method: 'PUT', body: JSON.stringify({ ...account, archived: !account.archived }) }); setError(''); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } };
   const columns: DataColumn<Account>[] = [
     { key: 'name', label: 'Account', sortable: true, render: account => <Stack gap={4}><Group gap={6} wrap="nowrap"><Text fw={650}>{account.name}</Text>{account.preferred && <Chip size="xs">Default</Chip>}{account.archived && <Chip size="xs" colorKey="Archived">Archived</Chip>}</Group><Group gap={5}><Chip size="xs">{account.type}</Chip>{account.institution && <Text size="xs" c="dimmed">{account.institution}</Text>}{account.pac_amount_minor ? <Chip colorKey="PAC">{`PAC ${money(account.pac_amount_minor, account.currency)}/mo`}</Chip> : null}</Group></Stack> },
@@ -56,6 +63,7 @@ export function AccountsView({ accounts, rates, taxRates, reload }: { accounts: 
     {(error || table.sortError) && <Alert color="red">{error || table.sortError}</Alert>}
     {accounts.length === 0 ? <Empty title="No accounts" text="Add the places where you hold cash." /> : <DataTable rows={table.rows} columns={columns} rowKey={account => account.id} minWidth={960} sort={table.sort} direction={table.direction} onSort={(key, direction) => void table.sortRows(key, direction)} rowStyle={account => account.archived ? { opacity: 0.48 } : undefined} />}
     <AccountModal key={editing?.id ?? 'new'} opened={opened} close={() => setOpened(false)} account={editing} rates={rates} taxRates={taxRates} saved={async () => { setOpened(false); await reload(); }} />
+    {confirmDeleteModal}
   </Stack>;
 }
 
