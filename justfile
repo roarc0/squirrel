@@ -7,7 +7,12 @@ ui: generate
 	cd ui && npm run build
 
 run *args: ui
-	CGO_ENABLED=0 go run ./backend/cmd/loot {{args}}
+	@if command -v air >/dev/null 2>&1; then \
+		CGO_ENABLED=0 air -- {{args}}; \
+	else \
+		echo "air not found; falling back to go run..."; \
+		CGO_ENABLED=0 go run ./backend/cmd/loot {{args}}; \
+	fi
 
 build: ui
 	mkdir -p bin
