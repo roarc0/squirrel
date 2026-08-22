@@ -216,18 +216,45 @@ func FindInstrumentAlternatives(selected Instrument, instruments []Instrument, a
 		if match == "" {
 			continue
 		}
-		reasons := []string{fmt.Sprintf("TER %.2f%% vs %.2f%%", float64(candidate.TERBPS)/100, float64(selected.TERBPS)/100), fmt.Sprintf("Fund size %dm vs %dm", candidate.FundSizeMillion, selected.FundSizeMillion)}
+		var reasons []string
 		if match == "exact_index" {
-			reasons = append([]string{"Tracks the same index"}, reasons...)
+			reasons = append(reasons, fmt.Sprintf("Tracks same index (%s)", candidate.IndexName))
 		} else {
-			reasons = append([]string{"Same asset class, investment focus, strategy, and currency hedge"}, reasons...)
+			reasons = append(reasons, fmt.Sprintf("Same exposure (%s · %s)", candidate.InvestmentFocus, candidate.AssetClass))
 		}
+
+		terDiff := float64(selected.TERBPS-candidate.TERBPS) / 100.0
+		if terDiff > 0 {
+			yearlySavings := terDiff * 100.0 // € saved per €10k invested
+			reasons = append(reasons, fmt.Sprintf("Saves €%.0f/yr per €10k (TER %.2f%% vs %.2f%%)", yearlySavings, float64(candidate.TERBPS)/100, float64(selected.TERBPS)/100))
+		} else if terDiff < 0 {
+			reasons = append(reasons, fmt.Sprintf("Higher TER (%.2f%% vs %.2f%%)", float64(candidate.TERBPS)/100, float64(selected.TERBPS)/100))
+		} else {
+			reasons = append(reasons, fmt.Sprintf("Identical TER (%.2f%%)", float64(candidate.TERBPS)/100))
+		}
+
+		if selected.FundSizeMillion > 0 && candidate.FundSizeMillion >= int64(float64(selected.FundSizeMillion)*1.5) {
+			ratio := float64(candidate.FundSizeMillion) / float64(selected.FundSizeMillion)
+			reasons = append(reasons, fmt.Sprintf("%.1fx larger fund (€%dm vs €%dm)", ratio, candidate.FundSizeMillion, selected.FundSizeMillion))
+		} else {
+			reasons = append(reasons, fmt.Sprintf("Fund size €%dm vs €%dm", candidate.FundSizeMillion, selected.FundSizeMillion))
+		}
+
+		if candidate.TrackingDifferenceBPS != nil && selected.TrackingDifferenceBPS != nil {
+			candTD := float64(*candidate.TrackingDifferenceBPS) / 100.0
+			selTD := float64(*selected.TrackingDifferenceBPS) / 100.0
+			if candTD < selTD {
+				reasons = append(reasons, fmt.Sprintf("Lower tracking diff (%.2f%% vs %.2f%%)", candTD, selTD))
+			}
+		}
+
 		if candidate.Distribution != selected.Distribution {
-			reasons = append(reasons, "Different distribution policy")
+			reasons = append(reasons, fmt.Sprintf("Distribution: %s (vs %s)", candidate.Distribution, selected.Distribution))
 		}
 		if candidate.Replication != selected.Replication {
-			reasons = append(reasons, "Different replication method")
+			reasons = append(reasons, fmt.Sprintf("Replication: %s (vs %s)", candidate.Replication, selected.Replication))
 		}
+
 		better := candidate.TERBPS <= selected.TERBPS && candidate.FundSizeMillion >= selected.FundSizeMillion && (candidate.TERBPS < selected.TERBPS || candidate.FundSizeMillion > selected.FundSizeMillion) && candidate.Distribution == selected.Distribution && candidate.Replication == selected.Replication
 		alternatives = append(alternatives, InstrumentAlternative{Instrument: candidate, Match: match, Better: better, Score: alternativeScore(selected, candidate, asOf), Reasons: reasons})
 	}

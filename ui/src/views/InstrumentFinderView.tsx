@@ -229,7 +229,28 @@ export function InstrumentFinderView({ instruments, reload }: { instruments: Ins
     },
     { key: 'starred', sortable: true, render: item => <TableAction label={item.instrument.starred ? `Unstar ${item.instrument.isin}` : `Star ${item.instrument.isin}`} color="yellow" variant={item.instrument.starred ? 'light' : 'subtle'} onClick={() => void star(item.instrument)}>{item.instrument.starred ? <IconStarFilled size={14} /> : <IconStar size={14} />}</TableAction> },
     ...(ranked.length > 0 ? [{ key: 'score', label: 'Score', sortable: true, render: (item: CatalogRow) => <Tooltip label={`Cost ${(item.cost * 100).toFixed(0)} · tracking diff ${(item.tracking_difference * 100).toFixed(0)} · tracking error ${(item.tracking_error * 100).toFixed(0)} · size ${(item.size * 100).toFixed(0)} · age ${(item.age * 100).toFixed(0)}`}><Chip size="lg" variant="filled" colorKey="Score">{item.total.toFixed(1)}</Chip></Tooltip> }] : []),
-    ...(similarity ? [{ key: 'similarity', label: 'Similarity', sortable: true, render: (item: CatalogRow) => item.similarity ? <Stack gap={4}><Group gap={4}>{item.similarity.better && <Chip size="xs">Strictly better</Chip>}<Chip size="xs">{item.similarity.match === 'exact_index' ? 'Same index' : 'Same exposure'}</Chip></Group><Text size="xs" c="dimmed">{item.similarity.reasons.join(' · ')}</Text></Stack> : '—' }] : []),
+    ...(similarity ? [{
+      key: 'similarity',
+      label: 'Peer Group Analysis',
+      sortable: true,
+      render: (item: CatalogRow) => item.similarity ? (
+        <Stack gap={4}>
+          <Group gap={4}>
+            {item.similarity.better && <Badge color="teal" size="xs" variant="filled">Strictly better</Badge>}
+            <Badge color={item.similarity.match === 'exact_index' ? 'blue' : 'gray'} size="xs" variant="light">
+              {item.similarity.match === 'exact_index' ? 'Same index' : 'Same exposure'}
+            </Badge>
+          </Group>
+          <Stack gap={2} mt={2}>
+            {item.similarity.reasons.map((reason, idx) => (
+              <Text key={idx} size="xs" c={reason.startsWith('Saves') ? 'teal' : reason.startsWith('Higher TER') ? 'red' : 'dimmed'} fw={reason.startsWith('Saves') ? 600 : 400}>
+                • {reason}
+              </Text>
+            ))}
+          </Stack>
+        </Stack>
+      ) : '—',
+    }] : []),
     { key: 'name', label: 'Instrument', sortable: true, render: item => <><Text fw={650}>{item.instrument.name}</Text><Chip size="xs" mt={3}>{productLabel(item.instrument)}</Chip></> },
     ...(show('ticker') ? [{ key: 'ticker', label: 'Ticker', sortable: true, render: (item: RankedInstrument) => <Text fw={650}>{item.instrument.ticker || '—'}</Text> }] : []),
     ...(show('isin') ? [{ key: 'isin', label: 'ISIN', sortable: true, render: (item: RankedInstrument) => <Text size="sm" ff="monospace">{item.instrument.isin}</Text> }] : []),
