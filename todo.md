@@ -47,9 +47,9 @@ LOOT is local-first and optimized for occasional rough updates. Prefer explainab
 
 ## Later — optional intelligence
 
-- [ ] Add an opt-in analysis export that previews exactly what portfolio data will leave the machine.
-- [ ] Let an AI explain deterministic warnings and summarize trade-offs; it must not trade, mutate data, or silently upload financial details.
-- [ ] Consider a local model first. Add a hosted provider only if its explanations are materially better.
+- [x] Add an opt-in analysis export that previews exactly what portfolio data will leave the machine.
+- [x] Let an AI explain deterministic warnings and summarize trade-offs; it must not trade, mutate data, or silently upload financial details.
+- [x] Consider a local model first. Add a hosted provider only if its explanations are materially better.
 
 ## Deliberately out of scope
 

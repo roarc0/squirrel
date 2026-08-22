@@ -154,6 +154,72 @@ function EmergencyReserveCard({ cashMinor, currency }: { cashMinor: number; curr
   );
 }
 
+function FreedomCalculatorCard({ totalWealthMinor, currency }: { totalWealthMinor: number; currency: string }) {
+  const [annualExpenses, setAnnualExpenses] = useState<number>(() => {
+    try {
+      const val = localStorage.getItem(`loot.fireExpenses.${currency}`);
+      return val ? Number(val) : 24000;
+    } catch { return 24000; }
+  });
+  const [editing, setEditing] = useState(false);
+  const [draftExpenses, setDraftExpenses] = useState<Numeric>(annualExpenses);
+
+  const saveExpenses = () => {
+    const next = Math.max(1000, Number(draftExpenses) || 24000);
+    setAnnualExpenses(next);
+    try { localStorage.setItem(`loot.fireExpenses.${currency}`, String(next)); } catch { /* optional */ }
+    setEditing(false);
+  };
+
+  const wealthEur = totalWealthMinor / 100;
+  const swr4Annual = Math.round(totalWealthMinor * 0.04);
+  const swr4Monthly = Math.round(swr4Annual / 12);
+  const yearsCovered = annualExpenses > 0 ? (wealthEur / annualExpenses).toFixed(1) : '0';
+  const targetFireWealthMinor = annualExpenses * 25 * 100;
+  const fireProgressPct = Math.min(100, Math.round((totalWealthMinor / Math.max(1, targetFireWealthMinor)) * 100));
+
+  return (
+    <Card className="metric" p="lg" radius="lg" mt="md">
+      <Group justify="space-between" mb="xs">
+        <Group gap="xs">
+          <Text fw={700} size="sm">Financial Independence (FIRE) & SWR</Text>
+          <Button size="xs" variant="subtle" color="gray" onClick={() => { setDraftExpenses(annualExpenses); setEditing(true); }}>
+            ✎ Expenses Goal
+          </Button>
+        </Group>
+        <Badge color={fireProgressPct >= 100 ? 'teal' : 'blue'} variant="filled">
+          {fireProgressPct >= 100 ? 'FIRE Target Reached 🎉' : `${fireProgressPct}% to FIRE Target`}
+        </Badge>
+      </Group>
+      <SimpleGrid cols={{ base: 1, sm: 3 }} mt="sm">
+        <Box>
+          <Text size="xs" c="dimmed">4% SWR Safe Passive Income</Text>
+          <Text size="md" fw={750} c="teal">{money(swr4Monthly, currency)}/mo</Text>
+          <Text size="xs" c="dimmed">{money(swr4Annual, currency)}/yr budget</Text>
+        </Box>
+        <Box>
+          <Text size="xs" c="dimmed">Freedom Horizon Covered</Text>
+          <Text size="md" fw={750}>{yearsCovered} years</Text>
+          <Text size="xs" c="dimmed">at {money(annualExpenses * 100, currency)}/yr expenses</Text>
+        </Box>
+        <Box>
+          <Text size="xs" c="dimmed">Target FIRE Net Wealth (25x)</Text>
+          <Text size="md" fw={750}>{money(targetFireWealthMinor, currency)}</Text>
+          <Text size="xs" c="dimmed">{money(totalWealthMinor, currency)} current wealth</Text>
+        </Box>
+      </SimpleGrid>
+      <Progress value={fireProgressPct} color={fireProgressPct >= 100 ? 'teal' : 'blue'} radius="xl" mt="md" />
+      <Modal opened={editing} onClose={() => setEditing(false)} title={`Target Annual Living Expenses (${currency})`} size="sm">
+        <Stack gap="sm">
+          <NumberInput label="Annual Expenses Goal (€/yr)" min={1000} value={draftExpenses} onChange={setDraftExpenses} />
+          <Text size="xs" c="dimmed">Your estimated yearly budget needed to cover your living costs independently.</Text>
+          <Button onClick={saveExpenses}>Save Expenses Goal</Button>
+        </Stack>
+      </Modal>
+    </Card>
+  );
+}
+
 export function OverviewView({ data, reload, onSwitchTab }: { data: Data; reload: () => Promise<void>; onSwitchTab: (tab: string) => void }) {
   const currencies = data.summary.currencies ?? [];
   const diagnostics = data.summary.diagnostics ?? [];
@@ -198,6 +264,10 @@ export function OverviewView({ data, reload, onSwitchTab }: { data: Data; reload
             currency={item.currency}
           />
         </SimpleGrid>
+        <FreedomCalculatorCard
+          totalWealthMinor={item.total_minor}
+          currency={item.currency}
+        />
         <Paper className="metric" p="lg" radius="lg" mt="md">
           <Group justify="space-between" mb="sm"><Text fw={700}>Asset allocation</Text><Text size="sm" c="dimmed">Cash interest/year: Gross {money(item.gross_revenue_minor, item.currency)} · Net {money(item.net_revenue_minor, item.currency)}</Text></Group>
           <AllocationBar total={item.total_minor} segments={[{ label: 'Cash', value: item.balance_minor }, ...allocations.map(allocation => ({ label: label(allocation.asset_class), value: allocation.value_minor }))]} />
