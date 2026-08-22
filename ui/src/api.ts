@@ -220,6 +220,7 @@ function protoToAccount(a: any): Account {
     holding_count: num(a.holdingCount),
     holdings_value_minor: num(a.holdingsValueMinor),
     total_assets_minor: num(a.totalAssetsMinor),
+    pac_amount_minor: num(a.pacAmountMinor),
   };
 }
 
@@ -273,6 +274,10 @@ function protoToHolding(h: any): Holding {
     tax_bps: num(h.taxBps),
     planned_bps: num(h.plannedBps),
     actual_bps: num(h.actualBps),
+    ter_bps: optNum(h.terBps) ?? undefined,
+    is_pac: Boolean(h.isPac),
+    pac_bps: num(h.pacBps),
+    pac_frequency: optStr(h.pacFrequency) ?? 'monthly',
   };
 }
 
@@ -361,6 +366,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
           balanceMinor: bigint(bodyData.balance_minor),
           taxBps: bigint(bodyData.tax_bps),
           annualFeeMinor: bigint(bodyData.annual_fee_minor),
+          pacAmountMinor: bigint(bodyData.pac_amount_minor),
           tiers: (bodyData.tiers ?? []).map((t: any) => ({
             upToMinor: t.up_to_minor !== null ? bigint(t.up_to_minor) : undefined,
             fixedRateBps: t.fixed_rate_bps !== null ? bigint(t.fixed_rate_bps) : undefined,
@@ -388,6 +394,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
             balanceMinor: bigint(bodyData.balance_minor),
             taxBps: bigint(bodyData.tax_bps),
             annualFeeMinor: bigint(bodyData.annual_fee_minor),
+            pacAmountMinor: bigint(bodyData.pac_amount_minor),
             tiers: (bodyData.tiers ?? []).map((t: any) => ({
               id: t.id !== undefined && t.id !== null ? bigint(t.id) : undefined,
               upToMinor: t.up_to_minor !== null ? bigint(t.up_to_minor) : undefined,
@@ -446,6 +453,9 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
           valueMinor: bigint(bodyData.value_minor),
           taxBps: bigint(bodyData.tax_bps),
           plannedBps: bigint(bodyData.planned_bps),
+          isPac: Boolean(bodyData.is_pac),
+          pacBps: bigint(bodyData.pac_bps),
+          pacFrequency: bodyData.pac_frequency || 'monthly',
         } as any,
       });
       return protoToHolding(res.holding) as unknown as T;
@@ -464,6 +474,9 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
             valueMinor: bigint(bodyData.value_minor),
             taxBps: bigint(bodyData.tax_bps),
             plannedBps: bigint(bodyData.planned_bps),
+            isPac: Boolean(bodyData.is_pac),
+            pacBps: bigint(bodyData.pac_bps),
+            pacFrequency: bodyData.pac_frequency || 'monthly',
           } as any,
         });
         return protoToHolding(res.holding) as unknown as T;
