@@ -106,6 +106,7 @@ export function AIAdvisorView({
 
   const clearChat = () => {
     saveMessages([]);
+    setError('');
     try {
       sessionStorage.removeItem('loot.aiChatHistory');
     } catch {
@@ -397,8 +398,6 @@ export function AIAdvisorView({
           </Button>
         </Group>
       </Group>
-
-      {error && <Alert color="red">{error}</Alert>}
 
       {messages.length === 0 ? (
         <Paper className="metric" p="lg" radius="lg">
