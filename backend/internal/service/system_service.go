@@ -350,6 +350,11 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 		"temperature": 0.3,
 		"stream":      true,
 		"max_tokens":  2048,
+		"num_ctx":     contextSize,
+		"n_ctx":       contextSize,
+		"options": map[string]interface{}{
+			"num_ctx": contextSize,
+		},
 	}
 	if len(tools) > 0 {
 		payload["tools"] = tools

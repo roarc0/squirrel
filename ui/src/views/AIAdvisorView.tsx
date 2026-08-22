@@ -47,7 +47,12 @@ function getSavedSettings(): AISettings {
   try {
     const raw = localStorage.getItem('loot.aiSettings');
     if (!raw) return defaultSettings;
-    return { ...defaultSettings, ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw);
+    return {
+      ...defaultSettings,
+      ...parsed,
+      contextSize: parsed.contextSize ? Number(parsed.contextSize) : defaultSettings.contextSize,
+    };
   } catch {
     return defaultSettings;
   }
@@ -403,7 +408,7 @@ export function AIAdvisorView({
             </Button>
           )}
           <Button variant="default" size="xs" onClick={() => setSettingsOpened(true)}>
-            ⚙️ AI Settings ({settings.provider})
+            ⚙️ AI Settings ({settings.provider} · {settings.contextSize >= 1024 ? `${Math.round(settings.contextSize / 1024)}K` : settings.contextSize})
           </Button>
         </Group>
       </Group>
@@ -569,7 +574,7 @@ export function AIAdvisorView({
 
           <Group justify="space-between" align="center">
             <Text size="xs" c="dimmed">
-              Press <Text span fw={600} ff="monospace">Enter</Text> to send · Active Model: <Text span fw={700} c="teal">{settings.model}</Text> ({settings.provider})
+              Press <Text span fw={600} ff="monospace">Enter</Text> to send · Active Model: <Text span fw={700} c="teal">{settings.model}</Text> ({settings.provider} · <Text span fw={700} c="teal">{settings.contextSize >= 1024 ? `${Math.round(settings.contextSize / 1024)}K` : settings.contextSize} Context</Text>)
             </Text>
             {loading ? (
               <Button
