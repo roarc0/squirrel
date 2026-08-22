@@ -36,13 +36,13 @@ LOOT is local-first and optimized for occasional rough updates. Prefer explainab
 
 ## Architecture and maintainability
 
-- [ ] Audit the repository after the quick-update flow lands. Consolidate only repeated table, filter, form, money, and confirmation patterns.
+- [x] Audit the repository after the quick-update flow lands. Consolidate only repeated table, filter, form, money, and confirmation patterns.
 - [x] Replace the handwritten JSON API contract with protobuf-generated Go and TypeScript types.
   1. Define and review the schema and money/rate conventions.
   2. Add reproducible code generation and compatibility checks.
   3. Migrate endpoints incrementally.
   4. Remove handwritten API types only after the last endpoint moves.
-- [ ] Review the workspace/console project for useful patterns, then write a LOOT-specific adoption plan before copying any architecture.
+- [x] Review the workspace/console project for useful patterns, then write a LOOT-specific adoption plan before copying any architecture.
 - [ ] Expand focused tests around backup/restore, snapshots, money, taxes, ranking cohorts, and destructive operations.
 
 ## Later — optional intelligence
