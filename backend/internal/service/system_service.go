@@ -330,6 +330,15 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 		conversation = append(conversation[:1], conversation[2:]...)
 	}
 
+	// Hard-truncate oversized single turns if still exceeding maxPromptTokens
+	if len(conversation) > 0 && estimateTokens(conversation) > maxPromptTokens {
+		for i := range conversation {
+			if content, ok := conversation[i]["content"].(string); ok && len(content) > maxPromptTokens*3 {
+				conversation[i]["content"] = content[:maxPromptTokens*3] + "\n... (truncated for context limit)"
+			}
+		}
+	}
+
 	var tools []map[string]interface{}
 	if s.mcpHandler != nil {
 		tools = s.mcpHandler.OpenAITools()
@@ -497,10 +506,15 @@ func (s *Server) executeStreamChatPayload(
 				},
 			})
 
+			llmResultJSON := resultJSON
+			if len(llmResultJSON) > 3000 {
+				llmResultJSON = llmResultJSON[:3000] + "\n... (truncated tool response)"
+			}
+
 			toolResults = append(toolResults, map[string]interface{}{
 				"role":         "tool",
 				"tool_call_id": tc.ID,
-				"content":      resultJSON,
+				"content":      llmResultJSON,
 			})
 		}
 

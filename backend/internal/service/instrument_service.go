@@ -106,6 +106,9 @@ func (s *Server) SearchInstruments(ctx context.Context, req *connect.Request[por
 	if err != nil {
 		return nil, justETFConnectError(ctx, query, err)
 	}
+	if len(results) > 15 {
+		results = results[:15]
+	}
 	pbInstruments := make([]*portv1.Instrument, len(results))
 	for i, inst := range results {
 		pbInstruments[i] = instrumentToProto(inst)
