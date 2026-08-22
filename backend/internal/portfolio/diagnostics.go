@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/samber/lo"
 )
 
 type DiagnosticSeverity string
@@ -28,21 +30,20 @@ type Diagnostic struct {
 func EvaluateDiagnostics(accounts []Account, holdings []Holding, instruments []Instrument, targetCashMinor int64, now time.Time) []Diagnostic {
 	var results []Diagnostic
 
-	instByISIN := make(map[string]Instrument, len(instruments))
-	for _, inst := range instruments {
-		instByISIN[strings.ToUpper(inst.ISIN)] = inst
-	}
+	instByISIN := lo.SliceToMap(instruments, func(inst Instrument) (string, Instrument) {
+		return strings.ToUpper(inst.ISIN), inst
+	})
 
 	// 1. Emergency Reserve & Cash Diagnostic
-	var totalCashMinor, totalHoldingMinor int64
-	for _, acc := range accounts {
-		if !acc.Archived {
-			totalCashMinor += acc.BalanceMinor
-		}
-	}
-	for _, h := range holdings {
-		totalHoldingMinor += h.ValueMinor
-	}
+	activeAccounts := lo.Filter(accounts, func(acc Account, _ int) bool {
+		return !acc.Archived
+	})
+	totalCashMinor := lo.SumBy(activeAccounts, func(acc Account) int64 {
+		return acc.BalanceMinor
+	})
+	totalHoldingMinor := lo.SumBy(holdings, func(h Holding) int64 {
+		return h.ValueMinor
+	})
 	totalAssetsMinor := totalCashMinor + totalHoldingMinor
 
 	if targetCashMinor > 0 {

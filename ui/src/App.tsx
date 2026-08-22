@@ -38,6 +38,8 @@ import { CompareModal } from './CompareModal';
 import { InvestModal } from './InvestModal';
 import { SettingsModal } from './SettingsModal';
 import { UpdateSituationModal } from './UpdateSituationModal';
+import { OverviewView } from './views/OverviewView';
+import { AccountsView } from './views/AccountsView';
 import { DiagnosticsView } from './views/DiagnosticsView';
 import { chartGeometry, matchesExactFilters, pageBounds, performanceMood } from './visual';
 
@@ -46,17 +48,17 @@ type Numeric = string | number;
 const n = (value: Numeric | undefined) => (value === '' || value === undefined ? 0 : Number(value));
 const minor = (value: Numeric | undefined) => Math.round(n(value) * 100);
 const bps = (value: Numeric | undefined) => Math.round(n(value) * 100);
-const percent = (value: number | undefined) => value === undefined || !Number.isFinite(value) ? '—' : `${(value / 100).toFixed(2)}%`;
+export const percent = (value: number | undefined) => value === undefined || !Number.isFinite(value) ? '—' : `${(value / 100).toFixed(2)}%`;
 let hideBalancesGlobal = false;
-const money = (value: number | undefined, currency: string) =>
+export const money = (value: number | undefined, currency: string) =>
   hideBalancesGlobal ? '••••••' : (value === undefined || !Number.isFinite(value) ? '—' :
   new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 }).format(value / 100));
-const investedMoney = (invested: number, current: number, currency: string) => invested > 0 || current === 0 ? money(invested, currency) : '—';
-const instrumentLabels: Record<InstrumentType, string> = { etf: 'ETF', etc: 'ETC', etn: 'ETN', fund: 'Fund', stock: 'Stock', bond: 'Bond', crypto: 'Crypto', commodity: 'Commodity', real_estate: 'Real estate', other: 'Other' };
+export const investedMoney = (invested: number, current: number, currency: string) => invested > 0 || current === 0 ? money(invested, currency) : '—';
+export const instrumentLabels: Record<InstrumentType, string> = { etf: 'ETF', etc: 'ETC', etn: 'ETN', fund: 'Fund', stock: 'Stock', bond: 'Bond', crypto: 'Crypto', commodity: 'Commodity', real_estate: 'Real estate', other: 'Other' };
 export const label = (value: string) => value.replaceAll('_', ' ').replace(/^./, character => character.toUpperCase());
-const confirmDelete = (kind: string, name: string, consequence = '') => window.confirm(`Delete ${kind} “${name}”?${consequence ? `\n\n${consequence}` : ''}\n\nThis cannot be undone.`);
+export const confirmDelete = (kind: string, name: string, consequence = '') => window.confirm(`Delete ${kind} “${name}”?${consequence ? `\n\n${consequence}` : ''}\n\nThis cannot be undone.`);
 
-function useBackendRows<T>(endpoint: string, source: T[], initialSort = '', initialDirection: SortDirection = 'asc') {
+export function useBackendRows<T>(endpoint: string, source: T[], initialSort = '', initialDirection: SortDirection = 'asc') {
   const [rows, setRows] = useState(source);
   const [sort, setSort] = useState(initialSort);
   const [direction, setDirection] = useState<SortDirection>(initialDirection);
@@ -186,118 +188,8 @@ function DiagnosticsTab({
   );
 }
 
-function TERMetric({ holdings, instruments, currency }: { holdings: Holding[]; instruments: Instrument[]; currency: string }) {
-  const instMap = new Map<number, Instrument>(instruments.map(i => [i.id, i]));
-  let totalVal = 0;
-  let weightedTERNum = 0;
-  let annualFeeDrag = 0;
-
-  for (const h of holdings) {
-    if ((h.currency ?? 'EUR') === currency) {
-      const inst = instMap.get(h.instrument_id);
-      const terBps = inst?.ter_bps ?? 0;
-      totalVal += h.value_minor;
-      weightedTERNum += h.value_minor * terBps;
-      annualFeeDrag += Math.round((h.value_minor * terBps) / 10000);
-    }
-  }
-
-  const weightedTER = totalVal > 0 ? (weightedTERNum / totalVal / 100).toFixed(2) : '0.00';
-
-  return (
-    <Card className="metric" p="lg" radius="lg">
-      <Text size="sm" c="dimmed">Weighted Expense (TER)</Text>
-      <Group justify="space-between" align="baseline" mt={5}>
-        <Text size="xl" fw={750}>{totalVal > 0 ? `${weightedTER}%` : '—'}</Text>
-        {annualFeeDrag > 0 && (
-          <Text size="xs" fw={700} c="orange" title="Estimated annual ETF TER cost">
-            -{money(annualFeeDrag, currency)}/yr
-          </Text>
-        )}
-      </Group>
-    </Card>
-  );
-}
-
 function Overview({ data, reload, onSwitchTab }: { data: Data; reload: () => Promise<void>; onSwitchTab: (tab: string) => void }) {
-  const currencies = data.summary.currencies ?? [];
-  const diagnostics = data.summary.diagnostics ?? [];
-  return <Stack gap="xl">
-    {diagnostics.length > 0 && (
-      <Paper withBorder p="md" radius="lg">
-        <Group justify="space-between" align="center">
-          <Group gap="sm">
-            <Badge color="orange" size="lg" variant="light">{diagnostics.length}</Badge>
-            <Box>
-              <Text fw={700} size="sm">Portfolio Diagnostics Detected</Text>
-              <Text size="xs" c="dimmed">{diagnostics[0].title}: {diagnostics[0].message.slice(0, 110)}...</Text>
-            </Box>
-          </Group>
-          <Button size="xs" variant="light" color="orange" onClick={() => onSwitchTab('diagnostics')}>
-            View Diagnostics tab →
-          </Button>
-        </Group>
-      </Paper>
-    )}
-    {currencies.length === 0 ? <Empty title="No accounts yet" text="Add a bank or brokerage account to see your allocation." /> : currencies.map(item => {
-      const allocations = (item.allocations ?? []).filter(allocation => allocation.value_minor > 0);
-      return (
-      <Box key={item.currency}>
-        <Group justify="space-between" mb="sm"><Title order={3}>{item.currency} assets</Title><Text c="dimmed">Current rough situation</Text></Group>
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 5 }}>
-          <Metric label="Cash balance" value={money(item.balance_minor, item.currency)} />
-          <InvestmentMetric value={item.portfolio_minor} invested={item.invested_minor} currency={item.currency} />
-          <PerformanceMetric value={item.portfolio_minor} invested={item.invested_minor} currency={item.currency} />
-          <TERMetric holdings={data.holdings} instruments={data.instruments} currency={item.currency} />
-          <Metric label="Total wealth" value={money(item.total_minor, item.currency)} positive />
-        </SimpleGrid>
-        <Paper className="metric" p="lg" radius="lg" mt="md">
-          <Group justify="space-between" mb="sm"><Text fw={700}>Asset allocation</Text><Text size="sm" c="dimmed">Cash interest/year: Gross {money(item.gross_revenue_minor, item.currency)} · Net {money(item.net_revenue_minor, item.currency)}</Text></Group>
-          <AllocationBar total={item.total_minor} segments={[{ label: 'Cash', value: item.balance_minor }, ...allocations.map(allocation => ({ label: label(allocation.asset_class), value: allocation.value_minor }))]} />
-        </Paper>
-      </Box>
-    )})}
-    <SnapshotHistory snapshots={data.snapshots} currency={data.summary.base_currency} reload={reload} />
-  </Stack>;
-}
-
-function SnapshotHistory({ snapshots, currency, reload }: { snapshots: Snapshot[]; currency: string; reload: () => Promise<void> }) {
-  const [observedOn, setObservedOn] = useState(new Date().toISOString().slice(0, 10));
-  const [saving, setSaving] = useState(false); const [editing, setEditing] = useState<Snapshot>(); const [error, setError] = useState('');
-  const table = useBackendRows('/api/snapshots', snapshots);
-  const current = snapshots.filter(item => item.currency === currency).sort((a, b) => a.observed_on.localeCompare(b.observed_on));
-  const remove = async (snapshot: Snapshot) => { if (confirmDelete('snapshot', snapshot.observed_on, 'Every currency stored for this date will be removed.')) { try { await api(`/api/snapshots/${snapshot.id}`, { method: 'DELETE' }); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } } };
-  const columns: DataColumn<Snapshot>[] = [
-    { key: 'date', label: 'Date', sortable: true, render: item => new Date(`${item.observed_on}T00:00:00`).toLocaleDateString() },
-    { key: 'currency', label: 'Currency', sortable: true, render: item => item.currency },
-    { key: 'cash', label: 'Cash', sortable: true, render: item => money(item.cash_minor, item.currency) },
-    { key: 'invested', label: 'Amount invested', sortable: true, render: item => investedMoney(item.invested_minor, item.portfolio_minor, item.currency) },
-    { key: 'portfolio', label: 'Investments', sortable: true, render: item => money(item.portfolio_minor, item.currency) },
-    { key: 'total', label: 'Total', sortable: true, render: item => <Text fw={700}>{money(item.total_minor, item.currency)}</Text> },
-    { key: 'actions', render: item => <TableActions><TableAction label={`Edit ${item.observed_on} ${item.currency}`} onClick={() => setEditing(item)}>✎</TableAction><TableAction label={`Delete ${item.observed_on}`} color="red" onClick={() => void remove(item)}>×</TableAction></TableActions> },
-  ];
-  const save = async () => { setSaving(true); try { await api('/api/snapshots', { method: 'POST', body: JSON.stringify({ observed_on: observedOn }) }); setError(''); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } finally { setSaving(false); } };
-  return <Stack gap="md"><Group justify="space-between" align="end"><Box><Title order={3}>Wealth history</Title><Text c="dimmed">A snapshot copies every account's cash and investment holdings for that date.</Text></Box><Group align="end"><TextInput type="date" label="Snapshot date" value={observedOn} onChange={event => setObservedOn(event.currentTarget.value)} /><Button loading={saving} onClick={() => void save()}>Save snapshot</Button></Group></Group>
-    {(error || table.sortError) && <Alert color="red">{error || table.sortError}</Alert>}
-    {current.length > 1 ? <WealthChart snapshots={current} currency={currency} /> : current.length === 1 && <Alert color="gray">Save one more snapshot to see the wealth trend.</Alert>}
-    {snapshots.length === 0 ? <Empty title="No snapshots yet" text="Update your balances and holdings, then save the current situation." /> : <DataTable rows={table.sort ? table.rows : [...table.rows].reverse()} columns={columns} rowKey={item => `${item.id}-${item.currency}`} minWidth={820} sort={table.sort} direction={table.direction} onSort={(key, direction) => void table.sortRows(key, direction)} />}
-    <SnapshotModal key={editing ? `${editing.id}-${editing.currency}` : 'closed'} snapshot={editing} close={() => setEditing(undefined)} saved={async () => { setEditing(undefined); await reload(); }} />
-  </Stack>;
-}
-
-function SnapshotModal({ snapshot, close, saved }: { snapshot?: Snapshot; close: () => void; saved: () => Promise<void> }) {
-  const [form, setForm] = useState<{ date: string; cash: Numeric; invested: Numeric; portfolio: Numeric }>(() => snapshot ? { date: snapshot.observed_on, cash: snapshot.cash_minor / 100, invested: snapshot.invested_minor / 100, portfolio: snapshot.portfolio_minor / 100 } : { date: '', cash: 0, invested: 0, portfolio: 0 }); const [error, setError] = useState('');
-  const save = async () => { if (!snapshot) return; try { await api(`/api/snapshots/${snapshot.id}`, { method: 'PUT', body: JSON.stringify({ observed_on: form.date, currency: snapshot.currency, cash_minor: minor(form.cash), invested_minor: minor(form.invested), portfolio_minor: minor(form.portfolio) }) }); await saved(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } };
-  return <Modal opened={Boolean(snapshot)} onClose={close} title="Correct snapshot"><Stack>{error && <Alert color="red">{error}</Alert>}<SimpleGrid cols={2}><TextInput type="date" label="Date" value={form.date} onChange={event => setForm({ ...form, date: event.currentTarget.value })} /><TextInput readOnly label="Currency" value={snapshot?.currency ?? ''} /><NumberInput min={0} decimalScale={2} label="Cash" value={form.cash} onChange={value => setForm({ ...form, cash: value })} /><NumberInput min={0} decimalScale={2} label="Amount invested" value={form.invested} onChange={value => setForm({ ...form, invested: value })} /><NumberInput min={0} decimalScale={2} label="Investments" value={form.portfolio} onChange={value => setForm({ ...form, portfolio: value })} /></SimpleGrid><Group justify="space-between"><Text size="sm" c="dimmed">Corrected total</Text><Text fw={700}>{money(minor(form.cash) + minor(form.portfolio), snapshot?.currency ?? 'EUR')}</Text></Group><Text size="xs" c="dimmed">This replaces the stored per-account breakdown for this currency with the corrected totals.</Text><Group justify="end"><Button onClick={() => void save()}>Save correction</Button></Group></Stack></Modal>;
-}
-
-function WealthChart({ snapshots, currency }: { snapshots: Snapshot[]; currency: string }) {
-  type MetricKey = 'total' | 'cash' | 'portfolio';
-  const [metric, setMetric] = useState<MetricKey>('total');
-  const metrics: Record<MetricKey, { label: string; value: (snapshot: Snapshot) => number }> = { total: { label: 'Total wealth', value: snapshot => snapshot.total_minor }, cash: { label: 'Cash', value: snapshot => snapshot.cash_minor }, portfolio: { label: 'Investments', value: snapshot => snapshot.portfolio_minor } };
-  const selected = metrics[metric]; const values = snapshots.map(selected.value); const geometry = chartGeometry(values); const points = geometry.points.map(point => `${point.x},${point.y}`).join(' '); const first = values[0]; const latest = values.at(-1) ?? 0; const change = latest - first; const changePercent = first > 0 ? change / first * 100 : undefined;
-  const dates = [0, Math.floor((snapshots.length - 1) / 2), snapshots.length - 1].filter((index, position, all) => all.indexOf(index) === position);
-  return <Card className="metric" p="lg" radius="lg"><Group justify="space-between" align="start" mb="sm"><Box><Text fw={700}>{selected.label} over time</Text><Group gap="xs"><Text size="xl" fw={750}>{money(latest, currency)}</Text><Text size="sm" fw={700} c={change >= 0 ? 'teal' : 'red'}>{change >= 0 ? '+' : ''}{money(change, currency)}{changePercent === undefined ? '' : ` · ${change >= 0 ? '+' : ''}${changePercent.toFixed(1)}%`}</Text></Group></Box><SegmentedControl size="xs" value={metric} onChange={value => setMetric(value as MetricKey)} data={[{ value: 'total', label: 'Total' }, { value: 'cash', label: 'Cash' }, { value: 'portfolio', label: 'Investments' }]} /></Group><svg className="wealth-chart" viewBox="0 0 760 260" role="img" aria-label={`${selected.label} history`}>{[0, 1, 2, 3].map(index => { const ratio = index / 3; const y = 24 + ratio * 196; const value = geometry.high - ratio * (geometry.high - geometry.low); return <g key={index}><line x1="74" x2="740" y1={y} y2={y} stroke="currentColor" opacity="0.12" /><text x="66" y={y + 4} textAnchor="end">{new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(value / 100)}</text></g>; })}<defs><linearGradient id="wealth-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--mantine-color-teal-5)" stopOpacity="0.34" /><stop offset="100%" stopColor="var(--mantine-color-teal-5)" stopOpacity="0.02" /></linearGradient></defs><path d={`M ${geometry.points[0].x} 220 L ${points.replaceAll(',', ' ')} L ${geometry.points.at(-1)?.x ?? 740} 220 Z`} fill="url(#wealth-fill)" /><polyline points={points} fill="none" stroke="var(--mantine-color-teal-5)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />{geometry.points.map((point, index) => <circle key={snapshots[index].observed_on} cx={point.x} cy={point.y} r="4" fill="var(--mantine-color-body)" stroke="var(--mantine-color-teal-5)" strokeWidth="3"><title>{`${snapshots[index].observed_on}: ${money(values[index], currency)}`}</title></circle>)}{dates.map(index => <text key={index} x={geometry.points[index].x} y="248" textAnchor={index === 0 ? 'start' : index === snapshots.length - 1 ? 'end' : 'middle'}>{new Date(`${snapshots[index].observed_on}T00:00:00`).toLocaleDateString()}</text>)}</svg></Card>;
+  return <OverviewView data={data} reload={reload} onSwitchTab={onSwitchTab} />;
 }
 
 function Metric({ label, value, positive }: { label: string; value: string; positive?: boolean }) {
@@ -312,7 +204,7 @@ function PerformanceMetric({ value, invested, currency }: { value: number; inves
   return <Card className="metric" p="lg" radius="lg"><Text size="sm" c="dimmed">Investment trend</Text><Group mt={10} align="center"><PerformanceResult value={value} invested={invested} currency={currency} mood /></Group></Card>;
 }
 
-function PerformanceResult({ value, invested, currency, mood = false }: { value: number; invested: number; currency: string; mood?: boolean }) {
+export function PerformanceResult({ value, invested, currency, mood = false }: { value: number; invested: number; currency: string; mood?: boolean }) {
   if (invested <= 0) return <Text size="sm" c="dimmed">—</Text>;
   const change = value - invested; const changePercent = change / invested * 100; const state = performanceMood(changePercent);
   return <Group gap={6} wrap="nowrap" align="center">{mood && <Text title={state.label} size="lg" lh={1}>{state.emoji}</Text>}<Text size="sm" fw={700} c={change >= 0 ? 'teal' : 'red'}>{change >= 0 ? '+' : ''}{money(change, currency)} · {change >= 0 ? '+' : ''}{changePercent.toFixed(1)}%</Text></Group>;
@@ -323,7 +215,7 @@ function ThemeToggle() {
   return <Button variant="default" aria-label={`Use ${scheme === 'dark' ? 'light' : 'dark'} theme`} onClick={() => setColorScheme(scheme === 'dark' ? 'light' : 'dark')}>{scheme === 'dark' ? '☀ Light' : '☾ Dark'}</Button>;
 }
 
-function AllocationBar({ segments, total }: { segments: { label: string; value: number }[]; total: number }) {
+export function AllocationBar({ segments, total }: { segments: { label: string; value: number }[]; total: number }) {
   const visible = segments.filter(segment => segment.value > 0);
   return <><Box h={14} bg="gray.1" mt="sm" style={{ display: 'flex', overflow: 'hidden', borderRadius: 999 }}>{visible.map(segment => <Box key={segment.label} bg={`${chipColor(segment.label)}.5`} style={{ width: `${total > 0 ? segment.value / total * 100 : 0}%` }} />)}</Box><Group gap="xs" mt="sm">{visible.map(segment => <Chip key={segment.label} colorKey={segment.label}>{`${segment.label} ${total > 0 ? (segment.value / total * 100).toFixed(1) : '0.0'}%`}</Chip>)}</Group></>;
 }
@@ -334,83 +226,7 @@ const blankTier = (): TierDraft => ({ upTo: '', kind: 'fixed', rate: 0, referenc
 const blankAccount = (tax = 26): AccountDraft => ({ name: '', institution: '', type: 'bank', preferred: false, archived: false, currency: 'EUR', balance: 0, tax, fee: 0, tiers: [blankTier()] });
 
 function Accounts({ accounts, rates, taxRates, reload }: { accounts: Account[]; rates: ReferenceRate[]; taxRates: TaxRate[]; reload: () => Promise<void> }) {
-  const [opened, setOpened] = useState(false);
-  const [editing, setEditing] = useState<Account>();
-  const [error, setError] = useState('');
-  const table = useBackendRows('/api/accounts', accounts, 'total', 'desc');
-  const open = (account?: Account) => { setEditing(account); setOpened(true); };
-  const remove = async (account: Account) => { if (confirmDelete('account', account.name, 'Its current holdings will also be removed. Saved snapshots stay intact.')) { await api(`/api/accounts/${account.id}`, { method: 'DELETE' }); await reload(); } };
-  const toggleArchived = async (account: Account) => { try { await api(`/api/accounts/${account.id}`, { method: 'PUT', body: JSON.stringify({ ...account, archived: !account.archived }) }); setError(''); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } };
-  const columns: DataColumn<Account>[] = [
-    { key: 'name', label: 'Account', sortable: true, render: account => <Stack gap={4}><Group gap={6} wrap="nowrap"><Text fw={650}>{account.name}</Text>{account.preferred && <Chip size="xs">Default</Chip>}{account.archived && <Chip size="xs" colorKey="Archived">Archived</Chip>}</Group><Group gap={5}><Chip size="xs">{account.type}</Chip>{account.institution && <Text size="xs" c="dimmed">{account.institution}</Text>}</Group></Stack> },
-    { key: 'total', label: 'Assets', sortable: true, render: account => <AccountAssets account={account} /> },
-    { key: 'per_year', label: 'Projected interest', sortable: true, render: account => <Group gap="lg" wrap="nowrap">{[['Day', 365], ['Month', 12], ['Year', 1]].map(([label, divisor]) => <Box key={label} miw={94}><Text size="xs" c="dimmed" fw={650} mb={3}>{label}</Text><RevenuePeriod account={account} divisor={Number(divisor)} /></Box>)}</Group> },
-    { key: 'rates', label: 'Rates', render: account => <Stack gap={5}><Group gap={5}>{(account.tiers ?? []).map((tier, index) => <Chip key={index} colorKey="Rate">{percent(tier.resolved_rate_bps ?? 0)}</Chip>)}</Group><Group><Chip colorKey="Tax">{`Tax ${percent(account.tax_bps)}`}</Chip></Group></Stack> },
-    { key: 'actions', render: account => <TableActions><TableAction label={account.archived ? `Restore ${account.name}` : `Archive ${account.name}`} onClick={() => void toggleArchived(account)}>{account.archived ? '↺' : '⏸'}</TableAction><TableAction label={`Edit ${account.name}`} onClick={() => open(account)}>✎</TableAction><TableAction label={`Delete ${account.name}`} color="red" onClick={() => void remove(account)}>×</TableAction></TableActions> },
-  ];
-  return <Stack gap="lg">
-    <Group justify="space-between"><Box><Title order={2}>Accounts</Title><Text c="dimmed">Marginal rate tiers, taxes, and recurring annual fees.</Text></Box><Button onClick={() => open()}>Add account</Button></Group>
-    {(error || table.sortError) && <Alert color="red">{error || table.sortError}</Alert>}
-    {accounts.length === 0 ? <Empty title="No accounts" text="Add the places where you hold cash." /> : <DataTable rows={table.rows} columns={columns} rowKey={account => account.id} minWidth={960} sort={table.sort} direction={table.direction} onSort={(key, direction) => void table.sortRows(key, direction)} rowStyle={account => account.archived ? { opacity: 0.48 } : undefined} />}
-    <AccountModal key={editing?.id ?? 'new'} opened={opened} close={() => setOpened(false)} account={editing} rates={rates} taxRates={taxRates} saved={async () => { setOpened(false); await reload(); }} />
-  </Stack>;
-}
-
-function AccountAssets({ account }: { account: Account }) {
-  return <Stack gap={3} miw={165}>
-    <Group justify="space-between" gap="md" wrap="nowrap"><Text size="xs" c="dimmed">Cash</Text><Text size="sm">{money(account.balance_minor, account.currency)}</Text></Group>
-    <Group justify="space-between" gap="md" wrap="nowrap"><Text size="xs" c="dimmed">Investments{account.holding_count ? ` (${account.holding_count})` : ''}</Text><Text size="sm" c={account.holding_count ? undefined : 'dimmed'}>{account.holding_count ? money(account.holdings_value_minor, account.currency) : '—'}</Text></Group>
-    <Group justify="space-between" gap="md" wrap="nowrap"><Text size="xs" fw={700}>Total</Text><Text size="sm" fw={700}>{money(account.total_assets_minor, account.currency)}</Text></Group>
-  </Stack>;
-}
-
-function RevenuePeriod({ account, divisor }: { account: Account; divisor: number }) {
-  const gross = account.gross_revenue_minor / divisor;
-  const net = account.net_revenue_minor / divisor;
-  if (Math.abs(gross) < 0.5 && Math.abs(net) < 0.5) return <Text c="dimmed" opacity={0.55}>—</Text>;
-  return <Stack gap={1}><Text size="xs" c="dimmed">Gross {money(gross, account.currency)}</Text><Text size="sm" fw={650} className="positive">Net {money(net, account.currency)}</Text></Stack>;
-}
-
-function AccountModal({ opened, close, account, rates, taxRates, saved }: { opened: boolean; close: () => void; account?: Account; rates: ReferenceRate[]; taxRates: TaxRate[]; saved: () => Promise<void> }) {
-  const [form, setForm] = useState<AccountDraft>(() => account ? {
-    name: account.name, institution: account.institution, type: account.type ?? 'other', preferred: account.preferred, archived: account.archived, currency: account.currency, balance: account.balance_minor / 100,
-    tax: account.tax_bps / 100, fee: account.annual_fee_minor / 100,
-    tiers: (account.tiers ?? []).map(tier => ({ upTo: tier.up_to_minor === null ? '' : tier.up_to_minor / 100, kind: tier.fixed_rate_bps === null ? 'reference' : 'fixed', rate: (tier.fixed_rate_bps ?? 0) / 100, reference: tier.reference_code ?? '', spread: tier.spread_bps / 100 })),
-  } : blankAccount((taxRates[0]?.rate_bps ?? 2600) / 100));
-  const [error, setError] = useState('');
-  const tier = (index: number, patch: Partial<TierDraft>) => setForm(current => ({ ...current, tiers: current.tiers.map((item, i) => i === index ? { ...item, ...patch } : item) }));
-  const save = async () => {
-    try {
-      const body = {
-        name: form.name, institution: form.institution, type: form.type, preferred: form.preferred, archived: form.archived, currency: form.currency.toUpperCase(), balance_minor: minor(form.balance), tax_bps: bps(form.tax), annual_fee_minor: minor(form.fee),
-        tiers: form.tiers.map(item => ({ up_to_minor: item.upTo === '' ? null : minor(item.upTo), fixed_rate_bps: item.kind === 'fixed' ? bps(item.rate) : null, reference_code: item.kind === 'reference' ? item.reference : '', spread_bps: item.kind === 'reference' ? bps(item.spread) : 0 })),
-      };
-      await api(account ? `/api/accounts/${account.id}` : '/api/accounts', { method: account ? 'PUT' : 'POST', body: JSON.stringify(body) });
-      await saved();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
-  };
-  return <Modal opened={opened} onClose={close} title={account ? 'Edit account' : 'Add account'} size="lg">
-    <Stack>{error && <Alert color="red">{error}</Alert>}<SimpleGrid cols={{ base: 1, sm: 2 }}>
-      <TextInput required label="Name" value={form.name} onChange={e => setForm({ ...form, name: e.currentTarget.value })} />
-      <TextInput label="Institution" value={form.institution} onChange={e => setForm({ ...form, institution: e.currentTarget.value })} />
-      <Select label="Account type" value={form.type} data={[{ value: 'bank', label: 'Bank' }, { value: 'broker', label: 'Broker' }, { value: 'other', label: 'Other' }]} onChange={value => setForm({ ...form, type: (value ?? 'other') as Account['type'] })} />
-      <TextInput required maxLength={3} label="Currency" value={form.currency} onChange={e => setForm({ ...form, currency: e.currentTarget.value })} />
-      <NumberInput label="Current cash balance" min={0} decimalScale={2} value={form.balance} onChange={value => setForm({ ...form, balance: value })} />
-      <Select label="Tax preset" placeholder="Choose a configured rate" data={taxRates.map(item => ({ value: String(item.rate_bps), label: `${item.label} (${percent(item.rate_bps)})` }))} onChange={value => value && setForm({ ...form, tax: Number(value) / 100 })} />
-      <NumberInput label="Tax on interest (%)" min={0} max={100} decimalScale={2} value={form.tax} onChange={value => setForm({ ...form, tax: value })} />
-      <NumberInput label="Annual account fee" min={0} decimalScale={2} value={form.fee} onChange={value => setForm({ ...form, fee: value })} />
-      <Checkbox label="Preferred account for new holdings" checked={form.preferred} disabled={form.archived} onChange={event => setForm({ ...form, preferred: event.currentTarget.checked })} />
-      <Checkbox label="Archived account" checked={form.archived} onChange={event => setForm({ ...form, archived: event.currentTarget.checked, preferred: event.currentTarget.checked ? false : form.preferred })} />
-    </SimpleGrid><Divider label="Interest tiers" />
-      {form.tiers.map((item, index) => <Card key={index} withBorder padding="sm"><Grid align="end">
-        <Grid.Col span={{ base: 12, sm: 3 }}><NumberInput label="Up to" placeholder="No limit" min={0} value={item.upTo} onChange={value => tier(index, { upTo: value })} /></Grid.Col>
-        <Grid.Col span={{ base: 12, sm: 3 }}><Select label="Rate type" value={item.kind} data={[{ value: 'fixed', label: 'Fixed' }, { value: 'reference', label: 'Reference' }]} onChange={value => tier(index, { kind: (value ?? 'fixed') as TierDraft['kind'] })} /></Grid.Col>
-        <Grid.Col span={{ base: 10, sm: 5 }}>{item.kind === 'fixed' ? <NumberInput label="Annual rate (%)" decimalScale={2} value={item.rate} onChange={value => tier(index, { rate: value })} /> : <Group grow align="end"><Select label="Reference" value={item.reference} data={rates.map(rate => ({ value: rate.code, label: `${rate.label} (${percent(rate.rate_bps)})` }))} onChange={value => tier(index, { reference: value ?? '' })} /><NumberInput label="Spread (%)" decimalScale={2} value={item.spread} onChange={value => tier(index, { spread: value })} /></Group>}</Grid.Col>
-        <Grid.Col span={{ base: 2, sm: 1 }}><Tooltip label="Remove tier"><ActionIcon color="red" variant="subtle" aria-label="Remove tier" onClick={() => setForm(current => ({ ...current, tiers: current.tiers.filter((_, i) => i !== index) }))}>×</ActionIcon></Tooltip></Grid.Col>
-      </Grid></Card>)}
-      <Group justify="space-between"><Button variant="light" onClick={() => setForm(current => ({ ...current, tiers: [...current.tiers, blankTier()] }))}>Add tier</Button><Button onClick={() => void save()}>Save account</Button></Group>
-    </Stack>
-  </Modal>;
+  return <AccountsView accounts={accounts} rates={rates} taxRates={taxRates} reload={reload} />;
 }
 
 type HoldingDraft = { accountID: string; instrumentID: string; value: Numeric; sinceBuy: Numeric; planned: Numeric; tax: Numeric };
