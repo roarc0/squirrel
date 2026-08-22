@@ -111,10 +111,67 @@ export function AIAdvisorView({
 
   const presets = [
     'How can I lower my portfolio TER fees without changing my risk level?',
+    'Search the catalog for cheap MSCI World ETFs with TER under 0.15%.',
     'Analyze my asset allocation drift and tell me what to rebalance next with €2,000.',
     'What are the biggest risks or overlap vulnerabilities in my current holdings?',
-    'How tax-efficient is my current distribution & account setup?',
   ];
+
+  const tools = [
+    {
+      type: 'function',
+      function: {
+        name: 'search_etf_catalog',
+        description: 'Search the 4,000+ ETF catalog by keyword, ISIN, index, or provider.',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Search term e.g. MSCI World, S&P 500, Gold, IE00B4L5Y983' },
+            max_ter_bps: { type: 'number', description: 'Maximum TER in basis points e.g. 20 for 0.20%' },
+          },
+          required: ['query'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_portfolio_diagnostics',
+        description: 'Retrieve active portfolio warnings and diagnostics.',
+        parameters: { type: 'object', properties: {} },
+      },
+    },
+  ];
+
+  const executeToolCall = (name: string, args: any) => {
+    if (name === 'search_etf_catalog') {
+      const q = String(args.query || '').toLowerCase();
+      const maxTer = args.max_ter_bps ? Number(args.max_ter_bps) : 10000;
+      const matches = instruments
+        .filter(i => {
+          const matchesQuery = i.name.toLowerCase().includes(q) ||
+            i.isin.toLowerCase().includes(q) ||
+            (i.ticker ?? '').toLowerCase().includes(q) ||
+            (i.provider ?? '').toLowerCase().includes(q) ||
+            (i.index_name ?? '').toLowerCase().includes(q);
+          return matchesQuery && (i.ter_bps ?? 0) <= maxTer;
+        })
+        .slice(0, 6)
+        .map(i => ({
+          isin: i.isin,
+          name: i.name,
+          ter: percent(i.ter_bps),
+          provider: i.provider,
+          index: i.index_name,
+          size: `${i.fund_size_million}m`,
+          distribution: i.distribution,
+        }));
+      return JSON.stringify(matches);
+    }
+    if (name === 'get_portfolio_diagnostics') {
+      return JSON.stringify(summary.diagnostics ?? []);
+    }
+    return JSON.stringify({ status: 'unknown tool' });
+  };
 
   const askAI = async (queryText = prompt) => {
     if (!queryText.trim()) return;
@@ -123,7 +180,7 @@ export function AIAdvisorView({
     setAdvice('');
 
     try {
-      const systemPrompt = `You are an expert, local-first financial portfolio AI advisor for LOOT. Analyze the user's anonymized portfolio context and answer their prompt concisely with actionable, structured bullet points. Never give legal or binding tax advice. Keep explanations simple, practical, and clear.`;
+      const systemPrompt = `You are an expert, local-first financial portfolio AI advisor for LOOT. Analyze the user's anonymized portfolio context and answer their prompt concisely with actionable, structured bullet points. You can search the 4,000+ ETF catalog using your search_etf_catalog tool. Never give legal or binding tax advice. Keep explanations simple, practical, and clear.`;
 
       const userContent = `Portfolio Context:\n\`\`\`json\n${contextJSON}\n\`\`\`\n\nUser Question: ${queryText}`;
 
@@ -134,15 +191,18 @@ export function AIAdvisorView({
         headers['Authorization'] = `Bearer ${settings.apiKey}`;
       }
 
+      const initialMessages: any[] = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent },
+      ];
+
       const res = await fetch(`${settings.endpoint.replace(/\/$/, '')}/chat/completions`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
           model: settings.model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userContent },
-          ],
+          messages: initialMessages,
+          tools,
           temperature: 0.3,
         }),
       });
@@ -153,13 +213,47 @@ export function AIAdvisorView({
       }
 
       const data = await res.json();
-      const answer = data.choices?.[0]?.message?.content || 'No response generated.';
+      const choice = data.choices?.[0];
+
+      if (choice?.finish_reason === 'tool_calls' || choice?.message?.tool_calls?.length > 0) {
+        const toolCalls = choice.message.tool_calls;
+        const conversationMessages = [...initialMessages, choice.message];
+
+        for (const tc of toolCalls) {
+          let parsedArgs = {};
+          try { parsedArgs = JSON.parse(tc.function.arguments); } catch { /* optional */ }
+          const toolResult = executeToolCall(tc.function.name, parsedArgs);
+          conversationMessages.push({
+            role: 'tool',
+            tool_call_id: tc.id,
+            content: toolResult,
+          });
+        }
+
+        const secondRes = await fetch(`${settings.endpoint.replace(/\/$/, '')}/chat/completions`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model: settings.model,
+            messages: conversationMessages,
+            temperature: 0.3,
+          }),
+        });
+
+        if (secondRes.ok) {
+          const secondData = await secondRes.json();
+          setAdvice(secondData.choices?.[0]?.message?.content || 'No response generated.');
+          return;
+        }
+      }
+
+      const answer = choice?.message?.content || 'No response generated.';
       setAdvice(answer);
     } catch (cause) {
       setError(
         cause instanceof Error
           ? cause.message
-          : 'Failed to reach AI provider. Please check your AI settings endpoint (e.g. Ollama http://localhost:11434/v1 or OpenAI key).'
+          : 'Failed to reach AI provider. Please check your AI settings endpoint (e.g. Local OpenAI http://localhost:8080/v1 or Ollama http://localhost:11434/v1).'
       );
     } finally {
       setLoading(false);

@@ -20,6 +20,10 @@ type Config struct {
 	LogLevel              string              `yaml:"log_level"`
 	JustETFEnrichInterval time.Duration       `yaml:"justetf_enrich_interval"`
 	TaxRates              []portfolio.TaxRate `yaml:"tax_rates"`
+	AIProvider            string              `yaml:"ai_provider"`
+	AIEndpoint            string              `yaml:"ai_endpoint"`
+	AIModel               string              `yaml:"ai_model"`
+	AIAPIKey              string              `yaml:"ai_api_key"`
 }
 
 func Load(path string) (Config, error) {
@@ -33,6 +37,10 @@ func Load(path string) (Config, error) {
 			{Code: "IT_ORDINARY", Label: "Italy · ordinary financial income", RateBPS: 2600},
 			{Code: "IT_GOVERNMENT_BOND", Label: "Italy · government/white-list bonds", RateBPS: 1250},
 		},
+		AIProvider: "local",
+		AIEndpoint: "http://127.0.0.1:8080/v1",
+		AIModel:    "qwen2.5-3b-instruct",
+		AIAPIKey:   "",
 	}
 	if path != "" {
 		f, err := os.Open(path)
