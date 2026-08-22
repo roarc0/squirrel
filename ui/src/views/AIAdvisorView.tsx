@@ -22,16 +22,16 @@ import type { Account, Holding, Instrument, Summary } from '../api';
 import { money, percent } from '../utils/format';
 
 type AISettings = {
-  provider: 'ollama' | 'openai' | 'custom';
+  provider: 'local' | 'ollama' | 'openai' | 'custom';
   endpoint: string;
   model: string;
   apiKey: string;
 };
 
 const defaultSettings: AISettings = {
-  provider: 'ollama',
-  endpoint: 'http://localhost:11434/v1',
-  model: 'llama3.2',
+  provider: 'local',
+  endpoint: 'http://localhost:8080/v1',
+  model: 'qwen2.5-3b-instruct',
   apiKey: '',
 };
 
@@ -313,9 +313,12 @@ function AISettingsModal({
   const [apiKey, setApiKey] = useState(settings.apiKey);
 
   const handleProviderChange = (val: string | null) => {
-    const next = (val as AISettings['provider']) || 'ollama';
+    const next = (val as AISettings['provider']) || 'local';
     setProvider(next);
-    if (next === 'ollama') {
+    if (next === 'local') {
+      setEndpoint('http://localhost:8080/v1');
+      setModel('qwen2.5-3b-instruct');
+    } else if (next === 'ollama') {
       setEndpoint('http://localhost:11434/v1');
       setModel('llama3.2');
     } else if (next === 'openai') {
@@ -331,7 +334,8 @@ function AISettingsModal({
           label="AI Provider"
           value={provider}
           data={[
-            { value: 'ollama', label: 'Local Ollama (Offline / Privacy First)' },
+            { value: 'local', label: 'Local OpenAI Server (Metal GPU @ http://localhost:8080/v1)' },
+            { value: 'ollama', label: 'Local Ollama (http://localhost:11434/v1)' },
             { value: 'openai', label: 'OpenAI API' },
             { value: 'custom', label: 'Custom OpenAI-Compatible API Endpoint' },
           ]}
@@ -340,7 +344,7 @@ function AISettingsModal({
 
         <TextInput
           label="API Endpoint URL"
-          placeholder="http://localhost:11434/v1"
+          placeholder="http://localhost:8080/v1"
           value={endpoint}
           onChange={e => setEndpoint(e.currentTarget.value)}
         />
