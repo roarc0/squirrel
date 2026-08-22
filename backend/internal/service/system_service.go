@@ -274,6 +274,10 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 
 	systemPrompt := `You are an expert, local-first financial portfolio AI assistant for LOOT. You have full Model Context Protocol (MCP) access to backend Proto API tools (/mcp). Use tools like search_instruments, rank_instruments, get_summary, list_holdings, list_accounts, list_snapshots, and get_diagnostics to answer questions accurately. Never give legal or binding tax advice. Keep explanations simple, practical, and clear.`
 
+	if msg.PortfolioContextJson != "" {
+		systemPrompt += fmt.Sprintf("\n\nReal-time Live Portfolio State:\n```json\n%s\n```", msg.PortfolioContextJson)
+	}
+
 	var conversation []map[string]interface{}
 	conversation = append(conversation, map[string]interface{}{
 		"role":    "system",
@@ -281,18 +285,16 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 	})
 
 	for _, m := range msg.Messages {
+		if m.Role != "user" && m.Role != "assistant" {
+			continue
+		}
+		if strings.TrimSpace(m.Content) == "" {
+			continue
+		}
 		conversation = append(conversation, map[string]interface{}{
 			"role":    m.Role,
 			"content": m.Content,
 		})
-	}
-
-	if msg.PortfolioContextJson != "" {
-		lastIdx := len(conversation) - 1
-		if lastIdx >= 0 && conversation[lastIdx]["role"] == "user" {
-			existing, _ := conversation[lastIdx]["content"].(string)
-			conversation[lastIdx]["content"] = fmt.Sprintf("Portfolio Summary Context:\n```json\n%s\n```\n\nUser Question: %s", msg.PortfolioContextJson, existing)
-		}
 	}
 
 	contextSize := req.Msg.ContextSize
