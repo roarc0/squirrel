@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { IconExternalLink, IconArrowsExchange, IconRefresh, IconPencil, IconTrash, IconStar, IconStarFilled } from '@tabler/icons-react';
 import {
   ActionIcon,
   Alert,
@@ -37,6 +38,7 @@ import { CompareModal } from './CompareModal';
 import { InvestModal } from './InvestModal';
 import { SettingsModal } from './SettingsModal';
 import { UpdateSituationModal } from './UpdateSituationModal';
+import { DiagnosticsView } from './views/DiagnosticsView';
 import { chartGeometry, matchesExactFilters, pageBounds, performanceMood } from './visual';
 
 type Data = { summary: Summary; accounts: Account[]; rates: ReferenceRate[]; taxRates: TaxRate[]; instruments: Instrument[]; holdings: Holding[]; snapshots: Snapshot[] };
@@ -51,7 +53,7 @@ const money = (value: number | undefined, currency: string) =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 }).format(value / 100));
 const investedMoney = (invested: number, current: number, currency: string) => invested > 0 || current === 0 ? money(invested, currency) : '—';
 const instrumentLabels: Record<InstrumentType, string> = { etf: 'ETF', etc: 'ETC', etn: 'ETN', fund: 'Fund', stock: 'Stock', bond: 'Bond', crypto: 'Crypto', commodity: 'Commodity', real_estate: 'Real estate', other: 'Other' };
-const label = (value: string) => value.replaceAll('_', ' ').replace(/^./, character => character.toUpperCase());
+export const label = (value: string) => value.replaceAll('_', ' ').replace(/^./, character => character.toUpperCase());
 const confirmDelete = (kind: string, name: string, consequence = '') => window.confirm(`Delete ${kind} “${name}”?${consequence ? `\n\n${consequence}` : ''}\n\nThis cannot be undone.`);
 
 function useBackendRows<T>(endpoint: string, source: T[], initialSort = '', initialDirection: SortDirection = 'asc') {
@@ -175,75 +177,12 @@ function DiagnosticsTab({
   onOpenSettings: () => void;
   onOpenInvest: () => void;
 }) {
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const categories = ['all', 'cash', 'drift', 'cost', 'overlap', 'stale'];
-  const filtered = selectedCategory === 'all'
-    ? diagnostics
-    : diagnostics.filter(d => d.category === selectedCategory);
-
   return (
-    <Stack gap="lg">
-      <Group justify="space-between" align="start">
-        <Box>
-          <Title order={2}>Portfolio Diagnostics</Title>
-          <Text c="dimmed">Deterministic rule-based observations to keep your portfolio optimized.</Text>
-        </Box>
-        <Group gap="xs">
-          {categories.map(cat => {
-            const count = cat === 'all' ? diagnostics.length : diagnostics.filter(d => d.category === cat).length;
-            if (cat !== 'all' && count === 0) return null;
-            return (
-              <Button
-                key={cat}
-                size="xs"
-                variant={selectedCategory === cat ? 'filled' : 'light'}
-                color={selectedCategory === cat ? 'teal' : 'gray'}
-                onClick={() => setSelectedCategory(cat)}
-              >
-                {label(cat)} ({count})
-              </Button>
-            );
-          })}
-        </Group>
-      </Group>
-
-      {diagnostics.length === 0 ? (
-        <Empty
-          title="All systems optimal"
-          text="No diagnostic warnings or allocation issues detected across your portfolio."
-        />
-      ) : (
-        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-          {filtered.map(diag => (
-            <Card key={diag.id} withBorder radius="lg" p="lg" shadow="xs">
-              <Group justify="space-between" align="start" mb="xs">
-                <Badge
-                  color={diag.severity === 'warning' ? 'orange' : diag.severity === 'alert' ? 'red' : 'blue'}
-                  variant="light"
-                  size="sm"
-                >
-                  {diag.category.toUpperCase()} · {diag.severity}
-                </Badge>
-              </Group>
-              <Text fw={700} size="md" mb={4}>{diag.title}</Text>
-              <Text size="sm" c="dimmed" mb="md">{diag.message}</Text>
-              <Group justify="end">
-                {diag.category === 'cash' && (
-                  <Button size="xs" variant="light" color="teal" onClick={onOpenSettings}>
-                    Configure Emergency Reserve
-                  </Button>
-                )}
-                {diag.category === 'drift' && (
-                  <Button size="xs" variant="light" color="teal" onClick={onOpenInvest}>
-                    Rebalance Portfolio
-                  </Button>
-                )}
-              </Group>
-            </Card>
-          ))}
-        </SimpleGrid>
-      )}
-    </Stack>
+    <DiagnosticsView
+      diagnostics={diagnostics}
+      onOpenSettings={onOpenSettings}
+      onOpenInvest={onOpenInvest}
+    />
   );
 }
 
@@ -710,7 +649,7 @@ function InstrumentFinder({ instruments, reload }: { instruments: Instrument[]; 
         />
       ),
     },
-    { key: 'starred', sortable: true, render: item => <TableAction label={item.instrument.starred ? `Unstar ${item.instrument.isin}` : `Star ${item.instrument.isin}`} color="yellow" variant={item.instrument.starred ? 'light' : 'subtle'} onClick={() => void star(item.instrument)}>{item.instrument.starred ? '★' : '☆'}</TableAction> },
+    { key: 'starred', sortable: true, render: item => <TableAction label={item.instrument.starred ? `Unstar ${item.instrument.isin}` : `Star ${item.instrument.isin}`} color="yellow" variant={item.instrument.starred ? 'light' : 'subtle'} onClick={() => void star(item.instrument)}>{item.instrument.starred ? <IconStarFilled size={14} /> : <IconStar size={14} />}</TableAction> },
     ...(ranked.length > 0 ? [{ key: 'score', label: 'Score', sortable: true, render: (item: CatalogRow) => <Tooltip label={`Cost ${(item.cost * 100).toFixed(0)} · tracking diff ${(item.tracking_difference * 100).toFixed(0)} · tracking error ${(item.tracking_error * 100).toFixed(0)} · size ${(item.size * 100).toFixed(0)} · age ${(item.age * 100).toFixed(0)}`}><Chip size="lg" variant="filled" colorKey="Score">{item.total.toFixed(1)}</Chip></Tooltip> }] : []),
     ...(similarity ? [{ key: 'similarity', label: 'Similarity', sortable: true, render: (item: CatalogRow) => item.similarity ? <Stack gap={4}><Group gap={4}>{item.similarity.better && <Chip size="xs">Strictly better</Chip>}<Chip size="xs">{item.similarity.match === 'exact_index' ? 'Same index' : 'Same exposure'}</Chip></Group><Text size="xs" c="dimmed">{item.similarity.reasons.join(' · ')}</Text></Stack> : '—' }] : []),
     { key: 'name', label: 'Instrument', sortable: true, render: item => <><Text fw={650}>{item.instrument.name}</Text><Chip size="xs" mt={3}>{productLabel(item.instrument)}</Chip></> },
@@ -729,7 +668,7 @@ function InstrumentFinder({ instruments, reload }: { instruments: Instrument[]; 
     ...(show('inception') ? [{ key: 'inception', label: 'Inception', sortable: true, render: (item: RankedInstrument) => item.instrument.inception_date || '—' }] : []),
     ...(show('tracking') ? [{ key: 'tracking', label: 'Tracking', sortable: true, render: (item: RankedInstrument) => item.instrument.tracking_difference_bps === null && item.instrument.tracking_error_bps === null ? <Text c="dimmed">—</Text> : <Stack gap={1}><Text size="sm">Diff {item.instrument.tracking_difference_bps === null ? '—' : percent(item.instrument.tracking_difference_bps)}</Text><Text size="xs" c="dimmed">Error {item.instrument.tracking_error_bps === null ? '—' : percent(item.instrument.tracking_error_bps)}</Text></Stack> }] : []),
     ...(show('enriched') ? [{ key: 'enriched', label: 'Last refreshed', sortable: true, render: (item: RankedInstrument) => <Text size="sm" c={item.instrument.enriched_at ? undefined : 'dimmed'}>{item.instrument.enriched_at ? new Date(item.instrument.enriched_at).toLocaleString() : '—'}</Text> }] : []),
-    { key: 'actions', render: item => <TableActions><TableAction label={`Open ${item.instrument.isin} on justETF`} href={item.instrument.source_url} disabled={!item.instrument.source_url}>↗</TableAction><TableAction label={item.instrument.ucits && item.instrument.instrument_type === 'etf' ? `Find alternatives for ${item.instrument.isin}` : 'Alternatives are limited to comparable UCITS ETFs'} disabled={item.instrument.instrument_type !== 'etf' || item.instrument.data_status !== 'enriched' || !item.instrument.ucits || item.instrument.asset_class === 'other'} onClick={() => showAlternatives(item.instrument)}>≈</TableAction><TableAction label={`Refresh ${item.instrument.isin}`} disabled={lookingUp} onClick={() => void lookup(item.instrument.isin)}>↻</TableAction><TableAction label={`Edit ${item.instrument.isin}`} onClick={() => open(item.instrument)}>✎</TableAction><TableAction label={`Delete ${item.instrument.isin}`} color="red" onClick={() => void remove(item.instrument)}>×</TableAction></TableActions> },
+    { key: 'actions', render: item => <TableActions><TableAction label={`Open ${item.instrument.isin} on justETF`} href={item.instrument.source_url} disabled={!item.instrument.source_url}><IconExternalLink size={14} /></TableAction><TableAction label={item.instrument.ucits && item.instrument.instrument_type === 'etf' ? `Find alternatives for ${item.instrument.isin}` : 'Alternatives are limited to comparable UCITS ETFs'} disabled={item.instrument.instrument_type !== 'etf' || item.instrument.data_status !== 'enriched' || !item.instrument.ucits || item.instrument.asset_class === 'other'} onClick={() => showAlternatives(item.instrument)}><IconArrowsExchange size={14} /></TableAction><TableAction label={`Refresh ${item.instrument.isin}`} disabled={lookingUp} onClick={() => void lookup(item.instrument.isin)}><IconRefresh size={14} /></TableAction><TableAction label={`Edit ${item.instrument.isin}`} onClick={() => open(item.instrument)}><IconPencil size={14} /></TableAction><TableAction label={`Delete ${item.instrument.isin}`} color="red" onClick={() => void remove(item.instrument)}><IconTrash size={14} /></TableAction></TableActions> },
   ];
   useEffect(() => { try { localStorage.setItem('loot.instrumentColumns.v2', JSON.stringify(visibleColumns)); } catch { /* preference persistence is optional */ } }, [visibleColumns]);
   useEffect(() => () => streamController?.abort(), [streamController]);
@@ -871,6 +810,6 @@ function InstrumentModal({ opened, close, instrument, saved }: { opened: boolean
   </SimpleGrid><Text size="xs" c="dimmed">Instrument type describes the legal wrapper; asset class describes what it invests in. The ISIN is the stable key.</Text><Group justify="end"><Button onClick={() => void save()}>Save instrument</Button></Group></Stack></Modal>;
 }
 
-function Empty({ title, text }: { title: string; text: string }) {
-  return <Paper className="metric" p="xl" radius="lg" ta="center"><Title order={3}>{title}</Title><Text c="dimmed" mt={6}>{text}</Text></Paper>;
+export function Empty({ title, text }: { title: string; text: string }) {
+  return <Card className="metric" p="xl" radius="lg"><Text fw={700}>{title}</Text><Text size="sm" c="dimmed" mt={4}>{text}</Text></Card>;
 }
