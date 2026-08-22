@@ -71,6 +71,7 @@ func accountToProto(a portfolio.Account) *portv1.Account {
 		HoldingCount:       a.HoldingCount,
 		HoldingsValueMinor: a.HoldingsValueMinor,
 		TotalAssetsMinor:   a.TotalAssetsMinor,
+		PacAmountMinor:     a.PACAmountMinor,
 	}
 }
 
@@ -100,5 +101,6 @@ func accountFromProto(p *portv1.Account) portfolio.Account {
 		HoldingCount:       p.HoldingCount,
 		HoldingsValueMinor: p.HoldingsValueMinor,
 		TotalAssetsMinor:   p.TotalAssetsMinor,
+		PACAmountMinor:     p.PacAmountMinor,
 	}
 }

@@ -142,3 +142,44 @@ func TestMigratesLegacyDatabase(t *testing.T) {
 		t.Fatalf("migration version=%d err=%v", version, errVersion)
 	}
 }
+
+func TestPACAllocationPercentageConstraint(t *testing.T) {
+	s, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	ctx := context.Background()
+
+	acc := portfolio.Account{Name: "Trade Republic", Currency: "EUR", PACAmountMinor: 30000}
+	if err := s.SaveAccount(ctx, &acc); err != nil {
+		t.Fatal(err)
+	}
+
+	inst1 := portfolio.Instrument{ISIN: "US0378331005", Name: "MSCI World", FundCurrency: "EUR", Distribution: "accumulating", Replication: "physical_full"}
+	if err := s.SaveInstrument(ctx, &inst1); err != nil {
+		t.Fatal(err)
+	}
+	inst2 := portfolio.Instrument{ISIN: "DE0005933931", Name: "MSCI EM", FundCurrency: "EUR", Distribution: "accumulating", Replication: "physical_full"}
+	if err := s.SaveInstrument(ctx, &inst2); err != nil {
+		t.Fatal(err)
+	}
+
+	// Save 60% PAC share on World
+	h1 := portfolio.Holding{AccountID: acc.ID, InstrumentID: inst1.ID, IsPAC: true, PACBPS: 6000}
+	if err := s.SaveHolding(ctx, &h1); err != nil {
+		t.Fatalf("expected 60%% PAC to succeed, got: %v", err)
+	}
+
+	// Try saving 50% PAC share on EM (Total would be 110% > 100%)
+	h2 := portfolio.Holding{AccountID: acc.ID, InstrumentID: inst2.ID, IsPAC: true, PACBPS: 5000}
+	if err := s.SaveHolding(ctx, &h2); err == nil {
+		t.Fatal("expected error when total PAC allocation exceeds 100%, but got nil")
+	}
+
+	// Save 40% PAC share on EM (Total is exactly 100%)
+	h2.PACBPS = 4000
+	if err := s.SaveHolding(ctx, &h2); err != nil {
+		t.Fatalf("expected 40%% PAC (total 100%%) to succeed, got: %v", err)
+	}
+}

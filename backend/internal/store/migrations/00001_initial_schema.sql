@@ -18,6 +18,7 @@ CREATE TABLE accounts (
     balance_minor INTEGER NOT NULL CHECK (balance_minor >= 0),
     tax_bps INTEGER NOT NULL DEFAULT 0 CHECK (tax_bps BETWEEN 0 AND 10000),
     annual_fee_minor INTEGER NOT NULL DEFAULT 0 CHECK (annual_fee_minor >= 0),
+    pac_amount_minor INTEGER NOT NULL DEFAULT 0 CHECK (pac_amount_minor >= 0),
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -82,7 +83,7 @@ CREATE TABLE holdings (
     tax_bps INTEGER NOT NULL DEFAULT 2600 CHECK (tax_bps BETWEEN 0 AND 10000),
     planned_bps INTEGER NOT NULL DEFAULT 0 CHECK (planned_bps BETWEEN 0 AND 10000),
     is_pac INTEGER NOT NULL DEFAULT 0,
-    pac_amount_minor INTEGER NOT NULL DEFAULT 0,
+    pac_bps INTEGER NOT NULL DEFAULT 0 CHECK (pac_bps BETWEEN 0 AND 10000),
     pac_frequency TEXT NOT NULL DEFAULT 'monthly',
     updated_at TEXT NOT NULL,
     UNIQUE (account_id, instrument_id)

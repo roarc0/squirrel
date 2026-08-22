@@ -20,7 +20,7 @@ type Holding struct {
 	ActualBPS        int64  `json:"actual_bps"`
 	TERBPS           int64  `json:"ter_bps,omitempty"`
 	IsPAC            bool   `json:"is_pac"`
-	PACAmountMinor   int64  `json:"pac_amount_minor"`
+	PACBPS           int64  `json:"pac_bps"`
 	PACFrequency     string `json:"pac_frequency"`
 }
 
@@ -36,6 +36,9 @@ func ValidateHolding(holding Holding) error {
 	}
 	if holding.PlannedBPS < 0 || holding.PlannedBPS > 10_000 {
 		return errors.New("planned allocation must be between 0% and 100%")
+	}
+	if holding.PACBPS < 0 || holding.PACBPS > 10_000 {
+		return errors.New("PAC allocation percentage must be between 0% and 100%")
 	}
 	return nil
 }

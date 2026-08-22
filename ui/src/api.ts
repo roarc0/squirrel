@@ -58,6 +58,7 @@ export type Account = {
   holding_count: number;
   holdings_value_minor: number;
   total_assets_minor: number;
+  pac_amount_minor?: number;
 };
 
 export type CurrencySummary = {
@@ -147,7 +148,7 @@ export type Holding = {
   actual_bps: number;
   ter_bps?: number;
   is_pac?: boolean;
-  pac_amount_minor?: number;
+  pac_bps?: number;
   pac_frequency?: string;
 };
 

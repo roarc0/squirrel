@@ -96,9 +96,9 @@ export declare class Holding extends Message<Holding> {
   isPac: boolean;
 
   /**
-   * @generated from field: int64 pac_amount_minor = 18;
+   * @generated from field: int64 pac_bps = 18;
    */
-  pacAmountMinor: bigint;
+  pacBps: bigint;
 
   /**
    * @generated from field: string pac_frequency = 19;

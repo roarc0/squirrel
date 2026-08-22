@@ -32,9 +32,9 @@ const minor = (value: Numeric | undefined) => Math.round(n(value) * 100);
 const bps = (value: Numeric | undefined) => Math.round(n(value) * 100);
 
 type TierDraft = { upTo: Numeric; kind: 'fixed' | 'reference'; rate: Numeric; reference: string; spread: Numeric };
-type AccountDraft = { name: string; institution: string; type: Account['type']; preferred: boolean; archived: boolean; currency: string; balance: Numeric; tax: Numeric; fee: Numeric; tiers: TierDraft[] };
+type AccountDraft = { name: string; institution: string; type: Account['type']; preferred: boolean; archived: boolean; currency: string; balance: Numeric; tax: Numeric; fee: Numeric; pacAmount: Numeric; tiers: TierDraft[] };
 const blankTier = (): TierDraft => ({ upTo: '', kind: 'fixed', rate: 0, reference: '', spread: 0 });
-const blankAccount = (tax = 26): AccountDraft => ({ name: '', institution: '', type: 'bank', preferred: false, archived: false, currency: 'EUR', balance: 0, tax, fee: 0, tiers: [blankTier()] });
+const blankAccount = (tax = 26): AccountDraft => ({ name: '', institution: '', type: 'bank', preferred: false, archived: false, currency: 'EUR', balance: 0, tax, fee: 0, pacAmount: '', tiers: [blankTier()] });
 
 export function AccountsView({ accounts, rates, taxRates, reload }: { accounts: Account[]; rates: ReferenceRate[]; taxRates: TaxRate[]; reload: () => Promise<void> }) {
   const [opened, setOpened] = useState(false);
@@ -45,7 +45,7 @@ export function AccountsView({ accounts, rates, taxRates, reload }: { accounts: 
   const remove = async (account: Account) => { if (confirmDelete('account', account.name, 'Its current holdings will also be removed. Saved snapshots stay intact.')) { await api(`/api/accounts/${account.id}`, { method: 'DELETE' }); await reload(); } };
   const toggleArchived = async (account: Account) => { try { await api(`/api/accounts/${account.id}`, { method: 'PUT', body: JSON.stringify({ ...account, archived: !account.archived }) }); setError(''); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } };
   const columns: DataColumn<Account>[] = [
-    { key: 'name', label: 'Account', sortable: true, render: account => <Stack gap={4}><Group gap={6} wrap="nowrap"><Text fw={650}>{account.name}</Text>{account.preferred && <Chip size="xs">Default</Chip>}{account.archived && <Chip size="xs" colorKey="Archived">Archived</Chip>}</Group><Group gap={5}><Chip size="xs">{account.type}</Chip>{account.institution && <Text size="xs" c="dimmed">{account.institution}</Text>}</Group></Stack> },
+    { key: 'name', label: 'Account', sortable: true, render: account => <Stack gap={4}><Group gap={6} wrap="nowrap"><Text fw={650}>{account.name}</Text>{account.preferred && <Chip size="xs">Default</Chip>}{account.archived && <Chip size="xs" colorKey="Archived">Archived</Chip>}</Group><Group gap={5}><Chip size="xs">{account.type}</Chip>{account.institution && <Text size="xs" c="dimmed">{account.institution}</Text>}{account.pac_amount_minor ? <Chip colorKey="PAC">{`PAC ${money(account.pac_amount_minor, account.currency)}/mo`}</Chip> : null}</Group></Stack> },
     { key: 'total', label: 'Assets', sortable: true, render: account => <AccountAssets account={account} /> },
     { key: 'per_year', label: 'Projected interest', sortable: true, render: account => <Group gap="lg" wrap="nowrap">{[['Day', 365], ['Month', 12], ['Year', 1]].map(([label, divisor]) => <Box key={label} miw={94}><Text size="xs" c="dimmed" fw={650} mb={3}>{label}</Text><RevenuePeriod account={account} divisor={Number(divisor)} /></Box>)}</Group> },
     { key: 'rates', label: 'Rates', render: account => <Stack gap={5}><Group gap={5}>{(account.tiers ?? []).map((tier, index) => <Chip key={index} colorKey="Rate">{percent(tier.resolved_rate_bps ?? 0)}</Chip>)}</Group><Group><Chip colorKey="Tax">{`Tax ${percent(account.tax_bps)}`}</Chip></Group></Stack> },
@@ -77,7 +77,7 @@ function RevenuePeriod({ account, divisor }: { account: Account; divisor: number
 function AccountModal({ opened, close, account, rates, taxRates, saved }: { opened: boolean; close: () => void; account?: Account; rates: ReferenceRate[]; taxRates: TaxRate[]; saved: () => Promise<void> }) {
   const [form, setForm] = useState<AccountDraft>(() => account ? {
     name: account.name, institution: account.institution, type: account.type ?? 'other', preferred: account.preferred, archived: account.archived, currency: account.currency, balance: account.balance_minor / 100,
-    tax: account.tax_bps / 100, fee: account.annual_fee_minor / 100,
+    tax: account.tax_bps / 100, fee: account.annual_fee_minor / 100, pacAmount: account.pac_amount_minor ? account.pac_amount_minor / 100 : '',
     tiers: (account.tiers ?? []).map(tier => ({ upTo: tier.up_to_minor === null ? '' : tier.up_to_minor / 100, kind: tier.fixed_rate_bps === null ? 'reference' : 'fixed', rate: (tier.fixed_rate_bps ?? 0) / 100, reference: tier.reference_code ?? '', spread: tier.spread_bps / 100 })),
   } : blankAccount((taxRates[0]?.rate_bps ?? 2600) / 100));
   const [error, setError] = useState('');
@@ -85,7 +85,7 @@ function AccountModal({ opened, close, account, rates, taxRates, saved }: { open
   const save = async () => {
     try {
       const body = {
-        name: form.name, institution: form.institution, type: form.type, preferred: form.preferred, archived: form.archived, currency: form.currency.toUpperCase(), balance_minor: minor(form.balance), tax_bps: bps(form.tax), annual_fee_minor: minor(form.fee),
+        name: form.name, institution: form.institution, type: form.type, preferred: form.preferred, archived: form.archived, currency: form.currency.toUpperCase(), balance_minor: minor(form.balance), tax_bps: bps(form.tax), annual_fee_minor: minor(form.fee), pac_amount_minor: minor(form.pacAmount),
         tiers: form.tiers.map(item => ({ up_to_minor: item.upTo === '' ? null : minor(item.upTo), fixed_rate_bps: item.kind === 'fixed' ? bps(item.rate) : null, reference_code: item.kind === 'reference' ? item.reference : '', spread_bps: item.kind === 'reference' ? bps(item.spread) : 0 })),
       };
       await api(account ? `/api/accounts/${account.id}` : '/api/accounts', { method: account ? 'PUT' : 'POST', body: JSON.stringify(body) });
@@ -99,6 +99,7 @@ function AccountModal({ opened, close, account, rates, taxRates, saved }: { open
       <Select label="Account type" value={form.type} data={[{ value: 'bank', label: 'Bank' }, { value: 'broker', label: 'Broker' }, { value: 'other', label: 'Other' }]} onChange={value => setForm({ ...form, type: (value ?? 'other') as Account['type'] })} />
       <TextInput required maxLength={3} label="Currency" value={form.currency} onChange={e => setForm({ ...form, currency: e.currentTarget.value })} />
       <NumberInput label="Current cash balance" min={0} decimalScale={2} value={form.balance} onChange={value => setForm({ ...form, balance: value })} />
+      <NumberInput label="Total Monthly PAC Amount" placeholder="e.g. 300" min={0} decimalScale={2} value={form.pacAmount} onChange={value => setForm({ ...form, pacAmount: value })} />
       <Select label="Tax preset" placeholder="Choose a configured rate" data={taxRates.map(item => ({ value: String(item.rate_bps), label: `${item.label} (${percent(item.rate_bps)})` }))} onChange={value => value && setForm({ ...form, tax: Number(value) / 100 })} />
       <NumberInput label="Tax on interest (%)" min={0} max={100} decimalScale={2} value={form.tax} onChange={value => setForm({ ...form, tax: value })} />
       <NumberInput label="Annual account fee" min={0} decimalScale={2} value={form.fee} onChange={value => setForm({ ...form, fee: value })} />
