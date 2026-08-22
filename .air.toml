@@ -7,7 +7,7 @@ tmp_dir = "tmp"
 [build]
 cmd = "go build -trimpath -o ./tmp/main ./backend/cmd/loot"
 bin = "tmp/main"
-pre_cmd = "npm --prefix ui run build"
+pre_cmd = ["npm --prefix ui run build"]
 include_ext = ["go", "ts", "tsx", "css", "html"]
 exclude_dir = ["tmp", "bin", "ui/dist", "ui/node_modules", "data", ".git", ".gemini"]
 include_dir = ["backend", "ui/src", "proto"]
