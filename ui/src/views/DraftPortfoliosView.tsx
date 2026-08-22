@@ -279,7 +279,7 @@ export function DraftPortfoliosView({
       <Group justify="space-between" align="end">
         <Box>
           <Group gap="xs">
-            <Title order={2}>📁 Draft Portfolios</Title>
+            <Title order={2}>Portfolio Sandbox</Title>
             <Badge color="violet" variant="light">
               Model Allocation Sandbox
             </Badge>

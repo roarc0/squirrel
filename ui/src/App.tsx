@@ -1,5 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
-import { IconExternalLink, IconArrowsExchange, IconRefresh, IconPencil, IconTrash, IconStar, IconStarFilled } from '@tabler/icons-react';
+import {
+  IconChartPie,
+  IconBuildingBank,
+  IconBriefcase,
+  IconFlask,
+  IconSearch,
+  IconActivity,
+  IconRobot,
+  IconExternalLink,
+  IconArrowsExchange,
+  IconRefresh,
+  IconPencil,
+  IconTrash,
+  IconStar,
+  IconStarFilled,
+} from '@tabler/icons-react';
 import {
   ActionIcon,
   Alert,
@@ -169,18 +184,31 @@ export default function App() {
       {error && <Alert color="red" mb="md" withCloseButton onClose={() => setError('')}>{error}</Alert>}
       <Tabs value={activeTab} onChange={handleTabChange} keepMounted={false}>
         <Tabs.List mb="xl">
-          <Tabs.Tab value="overview">Overview</Tabs.Tab>
-          <Tabs.Tab value="accounts">Accounts</Tabs.Tab>
-          <Tabs.Tab value="holdings">Holdings</Tabs.Tab>
-          <Tabs.Tab value="drafts">📁 Draft Portfolios</Tabs.Tab>
-          <Tabs.Tab value="instruments">Instruments</Tabs.Tab>
+          <Tabs.Tab value="overview" leftSection={<IconChartPie size={16} />}>
+            Overview
+          </Tabs.Tab>
+          <Tabs.Tab value="accounts" leftSection={<IconBuildingBank size={16} />}>
+            Accounts
+          </Tabs.Tab>
+          <Tabs.Tab value="holdings" leftSection={<IconBriefcase size={16} />}>
+            Holdings
+          </Tabs.Tab>
+          <Tabs.Tab value="drafts" leftSection={<IconFlask size={16} />}>
+            Portfolio Sandbox
+          </Tabs.Tab>
+          <Tabs.Tab value="instruments" leftSection={<IconSearch size={16} />}>
+            Instruments
+          </Tabs.Tab>
           <Tabs.Tab
             value="diagnostics"
+            leftSection={<IconActivity size={16} />}
             rightSection={diagnosticsCount > 0 ? <Badge size="xs" color="orange" circle>{diagnosticsCount}</Badge> : undefined}
           >
             Diagnostics
           </Tabs.Tab>
-          <Tabs.Tab value="advisor">🤖 AI Advisor</Tabs.Tab>
+          <Tabs.Tab value="advisor" leftSection={<IconRobot size={16} />}>
+            AI Advisor
+          </Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="overview"><Overview data={data} reload={load} onSwitchTab={handleTabChange} /></Tabs.Panel>
         <Tabs.Panel value="accounts"><Accounts accounts={data.accounts} rates={data.rates} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
