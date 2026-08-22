@@ -305,7 +305,7 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 		contextSize = 16384
 	}
 
-	// Estimate token count (approx. 1 token = 4 characters)
+	// Estimate token count across string, map, or struct content (approx. 1 token = 4 characters)
 	maxPromptTokens := int(contextSize) - 500
 	if maxPromptTokens < 1000 {
 		maxPromptTokens = 1000
@@ -316,6 +316,10 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 		for _, turn := range turns {
 			if content, ok := turn["content"].(string); ok {
 				totalChars += len(content)
+			}
+			if toolCalls, ok := turn["tool_calls"]; ok {
+				b, _ := json.Marshal(toolCalls)
+				totalChars += len(b)
 			}
 		}
 		return totalChars / 4
@@ -342,7 +346,7 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 		payload["tools"] = tools
 	}
 
-	return s.executeStreamChatPayload(ctx, endpoint, msg.ApiKey, payload, conversation, stream)
+	return s.executeStreamChatPayload(ctx, endpoint, msg.ApiKey, payload, conversation, stream, maxPromptTokens, estimateTokens)
 }
 
 func (s *Server) executeStreamChatPayload(
@@ -352,6 +356,8 @@ func (s *Server) executeStreamChatPayload(
 	payload map[string]interface{},
 	conversation []map[string]interface{},
 	stream *connect.ServerStream[portv1.StreamChatResponse],
+	maxPromptTokens int,
+	estimateTokens func([]map[string]interface{}) int,
 ) error {
 	url := fmt.Sprintf("%s/chat/completions", endpoint)
 	bodyBytes, err := json.Marshal(payload)
@@ -504,14 +510,21 @@ func (s *Server) executeStreamChatPayload(
 		})
 		conversation = append(conversation, toolResults...)
 
+		for len(conversation) > 2 && estimateTokens(conversation) > maxPromptTokens {
+			conversation = append(conversation[:1], conversation[2:]...)
+		}
+
 		nextPayload := map[string]interface{}{
 			"model":       payload["model"],
 			"messages":    conversation,
 			"temperature": 0.3,
 			"stream":      true,
 		}
+		if tools, ok := payload["tools"]; ok {
+			nextPayload["tools"] = tools
+		}
 
-		return s.executeStreamChatPayload(ctx, endpoint, apiKey, nextPayload, conversation, stream)
+		return s.executeStreamChatPayload(ctx, endpoint, apiKey, nextPayload, conversation, stream, maxPromptTokens, estimateTokens)
 	}
 
 	_ = stream.Send(&portv1.StreamChatResponse{Done: true})
