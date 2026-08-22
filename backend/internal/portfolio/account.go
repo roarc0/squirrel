@@ -40,6 +40,7 @@ type Account struct {
 	HoldingsValueMinor int64          `json:"holdings_value_minor"`
 	TotalAssetsMinor   int64          `json:"total_assets_minor"`
 	PACAmountMinor     int64          `json:"pac_amount_minor"`
+	Notes              string         `json:"notes,omitempty"`
 }
 
 type Revenue struct {

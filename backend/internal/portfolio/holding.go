@@ -22,6 +22,7 @@ type Holding struct {
 	IsPAC            bool   `json:"is_pac"`
 	PACBPS           int64  `json:"pac_bps"`
 	PACFrequency     string `json:"pac_frequency"`
+	Notes            string `json:"notes,omitempty"`
 }
 
 func ValidateHolding(holding Holding) error {

@@ -32,6 +32,7 @@ message Account {
   int64 holdings_value_minor = 16;
   int64 total_assets_minor = 17;
   int64 pac_amount_minor = 18;
+  string notes = 19;
 }
 
 message ListAccountsRequest {

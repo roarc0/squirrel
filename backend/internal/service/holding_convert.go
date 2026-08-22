@@ -19,6 +19,7 @@ func holdingToProto(h portfolio.Holding) *portv1.Holding {
 		IsPac:         h.IsPAC,
 		PacBps:        h.PACBPS,
 		PacFrequency:  h.PACFrequency,
+		Notes:         h.Notes,
 	}
 	if h.AccountName != "" {
 		res.AccountName = &h.AccountName
@@ -61,6 +62,7 @@ func holdingFromProto(p *portv1.Holding) portfolio.Holding {
 		IsPAC:         p.IsPac,
 		PACBPS:        p.PacBps,
 		PACFrequency:  p.PacFrequency,
+		Notes:         p.Notes,
 	}
 	if p.AccountName != nil {
 		res.AccountName = *p.AccountName

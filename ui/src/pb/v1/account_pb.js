@@ -44,6 +44,7 @@ export const Account = /*@__PURE__*/ proto3.makeMessageType(
     { no: 16, name: "holdings_value_minor", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
     { no: 17, name: "total_assets_minor", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
     { no: 18, name: "pac_amount_minor", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 19, name: "notes", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ],
 );
 

@@ -105,6 +105,11 @@ export declare class Holding extends Message<Holding> {
    */
   pacFrequency: string;
 
+  /**
+   * @generated from field: string notes = 20;
+   */
+  notes: string;
+
   constructor(data?: PartialMessage<Holding>);
 
   static readonly runtime: typeof proto3;

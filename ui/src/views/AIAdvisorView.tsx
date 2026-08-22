@@ -114,6 +114,14 @@ export function AIAdvisorView({
   const primaryCurrency = summary.base_currency || 'EUR';
   const currencyData = summary.currencies?.find(c => c.currency === primaryCurrency);
 
+  const formattedAccounts = accounts.map(a => ({
+    name: a.name,
+    institution: a.institution,
+    type: a.type,
+    balance: money(a.balance_minor, a.currency),
+    notes: a.notes || undefined,
+  }));
+
   const instMap = new Map<number, Instrument>(instruments.map(i => [i.id, i]));
   const formattedHoldings = holdings.map(h => {
     const inst = instMap.get(h.instrument_id);
@@ -127,6 +135,7 @@ export function AIAdvisorView({
       ter: inst?.ter_bps ? percent(inst.ter_bps) : '0%',
       actualPct: percent(h.actual_bps),
       plannedPct: percent(h.planned_bps),
+      notes: h.notes || undefined,
     };
   });
 
@@ -135,7 +144,9 @@ export function AIAdvisorView({
     totalWealth: money(currencyData?.total_minor, primaryCurrency),
     cashBalance: money(currencyData?.balance_minor, primaryCurrency),
     investmentsTotal: money(currencyData?.portfolio_minor, primaryCurrency),
+    accountsCount: accounts.length,
     holdingsCount: holdings.length,
+    accounts: formattedAccounts,
     activeDiagnostics: (summary.diagnostics ?? []).map(d => ({
       severity: d.severity,
       title: d.title,

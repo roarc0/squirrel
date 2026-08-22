@@ -50,7 +50,7 @@ func (s *Store) SaveReferenceRate(ctx context.Context, rate portfolio.ReferenceR
 }
 
 func (s *Store) ListAccounts(ctx context.Context) ([]portfolio.Account, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, name, institution, account_type, preferred, archived, currency, balance_minor, tax_bps, annual_fee_minor, pac_amount_minor FROM accounts ORDER BY archived, name, id`)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, name, institution, account_type, preferred, archived, currency, balance_minor, tax_bps, annual_fee_minor, pac_amount_minor, COALESCE(notes, '') FROM accounts ORDER BY archived, name, id`)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func (s *Store) ListAccounts(ctx context.Context) ([]portfolio.Account, error) {
 	byID := make(map[int64]int)
 	for rows.Next() {
 		var account portfolio.Account
-		if err := rows.Scan(&account.ID, &account.Name, &account.Institution, &account.Type, &account.Preferred, &account.Archived, &account.Currency, &account.BalanceMinor, &account.TaxBPS, &account.AnnualFeeMinor, &account.PACAmountMinor); err != nil {
+		if err := rows.Scan(&account.ID, &account.Name, &account.Institution, &account.Type, &account.Preferred, &account.Archived, &account.Currency, &account.BalanceMinor, &account.TaxBPS, &account.AnnualFeeMinor, &account.PACAmountMinor, &account.Notes); err != nil {
 			return nil, err
 		}
 		accounts = append(accounts, account)
@@ -129,7 +129,7 @@ func (s *Store) SaveAccount(ctx context.Context, account *portfolio.Account) err
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
 	if account.ID == 0 {
-		result, err := tx.ExecContext(ctx, `INSERT INTO accounts (name, institution, account_type, preferred, archived, currency, balance_minor, tax_bps, annual_fee_minor, pac_amount_minor, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, account.Name, account.Institution, account.Type, account.Preferred, account.Archived, account.Currency, account.BalanceMinor, account.TaxBPS, account.AnnualFeeMinor, account.PACAmountMinor, now, now)
+		result, err := tx.ExecContext(ctx, `INSERT INTO accounts (name, institution, account_type, preferred, archived, currency, balance_minor, tax_bps, annual_fee_minor, pac_amount_minor, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, account.Name, account.Institution, account.Type, account.Preferred, account.Archived, account.Currency, account.BalanceMinor, account.TaxBPS, account.AnnualFeeMinor, account.PACAmountMinor, account.Notes, now, now)
 		if err != nil {
 			return err
 		}
@@ -138,7 +138,7 @@ func (s *Store) SaveAccount(ctx context.Context, account *portfolio.Account) err
 			return err
 		}
 	} else {
-		result, err := tx.ExecContext(ctx, `UPDATE accounts SET name=?, institution=?, account_type=?, preferred=?, archived=?, currency=?, balance_minor=?, tax_bps=?, annual_fee_minor=?, pac_amount_minor=?, updated_at=? WHERE id=?`, account.Name, account.Institution, account.Type, account.Preferred, account.Archived, account.Currency, account.BalanceMinor, account.TaxBPS, account.AnnualFeeMinor, account.PACAmountMinor, now, account.ID)
+		result, err := tx.ExecContext(ctx, `UPDATE accounts SET name=?, institution=?, account_type=?, preferred=?, archived=?, currency=?, balance_minor=?, tax_bps=?, annual_fee_minor=?, pac_amount_minor=?, notes=?, updated_at=? WHERE id=?`, account.Name, account.Institution, account.Type, account.Preferred, account.Archived, account.Currency, account.BalanceMinor, account.TaxBPS, account.AnnualFeeMinor, account.PACAmountMinor, account.Notes, now, account.ID)
 		if err != nil {
 			return err
 		}

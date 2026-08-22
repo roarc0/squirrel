@@ -17,6 +17,7 @@ import {
   Stack,
   Text,
   TextInput,
+  Textarea,
   Title,
   Tooltip,
 } from '@mantine/core';
@@ -34,9 +35,9 @@ const minor = (value: Numeric | undefined) => Math.round(n(value) * 100);
 const bps = (value: Numeric | undefined) => Math.round(n(value) * 100);
 
 type TierDraft = { upTo: Numeric; kind: 'fixed' | 'reference'; rate: Numeric; reference: string; spread: Numeric };
-type AccountDraft = { name: string; institution: string; type: Account['type']; preferred: boolean; archived: boolean; currency: string; balance: Numeric; tax: Numeric; fee: Numeric; pacAmount: Numeric; tiers: TierDraft[] };
+type AccountDraft = { name: string; institution: string; type: Account['type']; preferred: boolean; archived: boolean; currency: string; balance: Numeric; tax: Numeric; fee: Numeric; pacAmount: Numeric; notes: string; tiers: TierDraft[] };
 const blankTier = (): TierDraft => ({ upTo: '', kind: 'fixed', rate: 0, reference: '', spread: 0 });
-const blankAccount = (tax = 26): AccountDraft => ({ name: '', institution: '', type: 'bank', preferred: false, archived: false, currency: 'EUR', balance: 0, tax, fee: 0, pacAmount: '', tiers: [blankTier()] });
+const blankAccount = (tax = 26): AccountDraft => ({ name: '', institution: '', type: 'bank', preferred: false, archived: false, currency: 'EUR', balance: 0, tax, fee: 0, pacAmount: '', notes: '', tiers: [blankTier()] });
 
 export function AccountsView({ accounts, rates, taxRates, reload }: { accounts: Account[]; rates: ReferenceRate[]; taxRates: TaxRate[]; reload: () => Promise<void> }) {
   const [opened, setOpened] = useState(false);
@@ -68,6 +69,11 @@ export function AccountsView({ accounts, rates, taxRates, reload }: { accounts: 
             <Chip size="xs">{account.type}</Chip>
             {account.institution && <Text size="xs" c="dimmed">{account.institution}</Text>}
           </Group>
+          {account.notes && (
+            <Text size="xs" c="dimmed" fs="italic" lineClamp={2}>
+              💬 {account.notes}
+            </Text>
+          )}
         </Stack>
       ),
     },
@@ -117,7 +123,7 @@ function RevenuePeriod({ account, divisor }: { account: Account; divisor: number
 function AccountModal({ opened, close, account, rates, taxRates, saved }: { opened: boolean; close: () => void; account?: Account; rates: ReferenceRate[]; taxRates: TaxRate[]; saved: () => Promise<void> }) {
   const [form, setForm] = useState<AccountDraft>(() => account ? {
     name: account.name, institution: account.institution, type: account.type ?? 'other', preferred: account.preferred, archived: account.archived, currency: account.currency, balance: account.balance_minor / 100,
-    tax: account.tax_bps / 100, fee: account.annual_fee_minor / 100, pacAmount: account.pac_amount_minor ? account.pac_amount_minor / 100 : '',
+    tax: account.tax_bps / 100, fee: account.annual_fee_minor / 100, pacAmount: account.pac_amount_minor ? account.pac_amount_minor / 100 : '', notes: account.notes ?? '',
     tiers: (account.tiers ?? []).map(tier => ({ upTo: tier.up_to_minor === null ? '' : tier.up_to_minor / 100, kind: tier.fixed_rate_bps === null ? 'reference' : 'fixed', rate: (tier.fixed_rate_bps ?? 0) / 100, reference: tier.reference_code ?? '', spread: tier.spread_bps / 100 })),
   } : blankAccount((taxRates[0]?.rate_bps ?? 2600) / 100));
   const [error, setError] = useState('');
@@ -125,7 +131,7 @@ function AccountModal({ opened, close, account, rates, taxRates, saved }: { open
   const save = async () => {
     try {
       const body = {
-        name: form.name, institution: form.institution, type: form.type, preferred: form.preferred, archived: form.archived, currency: form.currency.toUpperCase(), balance_minor: minor(form.balance), tax_bps: bps(form.tax), annual_fee_minor: minor(form.fee), pac_amount_minor: minor(form.pacAmount),
+        name: form.name, institution: form.institution, type: form.type, preferred: form.preferred, archived: form.archived, currency: form.currency.toUpperCase(), balance_minor: minor(form.balance), tax_bps: bps(form.tax), annual_fee_minor: minor(form.fee), pac_amount_minor: minor(form.pacAmount), notes: form.notes,
         tiers: form.tiers.map(item => ({ up_to_minor: item.upTo === '' ? null : minor(item.upTo), fixed_rate_bps: item.kind === 'fixed' ? bps(item.rate) : null, reference_code: item.kind === 'reference' ? item.reference : '', spread_bps: item.kind === 'reference' ? bps(item.spread) : 0 })),
       };
       await api(account ? `/api/accounts/${account.id}` : '/api/accounts', { method: account ? 'PUT' : 'POST', body: JSON.stringify(body) });
@@ -145,7 +151,9 @@ function AccountModal({ opened, close, account, rates, taxRates, saved }: { open
       <NumberInput label="Annual account fee" min={0} decimalScale={2} value={form.fee} onChange={value => setForm({ ...form, fee: value })} />
       <Checkbox label="Preferred account for new holdings" checked={form.preferred} disabled={form.archived} onChange={event => setForm({ ...form, preferred: event.currentTarget.checked })} />
       <Checkbox label="Archived account" checked={form.archived} onChange={event => setForm({ ...form, archived: event.currentTarget.checked, preferred: event.currentTarget.checked ? false : form.preferred })} />
-    </SimpleGrid><Divider label="Interest tiers" />
+    </SimpleGrid>
+    <Textarea label="Notes & Context for AI Assistant" placeholder="e.g. Main broker account for monthly ETF PAC accumulation and long-term holding..." rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.currentTarget.value })} />
+    <Divider label="Interest tiers" />
       {form.tiers.map((item, index) => <Card key={index} withBorder padding="sm"><Grid align="end">
         <Grid.Col span={{ base: 12, sm: 3 }}><NumberInput label="Up to" placeholder="No limit" min={0} value={item.upTo} onChange={value => tier(index, { upTo: value })} /></Grid.Col>
         <Grid.Col span={{ base: 12, sm: 3 }}><Select label="Rate type" value={item.kind} data={[{ value: 'fixed', label: 'Fixed' }, { value: 'reference', label: 'Reference' }]} onChange={value => tier(index, { kind: (value ?? 'fixed') as TierDraft['kind'] })} /></Grid.Col>

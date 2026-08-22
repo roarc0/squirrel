@@ -88,7 +88,28 @@ func migrate(db *sql.DB) error {
 		return fmt.Errorf("ensure pac columns: %w", err)
 	}
 
+	if err := ensureNotesColumns(db); err != nil {
+		return fmt.Errorf("ensure notes columns: %w", err)
+	}
+
 	return backfillInstrumentTypes(db)
+}
+
+func ensureNotesColumns(db *sql.DB) error {
+	var hasAccountNotes int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('accounts') WHERE name='notes'`).Scan(&hasAccountNotes); err == nil && hasAccountNotes == 0 {
+		_, _ = db.Exec(`ALTER TABLE accounts ADD COLUMN notes TEXT NOT NULL DEFAULT '';`)
+	}
+
+	var hasHoldings int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='holdings'`).Scan(&hasHoldings); err != nil || hasHoldings == 0 {
+		return nil
+	}
+	var hasHoldingNotes int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('holdings') WHERE name='notes'`).Scan(&hasHoldingNotes); err == nil && hasHoldingNotes == 0 {
+		_, _ = db.Exec(`ALTER TABLE holdings ADD COLUMN notes TEXT NOT NULL DEFAULT '';`)
+	}
+	return nil
 }
 
 func ensurePACHoldingsColumns(db *sql.DB) error {

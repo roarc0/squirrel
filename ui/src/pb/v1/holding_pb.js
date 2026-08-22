@@ -30,6 +30,7 @@ export const Holding = /*@__PURE__*/ proto3.makeMessageType(
     { no: 17, name: "is_pac", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 18, name: "pac_bps", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
     { no: 19, name: "pac_frequency", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 20, name: "notes", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ],
 );
 

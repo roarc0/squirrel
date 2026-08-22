@@ -149,6 +149,11 @@ export declare class Account extends Message<Account> {
    */
   pacAmountMinor: bigint;
 
+  /**
+   * @generated from field: string notes = 19;
+   */
+  notes: string;
+
   constructor(data?: PartialMessage<Account>);
 
   static readonly runtime: typeof proto3;

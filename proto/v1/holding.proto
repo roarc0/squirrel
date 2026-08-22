@@ -24,6 +24,7 @@ message Holding {
   bool is_pac = 17;
   int64 pac_bps = 18;
   string pac_frequency = 19;
+  string notes = 20;
 }
 
 message ListHoldingsRequest {
