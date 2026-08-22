@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { ExportBackupRequest, ExportBackupResponse, RestoreBackupRequest, RestoreBackupResponse } from "./system_pb.js";
+import { DownloadAIModelRequest, DownloadAIModelResponse, ExportBackupRequest, ExportBackupResponse, ListAIModelsRequest, ListAIModelsResponse, RestoreBackupRequest, RestoreBackupResponse } from "./system_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -28,6 +28,24 @@ export const SystemService = {
       name: "RestoreBackup",
       I: RestoreBackupRequest,
       O: RestoreBackupResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc v1.SystemService.ListAIModels
+     */
+    listAIModels: {
+      name: "ListAIModels",
+      I: ListAIModelsRequest,
+      O: ListAIModelsResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc v1.SystemService.DownloadAIModel
+     */
+    downloadAIModel: {
+      name: "DownloadAIModel",
+      I: DownloadAIModelRequest,
+      O: DownloadAIModelResponse,
       kind: MethodKind.Unary,
     },
   }

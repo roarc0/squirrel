@@ -670,3 +670,35 @@ export async function restoreBackup(fileBytes: Uint8Array): Promise<{ success: b
   const res = await systemClient.restoreBackup({ backupTarGz: fileBytes });
   return { success: Boolean(res.success), message: res.message || 'Restored successfully' };
 }
+
+export type AIModelInfo = {
+  id: string;
+  name: string;
+  filename: string;
+  size_bytes: number;
+  is_downloaded: boolean;
+  source_url: string;
+  description: string;
+};
+
+export async function listAIModels(): Promise<AIModelInfo[]> {
+  const res = await systemClient.listAIModels({});
+  return (res.models ?? []).map((m: any) => ({
+    id: m.id,
+    name: m.name,
+    filename: m.filename,
+    size_bytes: Number(m.sizeBytes ?? 0),
+    is_downloaded: Boolean(m.isDownloaded),
+    source_url: m.sourceUrl ?? '',
+    description: m.description ?? '',
+  }));
+}
+
+export async function downloadAIModel(modelName: string): Promise<{ success: boolean; message: string; modelId: string }> {
+  const res = await systemClient.downloadAIModel({ modelName });
+  return {
+    success: Boolean(res.success),
+    message: res.message ?? '',
+    modelId: res.modelId ?? '',
+  };
+}

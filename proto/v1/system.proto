@@ -20,7 +20,37 @@ message RestoreBackupResponse {
   string message = 2;
 }
 
+message ListAIModelsRequest {}
+
+message AIModelInfo {
+  string id = 1;
+  string name = 2;
+  string filename = 3;
+  int64 size_bytes = 4;
+  bool is_downloaded = 5;
+  string source_url = 6;
+  string description = 7;
+}
+
+message ListAIModelsResponse {
+  repeated AIModelInfo models = 1;
+}
+
+message DownloadAIModelRequest {
+  string model_name = 1;
+  string url_override = 2;
+}
+
+message DownloadAIModelResponse {
+  bool success = 1;
+  string message = 2;
+  string model_id = 3;
+  string file_path = 4;
+}
+
 service SystemService {
   rpc ExportBackup(ExportBackupRequest) returns (ExportBackupResponse);
   rpc RestoreBackup(RestoreBackupRequest) returns (RestoreBackupResponse);
+  rpc ListAIModels(ListAIModelsRequest) returns (ListAIModelsResponse);
+  rpc DownloadAIModel(DownloadAIModelRequest) returns (DownloadAIModelResponse);
 }

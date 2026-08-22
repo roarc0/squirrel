@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Accordion,
   Alert,
@@ -6,6 +6,7 @@ import {
   Box,
   Button,
   Card,
+  Divider,
   Group,
   Modal,
   Paper,
@@ -18,7 +19,8 @@ import {
   Textarea,
   Title,
 } from '@mantine/core';
-import type { Account, Holding, Instrument, Summary } from '../api';
+import type { Account, Holding, Instrument, Summary, AIModelInfo } from '../api';
+import { listAIModels, downloadAIModel } from '../api';
 import { money, percent } from '../utils/format';
 
 type AISettings = {
@@ -520,6 +522,27 @@ function AISettingsModal({
   const [model, setModel] = useState(settings.model);
   const [apiKey, setApiKey] = useState(settings.apiKey);
 
+  const [availableModels, setAvailableModels] = useState<AIModelInfo[]>([]);
+  const [downloadInput, setDownloadInput] = useState('');
+  const [downloading, setDownloading] = useState(false);
+  const [downloadNotice, setDownloadNotice] = useState('');
+  const [downloadError, setDownloadError] = useState('');
+
+  const loadModels = async () => {
+    try {
+      const models = await listAIModels();
+      setAvailableModels(models);
+    } catch {
+      /* optional */
+    }
+  };
+
+  useEffect(() => {
+    if (opened) {
+      void loadModels();
+    }
+  }, [opened]);
+
   const handleProviderChange = (val: string | null) => {
     const next = (val as AISettings['provider']) || 'local';
     setProvider(next);
@@ -535,50 +558,173 @@ function AISettingsModal({
     }
   };
 
+  const handleDownload = async (targetName = downloadInput) => {
+    const query = targetName.trim();
+    if (!query) return;
+    setDownloading(true);
+    setDownloadError('');
+    setDownloadNotice('');
+    try {
+      const res = await downloadAIModel(query);
+      if (res.success) {
+        setDownloadNotice(res.message);
+        setDownloadInput('');
+        await loadModels();
+        if (res.modelId) {
+          setModel(res.modelId);
+        }
+      }
+    } catch (cause) {
+      setDownloadError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const modelOptions = [
+    {
+      group: 'Downloaded Local GGUF Models (./data/models/)',
+      items: availableModels
+        .filter(m => m.is_downloaded)
+        .map(m => ({
+          value: m.id,
+          label: `✓ ${m.name} (${m.size_bytes > 0 ? `${(m.size_bytes / (1024 * 1024 * 1024)).toFixed(1)}GB` : 'Saved'})`,
+        })),
+    },
+    {
+      group: 'Available Open-Weights Models',
+      items: availableModels
+        .filter(m => !m.is_downloaded)
+        .map(m => ({
+          value: m.id,
+          label: `⬇️ ${m.name}`,
+        })),
+    },
+    {
+      group: 'Standard Cloud Models',
+      items: [
+        { value: 'gpt-4o-mini', label: 'OpenAI gpt-4o-mini' },
+        { value: 'gpt-4o', label: 'OpenAI gpt-4o' },
+        { value: 'llama3.2', label: 'Ollama llama3.2' },
+        { value: 'qwen2.5:3b', label: 'Ollama qwen2.5:3b' },
+      ],
+    },
+  ].filter(g => g.items.length > 0);
+
   return (
-    <Modal opened={opened} onClose={onClose} title="AI Advisor Provider Settings" size="md">
-      <Stack gap="sm">
-        <Select
-          label="AI Provider"
-          value={provider}
-          data={[
-            { value: 'local', label: 'Local OpenAI Server (Metal GPU @ http://localhost:8080/v1)' },
-            { value: 'ollama', label: 'Local Ollama (http://localhost:11434/v1)' },
-            { value: 'openai', label: 'OpenAI API' },
-            { value: 'custom', label: 'Custom OpenAI-Compatible API Endpoint' },
-          ]}
-          onChange={handleProviderChange}
-        />
+    <Modal opened={opened} onClose={onClose} title="AI Assistant & Model Settings" size="lg">
+      <Stack gap="md">
+        {downloadError && <Alert color="red" withCloseButton onClose={() => setDownloadError('')}>{downloadError}</Alert>}
+        {downloadNotice && <Alert color="teal" withCloseButton onClose={() => setDownloadNotice('')}>{downloadNotice}</Alert>}
 
-        <TextInput
-          label="API Endpoint URL"
-          placeholder="http://localhost:8080/v1"
-          value={endpoint}
-          onChange={e => setEndpoint(e.currentTarget.value)}
-        />
+        <Paper withBorder p="md" radius="md">
+          <Text fw={700} size="sm" mb={4}>Select Active AI Model</Text>
+          <Text size="xs" c="dimmed" mb="sm">
+            Choose an enabled open-weights model or select a custom model downloaded into <Text span ff="monospace">./data/models/</Text>.
+          </Text>
 
-        <TextInput
-          label="Model Name"
-          placeholder="llama3.2 or gpt-4o-mini"
-          value={model}
-          onChange={e => setModel(e.currentTarget.value)}
-        />
+          <Stack gap="sm">
+            <Select
+              label="Active AI Model"
+              placeholder="Pick or type model ID..."
+              searchable
+              data={modelOptions}
+              value={model}
+              onChange={val => {
+                if (val) {
+                  setModel(val);
+                  const found = availableModels.find(m => m.id === val);
+                  if (found && !found.is_downloaded) {
+                    void handleDownload(val);
+                  }
+                }
+              }}
+            />
 
-        {provider !== 'ollama' && (
-          <PasswordInput
-            label="API Key (Optional for local servers)"
-            placeholder="sk-..."
-            value={apiKey}
-            onChange={e => setApiKey(e.currentTarget.value)}
-          />
-        )}
+            <Select
+              label="AI Provider & API Engine"
+              value={provider}
+              data={[
+                { value: 'local', label: 'Local OpenAI Server (llama-server / Metal GPU @ http://localhost:8080/v1)' },
+                { value: 'ollama', label: 'Local Ollama (http://localhost:11434/v1)' },
+                { value: 'openai', label: 'OpenAI API (https://api.openai.com/v1)' },
+                { value: 'custom', label: 'Custom OpenAI-Compatible API Endpoint' },
+              ]}
+              onChange={handleProviderChange}
+            />
 
-        <Text size="xs" c="dimmed">
-          For local privacy, run <Text span ff="monospace">ollama run llama3.2</Text> locally and use Ollama endpoint.
-        </Text>
+            <TextInput
+              label="API Endpoint URL"
+              placeholder="http://localhost:8080/v1"
+              value={endpoint}
+              onChange={e => setEndpoint(e.currentTarget.value)}
+            />
 
-        <Group justify="end" mt="md">
+            {provider !== 'ollama' && (
+              <PasswordInput
+                label="API Key (Optional for local servers)"
+                placeholder="sk-..."
+                value={apiKey}
+                onChange={e => setApiKey(e.currentTarget.value)}
+              />
+            )}
+          </Stack>
+        </Paper>
+
+        <Paper withBorder p="md" radius="md" style={{ backgroundColor: 'rgba(32, 201, 151, 0.04)' }}>
+          <Text fw={700} size="sm" mb={4}>📥 Download New GGUF Model into <Text span ff="monospace">./data/models/</Text></Text>
+          <Text size="xs" c="dimmed" mb="sm">
+            Enter a Hugging Face repository name (e.g. <Text span ff="monospace">Qwen/Qwen2.5-1.5B-Instruct-GGUF</Text> or <Text span ff="monospace">bartowski/Llama-3.2-3B-Instruct-GGUF</Text>) or direct GGUF URL.
+          </Text>
+
+          <Group align="end" gap="xs">
+            <TextInput
+              placeholder="e.g. Qwen/Qwen2.5-1.5B-Instruct-GGUF"
+              value={downloadInput}
+              onChange={e => setDownloadInput(e.currentTarget.value)}
+              style={{ flex: 1 }}
+            />
+            <Button
+              color="teal"
+              loading={downloading}
+              disabled={!downloadInput.trim()}
+              onClick={() => handleDownload()}
+            >
+              Download Model
+            </Button>
+          </Group>
+
+          <Divider my="sm" />
+
+          <Text size="xs" fw={700} c="dimmed" mb="xs">Quick Download Open-Weights Presets:</Text>
+          <Group gap="xs">
+            {availableModels.map(m => (
+              <Button
+                key={m.id}
+                size="xs"
+                variant={m.is_downloaded ? 'light' : 'default'}
+                color={m.is_downloaded ? 'teal' : 'gray'}
+                disabled={downloading}
+                onClick={() => {
+                  if (m.is_downloaded) {
+                    setModel(m.id);
+                  } else {
+                    void handleDownload(m.id);
+                  }
+                }}
+              >
+                {m.is_downloaded ? `✓ ${m.name.split(' ')[0]}` : `⬇️ ${m.name.split(' ')[0]}`}
+              </Button>
+            ))}
+          </Group>
+        </Paper>
+
+        <Group justify="end">
+          <Button variant="default" onClick={onClose}>
+            Cancel
+          </Button>
           <Button
+            color="teal"
             onClick={() =>
               onSave({
                 provider,
@@ -588,7 +734,7 @@ function AISettingsModal({
               })
             }
           >
-            Save Settings
+            Save AI Settings
           </Button>
         </Group>
       </Stack>

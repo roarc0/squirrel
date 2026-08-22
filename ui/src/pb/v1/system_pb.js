@@ -45,3 +45,61 @@ export const RestoreBackupResponse = /*@__PURE__*/ proto3.makeMessageType(
   ],
 );
 
+/**
+ * @generated from message v1.ListAIModelsRequest
+ */
+export const ListAIModelsRequest = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.ListAIModelsRequest",
+  [],
+);
+
+/**
+ * @generated from message v1.AIModelInfo
+ */
+export const AIModelInfo = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.AIModelInfo",
+  () => [
+    { no: 1, name: "id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "filename", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "size_bytes", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 5, name: "is_downloaded", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 6, name: "source_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 7, name: "description", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ],
+);
+
+/**
+ * @generated from message v1.ListAIModelsResponse
+ */
+export const ListAIModelsResponse = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.ListAIModelsResponse",
+  () => [
+    { no: 1, name: "models", kind: "message", T: AIModelInfo, repeated: true },
+  ],
+);
+
+/**
+ * @generated from message v1.DownloadAIModelRequest
+ */
+export const DownloadAIModelRequest = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.DownloadAIModelRequest",
+  () => [
+    { no: 1, name: "model_name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "url_override", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ],
+);
+
+/**
+ * @generated from message v1.DownloadAIModelResponse
+ */
+export const DownloadAIModelResponse = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.DownloadAIModelResponse",
+  () => [
+    { no: 1, name: "success", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 2, name: "message", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "model_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "file_path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ],
+);
+

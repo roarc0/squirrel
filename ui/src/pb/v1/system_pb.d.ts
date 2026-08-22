@@ -107,3 +107,168 @@ export declare class RestoreBackupResponse extends Message<RestoreBackupResponse
   static equals(a: RestoreBackupResponse | PlainMessage<RestoreBackupResponse> | undefined, b: RestoreBackupResponse | PlainMessage<RestoreBackupResponse> | undefined): boolean;
 }
 
+/**
+ * @generated from message v1.ListAIModelsRequest
+ */
+export declare class ListAIModelsRequest extends Message<ListAIModelsRequest> {
+  constructor(data?: PartialMessage<ListAIModelsRequest>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.ListAIModelsRequest";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListAIModelsRequest;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ListAIModelsRequest;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ListAIModelsRequest;
+
+  static equals(a: ListAIModelsRequest | PlainMessage<ListAIModelsRequest> | undefined, b: ListAIModelsRequest | PlainMessage<ListAIModelsRequest> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.AIModelInfo
+ */
+export declare class AIModelInfo extends Message<AIModelInfo> {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * @generated from field: string filename = 3;
+   */
+  filename: string;
+
+  /**
+   * @generated from field: int64 size_bytes = 4;
+   */
+  sizeBytes: bigint;
+
+  /**
+   * @generated from field: bool is_downloaded = 5;
+   */
+  isDownloaded: boolean;
+
+  /**
+   * @generated from field: string source_url = 6;
+   */
+  sourceUrl: string;
+
+  /**
+   * @generated from field: string description = 7;
+   */
+  description: string;
+
+  constructor(data?: PartialMessage<AIModelInfo>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.AIModelInfo";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AIModelInfo;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): AIModelInfo;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): AIModelInfo;
+
+  static equals(a: AIModelInfo | PlainMessage<AIModelInfo> | undefined, b: AIModelInfo | PlainMessage<AIModelInfo> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.ListAIModelsResponse
+ */
+export declare class ListAIModelsResponse extends Message<ListAIModelsResponse> {
+  /**
+   * @generated from field: repeated v1.AIModelInfo models = 1;
+   */
+  models: AIModelInfo[];
+
+  constructor(data?: PartialMessage<ListAIModelsResponse>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.ListAIModelsResponse";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListAIModelsResponse;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ListAIModelsResponse;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ListAIModelsResponse;
+
+  static equals(a: ListAIModelsResponse | PlainMessage<ListAIModelsResponse> | undefined, b: ListAIModelsResponse | PlainMessage<ListAIModelsResponse> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.DownloadAIModelRequest
+ */
+export declare class DownloadAIModelRequest extends Message<DownloadAIModelRequest> {
+  /**
+   * @generated from field: string model_name = 1;
+   */
+  modelName: string;
+
+  /**
+   * @generated from field: string url_override = 2;
+   */
+  urlOverride: string;
+
+  constructor(data?: PartialMessage<DownloadAIModelRequest>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.DownloadAIModelRequest";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DownloadAIModelRequest;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): DownloadAIModelRequest;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): DownloadAIModelRequest;
+
+  static equals(a: DownloadAIModelRequest | PlainMessage<DownloadAIModelRequest> | undefined, b: DownloadAIModelRequest | PlainMessage<DownloadAIModelRequest> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.DownloadAIModelResponse
+ */
+export declare class DownloadAIModelResponse extends Message<DownloadAIModelResponse> {
+  /**
+   * @generated from field: bool success = 1;
+   */
+  success: boolean;
+
+  /**
+   * @generated from field: string message = 2;
+   */
+  message: string;
+
+  /**
+   * @generated from field: string model_id = 3;
+   */
+  modelId: string;
+
+  /**
+   * @generated from field: string file_path = 4;
+   */
+  filePath: string;
+
+  constructor(data?: PartialMessage<DownloadAIModelResponse>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.DownloadAIModelResponse";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DownloadAIModelResponse;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): DownloadAIModelResponse;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): DownloadAIModelResponse;
+
+  static equals(a: DownloadAIModelResponse | PlainMessage<DownloadAIModelResponse> | undefined, b: DownloadAIModelResponse | PlainMessage<DownloadAIModelResponse> | undefined): boolean;
+}
+

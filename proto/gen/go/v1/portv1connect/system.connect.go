@@ -39,12 +39,20 @@ const (
 	// SystemServiceRestoreBackupProcedure is the fully-qualified name of the SystemService's
 	// RestoreBackup RPC.
 	SystemServiceRestoreBackupProcedure = "/v1.SystemService/RestoreBackup"
+	// SystemServiceListAIModelsProcedure is the fully-qualified name of the SystemService's
+	// ListAIModels RPC.
+	SystemServiceListAIModelsProcedure = "/v1.SystemService/ListAIModels"
+	// SystemServiceDownloadAIModelProcedure is the fully-qualified name of the SystemService's
+	// DownloadAIModel RPC.
+	SystemServiceDownloadAIModelProcedure = "/v1.SystemService/DownloadAIModel"
 )
 
 // SystemServiceClient is a client for the v1.SystemService service.
 type SystemServiceClient interface {
 	ExportBackup(context.Context, *connect.Request[v1.ExportBackupRequest]) (*connect.Response[v1.ExportBackupResponse], error)
 	RestoreBackup(context.Context, *connect.Request[v1.RestoreBackupRequest]) (*connect.Response[v1.RestoreBackupResponse], error)
+	ListAIModels(context.Context, *connect.Request[v1.ListAIModelsRequest]) (*connect.Response[v1.ListAIModelsResponse], error)
+	DownloadAIModel(context.Context, *connect.Request[v1.DownloadAIModelRequest]) (*connect.Response[v1.DownloadAIModelResponse], error)
 }
 
 // NewSystemServiceClient constructs a client for the v1.SystemService service. By default, it uses
@@ -70,13 +78,27 @@ func NewSystemServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(systemServiceMethods.ByName("RestoreBackup")),
 			connect.WithClientOptions(opts...),
 		),
+		listAIModels: connect.NewClient[v1.ListAIModelsRequest, v1.ListAIModelsResponse](
+			httpClient,
+			baseURL+SystemServiceListAIModelsProcedure,
+			connect.WithSchema(systemServiceMethods.ByName("ListAIModels")),
+			connect.WithClientOptions(opts...),
+		),
+		downloadAIModel: connect.NewClient[v1.DownloadAIModelRequest, v1.DownloadAIModelResponse](
+			httpClient,
+			baseURL+SystemServiceDownloadAIModelProcedure,
+			connect.WithSchema(systemServiceMethods.ByName("DownloadAIModel")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // systemServiceClient implements SystemServiceClient.
 type systemServiceClient struct {
-	exportBackup  *connect.Client[v1.ExportBackupRequest, v1.ExportBackupResponse]
-	restoreBackup *connect.Client[v1.RestoreBackupRequest, v1.RestoreBackupResponse]
+	exportBackup    *connect.Client[v1.ExportBackupRequest, v1.ExportBackupResponse]
+	restoreBackup   *connect.Client[v1.RestoreBackupRequest, v1.RestoreBackupResponse]
+	listAIModels    *connect.Client[v1.ListAIModelsRequest, v1.ListAIModelsResponse]
+	downloadAIModel *connect.Client[v1.DownloadAIModelRequest, v1.DownloadAIModelResponse]
 }
 
 // ExportBackup calls v1.SystemService.ExportBackup.
@@ -89,10 +111,22 @@ func (c *systemServiceClient) RestoreBackup(ctx context.Context, req *connect.Re
 	return c.restoreBackup.CallUnary(ctx, req)
 }
 
+// ListAIModels calls v1.SystemService.ListAIModels.
+func (c *systemServiceClient) ListAIModels(ctx context.Context, req *connect.Request[v1.ListAIModelsRequest]) (*connect.Response[v1.ListAIModelsResponse], error) {
+	return c.listAIModels.CallUnary(ctx, req)
+}
+
+// DownloadAIModel calls v1.SystemService.DownloadAIModel.
+func (c *systemServiceClient) DownloadAIModel(ctx context.Context, req *connect.Request[v1.DownloadAIModelRequest]) (*connect.Response[v1.DownloadAIModelResponse], error) {
+	return c.downloadAIModel.CallUnary(ctx, req)
+}
+
 // SystemServiceHandler is an implementation of the v1.SystemService service.
 type SystemServiceHandler interface {
 	ExportBackup(context.Context, *connect.Request[v1.ExportBackupRequest]) (*connect.Response[v1.ExportBackupResponse], error)
 	RestoreBackup(context.Context, *connect.Request[v1.RestoreBackupRequest]) (*connect.Response[v1.RestoreBackupResponse], error)
+	ListAIModels(context.Context, *connect.Request[v1.ListAIModelsRequest]) (*connect.Response[v1.ListAIModelsResponse], error)
+	DownloadAIModel(context.Context, *connect.Request[v1.DownloadAIModelRequest]) (*connect.Response[v1.DownloadAIModelResponse], error)
 }
 
 // NewSystemServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -114,12 +148,28 @@ func NewSystemServiceHandler(svc SystemServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(systemServiceMethods.ByName("RestoreBackup")),
 		connect.WithHandlerOptions(opts...),
 	)
+	systemServiceListAIModelsHandler := connect.NewUnaryHandler(
+		SystemServiceListAIModelsProcedure,
+		svc.ListAIModels,
+		connect.WithSchema(systemServiceMethods.ByName("ListAIModels")),
+		connect.WithHandlerOptions(opts...),
+	)
+	systemServiceDownloadAIModelHandler := connect.NewUnaryHandler(
+		SystemServiceDownloadAIModelProcedure,
+		svc.DownloadAIModel,
+		connect.WithSchema(systemServiceMethods.ByName("DownloadAIModel")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/v1.SystemService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SystemServiceExportBackupProcedure:
 			systemServiceExportBackupHandler.ServeHTTP(w, r)
 		case SystemServiceRestoreBackupProcedure:
 			systemServiceRestoreBackupHandler.ServeHTTP(w, r)
+		case SystemServiceListAIModelsProcedure:
+			systemServiceListAIModelsHandler.ServeHTTP(w, r)
+		case SystemServiceDownloadAIModelProcedure:
+			systemServiceDownloadAIModelHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -135,4 +185,12 @@ func (UnimplementedSystemServiceHandler) ExportBackup(context.Context, *connect.
 
 func (UnimplementedSystemServiceHandler) RestoreBackup(context.Context, *connect.Request[v1.RestoreBackupRequest]) (*connect.Response[v1.RestoreBackupResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.SystemService.RestoreBackup is not implemented"))
+}
+
+func (UnimplementedSystemServiceHandler) ListAIModels(context.Context, *connect.Request[v1.ListAIModelsRequest]) (*connect.Response[v1.ListAIModelsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.SystemService.ListAIModels is not implemented"))
+}
+
+func (UnimplementedSystemServiceHandler) DownloadAIModel(context.Context, *connect.Request[v1.DownloadAIModelRequest]) (*connect.Response[v1.DownloadAIModelResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.SystemService.DownloadAIModel is not implemented"))
 }
