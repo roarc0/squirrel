@@ -59,7 +59,7 @@ type MCPToolCallRecord = {
 
 type ChatMessage = {
   id: string;
-  role: 'user' | 'assistant' | 'tool';
+  role: 'user' | 'assistant' | 'tool' | 'error';
   content: string;
   timestamp: string;
   toolName?: string;
@@ -321,11 +321,21 @@ export function AIAdvisorView({
         }
       }
     } catch (cause) {
-      setError(
+      const errMsg =
         cause instanceof Error
           ? cause.message
-          : 'Failed to stream from AI provider. Please check your AI settings endpoint (e.g. Local OpenAI http://localhost:8080/v1 or Ollama http://localhost:11434/v1).'
-      );
+          : 'Failed to stream from AI provider. Please check your AI settings endpoint (e.g. Local OpenAI http://localhost:8080/v1 or Ollama http://localhost:11434/v1).';
+      setError(errMsg);
+
+      const errorMsg: ChatMessage = {
+        id: String(Date.now() + 2),
+        role: 'error',
+        content: errMsg,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+
+      const filtered = currentMessages.filter(m => m.id !== assistantMsgId || m.content.trim().length > 0);
+      saveMessages([...filtered, errorMsg]);
     } finally {
       setLoading(false);
     }
@@ -393,10 +403,36 @@ export function AIAdvisorView({
         </Paper>
       ) : (
         <Stack gap="md">
-          {messages.map(msg => (
-            <Card
-              key={msg.id}
-              className="metric"
+          {messages.map(msg => {
+            if (msg.role === 'error') {
+              return (
+                <Alert
+                  key={msg.id}
+                  color="red"
+                  variant="light"
+                  radius="lg"
+                  title="⚠️ AI Execution Error"
+                  style={{ maxWidth: '85%', alignSelf: 'flex-start', borderLeft: '4px solid #fa5252' }}
+                >
+                  <Group justify="space-between" align="start" mb={6}>
+                    <Text size="xs" c="dimmed">{msg.timestamp}</Text>
+                  </Group>
+                  <Text size="xs" mb="sm" style={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+                    {msg.content}
+                  </Text>
+                  <Group gap="xs">
+                    <Button size="xs" color="red" variant="filled" onClick={() => setSettingsOpened(true)}>
+                      ⚙️ Configure AI Settings
+                    </Button>
+                  </Group>
+                </Alert>
+              );
+            }
+
+            return (
+              <Card
+                key={msg.id}
+                className="metric"
               p="md"
               radius="lg"
               style={{
@@ -471,7 +507,8 @@ export function AIAdvisorView({
                 {msg.content}
               </Box>
             </Card>
-          ))}
+          );
+        })}
         </Stack>
       )}
 
