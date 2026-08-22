@@ -184,7 +184,7 @@ export default function App() {
         </Tabs.List>
         <Tabs.Panel value="overview"><Overview data={data} reload={load} onSwitchTab={handleTabChange} /></Tabs.Panel>
         <Tabs.Panel value="accounts"><Accounts accounts={data.accounts} rates={data.rates} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
-        <Tabs.Panel value="holdings"><Holdings holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} onOpenDrafts={() => handleTabChange('drafts')} /></Tabs.Panel>
+        <Tabs.Panel value="holdings"><Holdings holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
         <Tabs.Panel value="drafts">
           <DraftPortfoliosView
             holdings={data.holdings}

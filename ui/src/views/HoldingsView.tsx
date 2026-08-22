@@ -25,7 +25,6 @@ import { Empty } from '../components/Empty';
 import { DataTable, TableAction, TableActions, type DataColumn } from '../DataTable';
 import { InvestModal } from '../InvestModal';
 import { confirmDelete as legacyConfirmDelete, instrumentLabels, investedMoney, label, money, percent } from '../utils/format';
-import { DraftPortfoliosModal } from '../components/DraftPortfoliosModal';
 import { useConfirmDelete } from '../components/ConfirmDeleteModal';
 
 type Numeric = string | number;
@@ -47,7 +46,6 @@ type HoldingDraft = {
 
 export function HoldingsView({ holdings, accounts, instruments, taxRates, reload, onOpenDrafts }: { holdings: Holding[]; accounts: Account[]; instruments: Instrument[]; taxRates: TaxRate[]; reload: () => Promise<void>; onOpenDrafts?: () => void }) {
   const [opened, setOpened] = useState(false); const [editing, setEditing] = useState<Holding>(); const [error, setError] = useState('');
-  const [draftsOpened, setDraftsOpened] = useState(false);
   const [accountIDs, setAccountIDs] = useState<string[]>([]);
   const { confirmDelete, modal: confirmDeleteModal } = useConfirmDelete();
   const table = useBackendRows('/api/holdings', holdings, 'value', 'desc');
@@ -136,25 +134,59 @@ export function HoldingsView({ holdings, accounts, instruments, taxRates, reload
   ];
   const [investOpened, setInvestOpened] = useState(false);
 
-  // Compute PAC accumulation metrics
+  // Compute PAC accumulation metrics & TER drag
   const activePacHoldings = visibleHoldings.filter(h => h.is_pac && (h.pac_bps ?? 0) > 0);
   const totalMonthlyPacMinor = activeAccounts.reduce((acc, a) => acc + (a.pac_amount_minor ?? 0), 0);
   const currency = visibleHoldings[0]?.currency ?? 'EUR';
+
+  let totalPacWeightedTERNum = 0;
+  let totalPacMonthlyInvestedMinor = 0;
+  let totalPacAnnualFeeDragMinor = 0;
+
+  const pacItems = activePacHoldings.map(h => {
+    const acc = accountMap.get(h.account_id);
+    const inst = instMap.get(h.instrument_id);
+    const totalAccPac = acc?.pac_amount_minor ?? 0;
+    const itemMonthlyMinor = totalAccPac > 0 && h.pac_bps ? Math.round((totalAccPac * h.pac_bps) / 10000) : 0;
+    const itemYearlyMinor = itemMonthlyMinor * 12;
+    const terBps = h.ter_bps ?? inst?.ter_bps ?? 0;
+    const annualDragMinor = Math.round((itemYearlyMinor * terBps) / 10000);
+
+    totalPacMonthlyInvestedMinor += itemMonthlyMinor;
+    totalPacWeightedTERNum += itemMonthlyMinor * terBps;
+    totalPacAnnualFeeDragMinor += annualDragMinor;
+
+    return {
+      holding: h,
+      accountName: h.account_name,
+      instrumentName: h.instrument_name,
+      ticker: h.instrument_ticker,
+      isin: h.instrument_isin,
+      pacBps: h.pac_bps ?? 0,
+      itemMonthlyMinor,
+      itemYearlyMinor,
+      terBps,
+      annualDragMinor,
+    };
+  });
+
+  const pacWeightedTERBps = totalPacMonthlyInvestedMinor > 0 ? totalPacWeightedTERNum / totalPacMonthlyInvestedMinor : 0;
 
   return <Stack gap="lg"><Group justify="space-between"><Box><Title order={2}>Holdings</Title><Text c="dimmed">Actual allocation uses current holding values within each currency; planned allocation is your target.</Text></Box><Group gap="sm"><Button variant="light" color="teal" disabled={!ready} onClick={() => setInvestOpened(true)}>Invest & Rebalance</Button><Button disabled={!ready} onClick={() => open()}>Add holding</Button></Group></Group>
     {(error || table.sortError) && <Alert color="red">{error || table.sortError}</Alert>}
 
     {totalMonthlyPacMinor > 0 && (
       <Card className="metric" p="lg" radius="lg">
-        <Group justify="space-between" align="start" mb="sm">
+        <Group justify="space-between" align="start" mb="md">
           <Box>
-            <Group gap="xs">
-              <Text fw={750} size="lg">🔄 Active Accumulation Plan (PAC)</Text>
+            <Group gap="xs" mb={2}>
+              <Text fw={800} size="lg">🔄 Active Accumulation Plan (PAC)</Text>
               <Badge color="teal" variant="filled">{activePacHoldings.length} Active PAC Holdings</Badge>
             </Group>
-            <Text size="xs" c="dimmed">Recurring automated dollar-cost averaging investments.</Text>
+            <Text size="xs" c="dimmed">Recurring automated dollar-cost averaging investments per account.</Text>
           </Box>
-          <Group gap="lg">
+
+          <Group gap="xl">
             <Box ta="right">
               <Text size="xs" c="dimmed">Monthly Deposit</Text>
               <Text size="xl" fw={800} color="teal">{money(totalMonthlyPacMinor, currency)}/mo</Text>
@@ -164,30 +196,73 @@ export function HoldingsView({ holdings, accounts, instruments, taxRates, reload
               <Text size="xl" fw={800} color="teal">{money(totalMonthlyPacMinor * 12, currency)}/yr</Text>
             </Box>
             <Box ta="right">
+              <Text size="xs" c="dimmed">Weighted PAC TER</Text>
+              <Text size="lg" fw={800} c="dimmed">{percent(pacWeightedTERBps)}</Text>
+              <Text size="xs" c="orange">-{money(totalPacAnnualFeeDragMinor, currency)}/yr drag</Text>
+            </Box>
+            <Box ta="right">
               <Text size="xs" c="dimmed">5-Yr Capital Projection</Text>
               <Text size="md" fw={700}>{money(totalMonthlyPacMinor * 60, currency)}</Text>
             </Box>
           </Group>
         </Group>
 
-        <SimpleGrid cols={{ base: 1, sm: Math.min(3, Math.max(1, activePacHoldings.length)) }} mt="xs">
-          {activePacHoldings.map(h => {
-            const acc = accountMap.get(h.account_id);
-            const totalAccPac = acc?.pac_amount_minor ?? 0;
-            const itemMonthlyMinor = totalAccPac > 0 && h.pac_bps ? Math.round((totalAccPac * h.pac_bps) / 10000) : 0;
-            return (
-              <Paper key={h.id} p="xs" radius="md" withBorder style={{ backgroundColor: 'rgba(32, 201, 151, 0.04)' }}>
-                <Group justify="space-between" mb={2}>
-                  <Text size="xs" fw={700} truncate maw={180}>{h.instrument_name}</Text>
-                  <Badge color="teal" size="xs">{percent(h.pac_bps ?? 0)} Share</Badge>
+        <SimpleGrid cols={{ base: 1, sm: 2, md: Math.min(3, Math.max(1, pacItems.length)) }} spacing="md">
+          {pacItems.map(item => (
+            <Paper
+              key={item.holding.id}
+              p="md"
+              radius="md"
+              withBorder
+              style={{
+                backgroundColor: 'rgba(32, 201, 151, 0.05)',
+                borderColor: 'rgba(32, 201, 151, 0.3)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Stack gap="xs">
+                <Group justify="space-between" align="start" wrap="nowrap">
+                  <Box style={{ flex: 1 }}>
+                    <Text fw={750} size="sm" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                      {item.instrumentName}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {item.accountName} {[item.ticker, item.isin].filter(Boolean).length > 0 ? `· ${[item.ticker, item.isin].filter(Boolean).join(' · ')}` : ''}
+                    </Text>
+                  </Box>
+                  <Badge color="teal" variant="filled" size="sm" style={{ flexShrink: 0 }}>
+                    🔄 {percent(item.pacBps)}
+                  </Badge>
                 </Group>
-                <Group justify="space-between" align="baseline">
-                  <Text size="xs" c="dimmed">{h.account_name}</Text>
-                  <Text size="sm" fw={750} color="teal">{money(itemMonthlyMinor, currency)}/mo <Text span size="xs" c="dimmed">({money(itemMonthlyMinor * 12, currency)}/yr)</Text></Text>
+
+                <Paper p="xs" radius="sm" style={{ backgroundColor: 'rgba(0,0,0,0.15)' }}>
+                  <Group justify="space-between" align="baseline">
+                    <Text size="xs" c="dimmed">Monthly Deposit</Text>
+                    <Text fw={800} size="md" color="teal">
+                      {money(item.itemMonthlyMinor, currency)}/mo
+                    </Text>
+                  </Group>
+                  <Group justify="space-between" align="baseline" mt={2}>
+                    <Text size="xs" c="dimmed">Yearly Contribution</Text>
+                    <Text size="xs" fw={700}>
+                      {money(item.itemYearlyMinor, currency)}/yr
+                    </Text>
+                  </Group>
+                </Paper>
+
+                <Group justify="space-between" align="center" mt={2}>
+                  <Badge variant="outline" color="blue" size="xs">
+                    {percent(item.terBps)} TER
+                  </Badge>
+                  <Text size="xs" c="orange" fw={600}>
+                    -{money(item.annualDragMinor, currency)}/yr drag
+                  </Text>
                 </Group>
-              </Paper>
-            );
-          })}
+              </Stack>
+            </Paper>
+          ))}
         </SimpleGrid>
       </Card>
     )}
@@ -203,7 +278,6 @@ export function HoldingsView({ holdings, accounts, instruments, taxRates, reload
     }} />}
     <HoldingModal key={editing?.id ?? 'new'} opened={opened} close={() => setOpened(false)} holding={editing} accounts={activeAccounts} holdings={holdings} instruments={instruments} taxRates={taxRates} saved={async () => { setOpened(false); await reload(); }} />
     <InvestModal opened={investOpened} onClose={() => setInvestOpened(false)} holdings={holdings} reload={reload} />
-    <DraftPortfoliosModal opened={draftsOpened} onClose={() => setDraftsOpened(false)} holdings={holdings} instruments={instruments} reload={reload} />
     {confirmDeleteModal}
   </Stack>;
 }
