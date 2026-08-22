@@ -1,45 +1,24 @@
+# .air.toml
+# Live reloading configuration for Air (github.com/air-verse/air)
+
 root = "."
-testdata_dir = "testdata"
 tmp_dir = "tmp"
 
 [build]
-  bin = "./tmp/main"
-  cmd = "go build -o ./tmp/main ./backend/cmd/loot"
-  delay = 500
-  exclude_dir = ["assets", "tmp", "vendor", "testdata", "ui", "bin", "proto/gen", "data"]
-  exclude_file = []
-  exclude_regex = ["_test\\.go"]
-  exclude_unchanged = false
-  follow_symlink = false
-  full_bin = ""
-  include_dir = ["backend", "proto"]
-  include_ext = ["go", "proto", "sql"]
-  include_file = []
-  kill_delay = "0s"
-  log = "build-errors.log"
-  poll = false
-  poll_interval = 0
-  post_cmd = []
-  pre_cmd = ["just generate"]
-  rerun = false
-  rerun_delay = 500
-  send_interrupt = false
-  stop_on_error = true
-
-[color]
-  app = ""
-  build = "yellow"
-  main = "magenta"
-  runner = "green"
-  watcher = "cyan"
+cmd = "go build -trimpath -o ./tmp/main ./backend/cmd/loot"
+bin = "tmp/main"
+pre_cmd = "npm --prefix ui run build"
+include_ext = ["go", "ts", "tsx", "css", "html"]
+exclude_dir = ["tmp", "bin", "ui/dist", "ui/node_modules", "data", ".git", ".gemini"]
+include_dir = ["backend", "ui/src", "proto"]
+delay = 500
+stop_on_error = false
 
 [log]
-  main_only = false
-  time = false
+time = true
 
-[misc]
-  clean_on_exit = true
-
-[screen]
-  clear_on_rebuild = false
-  keep_scroll = true
+[color]
+main = "magenta"
+watcher = "cyan"
+build = "yellow"
+runner = "green"

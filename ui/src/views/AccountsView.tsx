@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   ActionIcon,
   Alert,
+  Badge,
   Box,
   Button,
   Card,
@@ -52,7 +53,38 @@ export function AccountsView({ accounts, rates, taxRates, reload }: { accounts: 
   };
   const toggleArchived = async (account: Account) => { try { await api(`/api/accounts/${account.id}`, { method: 'PUT', body: JSON.stringify({ ...account, archived: !account.archived }) }); setError(''); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } };
   const columns: DataColumn<Account>[] = [
-    { key: 'name', label: 'Account', sortable: true, render: account => <Stack gap={4}><Group gap={6} wrap="nowrap"><Text fw={650}>{account.name}</Text>{account.preferred && <Chip size="xs">Default</Chip>}{account.archived && <Chip size="xs" colorKey="Archived">Archived</Chip>}</Group><Group gap={5}><Chip size="xs">{account.type}</Chip>{account.institution && <Text size="xs" c="dimmed">{account.institution}</Text>}{account.pac_amount_minor ? <Chip colorKey="PAC">{`PAC ${money(account.pac_amount_minor, account.currency)}/mo`}</Chip> : null}</Group></Stack> },
+    {
+      key: 'name',
+      label: 'Account',
+      sortable: true,
+      render: account => (
+        <Stack gap={4}>
+          <Group gap={6} wrap="nowrap">
+            <Text fw={750}>{account.name}</Text>
+            {account.preferred && <Badge size="xs" color="teal">Default</Badge>}
+            {account.archived && <Badge size="xs" color="gray">Archived</Badge>}
+          </Group>
+          <Group gap={6}>
+            <Chip size="xs">{account.type}</Chip>
+            {account.institution && <Text size="xs" c="dimmed">{account.institution}</Text>}
+          </Group>
+        </Stack>
+      ),
+    },
+    {
+      key: 'pac',
+      label: 'PAC Deposit',
+      sortable: true,
+      render: account => (
+        account.pac_amount_minor && account.pac_amount_minor > 0 ? (
+          <Badge color="teal" variant="filled" size="sm" style={{ height: 'auto', padding: '4px 8px', textTransform: 'none' }}>
+            🔄 {money(account.pac_amount_minor, account.currency)}/mo
+          </Badge>
+        ) : (
+          <Text c="dimmed">—</Text>
+        )
+      ),
+    },
     { key: 'total', label: 'Assets', sortable: true, render: account => <AccountAssets account={account} /> },
     { key: 'per_year', label: 'Projected interest', sortable: true, render: account => <Group gap="lg" wrap="nowrap">{[['Day', 365], ['Month', 12], ['Year', 1]].map(([label, divisor]) => <Box key={label} miw={94}><Text size="xs" c="dimmed" fw={650} mb={3}>{label}</Text><RevenuePeriod account={account} divisor={Number(divisor)} /></Box>)}</Group> },
     { key: 'rates', label: 'Rates', render: account => <Stack gap={5}><Group gap={5}>{(account.tiers ?? []).map((tier, index) => <Chip key={index} colorKey="Rate">{percent(tier.resolved_rate_bps ?? 0)}</Chip>)}</Group><Group><Chip colorKey="Tax">{`Tax ${percent(account.tax_bps)}`}</Chip></Group></Stack> },
