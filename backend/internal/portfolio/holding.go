@@ -19,6 +19,9 @@ type Holding struct {
 	PlannedBPS       int64  `json:"planned_bps"`
 	ActualBPS        int64  `json:"actual_bps"`
 	TERBPS           int64  `json:"ter_bps,omitempty"`
+	IsPAC            bool   `json:"is_pac"`
+	PACAmountMinor   int64  `json:"pac_amount_minor"`
+	PACFrequency     string `json:"pac_frequency"`
 }
 
 func ValidateHolding(holding Holding) error {

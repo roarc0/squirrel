@@ -84,7 +84,28 @@ func migrate(db *sql.DB) error {
 		return fmt.Errorf("run goose migrations: %w", err)
 	}
 
+	if err := ensurePACHoldingsColumns(db); err != nil {
+		return fmt.Errorf("ensure pac columns: %w", err)
+	}
+
 	return backfillInstrumentTypes(db)
+}
+
+func ensurePACHoldingsColumns(db *sql.DB) error {
+	var hasHoldings int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='holdings'`).Scan(&hasHoldings); err != nil || hasHoldings == 0 {
+		return nil
+	}
+	var hasIsPac int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('holdings') WHERE name='is_pac'`).Scan(&hasIsPac); err != nil || hasIsPac > 0 {
+		return nil
+	}
+	_, err := db.Exec(`
+		ALTER TABLE holdings ADD COLUMN is_pac INTEGER NOT NULL DEFAULT 0;
+		ALTER TABLE holdings ADD COLUMN pac_amount_minor INTEGER NOT NULL DEFAULT 0;
+		ALTER TABLE holdings ADD COLUMN pac_frequency TEXT NOT NULL DEFAULT 'monthly';
+	`)
+	return err
 }
 
 func backfillInstrumentTypes(db *sql.DB) error {

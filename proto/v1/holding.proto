@@ -21,6 +21,9 @@ message Holding {
   int64 planned_bps = 14;
   int64 actual_bps = 15;
   int64 ter_bps = 16;
+  bool is_pac = 17;
+  int64 pac_amount_minor = 18;
+  string pac_frequency = 19;
 }
 
 message ListHoldingsRequest {

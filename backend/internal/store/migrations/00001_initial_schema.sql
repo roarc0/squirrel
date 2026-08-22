@@ -81,6 +81,9 @@ CREATE TABLE holdings (
     value_minor INTEGER NOT NULL DEFAULT 0 CHECK (value_minor >= 0),
     tax_bps INTEGER NOT NULL DEFAULT 2600 CHECK (tax_bps BETWEEN 0 AND 10000),
     planned_bps INTEGER NOT NULL DEFAULT 0 CHECK (planned_bps BETWEEN 0 AND 10000),
+    is_pac INTEGER NOT NULL DEFAULT 0,
+    pac_amount_minor INTEGER NOT NULL DEFAULT 0,
+    pac_frequency TEXT NOT NULL DEFAULT 'monthly',
     updated_at TEXT NOT NULL,
     UNIQUE (account_id, instrument_id)
 );

@@ -90,6 +90,21 @@ export declare class Holding extends Message<Holding> {
    */
   terBps: bigint;
 
+  /**
+   * @generated from field: bool is_pac = 17;
+   */
+  isPac: boolean;
+
+  /**
+   * @generated from field: int64 pac_amount_minor = 18;
+   */
+  pacAmountMinor: bigint;
+
+  /**
+   * @generated from field: string pac_frequency = 19;
+   */
+  pacFrequency: string;
+
   constructor(data?: PartialMessage<Holding>);
 
   static readonly runtime: typeof proto3;

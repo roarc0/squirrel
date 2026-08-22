@@ -146,6 +146,9 @@ export type Holding = {
   planned_bps: number;
   actual_bps: number;
   ter_bps?: number;
+  is_pac?: boolean;
+  pac_amount_minor?: number;
+  pac_frequency?: string;
 };
 
 export type Snapshot = {
