@@ -6,6 +6,7 @@ import {
   Box,
   Button,
   Card,
+  Code,
   Divider,
   Group,
   Modal,
@@ -48,12 +49,19 @@ function getSavedSettings(): AISettings {
   }
 }
 
+type MCPToolCallRecord = {
+  name: string;
+  args: any;
+  result: string;
+};
+
 type ChatMessage = {
   id: string;
   role: 'user' | 'assistant' | 'tool';
   content: string;
   timestamp: string;
   toolName?: string;
+  toolCalls?: MCPToolCallRecord[];
 };
 
 export function AIAdvisorView({
@@ -303,11 +311,17 @@ export function AIAdvisorView({
       if (choice?.finish_reason === 'tool_calls' || choice?.message?.tool_calls?.length > 0) {
         const toolCalls = choice.message.tool_calls;
         const toolConversation = [...conversationTrajectory, choice.message];
+        const executedRecords: MCPToolCallRecord[] = [];
 
         for (const tc of toolCalls) {
           let parsedArgs = {};
           try { parsedArgs = JSON.parse(tc.function.arguments); } catch { /* optional */ }
           const toolResult = await executeMCPToolCall(tc.function.name, parsedArgs);
+          executedRecords.push({
+            name: tc.function.name,
+            args: parsedArgs,
+            result: toolResult,
+          });
           toolConversation.push({
             role: 'tool',
             tool_call_id: tc.id,
@@ -335,6 +349,7 @@ export function AIAdvisorView({
               role: 'assistant',
               content: assistantReply,
               timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              toolCalls: executedRecords,
             },
           ]);
           return;
@@ -448,6 +463,56 @@ export function AIAdvisorView({
                   {msg.timestamp}
                 </Text>
               </Group>
+
+              {msg.toolCalls && msg.toolCalls.length > 0 && (
+                <Accordion variant="contained" radius="md" chevronPosition="right" mb="xs">
+                  <Accordion.Item value="mcp-calls">
+                    <Accordion.Control style={{ padding: '6px 10px' }}>
+                      <Group gap="xs" align="center">
+                        <Badge color="teal" size="xs" variant="filled">
+                          🛠️ MCP Tool Call{msg.toolCalls.length > 1 ? 's' : ''} ({msg.toolCalls.length})
+                        </Badge>
+                        <Text size="xs" c="dimmed" ff="monospace" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {msg.toolCalls.map(tc => tc.name).join(', ')}
+                        </Text>
+                      </Group>
+                    </Accordion.Control>
+                    <Accordion.Panel>
+                      <Stack gap="xs" pt="xs">
+                        {msg.toolCalls.map((tc, idx) => {
+                          let prettyResult = tc.result;
+                          try {
+                            prettyResult = JSON.stringify(JSON.parse(tc.result), null, 2);
+                          } catch {
+                            /* optional */
+                          }
+                          return (
+                            <Paper key={idx} withBorder p="xs" radius="sm" style={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }}>
+                              <Group justify="space-between" mb={4}>
+                                <Group gap="xs">
+                                  <Code color="teal" fw={700}>POST /mcp → {tc.name}</Code>
+                                </Group>
+                                <Badge size="xs" color="gray" variant="outline">JSON-RPC 2.0</Badge>
+                              </Group>
+
+                              <Text size="xs" fw={700} c="dimmed" mt={4}>Input Arguments:</Text>
+                              <Code block style={{ fontSize: '11px', maxHeight: '120px', overflow: 'auto', padding: '6px' }}>
+                                {JSON.stringify(tc.args, null, 2)}
+                              </Code>
+
+                              <Text size="xs" fw={700} c="dimmed" mt={4}>Response Payload:</Text>
+                              <Code block style={{ fontSize: '11px', maxHeight: '200px', overflow: 'auto', padding: '6px' }}>
+                                {prettyResult}
+                              </Code>
+                            </Paper>
+                          );
+                        })}
+                      </Stack>
+                    </Accordion.Panel>
+                  </Accordion.Item>
+                </Accordion>
+              )}
+
               <Box style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5, fontSize: 14 }}>
                 {msg.content}
               </Box>
