@@ -32,6 +32,7 @@ type Config struct {
 	AIEndpoint            string              `yaml:"ai_endpoint"`
 	AIModel               string              `yaml:"ai_model"`
 	AIAPIKey              string              `yaml:"ai_api_key"`
+	AIContextSize         int                 `yaml:"ai_context_size"`
 	AIModels              []AIModelConfig     `yaml:"ai_models"`
 }
 
@@ -95,9 +96,10 @@ func Load(path string) (Config, error) {
 		},
 		AIProvider: "local",
 		AIEndpoint: "http://127.0.0.1:8080/v1",
-		AIModel:    "deepseek-r1-distill-qwen-7b",
-		AIAPIKey:   "",
-		AIModels:   DefaultAIModels(),
+		AIModel:       "deepseek-r1-distill-qwen-7b",
+		AIAPIKey:      "",
+		AIContextSize: 16384,
+		AIModels:      DefaultAIModels(),
 	}
 	if path != "" {
 		f, err := os.Open(path)
@@ -110,6 +112,10 @@ func Load(path string) (Config, error) {
 		if err := dec.Decode(&cfg); err != nil {
 			return Config{}, fmt.Errorf("decode config: %w", err)
 		}
+	}
+
+	if cfg.AIContextSize <= 0 {
+		cfg.AIContextSize = 16384
 	}
 
 	cfg.BaseCurrency = strings.ToUpper(strings.TrimSpace(cfg.BaseCurrency))

@@ -295,11 +295,41 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 		}
 	}
 
+	contextSize := req.Msg.ContextSize
+	if contextSize <= 0 {
+		contextSize = int32(s.config.AIContextSize)
+	}
+	if contextSize <= 0 {
+		contextSize = 16384
+	}
+
+	// Estimate token count (approx. 1 token = 4 characters)
+	maxPromptTokens := int(contextSize) - 500
+	if maxPromptTokens < 1000 {
+		maxPromptTokens = 1000
+	}
+
+	estimateTokens := func(turns []map[string]interface{}) int {
+		totalChars := 0
+		for _, turn := range turns {
+			if content, ok := turn["content"].(string); ok {
+				totalChars += len(content)
+			}
+		}
+		return totalChars / 4
+	}
+
+	// Prune older history turns if prompt trajectory exceeds context limit
+	for len(conversation) > 2 && estimateTokens(conversation) > maxPromptTokens {
+		conversation = append(conversation[:1], conversation[2:]...)
+	}
+
 	payload := map[string]interface{}{
 		"model":       model,
 		"messages":    conversation,
 		"temperature": 0.3,
 		"stream":      true,
+		"max_tokens":  2048,
 	}
 
 	url := fmt.Sprintf("%s/chat/completions", endpoint)

@@ -37,7 +37,7 @@ ai-start: ai-setup
 		echo "Local AI OpenAI Server is already running on http://127.0.0.1:8080/v1 (PID $(cat data/models/llama-server.pid))"
 	else
 		echo "Starting Local AI OpenAI Server on http://127.0.0.1:8080/v1 (Metal GPU enabled)..."
-		nohup llama-server -m data/models/qwen2.5-3b-instruct-q4_k_m.gguf --port 8080 --host 127.0.0.1 -ngl 99 -c 4096 --alias qwen2.5-3b-instruct > data/models/llama-server.log 2>&1 &
+		nohup llama-server -m data/models/qwen2.5-3b-instruct-q4_k_m.gguf --port 8080 --host 127.0.0.1 -ngl 99 -c 16384 --alias qwen2.5-3b-instruct > data/models/llama-server.log 2>&1 &
 		echo $! > data/models/llama-server.pid
 		echo "Local AI Server started (PID $(cat data/models/llama-server.pid)). Logs: data/models/llama-server.log"
 	fi

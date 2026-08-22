@@ -729,6 +729,7 @@ export async function* streamChat(req: {
   endpoint: string;
   model: string;
   apiKey: string;
+  contextSize?: number;
   messages: { role: string; content: string }[];
   portfolioContextJson: string;
 }): AsyncIterable<StreamChatChunk> {
@@ -737,6 +738,7 @@ export async function* streamChat(req: {
     endpoint: req.endpoint,
     model: req.model,
     apiKey: req.apiKey,
+    contextSize: req.contextSize ? req.contextSize : 16384,
     messages: req.messages.map(m => ({ role: m.role, content: m.content })),
     portfolioContextJson: req.portfolioContextJson,
   });

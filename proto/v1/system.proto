@@ -71,7 +71,7 @@ message ChatMessagePayload {
   string content = 2;
 }
 
-// StreamChatRequest passes AI provider credentials, model selection, chat history, and portfolio context.
+// StreamChatRequest passes AI provider credentials, model selection, chat history, portfolio context, and max context window size.
 message StreamChatRequest {
   string provider = 1;
   string endpoint = 2;
@@ -79,6 +79,7 @@ message StreamChatRequest {
   string api_key = 4;
   repeated ChatMessagePayload messages = 5;
   string portfolio_context_json = 6;
+  int32 context_size = 7;
 }
 
 // StreamChatResponse represents streaming token chunks or MCP tool execution events.

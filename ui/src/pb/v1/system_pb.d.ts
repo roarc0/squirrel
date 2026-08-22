@@ -344,7 +344,7 @@ export declare class ChatMessagePayload extends Message<ChatMessagePayload> {
 }
 
 /**
- * StreamChatRequest passes AI provider credentials, model selection, chat history, and portfolio context.
+ * StreamChatRequest passes AI provider credentials, model selection, chat history, portfolio context, and max context window size.
  *
  * @generated from message v1.StreamChatRequest
  */
@@ -378,6 +378,11 @@ export declare class StreamChatRequest extends Message<StreamChatRequest> {
    * @generated from field: string portfolio_context_json = 6;
    */
   portfolioContextJson: string;
+
+  /**
+   * @generated from field: int32 context_size = 7;
+   */
+  contextSize: number;
 
   constructor(data?: PartialMessage<StreamChatRequest>);
 

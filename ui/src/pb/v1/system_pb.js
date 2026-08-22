@@ -121,7 +121,7 @@ export const ChatMessagePayload = /*@__PURE__*/ proto3.makeMessageType(
 );
 
 /**
- * StreamChatRequest passes AI provider credentials, model selection, chat history, and portfolio context.
+ * StreamChatRequest passes AI provider credentials, model selection, chat history, portfolio context, and max context window size.
  *
  * @generated from message v1.StreamChatRequest
  */
@@ -134,6 +134,7 @@ export const StreamChatRequest = /*@__PURE__*/ proto3.makeMessageType(
     { no: 4, name: "api_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 5, name: "messages", kind: "message", T: ChatMessagePayload, repeated: true },
     { no: 6, name: "portfolio_context_json", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 7, name: "context_size", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
   ],
 );
 

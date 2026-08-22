@@ -30,6 +30,7 @@ type AISettings = {
   endpoint: string;
   model: string;
   apiKey: string;
+  contextSize: number;
 };
 
 const defaultSettings: AISettings = {
@@ -37,6 +38,7 @@ const defaultSettings: AISettings = {
   endpoint: 'http://localhost:8080/v1',
   model: 'deepseek-r1-distill-qwen-7b',
   apiKey: '',
+  contextSize: 16384,
 };
 
 function getSavedSettings(): AISettings {
@@ -289,6 +291,7 @@ export function AIAdvisorView({
         endpoint: settings.endpoint,
         model: settings.model,
         apiKey: settings.apiKey,
+        contextSize: settings.contextSize || 16384,
         messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
         portfolioContextJson: contextJSON,
       });
@@ -549,6 +552,7 @@ function AISettingsModal({
   const [endpoint, setEndpoint] = useState(settings.endpoint);
   const [model, setModel] = useState(settings.model);
   const [apiKey, setApiKey] = useState(settings.apiKey);
+  const [contextSize, setContextSize] = useState(settings.contextSize || 16384);
 
   const [availableModels, setAvailableModels] = useState<AIModelInfo[]>([]);
   const [downloadInput, setDownloadInput] = useState('');
@@ -571,6 +575,7 @@ function AISettingsModal({
     setEndpoint(settings.endpoint);
     setModel(settings.model);
     setApiKey(settings.apiKey);
+    setContextSize(settings.contextSize || 16384);
     void loadModels();
     const interval = setInterval(() => {
       void loadModels();
@@ -656,7 +661,7 @@ function AISettingsModal({
         {downloadNotice && <Alert color="teal" withCloseButton onClose={() => setDownloadNotice('')}>{downloadNotice}</Alert>}
 
         <Paper withBorder p="md" radius="md">
-          <Text fw={700} size="sm" mb={4}>Select Active AI Model</Text>
+          <Text fw={700} size="sm" mb={4}>Select Active AI Model & Server Context</Text>
           <Text size="xs" c="dimmed" mb="sm">
             Choose an enabled open-weights model or select a custom model downloaded into <Text span ff="monospace">./data/models/</Text>.
           </Text>
@@ -677,6 +682,21 @@ function AISettingsModal({
                   }
                 }
               }}
+            />
+
+            <Select
+              label="Context Window Limit (Tokens)"
+              description="Maximum context window allocated for prompt trajectory & portfolio context. Automatic trajectory pruning prevents overflow errors."
+              value={String(contextSize)}
+              data={[
+                { value: '4096', label: '4,096 Tokens (4K)' },
+                { value: '8192', label: '8,192 Tokens (8K)' },
+                { value: '16384', label: '16,384 Tokens (16K - Recommended Default)' },
+                { value: '32768', label: '32,768 Tokens (32K)' },
+                { value: '65536', label: '65,536 Tokens (64K)' },
+                { value: '131072', label: '131,072 Tokens (128K)' },
+              ]}
+              onChange={val => val && setContextSize(Number(val))}
             />
 
             <Select
@@ -812,6 +832,7 @@ function AISettingsModal({
                 endpoint,
                 model,
                 apiKey,
+                contextSize,
               })
             }
           >
