@@ -7,12 +7,7 @@ ui: generate
 	cd ui && npm run build
 
 run *args: ui
-	@if command -v air >/dev/null 2>&1; then \
-		CGO_ENABLED=0 air -- {{args}}; \
-	else \
-		echo "air not found; falling back to go run..."; \
-		CGO_ENABLED=0 go run ./backend/cmd/loot {{args}}; \
-	fi
+	CGO_ENABLED=0 go run github.com/air-verse/air@latest -- {{args}}
 
 build: ui
 	mkdir -p bin
