@@ -23,6 +23,7 @@ import {
 } from '@mantine/core';
 import type { Account, Holding, Instrument, Summary, AIModelInfo } from '../api';
 import { listAIModels, downloadAIModel, streamChat } from '../api';
+import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import { money, percent } from '../utils/format';
 
 type AISettings = {
@@ -503,8 +504,8 @@ export function AIAdvisorView({
                 </Accordion>
               )}
 
-              <Box style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5, fontSize: 14 }}>
-                {msg.content}
+              <Box style={{ lineHeight: 1.5, fontSize: 14 }}>
+                <MarkdownRenderer content={msg.content} />
               </Box>
             </Card>
           );
