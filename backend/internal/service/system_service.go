@@ -326,6 +326,11 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 		conversation = append(conversation[:1], conversation[2:]...)
 	}
 
+	var tools []map[string]interface{}
+	if s.mcpHandler != nil {
+		tools = s.mcpHandler.OpenAITools()
+	}
+
 	payload := map[string]interface{}{
 		"model":       model,
 		"messages":    conversation,
@@ -333,7 +338,21 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 		"stream":      true,
 		"max_tokens":  2048,
 	}
+	if len(tools) > 0 {
+		payload["tools"] = tools
+	}
 
+	return s.executeStreamChatPayload(ctx, endpoint, msg.ApiKey, payload, conversation, stream)
+}
+
+func (s *Server) executeStreamChatPayload(
+	ctx context.Context,
+	endpoint string,
+	apiKey string,
+	payload map[string]interface{},
+	conversation []map[string]interface{},
+	stream *connect.ServerStream[portv1.StreamChatResponse],
+) error {
 	url := fmt.Sprintf("%s/chat/completions", endpoint)
 	bodyBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -345,8 +364,8 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 		return connect.NewError(connect.CodeInternal, fmt.Errorf("create chat stream request failed: %w", err))
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	if msg.ApiKey != "" {
-		httpReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", msg.ApiKey))
+	if apiKey != "" {
+		httpReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
 	}
 
 	client := &http.Client{Timeout: 0}
@@ -360,6 +379,18 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 		errBody, _ := io.ReadAll(res.Body)
 		return connect.NewError(connect.CodeInternal, fmt.Errorf("AI provider HTTP %d: %s", res.StatusCode, string(errBody)))
 	}
+
+	type toolCallDelta struct {
+		ID       string `json:"id"`
+		Type     string `json:"type"`
+		Function struct {
+			Name      string `json:"name"`
+			Arguments string `json:"arguments"`
+		} `json:"function"`
+	}
+
+	var pendingToolCalls []toolCallDelta
+	toolCallMap := make(map[int]*toolCallDelta)
 
 	scanner := bufio.NewScanner(res.Body)
 	for scanner.Scan() {
@@ -378,20 +409,109 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 		var chunk struct {
 			Choices []struct {
 				Delta struct {
-					Content string `json:"content"`
+					Content   string `json:"content"`
+					ToolCalls []struct {
+						Index    int    `json:"index"`
+						ID       string `json:"id"`
+						Function struct {
+							Name      string `json:"name"`
+							Arguments string `json:"arguments"`
+						} `json:"function"`
+					} `json:"tool_calls"`
 				} `json:"delta"`
+				FinishReason *string `json:"finish_reason"`
 			} `json:"choices"`
 		}
 
-		if err := json.Unmarshal([]byte(dataStr), &chunk); err == nil {
-			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
+		if err := json.Unmarshal([]byte(dataStr), &chunk); err == nil && len(chunk.Choices) > 0 {
+			delta := chunk.Choices[0].Delta
+			if delta.Content != "" {
 				if err := stream.Send(&portv1.StreamChatResponse{
-					DeltaText: chunk.Choices[0].Delta.Content,
+					DeltaText: delta.Content,
 				}); err != nil {
 					return err
 				}
 			}
+
+			for _, tc := range delta.ToolCalls {
+				idx := tc.Index
+				if _, exists := toolCallMap[idx]; !exists {
+					toolCallMap[idx] = &toolCallDelta{}
+				}
+				if tc.ID != "" {
+					toolCallMap[idx].ID = tc.ID
+				}
+				if tc.Function.Name != "" {
+					toolCallMap[idx].Function.Name += tc.Function.Name
+				}
+				if tc.Function.Arguments != "" {
+					toolCallMap[idx].Function.Arguments += tc.Function.Arguments
+				}
+			}
 		}
+	}
+
+	for i := 0; i < len(toolCallMap); i++ {
+		if tc, ok := toolCallMap[i]; ok && tc.Function.Name != "" {
+			pendingToolCalls = append(pendingToolCalls, *tc)
+		}
+	}
+
+	if len(pendingToolCalls) > 0 && s.mcpHandler != nil {
+		var toolCallPayloads []map[string]interface{}
+		var toolResults []map[string]interface{}
+
+		for _, tc := range pendingToolCalls {
+			var args map[string]interface{}
+			_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
+			if args == nil {
+				args = make(map[string]interface{})
+			}
+
+			resultJSON, err := s.mcpHandler.ExecuteTool(ctx, tc.Function.Name, args)
+			if err != nil {
+				resultJSON = fmt.Sprintf(`{"error": %q}`, err.Error())
+			}
+
+			if err := stream.Send(&portv1.StreamChatResponse{
+				IsMcpToolCall:  true,
+				ToolName:       tc.Function.Name,
+				ToolArgsJson:   tc.Function.Arguments,
+				ToolResultJson: resultJSON,
+			}); err != nil {
+				return err
+			}
+
+			toolCallPayloads = append(toolCallPayloads, map[string]interface{}{
+				"id":   tc.ID,
+				"type": "function",
+				"function": map[string]interface{}{
+					"name":      tc.Function.Name,
+					"arguments": tc.Function.Arguments,
+				},
+			})
+
+			toolResults = append(toolResults, map[string]interface{}{
+				"role":         "tool",
+				"tool_call_id": tc.ID,
+				"content":      resultJSON,
+			})
+		}
+
+		conversation = append(conversation, map[string]interface{}{
+			"role":       "assistant",
+			"tool_calls": toolCallPayloads,
+		})
+		conversation = append(conversation, toolResults...)
+
+		nextPayload := map[string]interface{}{
+			"model":       payload["model"],
+			"messages":    conversation,
+			"temperature": 0.3,
+			"stream":      true,
+		}
+
+		return s.executeStreamChatPayload(ctx, endpoint, apiKey, nextPayload, conversation, stream)
 	}
 
 	_ = stream.Send(&portv1.StreamChatResponse{Done: true})

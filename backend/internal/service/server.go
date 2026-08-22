@@ -31,6 +31,7 @@ type Server struct {
 	baseCurrency string
 	justETF      *justetf.Client
 	taxRates     []portfolio.TaxRate
+	mcpHandler   *mcp.Handler
 }
 
 func New(data *store.Store, baseCurrency string, taxRates []portfolio.TaxRate, profileInterval ...time.Duration) http.Handler {
@@ -64,6 +65,7 @@ func NewWithConfig(data *store.Store, cfg config.Config, profileInterval ...time
 
 	// Register Model Context Protocol (MCP) route
 	mcpHandler := mcp.NewHandler(mux)
+	s.mcpHandler = mcpHandler
 	mux.Handle("/mcp", mcpHandler)
 	mux.Handle("/mcp/", mcpHandler)
 

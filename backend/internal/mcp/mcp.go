@@ -26,13 +26,38 @@ type Handler struct {
 }
 
 // NewHandler creates a new MCP HTTP Handler that proxies tool execution to the underlying Proto Connect RPC Handler.
-func NewHandler(rpcHandler http.Handler) http.Handler {
+func NewHandler(rpcHandler http.Handler) *Handler {
 	h := &Handler{
 		rpcHandler: rpcHandler,
 		tools:      make(map[string]ToolDefinition),
 	}
 	h.registerProtoTools()
 	return h
+}
+
+// OpenAITools returns all registered MCP tools in OpenAI function definitions format.
+func (h *Handler) OpenAITools() []map[string]interface{} {
+	var list []map[string]interface{}
+	for _, tool := range h.tools {
+		list = append(list, map[string]interface{}{
+			"type": "function",
+			"function": map[string]interface{}{
+				"name":        tool.Name,
+				"description": tool.Description,
+				"parameters":  tool.InputSchema,
+			},
+		})
+	}
+	return list
+}
+
+// ExecuteTool dispatches an MCP tool call directly to the internal Connect RPC handler and returns the response JSON.
+func (h *Handler) ExecuteTool(ctx context.Context, name string, args map[string]interface{}) (string, error) {
+	tool, ok := h.tools[name]
+	if !ok {
+		return "", fmt.Errorf("unknown MCP tool %q", name)
+	}
+	return h.dispatchRPCCall(ctx, tool.RPCPath, args)
 }
 
 func (h *Handler) registerProtoTools() {

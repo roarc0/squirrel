@@ -258,6 +258,15 @@ export function AIAdvisorView({
   };
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, loading]);
 
   const stopAI = () => {
     if (abortControllerRef.current) {
@@ -534,6 +543,7 @@ export function AIAdvisorView({
         })}
         </Stack>
       )}
+      <div ref={messagesEndRef} style={{ height: 1 }} />
 
       <Paper
         className="metric"
