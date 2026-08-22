@@ -312,3 +312,136 @@ export declare class DownloadAIModelResponse extends Message<DownloadAIModelResp
   static equals(a: DownloadAIModelResponse | PlainMessage<DownloadAIModelResponse> | undefined, b: DownloadAIModelResponse | PlainMessage<DownloadAIModelResponse> | undefined): boolean;
 }
 
+/**
+ * ChatMessagePayload represents a message turn in conversation history.
+ *
+ * @generated from message v1.ChatMessagePayload
+ */
+export declare class ChatMessagePayload extends Message<ChatMessagePayload> {
+  /**
+   * @generated from field: string role = 1;
+   */
+  role: string;
+
+  /**
+   * @generated from field: string content = 2;
+   */
+  content: string;
+
+  constructor(data?: PartialMessage<ChatMessagePayload>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.ChatMessagePayload";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ChatMessagePayload;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ChatMessagePayload;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ChatMessagePayload;
+
+  static equals(a: ChatMessagePayload | PlainMessage<ChatMessagePayload> | undefined, b: ChatMessagePayload | PlainMessage<ChatMessagePayload> | undefined): boolean;
+}
+
+/**
+ * StreamChatRequest passes AI provider credentials, model selection, chat history, and portfolio context.
+ *
+ * @generated from message v1.StreamChatRequest
+ */
+export declare class StreamChatRequest extends Message<StreamChatRequest> {
+  /**
+   * @generated from field: string provider = 1;
+   */
+  provider: string;
+
+  /**
+   * @generated from field: string endpoint = 2;
+   */
+  endpoint: string;
+
+  /**
+   * @generated from field: string model = 3;
+   */
+  model: string;
+
+  /**
+   * @generated from field: string api_key = 4;
+   */
+  apiKey: string;
+
+  /**
+   * @generated from field: repeated v1.ChatMessagePayload messages = 5;
+   */
+  messages: ChatMessagePayload[];
+
+  /**
+   * @generated from field: string portfolio_context_json = 6;
+   */
+  portfolioContextJson: string;
+
+  constructor(data?: PartialMessage<StreamChatRequest>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.StreamChatRequest";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StreamChatRequest;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): StreamChatRequest;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): StreamChatRequest;
+
+  static equals(a: StreamChatRequest | PlainMessage<StreamChatRequest> | undefined, b: StreamChatRequest | PlainMessage<StreamChatRequest> | undefined): boolean;
+}
+
+/**
+ * StreamChatResponse represents streaming token chunks or MCP tool execution events.
+ *
+ * @generated from message v1.StreamChatResponse
+ */
+export declare class StreamChatResponse extends Message<StreamChatResponse> {
+  /**
+   * @generated from field: string delta_text = 1;
+   */
+  deltaText: string;
+
+  /**
+   * @generated from field: bool is_mcp_tool_call = 2;
+   */
+  isMcpToolCall: boolean;
+
+  /**
+   * @generated from field: string tool_name = 3;
+   */
+  toolName: string;
+
+  /**
+   * @generated from field: string tool_args_json = 4;
+   */
+  toolArgsJson: string;
+
+  /**
+   * @generated from field: string tool_result_json = 5;
+   */
+  toolResultJson: string;
+
+  /**
+   * @generated from field: bool done = 6;
+   */
+  done: boolean;
+
+  constructor(data?: PartialMessage<StreamChatResponse>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.StreamChatResponse";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StreamChatResponse;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): StreamChatResponse;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): StreamChatResponse;
+
+  static equals(a: StreamChatResponse | PlainMessage<StreamChatResponse> | undefined, b: StreamChatResponse | PlainMessage<StreamChatResponse> | undefined): boolean;
+}
+

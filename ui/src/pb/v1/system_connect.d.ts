@@ -3,11 +3,11 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { DownloadAIModelRequest, DownloadAIModelResponse, ExportBackupRequest, ExportBackupResponse, ListAIModelsRequest, ListAIModelsResponse, RestoreBackupRequest, RestoreBackupResponse } from "./system_pb.js";
+import { DownloadAIModelRequest, DownloadAIModelResponse, ExportBackupRequest, ExportBackupResponse, ListAIModelsRequest, ListAIModelsResponse, RestoreBackupRequest, RestoreBackupResponse, StreamChatRequest, StreamChatResponse } from "./system_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
- * SystemService manages database backups, system state, and local AI model management.
+ * SystemService manages database backups, system state, local AI models, and Connect Protobuf AI streaming.
  *
  * @generated from service v1.SystemService
  */
@@ -57,6 +57,17 @@ export declare const SystemService: {
       readonly I: typeof DownloadAIModelRequest,
       readonly O: typeof DownloadAIModelResponse,
       readonly kind: MethodKind.Unary,
+    },
+    /**
+     * Stream AI assistant chat tokens and MCP tool calls over Connect Protobuf server-streaming.
+     *
+     * @generated from rpc v1.SystemService.StreamChat
+     */
+    readonly streamChat: {
+      readonly name: "StreamChat",
+      readonly I: typeof StreamChatRequest,
+      readonly O: typeof StreamChatResponse,
+      readonly kind: MethodKind.ServerStreaming,
     },
   }
 };

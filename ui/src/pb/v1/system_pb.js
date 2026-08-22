@@ -107,3 +107,50 @@ export const DownloadAIModelResponse = /*@__PURE__*/ proto3.makeMessageType(
   ],
 );
 
+/**
+ * ChatMessagePayload represents a message turn in conversation history.
+ *
+ * @generated from message v1.ChatMessagePayload
+ */
+export const ChatMessagePayload = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.ChatMessagePayload",
+  () => [
+    { no: 1, name: "role", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "content", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ],
+);
+
+/**
+ * StreamChatRequest passes AI provider credentials, model selection, chat history, and portfolio context.
+ *
+ * @generated from message v1.StreamChatRequest
+ */
+export const StreamChatRequest = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.StreamChatRequest",
+  () => [
+    { no: 1, name: "provider", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "endpoint", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "model", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "api_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "messages", kind: "message", T: ChatMessagePayload, repeated: true },
+    { no: 6, name: "portfolio_context_json", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ],
+);
+
+/**
+ * StreamChatResponse represents streaming token chunks or MCP tool execution events.
+ *
+ * @generated from message v1.StreamChatResponse
+ */
+export const StreamChatResponse = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.StreamChatResponse",
+  () => [
+    { no: 1, name: "delta_text", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "is_mcp_tool_call", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 3, name: "tool_name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "tool_args_json", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "tool_result_json", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "done", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+  ],
+);
+

@@ -714,3 +714,41 @@ export async function downloadAIModel(modelName: string): Promise<{ success: boo
     modelId: res.modelId ?? '',
   };
 }
+
+export type StreamChatChunk = {
+  deltaText: string;
+  isMcpToolCall: boolean;
+  toolName: string;
+  toolArgsJson: string;
+  toolResultJson: string;
+  done: boolean;
+};
+
+export async function* streamChat(req: {
+  provider: string;
+  endpoint: string;
+  model: string;
+  apiKey: string;
+  messages: { role: string; content: string }[];
+  portfolioContextJson: string;
+}): AsyncIterable<StreamChatChunk> {
+  const stream = systemClient.streamChat({
+    provider: req.provider,
+    endpoint: req.endpoint,
+    model: req.model,
+    apiKey: req.apiKey,
+    messages: req.messages.map(m => ({ role: m.role, content: m.content })),
+    portfolioContextJson: req.portfolioContextJson,
+  });
+
+  for await (const chunk of stream) {
+    yield {
+      deltaText: chunk.deltaText ?? '',
+      isMcpToolCall: Boolean(chunk.isMcpToolCall),
+      toolName: chunk.toolName ?? '',
+      toolArgsJson: chunk.toolArgsJson ?? '',
+      toolResultJson: chunk.toolResultJson ?? '',
+      done: Boolean(chunk.done),
+    };
+  }
+}

@@ -1,7 +1,10 @@
 package service
 
 import (
+	"bufio"
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -256,4 +259,109 @@ func (s *Server) DownloadAIModel(ctx context.Context, req *connect.Request[portv
 		ModelId:  modelID,
 		FilePath: targetPath,
 	}), nil
+}
+
+func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.StreamChatRequest], stream *connect.ServerStream[portv1.StreamChatResponse]) error {
+	msg := req.Msg
+	endpoint := strings.TrimRight(strings.TrimSpace(msg.Endpoint), "/")
+	if endpoint == "" {
+		endpoint = "http://localhost:8080/v1"
+	}
+	model := strings.TrimSpace(msg.Model)
+	if model == "" {
+		model = "deepseek-r1-distill-qwen-7b"
+	}
+
+	systemPrompt := `You are an expert, local-first financial portfolio AI assistant for LOOT. You have full Model Context Protocol (MCP) access to backend Proto API tools (/mcp). Use tools like search_instruments, rank_instruments, get_summary, list_holdings, list_accounts, list_snapshots, and get_diagnostics to answer questions accurately. Never give legal or binding tax advice. Keep explanations simple, practical, and clear.`
+
+	var conversation []map[string]interface{}
+	conversation = append(conversation, map[string]interface{}{
+		"role":    "system",
+		"content": systemPrompt,
+	})
+
+	for _, m := range msg.Messages {
+		conversation = append(conversation, map[string]interface{}{
+			"role":    m.Role,
+			"content": m.Content,
+		})
+	}
+
+	if msg.PortfolioContextJson != "" {
+		lastIdx := len(conversation) - 1
+		if lastIdx >= 0 && conversation[lastIdx]["role"] == "user" {
+			existing, _ := conversation[lastIdx]["content"].(string)
+			conversation[lastIdx]["content"] = fmt.Sprintf("Portfolio Summary Context:\n```json\n%s\n```\n\nUser Question: %s", msg.PortfolioContextJson, existing)
+		}
+	}
+
+	payload := map[string]interface{}{
+		"model":       model,
+		"messages":    conversation,
+		"temperature": 0.3,
+		"stream":      true,
+	}
+
+	url := fmt.Sprintf("%s/chat/completions", endpoint)
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, fmt.Errorf("marshal chat payload failed: %w", err))
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return connect.NewError(connect.CodeInternal, fmt.Errorf("create chat stream request failed: %w", err))
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	if msg.ApiKey != "" {
+		httpReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", msg.ApiKey))
+	}
+
+	client := &http.Client{Timeout: 0}
+	res, err := client.Do(httpReq)
+	if err != nil {
+		return connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to AI server at %s: %w", url, err))
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode >= 400 {
+		errBody, _ := io.ReadAll(res.Body)
+		return connect.NewError(connect.CodeInternal, fmt.Errorf("AI provider HTTP %d: %s", res.StatusCode, string(errBody)))
+	}
+
+	scanner := bufio.NewScanner(res.Body)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, ":") {
+			continue
+		}
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		dataStr := strings.TrimPrefix(line, "data: ")
+		if dataStr == "[DONE]" {
+			break
+		}
+
+		var chunk struct {
+			Choices []struct {
+				Delta struct {
+					Content string `json:"content"`
+				} `json:"delta"`
+			} `json:"choices"`
+		}
+
+		if err := json.Unmarshal([]byte(dataStr), &chunk); err == nil {
+			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
+				if err := stream.Send(&portv1.StreamChatResponse{
+					DeltaText: chunk.Choices[0].Delta.Content,
+				}); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	_ = stream.Send(&portv1.StreamChatResponse{Done: true})
+	return nil
 }

@@ -45,6 +45,9 @@ const (
 	// SystemServiceDownloadAIModelProcedure is the fully-qualified name of the SystemService's
 	// DownloadAIModel RPC.
 	SystemServiceDownloadAIModelProcedure = "/v1.SystemService/DownloadAIModel"
+	// SystemServiceStreamChatProcedure is the fully-qualified name of the SystemService's StreamChat
+	// RPC.
+	SystemServiceStreamChatProcedure = "/v1.SystemService/StreamChat"
 )
 
 // SystemServiceClient is a client for the v1.SystemService service.
@@ -57,6 +60,8 @@ type SystemServiceClient interface {
 	ListAIModels(context.Context, *connect.Request[v1.ListAIModelsRequest]) (*connect.Response[v1.ListAIModelsResponse], error)
 	// Download an open-weights GGUF AI model into data/models/ given a name or Hugging Face repo.
 	DownloadAIModel(context.Context, *connect.Request[v1.DownloadAIModelRequest]) (*connect.Response[v1.DownloadAIModelResponse], error)
+	// Stream AI assistant chat tokens and MCP tool calls over Connect Protobuf server-streaming.
+	StreamChat(context.Context, *connect.Request[v1.StreamChatRequest]) (*connect.ServerStreamForClient[v1.StreamChatResponse], error)
 }
 
 // NewSystemServiceClient constructs a client for the v1.SystemService service. By default, it uses
@@ -94,6 +99,12 @@ func NewSystemServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(systemServiceMethods.ByName("DownloadAIModel")),
 			connect.WithClientOptions(opts...),
 		),
+		streamChat: connect.NewClient[v1.StreamChatRequest, v1.StreamChatResponse](
+			httpClient,
+			baseURL+SystemServiceStreamChatProcedure,
+			connect.WithSchema(systemServiceMethods.ByName("StreamChat")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -103,6 +114,7 @@ type systemServiceClient struct {
 	restoreBackup   *connect.Client[v1.RestoreBackupRequest, v1.RestoreBackupResponse]
 	listAIModels    *connect.Client[v1.ListAIModelsRequest, v1.ListAIModelsResponse]
 	downloadAIModel *connect.Client[v1.DownloadAIModelRequest, v1.DownloadAIModelResponse]
+	streamChat      *connect.Client[v1.StreamChatRequest, v1.StreamChatResponse]
 }
 
 // ExportBackup calls v1.SystemService.ExportBackup.
@@ -125,6 +137,11 @@ func (c *systemServiceClient) DownloadAIModel(ctx context.Context, req *connect.
 	return c.downloadAIModel.CallUnary(ctx, req)
 }
 
+// StreamChat calls v1.SystemService.StreamChat.
+func (c *systemServiceClient) StreamChat(ctx context.Context, req *connect.Request[v1.StreamChatRequest]) (*connect.ServerStreamForClient[v1.StreamChatResponse], error) {
+	return c.streamChat.CallServerStream(ctx, req)
+}
+
 // SystemServiceHandler is an implementation of the v1.SystemService service.
 type SystemServiceHandler interface {
 	// Export a complete encrypted backup archive of the SQLite database.
@@ -135,6 +152,8 @@ type SystemServiceHandler interface {
 	ListAIModels(context.Context, *connect.Request[v1.ListAIModelsRequest]) (*connect.Response[v1.ListAIModelsResponse], error)
 	// Download an open-weights GGUF AI model into data/models/ given a name or Hugging Face repo.
 	DownloadAIModel(context.Context, *connect.Request[v1.DownloadAIModelRequest]) (*connect.Response[v1.DownloadAIModelResponse], error)
+	// Stream AI assistant chat tokens and MCP tool calls over Connect Protobuf server-streaming.
+	StreamChat(context.Context, *connect.Request[v1.StreamChatRequest], *connect.ServerStream[v1.StreamChatResponse]) error
 }
 
 // NewSystemServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -168,6 +187,12 @@ func NewSystemServiceHandler(svc SystemServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(systemServiceMethods.ByName("DownloadAIModel")),
 		connect.WithHandlerOptions(opts...),
 	)
+	systemServiceStreamChatHandler := connect.NewServerStreamHandler(
+		SystemServiceStreamChatProcedure,
+		svc.StreamChat,
+		connect.WithSchema(systemServiceMethods.ByName("StreamChat")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/v1.SystemService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SystemServiceExportBackupProcedure:
@@ -178,6 +203,8 @@ func NewSystemServiceHandler(svc SystemServiceHandler, opts ...connect.HandlerOp
 			systemServiceListAIModelsHandler.ServeHTTP(w, r)
 		case SystemServiceDownloadAIModelProcedure:
 			systemServiceDownloadAIModelHandler.ServeHTTP(w, r)
+		case SystemServiceStreamChatProcedure:
+			systemServiceStreamChatHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -201,4 +228,8 @@ func (UnimplementedSystemServiceHandler) ListAIModels(context.Context, *connect.
 
 func (UnimplementedSystemServiceHandler) DownloadAIModel(context.Context, *connect.Request[v1.DownloadAIModelRequest]) (*connect.Response[v1.DownloadAIModelResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.SystemService.DownloadAIModel is not implemented"))
+}
+
+func (UnimplementedSystemServiceHandler) StreamChat(context.Context, *connect.Request[v1.StreamChatRequest], *connect.ServerStream[v1.StreamChatResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("v1.SystemService.StreamChat is not implemented"))
 }

@@ -22,7 +22,7 @@ import {
   Title,
 } from '@mantine/core';
 import type { Account, Holding, Instrument, Summary, AIModelInfo } from '../api';
-import { listAIModels, downloadAIModel } from '../api';
+import { listAIModels, downloadAIModel, streamChat } from '../api';
 import { money, percent } from '../utils/format';
 
 type AISettings = {
@@ -269,108 +269,59 @@ export function AIAdvisorView({
     setLoading(true);
     setError('');
 
+    const assistantMsgId = String(Date.now() + 1);
+    const initialAssistantMsg: ChatMessage = {
+      id: assistantMsgId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    let currentMessages = [...updatedMessages, initialAssistantMsg];
+    saveMessages(currentMessages);
+
     try {
-      const activeTools = await fetchMCPTools();
+      let accumulatedText = '';
+      const toolRecords: MCPToolCallRecord[] = [];
 
-      const systemPrompt = `You are an expert, local-first financial portfolio AI assistant for LOOT. You have full Model Context Protocol (MCP) access to the backend Proto API tools (/mcp). Use tools like search_instruments, rank_instruments, get_summary, list_holdings, list_accounts, list_snapshots, and get_diagnostics to answer questions accurately. Never give legal or binding tax advice. Keep explanations simple, practical, and clear.`;
-
-      const userContent = `Portfolio Summary Context:\n\`\`\`json\n${contextJSON}\n\`\`\`\n\nUser Question: ${textToSend}`;
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (settings.apiKey) {
-        headers['Authorization'] = `Bearer ${settings.apiKey}`;
-      }
-
-      const conversationTrajectory: any[] = [
-        { role: 'system', content: systemPrompt },
-        ...messages.map(m => ({ role: m.role, content: m.content })),
-        { role: 'user', content: userContent },
-      ];
-
-      const res = await fetch(`${settings.endpoint.replace(/\/$/, '')}/chat/completions`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          model: settings.model,
-          messages: conversationTrajectory,
-          tools: activeTools,
-          temperature: 0.3,
-        }),
+      const stream = streamChat({
+        provider: settings.provider,
+        endpoint: settings.endpoint,
+        model: settings.model,
+        apiKey: settings.apiKey,
+        messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
+        portfolioContextJson: contextJSON,
       });
 
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`AI Provider HTTP ${res.status}: ${errText || res.statusText}`);
-      }
-
-      const data = await res.json();
-      const choice = data.choices?.[0];
-
-      if (choice?.finish_reason === 'tool_calls' || choice?.message?.tool_calls?.length > 0) {
-        const toolCalls = choice.message.tool_calls;
-        const toolConversation = [...conversationTrajectory, choice.message];
-        const executedRecords: MCPToolCallRecord[] = [];
-
-        for (const tc of toolCalls) {
-          let parsedArgs = {};
-          try { parsedArgs = JSON.parse(tc.function.arguments); } catch { /* optional */ }
-          const toolResult = await executeMCPToolCall(tc.function.name, parsedArgs);
-          executedRecords.push({
-            name: tc.function.name,
-            args: parsedArgs,
-            result: toolResult,
-          });
-          toolConversation.push({
-            role: 'tool',
-            tool_call_id: tc.id,
-            content: toolResult,
+      for await (const chunk of stream) {
+        if (chunk.isMcpToolCall && chunk.toolName) {
+          let args = {};
+          try { args = JSON.parse(chunk.toolArgsJson); } catch { /* optional */ }
+          toolRecords.push({
+            name: chunk.toolName,
+            args,
+            result: chunk.toolResultJson,
           });
         }
-
-        const secondRes = await fetch(`${settings.endpoint.replace(/\/$/, '')}/chat/completions`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            model: settings.model,
-            messages: toolConversation,
-            temperature: 0.3,
-          }),
-        });
-
-        if (secondRes.ok) {
-          const secondData = await secondRes.json();
-          const assistantReply = secondData.choices?.[0]?.message?.content || 'No response generated.';
-          saveMessages([
-            ...updatedMessages,
-            {
-              id: String(Date.now() + 1),
-              role: 'assistant',
-              content: assistantReply,
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              toolCalls: executedRecords,
-            },
-          ]);
-          return;
+        if (chunk.deltaText) {
+          accumulatedText += chunk.deltaText;
+          currentMessages = currentMessages.map(m =>
+            m.id === assistantMsgId
+              ? {
+                  ...m,
+                  content: accumulatedText,
+                  toolCalls: toolRecords.length > 0 ? toolRecords : undefined,
+                }
+              : m
+          );
+          saveMessages(currentMessages);
         }
       }
-
-      const answer = choice?.message?.content || 'No response generated.';
-      saveMessages([
-        ...updatedMessages,
-        {
-          id: String(Date.now() + 1),
-          role: 'assistant',
-          content: answer,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        },
-      ]);
     } catch (cause) {
       setError(
         cause instanceof Error
           ? cause.message
-          : 'Failed to reach AI provider. Please check your AI settings endpoint (e.g. Local OpenAI http://localhost:8080/v1 or Ollama http://localhost:11434/v1).'
+          : 'Failed to stream from AI provider. Please check your AI settings endpoint (e.g. Local OpenAI http://localhost:8080/v1 or Ollama http://localhost:11434/v1).'
       );
     } finally {
       setLoading(false);
