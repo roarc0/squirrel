@@ -135,7 +135,7 @@ export function HoldingsView({ holdings, accounts, instruments, taxRates, reload
   const totalMonthlyPacMinor = activeAccounts.reduce((acc, a) => acc + (a.pac_amount_minor ?? 0), 0);
   const currency = visibleHoldings[0]?.currency ?? 'EUR';
 
-  return <Stack gap="lg"><Group justify="space-between"><Box><Title order={2}>Holdings</Title><Text c="dimmed">Actual allocation uses current holding values within each currency; planned allocation is your target.</Text></Box><Group gap="sm"><Button variant="default" onClick={() => onOpenDrafts ? onOpenDrafts() : setDraftsOpened(true)}>📁 Draft Portfolios</Button><Button variant="light" color="teal" disabled={!ready} onClick={() => setInvestOpened(true)}>Invest & Rebalance</Button><Button disabled={!ready} onClick={() => open()}>Add holding</Button></Group></Group>
+  return <Stack gap="lg"><Group justify="space-between"><Box><Title order={2}>Holdings</Title><Text c="dimmed">Actual allocation uses current holding values within each currency; planned allocation is your target.</Text></Box><Group gap="sm"><Button variant="light" color="teal" disabled={!ready} onClick={() => setInvestOpened(true)}>Invest & Rebalance</Button><Button disabled={!ready} onClick={() => open()}>Add holding</Button></Group></Group>
     {(error || table.sortError) && <Alert color="red">{error || table.sortError}</Alert>}
 
     {totalMonthlyPacMinor > 0 && (

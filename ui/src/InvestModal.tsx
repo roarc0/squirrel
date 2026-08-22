@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Modal,
   Button,
@@ -11,8 +11,12 @@ import {
   Badge,
   Alert,
   Divider,
+  SimpleGrid,
+  Card,
+  Box,
 } from '@mantine/core';
 import { api, type Holding } from './api';
+import { money, percent } from './utils/format';
 
 type Props = {
   opened: boolean;
@@ -25,7 +29,7 @@ type AllocationRow = {
   holding: Holding;
   currentValueMinor: number;
   currentShareBps: number;
-  plannedBps: number;
+  effectiveTargetBps: number;
   gapMinor: number;
   suggestedMinor: number;
   newValueMinor: number;
@@ -33,29 +37,40 @@ type AllocationRow = {
 };
 
 export function InvestModal({ opened, onClose, holdings, reload }: Props) {
-  const activeHoldings = holdings.filter(h => h.planned_bps > 0 || h.value_minor > 0);
+  const activeHoldings = holdings.filter(h => !h.account_name?.toLowerCase().includes('archived'));
   const [contribution, setContribution] = useState<number>(1000);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const totalCurrentMinor = activeHoldings.reduce((sum, h) => sum + h.value_minor, 0);
-  const totalPlannedBps = activeHoldings.reduce((sum, h) => sum + h.planned_bps, 0);
+  const totalPlannedBps = activeHoldings.reduce((sum, h) => sum + (h.planned_bps || 0), 0);
+  const totalPacBps = activeHoldings.reduce((sum, h) => sum + (h.pac_bps || 0), 0);
+
+  const isUsingFallbackWeights = totalPlannedBps === 0;
 
   const contributionMinor = Math.round((contribution || 0) * 100);
   const totalTargetMinor = totalCurrentMinor + contributionMinor;
 
-  // Calculate gaps and suggested investments
+  // Compute effective target weights for each holding
   const rows: AllocationRow[] = activeHoldings.map(h => {
+    let effectiveTargetBps = 0;
+    if (totalPlannedBps > 0) {
+      effectiveTargetBps = Math.round((h.planned_bps / totalPlannedBps) * 10000);
+    } else if (totalPacBps > 0) {
+      effectiveTargetBps = Math.round(((h.pac_bps || 0) / totalPacBps) * 10000);
+    } else if (activeHoldings.length > 0) {
+      effectiveTargetBps = Math.round(10000 / activeHoldings.length);
+    }
+
     const currentShareBps = totalCurrentMinor > 0 ? Math.round((h.value_minor / totalCurrentMinor) * 10000) : 0;
-    // Normalized target bps if sum(planned_bps) != 10000
-    const normalizedTargetBps = totalPlannedBps > 0 ? (h.planned_bps / totalPlannedBps) * 10000 : 0;
-    const targetMinor = Math.round((totalTargetMinor * normalizedTargetBps) / 10000);
-    const gapMinor = Math.max(0, targetMinor - h.value_minor);
+    const targetValueMinor = Math.round((totalTargetMinor * effectiveTargetBps) / 10000);
+    const gapMinor = Math.max(0, targetValueMinor - h.value_minor);
+
     return {
       holding: h,
       currentValueMinor: h.value_minor,
       currentShareBps,
-      plannedBps: h.planned_bps,
+      effectiveTargetBps,
       gapMinor,
       suggestedMinor: 0,
       newValueMinor: h.value_minor,
@@ -75,6 +90,9 @@ export function InvestModal({ opened, onClose, holdings, reload }: Props) {
         r.suggestedMinor = Math.round((r.gapMinor / totalGapMinor) * contributionMinor);
         distributedMinor += r.suggestedMinor;
       }
+    } else if (contributionMinor > 0 && totalGapMinor === 0) {
+      // If all holdings are evenly balanced, distribute proportionally to target weights
+      r.suggestedMinor = Math.round((r.effectiveTargetBps / 10000) * contributionMinor);
     } else {
       r.suggestedMinor = 0;
     }
@@ -82,12 +100,7 @@ export function InvestModal({ opened, onClose, holdings, reload }: Props) {
     r.newShareBps = totalTargetMinor > 0 ? Math.round((r.newValueMinor / totalTargetMinor) * 10000) : 0;
   });
 
-  const fmtCurrency = (valMinor: number) =>
-    new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }).format(
-      valMinor / 100
-    );
-
-  const fmtPercent = (bps: number) => `${(bps / 100).toFixed(1)}%`;
+  const activeRebalanceCount = rows.filter(r => r.suggestedMinor > 0).length;
 
   const handleApply = async () => {
     setSaving(true);
@@ -99,12 +112,9 @@ export function InvestModal({ opened, onClose, holdings, reload }: Props) {
           await api(`/api/holdings/${r.holding.id}`, {
             method: 'PUT',
             body: JSON.stringify({
-              account_id: r.holding.account_id,
-              instrument_id: r.holding.instrument_id,
+              ...r.holding,
               value_minor: r.newValueMinor,
               invested_minor: updatedInvested,
-              planned_bps: r.holding.planned_bps,
-              tax_bps: r.holding.tax_bps,
             }),
           });
         }
@@ -118,91 +128,135 @@ export function InvestModal({ opened, onClose, holdings, reload }: Props) {
     }
   };
 
+  const currency = holdings[0]?.currency ?? 'EUR';
+
   return (
     <Modal
       opened={opened}
       onClose={onClose}
-      title={<Text fw={700} size="lg">Invest & Rebalance Portfolio</Text>}
+      title={<Text fw={750} size="lg">⚡ Smart Invest & Portfolio Rebalance</Text>}
       size="xl"
     >
       <Stack gap="md">
         {error && <Alert color="red">{error}</Alert>}
 
         <Text size="sm" c="dimmed">
-          Enter a new contribution amount to automatically distribute it across underweight holdings, bringing your portfolio closer to planned targets without selling.
+          Enter a new cash deposit to automatically distribute it across underweight holdings, bringing your portfolio closer to your target allocation without selling existing positions.
         </Text>
 
-        <Paper withBorder p="md" radius="md">
-          <Group justify="space-between" align="center">
-            <Group gap="md">
-              <NumberInput
-                label="New Contribution Amount (€)"
-                prefix="€ "
-                decimalScale={2}
-                min={0}
-                value={contribution}
-                onChange={val => setContribution(Number(val))}
-                style={{ width: 220 }}
-              />
-            </Group>
-            <Stack gap={2} align="end">
-              <Text size="xs" c="dimmed">Current Portfolio Value</Text>
-              <Text fw={700} size="md">{fmtCurrency(totalCurrentMinor)}</Text>
-              <Text size="xs" c="dimmed">Target Portfolio Value</Text>
-              <Text fw={700} size="lg" c="teal">{fmtCurrency(totalTargetMinor)}</Text>
-            </Stack>
-          </Group>
-        </Paper>
+        {isUsingFallbackWeights && (
+          <Alert color="blue" variant="light">
+            <Text size="xs" fw={600}>
+              ℹ️ Planned target weights are not set for these holdings. Using equal weights (or PAC shares) to calculate rebalancing deposits.
+            </Text>
+          </Alert>
+        )}
 
-        <Paper withBorder p="sm" radius="md">
-          <Table verticalSpacing="xs">
+        <Card className="metric" p="md" radius="lg">
+          <Group justify="space-between" align="center">
+            <NumberInput
+              label="New Cash Contribution"
+              prefix="€ "
+              decimalScale={2}
+              min={0}
+              size="md"
+              value={contribution}
+              onChange={val => setContribution(Number(val || 0))}
+              style={{ width: 240 }}
+            />
+            <SimpleGrid cols={3} spacing="lg">
+              <Box ta="right">
+                <Text size="xs" c="dimmed">Current Portfolio</Text>
+                <Text fw={750} size="md">{money(totalCurrentMinor, currency)}</Text>
+              </Box>
+              <Box ta="right">
+                <Text size="xs" c="dimmed">New Deposit</Text>
+                <Text fw={750} size="md" color="teal">+{money(contributionMinor, currency)}</Text>
+              </Box>
+              <Box ta="right">
+                <Text size="xs" c="dimmed">Target Portfolio Value</Text>
+                <Text fw={800} size="lg" color="teal">{money(totalTargetMinor, currency)}</Text>
+              </Box>
+            </SimpleGrid>
+          </Group>
+        </Card>
+
+        <Paper className="metric" p="sm" radius="lg" style={{ overflowX: 'auto' }}>
+          <Table verticalSpacing="sm" horizontalSpacing="md">
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>Holding</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>Target %</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>Current %</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>Suggested Investment</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>New %</Table.Th>
+                <Table.Th style={{ width: '38%' }}>Holding / Account</Table.Th>
+                <Table.Th style={{ width: '14%', textAlign: 'right' }}>Target %</Table.Th>
+                <Table.Th style={{ width: '14%', textAlign: 'right' }}>Current %</Table.Th>
+                <Table.Th style={{ width: '20%', textAlign: 'right' }}>Suggested Investment</Table.Th>
+                <Table.Th style={{ width: '14%', textAlign: 'right' }}>New %</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {rows.map(r => (
-                <Table.Tr key={r.holding.id}>
-                  <Table.Td>
-                    <Text fw={500} size="sm">{r.holding.instrument_name || r.holding.instrument_isin}</Text>
-                    <Text size="xs" c="dimmed">{r.holding.account_name}</Text>
-                  </Table.Td>
-                  <Table.Td style={{ textAlign: 'right' }}>
-                    <Badge variant="light" color="blue">{fmtPercent(r.plannedBps)}</Badge>
-                  </Table.Td>
-                  <Table.Td style={{ textAlign: 'right' }}>
-                    <Text size="sm">{fmtPercent(r.currentShareBps)}</Text>
-                  </Table.Td>
-                  <Table.Td style={{ textAlign: 'right' }}>
-                    <Text fw={700} size="sm" c={r.suggestedMinor > 0 ? 'teal' : 'dimmed'}>
-                      {r.suggestedMinor > 0 ? `+${fmtCurrency(r.suggestedMinor)}` : '—'}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td style={{ textAlign: 'right' }}>
-                    <Badge color={Math.abs(r.newShareBps - r.plannedBps) < 200 ? 'teal' : 'gray'}>
-                      {fmtPercent(r.newShareBps)}
-                    </Badge>
-                  </Table.Td>
-                </Table.Tr>
-              ))}
+              {rows.map(r => {
+                const hasDeposit = r.suggestedMinor > 0;
+                return (
+                  <Table.Tr
+                    key={r.holding.id}
+                    style={{
+                      backgroundColor: hasDeposit ? 'rgba(32, 201, 151, 0.08)' : undefined,
+                      transition: 'background-color 0.15s ease',
+                    }}
+                  >
+                    <Table.Td>
+                      <Text fw={700} size="sm">{r.holding.instrument_name || r.holding.instrument_isin}</Text>
+                      <Text size="xs" c="dimmed">{r.holding.account_name}</Text>
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'right' }}>
+                      <Badge variant="light" color="blue" size="sm">
+                        {percent(r.effectiveTargetBps)}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'right' }}>
+                      <Text size="sm" c="dimmed">{percent(r.currentShareBps)}</Text>
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'right' }}>
+                      {hasDeposit ? (
+                        <Text fw={800} size="sm" color="teal">
+                          +{money(r.suggestedMinor, currency)}
+                        </Text>
+                      ) : (
+                        <Text size="sm" c="dimmed">—</Text>
+                      )}
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'right' }}>
+                      <Badge
+                        color={hasDeposit ? 'teal' : 'gray'}
+                        variant={hasDeposit ? 'filled' : 'subtle'}
+                        size="sm"
+                        style={{ height: 'auto', padding: '3px 8px', whiteSpace: 'nowrap' }}
+                      >
+                        {percent(r.newShareBps)}
+                      </Badge>
+                    </Table.Td>
+                  </Table.Tr>
+                );
+              })}
             </Table.Tbody>
           </Table>
         </Paper>
 
         <Divider />
 
-        <Group justify="end">
-          <Button variant="subtle" onClick={onClose} disabled={saving}>
-            Cancel
-          </Button>
-          <Button color="teal" onClick={handleApply} loading={saving} disabled={contributionMinor <= 0}>
-            Apply investments to holdings
-          </Button>
+        <Group justify="space-between" align="center">
+          <Text size="xs" c="dimmed">
+            {activeRebalanceCount > 0
+              ? `Rebalancing deposit will be distributed across ${activeRebalanceCount} holdings.`
+              : 'Enter a contribution amount to see suggested rebalancing deposits.'}
+          </Text>
+          <Group gap="xs">
+            <Button variant="subtle" onClick={onClose} disabled={saving}>
+              Cancel
+            </Button>
+            <Button color="teal" onClick={handleApply} loading={saving} disabled={contributionMinor <= 0}>
+              Apply investments ({money(contributionMinor, currency)})
+            </Button>
+          </Group>
         </Group>
       </Stack>
     </Modal>
