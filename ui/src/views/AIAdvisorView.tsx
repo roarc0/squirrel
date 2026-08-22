@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { IconSquareFilled } from '@tabler/icons-react';
 import {
   Accordion,
   Alert,
@@ -255,6 +256,16 @@ export function AIAdvisorView({
     return JSON.stringify(summary.diagnostics ?? []);
   };
 
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const stopAI = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setLoading(false);
+  };
+
   const askAI = async (queryText = prompt) => {
     const textToSend = queryText.trim();
     if (!textToSend || loading) return;
@@ -283,19 +294,25 @@ export function AIAdvisorView({
     let currentMessages = [...updatedMessages, initialAssistantMsg];
     saveMessages(currentMessages);
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       let accumulatedText = '';
       const toolRecords: MCPToolCallRecord[] = [];
 
-      const stream = streamChat({
-        provider: settings.provider,
-        endpoint: settings.endpoint,
-        model: settings.model,
-        apiKey: settings.apiKey,
-        contextSize: settings.contextSize || 16384,
-        messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
-        portfolioContextJson: contextJSON,
-      });
+      const stream = streamChat(
+        {
+          provider: settings.provider,
+          endpoint: settings.endpoint,
+          model: settings.model,
+          apiKey: settings.apiKey,
+          contextSize: settings.contextSize || 16384,
+          messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
+          portfolioContextJson: contextJSON,
+        },
+        { signal: controller.signal }
+      );
 
       for await (const chunk of stream) {
         if (chunk.isMcpToolCall && chunk.toolName) {
@@ -322,6 +339,11 @@ export function AIAdvisorView({
         }
       }
     } catch (cause) {
+      if (cause instanceof Error && (cause.name === 'AbortError' || cause.message.toLowerCase().includes('abort'))) {
+        // Stream generation stopped cleanly by user
+        return;
+      }
+
       const errMsg =
         cause instanceof Error
           ? cause.message
@@ -339,6 +361,7 @@ export function AIAdvisorView({
       saveMessages([...filtered, errorMsg]);
     } finally {
       setLoading(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -513,7 +536,19 @@ export function AIAdvisorView({
         </Stack>
       )}
 
-      <Paper className="metric" p="md" radius="lg">
+      <Paper
+        className="metric"
+        p="md"
+        radius="lg"
+        style={{
+          position: 'sticky',
+          bottom: 12,
+          zIndex: 100,
+          backgroundColor: 'var(--mantine-color-body)',
+          border: '1px solid var(--mantine-color-default-border)',
+          boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.3)',
+        }}
+      >
         <Stack gap="sm">
           <Textarea
             placeholder="Type any question about your holdings, allocation, rebalancing, or fees... (Press Enter to send, Shift+Enter for new line)"
@@ -527,9 +562,24 @@ export function AIAdvisorView({
             <Text size="xs" c="dimmed">
               Press <Text span fw={600} ff="monospace">Enter</Text> to send · Active Model: <Text span fw={700} c="teal">{settings.model}</Text> ({settings.provider})
             </Text>
-            <Button loading={loading} color="teal" onClick={() => void askAI()}>
-              Send Message
-            </Button>
+            {loading ? (
+              <Button
+                color="red"
+                variant="filled"
+                leftSection={<IconSquareFilled size={14} />}
+                onClick={stopAI}
+              >
+                Stop Generation
+              </Button>
+            ) : (
+              <Button
+                color="teal"
+                disabled={!prompt.trim()}
+                onClick={() => void askAI()}
+              >
+                Send Message
+              </Button>
+            )}
           </Group>
         </Stack>
       </Paper>

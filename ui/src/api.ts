@@ -724,24 +724,30 @@ export type StreamChatChunk = {
   done: boolean;
 };
 
-export async function* streamChat(req: {
-  provider: string;
-  endpoint: string;
-  model: string;
-  apiKey: string;
-  contextSize?: number;
-  messages: { role: string; content: string }[];
-  portfolioContextJson: string;
-}): AsyncIterable<StreamChatChunk> {
-  const stream = systemClient.streamChat({
-    provider: req.provider,
-    endpoint: req.endpoint,
-    model: req.model,
-    apiKey: req.apiKey,
-    contextSize: req.contextSize ? req.contextSize : 16384,
-    messages: req.messages.map(m => ({ role: m.role, content: m.content })),
-    portfolioContextJson: req.portfolioContextJson,
-  });
+export async function* streamChat(
+  req: {
+    provider: string;
+    endpoint: string;
+    model: string;
+    apiKey: string;
+    contextSize?: number;
+    messages: { role: string; content: string }[];
+    portfolioContextJson: string;
+  },
+  options?: { signal?: AbortSignal }
+): AsyncIterable<StreamChatChunk> {
+  const stream = systemClient.streamChat(
+    {
+      provider: req.provider,
+      endpoint: req.endpoint,
+      model: req.model,
+      apiKey: req.apiKey,
+      contextSize: req.contextSize ? req.contextSize : 16384,
+      messages: req.messages.map(m => ({ role: m.role, content: m.content })),
+      portfolioContextJson: req.portfolioContextJson,
+    },
+    options
+  );
 
   for await (const chunk of stream) {
     yield {
