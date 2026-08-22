@@ -44,6 +44,7 @@ import { HoldingsView } from './views/HoldingsView';
 import { InstrumentFinderView } from './views/InstrumentFinderView';
 import { DiagnosticsView } from './views/DiagnosticsView';
 import { AIAdvisorView } from './views/AIAdvisorView';
+import { DraftPortfoliosView } from './views/DraftPortfoliosView';
 import { chartGeometry, matchesExactFilters, pageBounds, performanceMood } from './visual';
 
 type Data = { summary: Summary; accounts: Account[]; rates: ReferenceRate[]; taxRates: TaxRate[]; instruments: Instrument[]; holdings: Holding[]; snapshots: Snapshot[] };
@@ -95,7 +96,7 @@ export default function App() {
     }
     try {
       const saved = localStorage.getItem('loot.activeTab');
-      if (saved && ['overview', 'accounts', 'holdings', 'instruments', 'diagnostics', 'advisor'].includes(saved)) {
+      if (saved && ['overview', 'accounts', 'holdings', 'experiments', 'instruments', 'diagnostics', 'advisor'].includes(saved)) {
         return saved;
       }
     } catch {
@@ -148,6 +149,7 @@ export default function App() {
           <Tabs.Tab value="overview">Overview</Tabs.Tab>
           <Tabs.Tab value="accounts">Accounts</Tabs.Tab>
           <Tabs.Tab value="holdings">Holdings</Tabs.Tab>
+          <Tabs.Tab value="experiments">🧪 Sandbox</Tabs.Tab>
           <Tabs.Tab value="instruments">Instruments</Tabs.Tab>
           <Tabs.Tab
             value="diagnostics"
@@ -160,6 +162,14 @@ export default function App() {
         <Tabs.Panel value="overview"><Overview data={data} reload={load} onSwitchTab={handleTabChange} /></Tabs.Panel>
         <Tabs.Panel value="accounts"><Accounts accounts={data.accounts} rates={data.rates} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
         <Tabs.Panel value="holdings"><Holdings holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
+        <Tabs.Panel value="experiments">
+          <DraftPortfoliosView
+            holdings={data.holdings}
+            instruments={data.instruments}
+            accounts={data.accounts}
+            reload={load}
+          />
+        </Tabs.Panel>
         <Tabs.Panel value="instruments"><InstrumentFinder instruments={data.instruments} reload={load} /></Tabs.Panel>
         <Tabs.Panel value="diagnostics">
           <DiagnosticsTab
