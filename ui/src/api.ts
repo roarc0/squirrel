@@ -687,6 +687,8 @@ export type AIModelInfo = {
   is_downloaded: boolean;
   source_url: string;
   description: string;
+  download_percent: number;
+  is_downloading: boolean;
 };
 
 export async function listAIModels(): Promise<AIModelInfo[]> {
@@ -699,6 +701,8 @@ export async function listAIModels(): Promise<AIModelInfo[]> {
     is_downloaded: Boolean(m.isDownloaded),
     source_url: m.sourceUrl ?? '',
     description: m.description ?? '',
+    download_percent: Number(m.downloadPercent ?? 0),
+    is_downloading: Boolean(m.isDownloading),
   }));
 }
 

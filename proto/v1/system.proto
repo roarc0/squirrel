@@ -41,6 +41,10 @@ message AIModelInfo {
   string source_url = 6;
   // Model description and specs.
   string description = 7;
+  // Current live download progress percentage (0 to 100).
+  int32 download_percent = 8;
+  // Whether this model is currently downloading in background.
+  bool is_downloading = 9;
 }
 
 message ListAIModelsResponse {

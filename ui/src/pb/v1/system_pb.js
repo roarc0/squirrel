@@ -68,6 +68,8 @@ export const AIModelInfo = /*@__PURE__*/ proto3.makeMessageType(
     { no: 5, name: "is_downloaded", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 6, name: "source_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 7, name: "description", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 8, name: "download_percent", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 9, name: "is_downloading", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
   ],
 );
 

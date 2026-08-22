@@ -11,6 +11,7 @@ import {
   Modal,
   Paper,
   PasswordInput,
+  Progress,
   Select,
   SimpleGrid,
   Stack,
@@ -549,9 +550,12 @@ function AISettingsModal({
   };
 
   useEffect(() => {
-    if (opened) {
+    if (!opened) return;
+    void loadModels();
+    const interval = setInterval(() => {
       void loadModels();
-    }
+    }, 1000);
+    return () => clearInterval(interval);
   }, [opened]);
 
   const handleProviderChange = (val: string | null) => {
@@ -559,7 +563,7 @@ function AISettingsModal({
     setProvider(next);
     if (next === 'local') {
       setEndpoint('http://localhost:8080/v1');
-      setModel('qwen2.5-3b-instruct');
+      setModel('deepseek-r1-distill-qwen-7b');
     } else if (next === 'ollama') {
       setEndpoint('http://localhost:11434/v1');
       setModel('llama3.2');
@@ -603,12 +607,12 @@ function AISettingsModal({
         })),
     },
     {
-      group: 'Available Open-Weights Models',
+      group: 'Recommended Open-Weights Math & Reasoning Models',
       items: availableModels
         .filter(m => !m.is_downloaded)
         .map(m => ({
           value: m.id,
-          label: `⬇️ ${m.name}`,
+          label: m.is_downloading ? `⏳ [${m.download_percent}%] ${m.name}` : `⬇️ ${m.name}`,
         })),
     },
     {
@@ -645,7 +649,7 @@ function AISettingsModal({
                 if (val) {
                   setModel(val);
                   const found = availableModels.find(m => m.id === val);
-                  if (found && !found.is_downloaded) {
+                  if (found && !found.is_downloaded && !found.is_downloading) {
                     void handleDownload(val);
                   }
                 }
@@ -683,14 +687,81 @@ function AISettingsModal({
         </Paper>
 
         <Paper withBorder p="md" radius="md" style={{ backgroundColor: 'rgba(32, 201, 151, 0.04)' }}>
-          <Text fw={700} size="sm" mb={4}>📥 Download New GGUF Model into <Text span ff="monospace">./data/models/</Text></Text>
-          <Text size="xs" c="dimmed" mb="sm">
-            Enter a Hugging Face repository name (e.g. <Text span ff="monospace">Qwen/Qwen2.5-1.5B-Instruct-GGUF</Text> or <Text span ff="monospace">bartowski/Llama-3.2-3B-Instruct-GGUF</Text>) or direct GGUF URL.
+          <Text fw={700} size="sm" mb={4}>🧠 Recommended Reasoning & Financial Math Models</Text>
+          <Text size="xs" c="dimmed" mb="md">
+            Open-weights models with chain-of-thought verification for portfolio math, fee drag calculations, and zero hallucinations.
           </Text>
 
+          <Stack gap="sm" mb="md">
+            {availableModels.map(m => {
+              const isSelected = model === m.id;
+              return (
+                <Card key={m.id} withBorder padding="xs" radius="sm">
+                  <Group justify="space-between" align="start">
+                    <Box style={{ flex: 1 }}>
+                      <Group gap={6} align="center">
+                        <Text fw={700} size="xs">{m.name}</Text>
+                        {m.is_downloaded && <Badge color="teal" size="xs" variant="light">✓ Downloaded</Badge>}
+                        {isSelected && <Badge color="blue" size="xs">Active Model</Badge>}
+                      </Group>
+                      <Text size="xs" c="dimmed" mt={2}>{m.description}</Text>
+                      {m.is_downloaded && m.size_bytes > 0 && (
+                        <Text size="xs" c="dimmed" ff="monospace" mt={2}>
+                          📁 {m.filename} ({(m.size_bytes / (1024 * 1024 * 1024)).toFixed(1)} GB)
+                        </Text>
+                      )}
+                    </Box>
+
+                    <Box style={{ textAlign: 'right' }}>
+                      {m.is_downloaded ? (
+                        <Button
+                          size="xs"
+                          variant={isSelected ? 'filled' : 'outline'}
+                          color={isSelected ? 'blue' : 'teal'}
+                          onClick={() => setModel(m.id)}
+                        >
+                          {isSelected ? 'Active' : 'Use Model'}
+                        </Button>
+                      ) : m.is_downloading ? (
+                        <Badge color="orange" size="sm" variant="filled">
+                          Downloading {m.download_percent}%
+                        </Badge>
+                      ) : (
+                        <Button
+                          size="xs"
+                          color="teal"
+                          variant="light"
+                          loading={downloading}
+                          onClick={() => void handleDownload(m.id)}
+                        >
+                          📥 Download
+                        </Button>
+                      )}
+                    </Box>
+                  </Group>
+
+                  {m.is_downloading && (
+                    <Stack gap={4} mt="xs">
+                      <Group justify="space-between" align="center">
+                        <Text size="xs" fw={700} c="teal">Downloading model file into ./data/models/...</Text>
+                        <Text size="xs" fw={700} c="teal">{m.download_percent}%</Text>
+                      </Group>
+                      <Progress value={m.download_percent} animated color="teal" size="sm" radius="xl" />
+                    </Stack>
+                  )}
+                </Card>
+              );
+            })}
+          </Stack>
+
+          <Divider my="sm" label="Download Custom Model" labelPosition="center" />
+
+          <Text size="xs" c="dimmed" mb="xs">
+            Enter a Hugging Face repository (e.g. <Text span ff="monospace">Qwen/Qwen2.5-Math-7B-Instruct-GGUF</Text>) or direct GGUF URL:
+          </Text>
           <Group align="end" gap="xs">
             <TextInput
-              placeholder="e.g. Qwen/Qwen2.5-1.5B-Instruct-GGUF"
+              placeholder="e.g. Qwen/Qwen2.5-Math-7B-Instruct-GGUF"
               value={downloadInput}
               onChange={e => setDownloadInput(e.currentTarget.value)}
               style={{ flex: 1 }}
@@ -701,32 +772,8 @@ function AISettingsModal({
               disabled={!downloadInput.trim()}
               onClick={() => handleDownload()}
             >
-              Download Model
+              Download Custom
             </Button>
-          </Group>
-
-          <Divider my="sm" />
-
-          <Text size="xs" fw={700} c="dimmed" mb="xs">Quick Download Open-Weights Presets:</Text>
-          <Group gap="xs">
-            {availableModels.map(m => (
-              <Button
-                key={m.id}
-                size="xs"
-                variant={m.is_downloaded ? 'light' : 'default'}
-                color={m.is_downloaded ? 'teal' : 'gray'}
-                disabled={downloading}
-                onClick={() => {
-                  if (m.is_downloaded) {
-                    setModel(m.id);
-                  } else {
-                    void handleDownload(m.id);
-                  }
-                }}
-              >
-                {m.is_downloaded ? `✓ ${m.name.split(' ')[0]}` : `⬇️ ${m.name.split(' ')[0]}`}
-              </Button>
-            ))}
           </Group>
         </Paper>
 

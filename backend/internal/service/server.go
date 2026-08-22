@@ -16,6 +16,7 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
+	"loot/backend/internal/config"
 	"loot/backend/internal/justetf"
 	"loot/backend/internal/mcp"
 	"loot/backend/internal/portfolio"
@@ -26,17 +27,28 @@ import (
 
 type Server struct {
 	store        *store.Store
+	config       config.Config
 	baseCurrency string
 	justETF      *justetf.Client
 	taxRates     []portfolio.TaxRate
 }
 
 func New(data *store.Store, baseCurrency string, taxRates []portfolio.TaxRate, profileInterval ...time.Duration) http.Handler {
+	cfg := config.Config{
+		BaseCurrency: baseCurrency,
+		TaxRates:     taxRates,
+		AIModels:     config.DefaultAIModels(),
+	}
+	return NewWithConfig(data, cfg, profileInterval...)
+}
+
+func NewWithConfig(data *store.Store, cfg config.Config, profileInterval ...time.Duration) http.Handler {
 	s := &Server{
 		store:        data,
-		baseCurrency: baseCurrency,
+		config:       cfg,
+		baseCurrency: cfg.BaseCurrency,
 		justETF:      justetf.New(profileInterval...),
-		taxRates:     taxRates,
+		taxRates:     cfg.TaxRates,
 	}
 
 	mux := http.NewServeMux()

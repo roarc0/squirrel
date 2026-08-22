@@ -13,6 +13,14 @@ import (
 	"loot/backend/internal/portfolio"
 )
 
+type AIModelConfig struct {
+	ID          string `yaml:"id"`
+	Name        string `yaml:"name"`
+	Filename    string `yaml:"filename"`
+	SourceURL   string `yaml:"source_url"`
+	Description string `yaml:"description"`
+}
+
 type Config struct {
 	Listen                string              `yaml:"listen"`
 	Database              string              `yaml:"database"`
@@ -24,6 +32,54 @@ type Config struct {
 	AIEndpoint            string              `yaml:"ai_endpoint"`
 	AIModel               string              `yaml:"ai_model"`
 	AIAPIKey              string              `yaml:"ai_api_key"`
+	AIModels              []AIModelConfig     `yaml:"ai_models"`
+}
+
+func DefaultAIModels() []AIModelConfig {
+	return []AIModelConfig{
+		{
+			ID:          "deepseek-r1-distill-qwen-7b",
+			Name:        "DeepSeek R1 Distill Qwen 7B (Premier Math & Reasoning)",
+			Filename:    "deepseek-r1-distill-qwen-7b-q4_k_m.gguf",
+			SourceURL:   "https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-7B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf",
+			Description: "High-precision reasoning model with chain-of-thought verification for portfolio math & fee calculations.",
+		},
+		{
+			ID:          "qwen2.5-math-7b-instruct",
+			Name:        "Qwen 2.5 Math 7B Instruct (High Math Accuracy)",
+			Filename:    "qwen2.5-math-7b-instruct-q4_k_m.gguf",
+			SourceURL:   "https://huggingface.co/Qwen/Qwen2.5-Math-7B-Instruct-GGUF/resolve/main/qwen2.5-math-7b-instruct-q4_k_m.gguf",
+			Description: "Specialized mathematical reasoning model tuned for zero-hallucination arithmetic and asset math.",
+		},
+		{
+			ID:          "deepseek-r1-distill-qwen-1.5b",
+			Name:        "DeepSeek R1 Distill Qwen 1.5B (Fast Local Reasoning)",
+			Filename:    "deepseek-r1-distill-qwen-1.5b-q4_k_m.gguf",
+			SourceURL:   "https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf",
+			Description: "Fast 1.5B reasoning model for local Metal GPU execution.",
+		},
+		{
+			ID:          "qwen2.5-3b-instruct",
+			Name:        "Qwen 2.5 3B Instruct (Default)",
+			Filename:    "qwen2.5-3b-instruct-q4_k_m.gguf",
+			SourceURL:   "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf",
+			Description: "3B parameters, high accuracy for financial analysis & portfolio rebalancing.",
+		},
+		{
+			ID:          "llama-3.2-3b-instruct",
+			Name:        "Llama 3.2 3B Instruct",
+			Filename:    "llama-3.2-3b-instruct-q4_k_m.gguf",
+			SourceURL:   "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+			Description: "Meta Llama 3.2 3B reasoning model.",
+		},
+		{
+			ID:          "phi-3.5-mini-instruct",
+			Name:        "Phi 3.5 Mini Instruct",
+			Filename:    "phi-3.5-mini-instruct-q4_k_m.gguf",
+			SourceURL:   "https://huggingface.co/bartowski/Phi-3.5-mini-instruct-GGUF/resolve/main/Phi-3.5-mini-instruct-Q4_K_M.gguf",
+			Description: "Microsoft Phi 3.5 Mini 3.8B instruct model.",
+		},
+	}
 }
 
 func Load(path string) (Config, error) {
@@ -39,8 +95,9 @@ func Load(path string) (Config, error) {
 		},
 		AIProvider: "local",
 		AIEndpoint: "http://127.0.0.1:8080/v1",
-		AIModel:    "qwen2.5-3b-instruct",
+		AIModel:    "deepseek-r1-distill-qwen-7b",
 		AIAPIKey:   "",
+		AIModels:   DefaultAIModels(),
 	}
 	if path != "" {
 		f, err := os.Open(path)

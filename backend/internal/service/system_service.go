@@ -10,63 +10,36 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"connectrpc.com/connect"
 
+	"loot/backend/internal/config"
 	portv1 "loot/proto/gen/go/v1"
 )
 
-type PresetModel struct {
-	ID          string
-	Name        string
-	Filename    string
-	SourceURL   string
-	Description string
+var activeDownloads sync.Map // map[string]int32
+
+type progressWriter struct {
+	total      int64
+	downloaded int64
+	onProgress func(percent int32)
 }
 
-var presetAIModels = []PresetModel{
-	{
-		ID:          "qwen2.5-3b-instruct",
-		Name:        "Qwen 2.5 3B Instruct (Default)",
-		Filename:    "qwen2.5-3b-instruct-q4_k_m.gguf",
-		SourceURL:   "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf",
-		Description: "3B parameters, high accuracy for financial analysis & portfolio rebalancing.",
-	},
-	{
-		ID:          "qwen2.5-1.5b-instruct",
-		Name:        "Qwen 2.5 1.5B Instruct",
-		Filename:    "qwen2.5-1.5b-instruct-q4_k_m.gguf",
-		SourceURL:   "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
-		Description: "Lightweight 1.5B parameters, ultra-fast response.",
-	},
-	{
-		ID:          "llama-3.2-3b-instruct",
-		Name:        "Llama 3.2 3B Instruct",
-		Filename:    "llama-3.2-3b-instruct-q4_k_m.gguf",
-		SourceURL:   "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
-		Description: "Meta Llama 3.2 3B reasoning model.",
-	},
-	{
-		ID:          "deepseek-r1-distill-qwen-1.5b",
-		Name:        "DeepSeek R1 Distill Qwen 1.5B",
-		Filename:    "deepseek-r1-distill-qwen-1.5b-q4_k_m.gguf",
-		SourceURL:   "https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf",
-		Description: "Reasoning-focused distilled 1.5B model.",
-	},
-	{
-		ID:          "gemma-2-2b-it",
-		Name:        "Gemma 2 2B IT",
-		Filename:    "gemma-2-2b-it-q4_k_m.gguf",
-		SourceURL:   "https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf",
-		Description: "Google Gemma 2 2B instruct model.",
-	},
-	{
-		ID:          "phi-3.5-mini-instruct",
-		Name:        "Phi 3.5 Mini Instruct",
-		Filename:    "phi-3.5-mini-instruct-q4_k_m.gguf",
-		SourceURL:   "https://huggingface.co/bartowski/Phi-3.5-mini-instruct-GGUF/resolve/main/Phi-3.5-mini-instruct-Q4_K_M.gguf",
-		Description: "Microsoft Phi 3.5 Mini 3.8B instruct model.",
-	},
+func (pw *progressWriter) Write(p []byte) (int, error) {
+	n := len(p)
+	pw.downloaded += int64(n)
+	var pct int32
+	if pw.total > 0 {
+		pct = int32((pw.downloaded * 100) / pw.total)
+		if pct > 100 {
+			pct = 100
+		}
+	}
+	if pw.onProgress != nil {
+		pw.onProgress(pct)
+	}
+	return n, nil
 }
 
 func (s *Server) ExportBackup(ctx context.Context, req *connect.Request[portv1.ExportBackupRequest]) (*connect.Response[portv1.ExportBackupResponse], error) {
@@ -109,10 +82,15 @@ func (s *Server) ListAIModels(ctx context.Context, req *connect.Request[portv1.L
 		}
 	}
 
-	result := make([]*portv1.AIModelInfo, 0, len(presetAIModels)+len(existingFiles))
+	configuredModels := s.config.AIModels
+	if len(configuredModels) == 0 {
+		configuredModels = config.DefaultAIModels()
+	}
+
+	result := make([]*portv1.AIModelInfo, 0, len(configuredModels)+len(existingFiles))
 	handledFilenames := make(map[string]bool)
 
-	for _, preset := range presetAIModels {
+	for _, preset := range configuredModels {
 		info, downloaded := existingFiles[preset.Filename]
 		var sizeBytes int64
 		if downloaded {
@@ -120,14 +98,23 @@ func (s *Server) ListAIModels(ctx context.Context, req *connect.Request[portv1.L
 		}
 		handledFilenames[preset.Filename] = true
 
+		var downloadPercent int32
+		var isDownloading bool
+		if val, ok := activeDownloads.Load(preset.ID); ok {
+			isDownloading = true
+			downloadPercent = val.(int32)
+		}
+
 		result = append(result, &portv1.AIModelInfo{
-			Id:           preset.ID,
-			Name:         preset.Name,
-			Filename:     preset.Filename,
-			SizeBytes:    sizeBytes,
-			IsDownloaded: downloaded,
-			SourceUrl:    preset.SourceURL,
-			Description:  preset.Description,
+			Id:              preset.ID,
+			Name:            preset.Name,
+			Filename:        preset.Filename,
+			SizeBytes:       sizeBytes,
+			IsDownloaded:    downloaded,
+			SourceUrl:       preset.SourceURL,
+			Description:     preset.Description,
+			DownloadPercent: downloadPercent,
+			IsDownloading:   isDownloading,
 		})
 	}
 
@@ -137,14 +124,23 @@ func (s *Server) ListAIModels(ctx context.Context, req *connect.Request[portv1.L
 			continue
 		}
 		modelID := strings.TrimSuffix(filename, ".gguf")
+		var downloadPercent int32
+		var isDownloading bool
+		if val, ok := activeDownloads.Load(modelID); ok {
+			isDownloading = true
+			downloadPercent = val.(int32)
+		}
+
 		result = append(result, &portv1.AIModelInfo{
-			Id:           modelID,
-			Name:         fmt.Sprintf("Custom Model (%s)", filename),
-			Filename:     filename,
-			SizeBytes:    info.Size(),
-			IsDownloaded: true,
-			SourceUrl:    "",
-			Description:  "Custom downloaded GGUF model in data/models/",
+			Id:              modelID,
+			Name:            fmt.Sprintf("Custom Model (%s)", filename),
+			Filename:        filename,
+			SizeBytes:       info.Size(),
+			IsDownloaded:    true,
+			SourceUrl:       "",
+			Description:     "Custom downloaded GGUF model in data/models/",
+			DownloadPercent: downloadPercent,
+			IsDownloading:   isDownloading,
 		})
 	}
 
@@ -168,8 +164,13 @@ func (s *Server) DownloadAIModel(ctx context.Context, req *connect.Request[portv
 	var filename string
 	var modelID string
 
+	configuredModels := s.config.AIModels
+	if len(configuredModels) == 0 {
+		configuredModels = config.DefaultAIModels()
+	}
+
 	// Check if matching preset
-	for _, preset := range presetAIModels {
+	for _, preset := range configuredModels {
 		if strings.EqualFold(preset.ID, modelQuery) || strings.EqualFold(preset.Filename, modelQuery) || strings.EqualFold(preset.Name, modelQuery) {
 			downloadURL = preset.SourceURL
 			filename = preset.Filename
@@ -178,7 +179,7 @@ func (s *Server) DownloadAIModel(ctx context.Context, req *connect.Request[portv
 		}
 	}
 
-	// If custom URL
+	// If custom URL or Hugging Face repo
 	if downloadURL == "" {
 		if strings.HasPrefix(modelQuery, "http://") || strings.HasPrefix(modelQuery, "https://") {
 			downloadURL = modelQuery
@@ -189,7 +190,6 @@ func (s *Server) DownloadAIModel(ctx context.Context, req *connect.Request[portv
 			}
 			modelID = strings.TrimSuffix(filename, ".gguf")
 		} else if strings.Contains(modelQuery, "/") {
-			// e.g. "Qwen/Qwen2.5-1.5B-Instruct-GGUF"
 			parts := strings.Split(modelQuery, "/")
 			repo := parts[len(parts)-1]
 			filename = strings.ToLower(repo) + ".gguf"
@@ -202,6 +202,9 @@ func (s *Server) DownloadAIModel(ctx context.Context, req *connect.Request[portv
 
 	targetPath := filepath.Join(modelsDir, filename)
 	tempPath := targetPath + ".tmp"
+
+	activeDownloads.Store(modelID, int32(0))
+	defer activeDownloads.Delete(modelID)
 
 	slog.InfoContext(ctx, "Starting AI model download", "model", modelID, "url", downloadURL, "target", targetPath)
 
@@ -225,7 +228,14 @@ func (s *Server) DownloadAIModel(ctx context.Context, req *connect.Request[portv
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create temporary file: %w", err))
 	}
 
-	_, err = io.Copy(out, res.Body)
+	pw := &progressWriter{
+		total: res.ContentLength,
+		onProgress: func(pct int32) {
+			activeDownloads.Store(modelID, pct)
+		},
+	}
+
+	_, err = io.Copy(out, io.TeeReader(res.Body, pw))
 	_ = out.Close()
 
 	if err != nil {
@@ -237,6 +247,7 @@ func (s *Server) DownloadAIModel(ctx context.Context, req *connect.Request[portv
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to save final model file: %w", err))
 	}
 
+	activeDownloads.Store(modelID, int32(100))
 	slog.InfoContext(ctx, "AI model downloaded successfully", "model", modelID, "file", targetPath)
 
 	return connect.NewResponse(&portv1.DownloadAIModelResponse{

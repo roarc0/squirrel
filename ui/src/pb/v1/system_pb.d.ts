@@ -187,6 +187,20 @@ export declare class AIModelInfo extends Message<AIModelInfo> {
    */
   description: string;
 
+  /**
+   * Current live download progress percentage (0 to 100).
+   *
+   * @generated from field: int32 download_percent = 8;
+   */
+  downloadPercent: number;
+
+  /**
+   * Whether this model is currently downloading in background.
+   *
+   * @generated from field: bool is_downloading = 9;
+   */
+  isDownloading: boolean;
+
   constructor(data?: PartialMessage<AIModelInfo>);
 
   static readonly runtime: typeof proto3;
