@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"loot/backend/internal/portfolio"
@@ -51,14 +52,18 @@ func (s *Store) SaveHolding(ctx context.Context, holding *portfolio.Holding) err
 		return err
 	}
 
+	if holding.PACBPS > 0 {
+		holding.IsPAC = true
+	}
+
 	// Validate DB constraint: total PAC allocation percentage for an account cannot exceed 100% (10,000 bps)
-	if holding.IsPAC && holding.PACBPS > 0 {
+	if holding.PACBPS > 0 {
 		var currentSum int64
 		if err := s.db.QueryRowContext(ctx, `SELECT COALESCE(SUM(pac_bps), 0) FROM holdings WHERE account_id = ? AND id != ?`, holding.AccountID, holding.ID).Scan(&currentSum); err != nil {
 			return err
 		}
 		if currentSum+holding.PACBPS > 10_000 {
-			return errors.New("total PAC allocation percentage for this account cannot exceed 100%")
+			return fmt.Errorf("total PAC allocation for this account would be %d.%02d%% (max allowed is 100.00%%)", (currentSum+holding.PACBPS)/100, (currentSum+holding.PACBPS)%100)
 		}
 	}
 
