@@ -35,7 +35,7 @@ type AISettings = {
 const defaultSettings: AISettings = {
   provider: 'local',
   endpoint: 'http://localhost:8080/v1',
-  model: 'qwen2.5-3b-instruct',
+  model: 'deepseek-r1-distill-qwen-7b',
   apiKey: '',
 };
 
@@ -533,7 +533,7 @@ export function AIAdvisorView({
 
           <Group justify="space-between" align="center">
             <Text size="xs" c="dimmed">
-              Press <Text span fw={600} ff="monospace">Enter</Text> to send · Provider: <Text span fw={600}>{settings.provider}</Text> ({settings.model})
+              Press <Text span fw={600} ff="monospace">Enter</Text> to send · Active Model: <Text span fw={700} c="teal">{settings.model}</Text> ({settings.provider})
             </Text>
             <Button loading={loading} color="teal" onClick={() => void askAI()}>
               Send Message
@@ -616,25 +616,32 @@ function AISettingsModal({
 
   useEffect(() => {
     if (!opened) return;
+    setProvider(settings.provider);
+    setEndpoint(settings.endpoint);
+    setModel(settings.model);
+    setApiKey(settings.apiKey);
     void loadModels();
     const interval = setInterval(() => {
       void loadModels();
     }, 1000);
     return () => clearInterval(interval);
-  }, [opened]);
+  }, [opened, settings]);
 
   const handleProviderChange = (val: string | null) => {
     const next = (val as AISettings['provider']) || 'local';
     setProvider(next);
     if (next === 'local') {
       setEndpoint('http://localhost:8080/v1');
-      setModel('deepseek-r1-distill-qwen-7b');
     } else if (next === 'ollama') {
       setEndpoint('http://localhost:11434/v1');
-      setModel('llama3.2');
+      if (!model || model.startsWith('deepseek') || model.startsWith('qwen')) {
+        setModel('llama3.2');
+      }
     } else if (next === 'openai') {
       setEndpoint('https://api.openai.com/v1');
-      setModel('gpt-4o-mini');
+      if (!model || !model.startsWith('gpt-')) {
+        setModel('gpt-4o-mini');
+      }
     }
   };
 
