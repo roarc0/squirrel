@@ -75,9 +75,13 @@ export function HoldingsView({ holdings, accounts, instruments, taxRates, reload
   }
   const actualBPS = (holding: Holding) => { const total = totals.get(holding.currency ?? 'EUR')?.value ?? 0; return total > 0 ? Math.round(holding.value_minor * 10_000 / total) : 0; };
   const columns: DataColumn<Holding>[] = [
+    { key: 'account', label: 'Account', sortable: true, render: holding => <><Text fw={650}>{holding.account_name}</Text><Text size="xs" c="dimmed">{holding.currency}</Text></> },
+    { key: 'instrument', label: 'Instrument', sortable: true, render: holding => <><Text fw={650}>{holding.instrument_name}</Text><Text size="xs" c="dimmed">{[holding.instrument_ticker, holding.instrument_isin].filter(Boolean).join(' · ')}</Text></> },
+    { key: 'type', label: 'Type', sortable: true, render: holding => <Chip>{instrumentLabels[holding.instrument_type ?? 'other']}</Chip> },
+    { key: 'asset_class', label: 'Asset class', sortable: true, render: holding => <Chip>{label(holding.asset_class || 'other')}</Chip> },
     {
       key: 'pac',
-      label: 'Strategy',
+      label: 'PAC',
       sortable: true,
       render: holding => {
         const account = accountMap.get(holding.account_id);
@@ -90,9 +94,9 @@ export function HoldingsView({ holdings, accounts, instruments, taxRates, reload
           const pctStr = percent(pacBps);
           const amtStr = calcAmountMinor > 0 ? money(calcAmountMinor, holding.currency ?? 'EUR') : '';
           return (
-            <Stack gap={2} align="flex-start" style={{ minWidth: 110 }}>
+            <Stack gap={2} align="flex-start" style={{ minWidth: 100 }}>
               <Badge color="teal" variant="filled" size="xs" style={{ height: 'auto', padding: '3px 8px', textTransform: 'none', whiteSpace: 'normal', textAlign: 'left' }}>
-                🔄 PAC {pctStr}
+                🔄 {pctStr}
               </Badge>
               {amtStr ? (
                 <Text size="xs" fw={700} c="teal">
@@ -102,13 +106,9 @@ export function HoldingsView({ holdings, accounts, instruments, taxRates, reload
             </Stack>
           );
         }
-        return <Badge color="gray" variant="light" size="xs">One-off</Badge>;
+        return <Text c="dimmed">—</Text>;
       },
     },
-    { key: 'account', label: 'Account', sortable: true, render: holding => <><Text fw={650}>{holding.account_name}</Text><Text size="xs" c="dimmed">{holding.currency}</Text></> },
-    { key: 'instrument', label: 'Instrument', sortable: true, render: holding => <><Text fw={650}>{holding.instrument_name}</Text><Text size="xs" c="dimmed">{[holding.instrument_ticker, holding.instrument_isin].filter(Boolean).join(' · ')}</Text></> },
-    { key: 'type', label: 'Type', sortable: true, render: holding => <Chip>{instrumentLabels[holding.instrument_type ?? 'other']}</Chip> },
-    { key: 'asset_class', label: 'Asset class', sortable: true, render: holding => <Chip>{label(holding.asset_class || 'other')}</Chip> },
     { key: 'ter', label: 'TER / Fee Drag', sortable: true, render: holding => {
       const terBps = holding.ter_bps ?? instMap.get(holding.instrument_id)?.ter_bps;
       if (!terBps || terBps <= 0) return <Text c="dimmed">—</Text>;
