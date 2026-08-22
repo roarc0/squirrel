@@ -90,13 +90,21 @@ export default function App() {
 
   const [updateModalOpened, setUpdateModalOpened] = useState(false);
   const [settingsModalOpened, setSettingsModalOpened] = useState(false);
+
+  const VALID_TABS = ['overview', 'accounts', 'holdings', 'drafts', 'instruments', 'diagnostics', 'advisor'];
+
   const [activeTab, setActiveTab] = useState<string>(() => {
-    if (new URLSearchParams(window.location.search).has('similarity')) {
+    const params = new URLSearchParams(window.location.search);
+    const urlTab = params.get('tab');
+    if (urlTab && VALID_TABS.includes(urlTab)) {
+      return urlTab;
+    }
+    if (params.has('similarity')) {
       return 'instruments';
     }
     try {
       const saved = localStorage.getItem('loot.activeTab');
-      if (saved && ['overview', 'accounts', 'holdings', 'experiments', 'instruments', 'diagnostics', 'advisor'].includes(saved)) {
+      if (saved && VALID_TABS.includes(saved)) {
         return saved;
       }
     } catch {
@@ -110,10 +118,25 @@ export default function App() {
     setActiveTab(next);
     try {
       localStorage.setItem('loot.activeTab', next);
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', next);
+      window.history.pushState({}, '', url.toString());
     } catch {
       /* optional */
     }
   };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab') || 'overview';
+      if (VALID_TABS.includes(tab)) {
+        setActiveTab(tab);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   const [hideBalances, setHideBalances] = useState(() => {
     try { return localStorage.getItem('loot.hideBalances') === 'true'; } catch { return false; }
@@ -149,7 +172,7 @@ export default function App() {
           <Tabs.Tab value="overview">Overview</Tabs.Tab>
           <Tabs.Tab value="accounts">Accounts</Tabs.Tab>
           <Tabs.Tab value="holdings">Holdings</Tabs.Tab>
-          <Tabs.Tab value="experiments">🧪 Sandbox</Tabs.Tab>
+          <Tabs.Tab value="drafts">📁 Draft Portfolios</Tabs.Tab>
           <Tabs.Tab value="instruments">Instruments</Tabs.Tab>
           <Tabs.Tab
             value="diagnostics"
@@ -161,8 +184,8 @@ export default function App() {
         </Tabs.List>
         <Tabs.Panel value="overview"><Overview data={data} reload={load} onSwitchTab={handleTabChange} /></Tabs.Panel>
         <Tabs.Panel value="accounts"><Accounts accounts={data.accounts} rates={data.rates} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
-        <Tabs.Panel value="holdings"><Holdings holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
-        <Tabs.Panel value="experiments">
+        <Tabs.Panel value="holdings"><Holdings holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} onOpenDrafts={() => handleTabChange('drafts')} /></Tabs.Panel>
+        <Tabs.Panel value="drafts">
           <DraftPortfoliosView
             holdings={data.holdings}
             instruments={data.instruments}
@@ -264,8 +287,8 @@ function Accounts({ accounts, rates, taxRates, reload }: { accounts: Account[]; 
 
 type HoldingDraft = { accountID: string; instrumentID: string; value: Numeric; sinceBuy: Numeric; planned: Numeric; tax: Numeric };
 
-function Holdings({ holdings, accounts, instruments, taxRates, reload }: { holdings: Holding[]; accounts: Account[]; instruments: Instrument[]; taxRates: TaxRate[]; reload: () => Promise<void> }) {
-  return <HoldingsView holdings={holdings} accounts={accounts} instruments={instruments} taxRates={taxRates} reload={reload} />;
+function Holdings({ holdings, accounts, instruments, taxRates, reload, onOpenDrafts }: { holdings: Holding[]; accounts: Account[]; instruments: Instrument[]; taxRates: TaxRate[]; reload: () => Promise<void>; onOpenDrafts?: () => void }) {
+  return <HoldingsView holdings={holdings} accounts={accounts} instruments={instruments} taxRates={taxRates} reload={reload} onOpenDrafts={onOpenDrafts} />;
 }
 
 function InstrumentFinder({ instruments, reload }: { instruments: Instrument[]; reload: () => Promise<void> }) {

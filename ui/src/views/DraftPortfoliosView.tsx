@@ -270,23 +270,45 @@ export function DraftPortfoliosView({
 
   return (
     <Stack gap="lg">
-      <Group justify="space-between">
+      <Group justify="space-between" align="end">
         <Box>
           <Group gap="xs">
-            <Title order={2}>🧪 Portfolio Sandbox & Drafts</Title>
+            <Title order={2}>📁 Draft Portfolios</Title>
             <Badge color="violet" variant="light">
-              Experimental Models
+              Model Allocation Sandbox
             </Badge>
           </Group>
           <Text c="dimmed">
-            Create, experiment, and test model allocation portfolios before applying them to your holdings.
+            Select a classic model portfolio or create custom draft allocations to experiment with target weights.
           </Text>
         </Box>
-        <Group gap="xs">
-          <Button size="sm" variant="light" color="teal" onClick={handleSnapshotCurrentHoldings}>
+        <Group gap="sm" align="end">
+          <Select
+            searchable
+            w={320}
+            label="Select Portfolio Model"
+            placeholder="Pick a classic portfolio or draft..."
+            value={selectedId}
+            onChange={val => val && setSelectedId(val)}
+            data={[
+              {
+                group: 'Standard Classic Portfolios',
+                items: DEFAULT_PRESETS.map(p => ({ value: p.id, label: p.name })),
+              },
+              ...(drafts.some(d => !d.id.startsWith('preset-'))
+                ? [
+                    {
+                      group: 'Custom Saved Drafts',
+                      items: drafts.filter(d => !d.id.startsWith('preset-')).map(d => ({ value: d.id, label: d.name })),
+                    },
+                  ]
+                : []),
+            ]}
+          />
+          <Button variant="light" color="teal" onClick={handleSnapshotCurrentHoldings}>
             📸 Snapshot Real Holdings
           </Button>
-          <Button size="sm" color="violet" onClick={handleCreateNew}>
+          <Button color="violet" onClick={handleCreateNew}>
             + Create Custom Draft
           </Button>
         </Group>
