@@ -86,13 +86,20 @@ export function HoldingsView({ holdings, accounts, instruments, taxRates, reload
         const calcAmountMinor = totalPacMinor > 0 && pacBps > 0 ? Math.round((totalPacMinor * pacBps) / 10000) : 0;
 
         if (holding.is_pac && pacBps > 0) {
-          const freq = (holding.pac_frequency || 'monthly').slice(0, 2);
+          const freq = (holding.pac_frequency || 'monthly');
           const pctStr = percent(pacBps);
           const amtStr = calcAmountMinor > 0 ? money(calcAmountMinor, holding.currency ?? 'EUR') : '';
           return (
-            <Badge color="teal" variant="filled" size="xs">
-              🔄 PAC ({pctStr}{amtStr ? ` · ${amtStr}/${freq}` : ''})
-            </Badge>
+            <Stack gap={2} align="flex-start" style={{ minWidth: 110 }}>
+              <Badge color="teal" variant="filled" size="xs" style={{ height: 'auto', padding: '3px 8px', textTransform: 'none', whiteSpace: 'normal', textAlign: 'left' }}>
+                🔄 PAC {pctStr}
+              </Badge>
+              {amtStr ? (
+                <Text size="xs" fw={700} c="teal">
+                  {amtStr}/{freq.slice(0, 2)}
+                </Text>
+              ) : null}
+            </Stack>
           );
         }
         return <Badge color="gray" variant="light" size="xs">One-off</Badge>;
