@@ -45,6 +45,14 @@ function getSavedSettings(): AISettings {
   }
 }
 
+type ChatMessage = {
+  id: string;
+  role: 'user' | 'assistant' | 'tool';
+  content: string;
+  timestamp: string;
+  toolName?: string;
+};
+
 export function AIAdvisorView({
   summary,
   accounts,
@@ -60,8 +68,35 @@ export function AIAdvisorView({
   const [settingsOpened, setSettingsOpened] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
-  const [advice, setAdvice] = useState('');
   const [error, setError] = useState('');
+
+  // Persist chat messages temporarily in sessionStorage until refresh
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    try {
+      const raw = sessionStorage.getItem('loot.aiChatHistory');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const saveMessages = (nextMessages: ChatMessage[]) => {
+    setMessages(nextMessages);
+    try {
+      sessionStorage.setItem('loot.aiChatHistory', JSON.stringify(nextMessages));
+    } catch {
+      /* optional */
+    }
+  };
+
+  const clearChat = () => {
+    saveMessages([]);
+    try {
+      sessionStorage.removeItem('loot.aiChatHistory');
+    } catch {
+      /* optional */
+    }
+  };
 
   const saveSettings = (newSettings: AISettings) => {
     setSettings(newSettings);
@@ -174,15 +209,26 @@ export function AIAdvisorView({
   };
 
   const askAI = async (queryText = prompt) => {
-    if (!queryText.trim()) return;
+    const textToSend = queryText.trim();
+    if (!textToSend || loading) return;
+
+    const userMsg: ChatMessage = {
+      id: String(Date.now()),
+      role: 'user',
+      content: textToSend,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    const updatedMessages = [...messages, userMsg];
+    saveMessages(updatedMessages);
+    setPrompt('');
     setLoading(true);
     setError('');
-    setAdvice('');
 
     try {
       const systemPrompt = `You are an expert, local-first financial portfolio AI advisor for LOOT. Analyze the user's anonymized portfolio context and answer their prompt concisely with actionable, structured bullet points. You can search the 4,000+ ETF catalog using your search_etf_catalog tool. Never give legal or binding tax advice. Keep explanations simple, practical, and clear.`;
 
-      const userContent = `Portfolio Context:\n\`\`\`json\n${contextJSON}\n\`\`\`\n\nUser Question: ${queryText}`;
+      const userContent = `Portfolio Context:\n\`\`\`json\n${contextJSON}\n\`\`\`\n\nUser Question: ${textToSend}`;
 
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -191,8 +237,10 @@ export function AIAdvisorView({
         headers['Authorization'] = `Bearer ${settings.apiKey}`;
       }
 
-      const initialMessages: any[] = [
+      // Build conversation trajectory for API
+      const conversationTrajectory: any[] = [
         { role: 'system', content: systemPrompt },
+        ...messages.map(m => ({ role: m.role, content: m.content })),
         { role: 'user', content: userContent },
       ];
 
@@ -201,15 +249,15 @@ export function AIAdvisorView({
         headers,
         body: JSON.stringify({
           model: settings.model,
-          messages: initialMessages,
+          messages: conversationTrajectory,
           tools,
           temperature: 0.3,
         }),
       });
 
       if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`AI Provider HTTP ${res.status}: ${text || res.statusText}`);
+        const errText = await res.text();
+        throw new Error(`AI Provider HTTP ${res.status}: ${errText || res.statusText}`);
       }
 
       const data = await res.json();
@@ -217,13 +265,13 @@ export function AIAdvisorView({
 
       if (choice?.finish_reason === 'tool_calls' || choice?.message?.tool_calls?.length > 0) {
         const toolCalls = choice.message.tool_calls;
-        const conversationMessages = [...initialMessages, choice.message];
+        const toolConversation = [...conversationTrajectory, choice.message];
 
         for (const tc of toolCalls) {
           let parsedArgs = {};
           try { parsedArgs = JSON.parse(tc.function.arguments); } catch { /* optional */ }
           const toolResult = executeToolCall(tc.function.name, parsedArgs);
-          conversationMessages.push({
+          toolConversation.push({
             role: 'tool',
             tool_call_id: tc.id,
             content: toolResult,
@@ -235,20 +283,37 @@ export function AIAdvisorView({
           headers,
           body: JSON.stringify({
             model: settings.model,
-            messages: conversationMessages,
+            messages: toolConversation,
             temperature: 0.3,
           }),
         });
 
         if (secondRes.ok) {
           const secondData = await secondRes.json();
-          setAdvice(secondData.choices?.[0]?.message?.content || 'No response generated.');
+          const assistantReply = secondData.choices?.[0]?.message?.content || 'No response generated.';
+          saveMessages([
+            ...updatedMessages,
+            {
+              id: String(Date.now() + 1),
+              role: 'assistant',
+              content: assistantReply,
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            },
+          ]);
           return;
         }
       }
 
       const answer = choice?.message?.content || 'No response generated.';
-      setAdvice(answer);
+      saveMessages([
+        ...updatedMessages,
+        {
+          id: String(Date.now() + 1),
+          role: 'assistant',
+          content: answer,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+      ]);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -257,6 +322,13 @@ export function AIAdvisorView({
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      void askAI();
     }
   };
 
@@ -271,57 +343,98 @@ export function AIAdvisorView({
             </Badge>
           </Group>
           <Text c="dimmed">
-            Ask questions about fee reduction, rebalancing strategy, and risk concentration. Data is sent only when you submit.
+            Ask questions about fee reduction, rebalancing strategy, and risk concentration.
           </Text>
         </Box>
-        <Button variant="default" onClick={() => setSettingsOpened(true)}>
-          ⚙️ AI Provider Settings ({settings.provider})
-        </Button>
+        <Group gap="xs">
+          {messages.length > 0 && (
+            <Button variant="subtle" color="red" size="xs" onClick={clearChat}>
+              🗑 Clear Chat Session
+            </Button>
+          )}
+          <Button variant="default" size="xs" onClick={() => setSettingsOpened(true)}>
+            ⚙️ AI Settings ({settings.provider})
+          </Button>
+        </Group>
       </Group>
 
       {error && <Alert color="red">{error}</Alert>}
 
-      <Paper className="metric" p="lg" radius="lg">
-        <Text fw={700} size="sm" mb="xs">
-          Quick Suggestion Prompts
-        </Text>
-        <SimpleGrid cols={{ base: 1, sm: 2 }}>
-          {presets.map((preset, idx) => (
-            <Button
-              key={idx}
-              variant="light"
-              color="gray"
-              justify="start"
-              style={{ height: 'auto', whiteSpace: 'normal', padding: '10px 14px' }}
-              onClick={() => {
-                setPrompt(preset);
-                void askAI(preset);
+      {messages.length === 0 ? (
+        <Paper className="metric" p="lg" radius="lg">
+          <Text fw={700} size="sm" mb="xs">
+            Quick Suggestion Prompts
+          </Text>
+          <SimpleGrid cols={{ base: 1, sm: 2 }}>
+            {presets.map((preset, idx) => (
+              <Button
+                key={idx}
+                variant="light"
+                color="gray"
+                justify="start"
+                style={{ height: 'auto', whiteSpace: 'normal', padding: '10px 14px' }}
+                onClick={() => {
+                  setPrompt(preset);
+                  void askAI(preset);
+                }}
+              >
+                <Text size="xs" ta="left">
+                  💡 {preset}
+                </Text>
+              </Button>
+            ))}
+          </SimpleGrid>
+        </Paper>
+      ) : (
+        <Stack gap="md">
+          {messages.map(msg => (
+            <Card
+              key={msg.id}
+              className="metric"
+              p="md"
+              radius="lg"
+              style={{
+                alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                maxWidth: '85%',
+                backgroundColor:
+                  msg.role === 'user'
+                    ? 'var(--mantine-color-teal-9, rgba(32, 201, 151, 0.12))'
+                    : undefined,
+                border: msg.role === 'user' ? '1px solid rgba(32, 201, 151, 0.3)' : undefined,
               }}
             >
-              <Text size="xs" ta="left">
-                💡 {preset}
-              </Text>
-            </Button>
+              <Group justify="space-between" mb="xs">
+                <Text size="xs" fw={700} c={msg.role === 'user' ? 'teal' : 'dimmed'}>
+                  {msg.role === 'user' ? '👤 You' : '🤖 AI Advisor'}
+                </Text>
+                <Text size="xs" c="dimmed">
+                  {msg.timestamp}
+                </Text>
+              </Group>
+              <Box style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5, fontSize: 14 }}>
+                {msg.content}
+              </Box>
+            </Card>
           ))}
-        </SimpleGrid>
-      </Paper>
+        </Stack>
+      )}
 
-      <Paper className="metric" p="lg" radius="lg">
+      <Paper className="metric" p="md" radius="lg">
         <Stack gap="sm">
           <Textarea
-            label="Ask AI about your portfolio"
-            placeholder="Type any question about your holdings, allocation, rebalancing, or fees..."
-            rows={3}
+            placeholder="Type any question about your holdings, allocation, rebalancing, or fees... (Press Enter to send, Shift+Enter for new line)"
+            rows={2}
             value={prompt}
             onChange={e => setPrompt(e.currentTarget.value)}
+            onKeyDown={handleKeyDown}
           />
 
           <Group justify="space-between" align="center">
             <Text size="xs" c="dimmed">
-              Provider: <Text span fw={600}>{settings.provider}</Text> ({settings.model} @ {settings.endpoint})
+              Press <Text span fw={600} ff="monospace">Enter</Text> to send · Provider: <Text span fw={600}>{settings.provider}</Text> ({settings.model})
             </Text>
             <Button loading={loading} color="teal" onClick={() => void askAI()}>
-              Ask AI Advisor
+              Send Message
             </Button>
           </Group>
         </Stack>
@@ -357,28 +470,6 @@ export function AIAdvisorView({
           </Accordion.Panel>
         </Accordion.Item>
       </Accordion>
-
-      {advice && (
-        <Card className="metric" p="lg" radius="lg">
-          <Group justify="space-between" mb="sm">
-            <Text fw={700} color="teal">
-              🤖 AI Advisor Response
-            </Text>
-            <Badge color="gray" variant="subtle">
-              {settings.model}
-            </Badge>
-          </Group>
-          <Box
-            style={{
-              whiteSpace: 'pre-wrap',
-              lineHeight: 1.6,
-              fontSize: 14,
-            }}
-          >
-            {advice}
-          </Box>
-        </Card>
-      )}
 
       <AISettingsModal
         opened={settingsOpened}
