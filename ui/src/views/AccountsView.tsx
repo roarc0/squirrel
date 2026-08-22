@@ -20,9 +20,11 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { api, type Account, type ReferenceRate, type TaxRate } from '../api';
-import { confirmDelete, Empty, money, percent, useBackendRows } from '../App';
+import { useBackendRows } from '../App';
 import { Chip } from '../Chip';
+import { Empty } from '../components/Empty';
 import { DataTable, TableAction, TableActions, type DataColumn } from '../DataTable';
+import { confirmDelete, money, percent } from '../utils/format';
 
 type Numeric = string | number;
 const n = (value: Numeric | undefined) => (value === '' || value === undefined ? 0 : Number(value));

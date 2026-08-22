@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Badge, Box, Button, Card, Group, SimpleGrid, Stack, Text, Title } from '@mantine/core';
 import type { Diagnostic } from '../api';
-import { Empty, label } from '../App';
+import { Empty } from '../components/Empty';
+import { label } from '../utils/format';
 
 export function DiagnosticsView({
   diagnostics,

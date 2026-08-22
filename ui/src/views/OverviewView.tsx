@@ -17,8 +17,10 @@ import {
   Title,
 } from '@mantine/core';
 import { api, type Holding, type Instrument, type Snapshot, type Summary } from '../api';
-import { confirmDelete, Empty, investedMoney, label, money, useBackendRows, AllocationBar, PerformanceResult } from '../App';
+import { useBackendRows, AllocationBar, PerformanceResult } from '../App';
+import { Empty } from '../components/Empty';
 import { DataTable, type DataColumn } from '../DataTable';
+import { confirmDelete, investedMoney, label, money } from '../utils/format';
 import { chartGeometry } from '../visual';
 
 type Data = { summary: Summary; accounts: any[]; rates: any[]; taxRates: any[]; instruments: Instrument[]; holdings: Holding[]; snapshots: Snapshot[] };

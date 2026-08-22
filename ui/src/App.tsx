@@ -47,18 +47,7 @@ import { chartGeometry, matchesExactFilters, pageBounds, performanceMood } from 
 
 type Data = { summary: Summary; accounts: Account[]; rates: ReferenceRate[]; taxRates: TaxRate[]; instruments: Instrument[]; holdings: Holding[]; snapshots: Snapshot[] };
 type Numeric = string | number;
-const n = (value: Numeric | undefined) => (value === '' || value === undefined ? 0 : Number(value));
-const minor = (value: Numeric | undefined) => Math.round(n(value) * 100);
-const bps = (value: Numeric | undefined) => Math.round(n(value) * 100);
-export const percent = (value: number | undefined) => value === undefined || !Number.isFinite(value) ? '—' : `${(value / 100).toFixed(2)}%`;
-let hideBalancesGlobal = false;
-export const money = (value: number | undefined, currency: string) =>
-  hideBalancesGlobal ? '••••••' : (value === undefined || !Number.isFinite(value) ? '—' :
-  new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 }).format(value / 100));
-export const investedMoney = (invested: number, current: number, currency: string) => invested > 0 || current === 0 ? money(invested, currency) : '—';
-export const instrumentLabels: Record<InstrumentType, string> = { etf: 'ETF', etc: 'ETC', etn: 'ETN', fund: 'Fund', stock: 'Stock', bond: 'Bond', crypto: 'Crypto', commodity: 'Commodity', real_estate: 'Real estate', other: 'Other' };
-export const label = (value: string) => value.replaceAll('_', ' ').replace(/^./, character => character.toUpperCase());
-export const confirmDelete = (kind: string, name: string, consequence = '') => window.confirm(`Delete ${kind} “${name}”?${consequence ? `\n\n${consequence}` : ''}\n\nThis cannot be undone.`);
+import { money, investedMoney, setHideBalancesState } from './utils/format';
 
 export function useBackendRows<T>(endpoint: string, source: T[], initialSort = '', initialDirection: SortDirection = 'asc') {
   const [rows, setRows] = useState(source);
@@ -107,12 +96,12 @@ export default function App() {
   });
 
   useEffect(() => {
-    hideBalancesGlobal = hideBalances;
+    setHideBalancesState(hideBalances);
     try { localStorage.setItem('loot.hideBalances', String(hideBalances)); } catch { /* optional */ }
   }, [hideBalances]);
 
   if (!data) return <Group justify="center" h="100vh">{error ? <Alert color="red">{error}</Alert> : <Loader />}</Group>;
-  hideBalancesGlobal = hideBalances;
+  setHideBalancesState(hideBalances);
   const diagnosticsCount = data.summary.diagnostics?.length ?? 0;
   return (
     <main className="shell">

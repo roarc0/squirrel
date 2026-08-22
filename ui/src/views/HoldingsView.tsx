@@ -15,21 +15,12 @@ import {
   Title,
 } from '@mantine/core';
 import { api, type Account, type Holding, type Instrument, type TaxRate } from '../api';
-import {
-  AllocationBar,
-  confirmDelete,
-  Empty,
-  instrumentLabels,
-  investedMoney,
-  label,
-  money,
-  percent,
-  PerformanceResult,
-  useBackendRows,
-} from '../App';
+import { AllocationBar, PerformanceResult, useBackendRows } from '../App';
 import { Chip } from '../Chip';
+import { Empty } from '../components/Empty';
 import { DataTable, TableAction, TableActions, type DataColumn } from '../DataTable';
 import { InvestModal } from '../InvestModal';
+import { confirmDelete, instrumentLabels, investedMoney, label, money, percent } from '../utils/format';
 
 type Numeric = string | number;
 const n = (value: Numeric | undefined) => (value === '' || value === undefined ? 0 : Number(value));

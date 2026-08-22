@@ -39,17 +39,12 @@ import {
   type InstrumentType,
   type RankedInstrument,
 } from '../api';
-import {
-  confirmDelete,
-  Empty,
-  instrumentLabels,
-  label,
-  percent,
-  useBackendRows,
-} from '../App';
+import { useBackendRows } from '../App';
 import { Chip } from '../Chip';
 import { CompareModal } from '../CompareModal';
+import { Empty } from '../components/Empty';
 import { DataTable, TableAction, TableActions, type DataColumn, type SortDirection } from '../DataTable';
+import { confirmDelete, instrumentLabels, label, percent } from '../utils/format';
 import { matchesExactFilters, pageBounds } from '../visual';
 
 type Numeric = string | number;
