@@ -17,6 +17,7 @@ import (
 	"golang.org/x/net/http2/h2c"
 
 	"loot/backend/internal/justetf"
+	"loot/backend/internal/mcp"
 	"loot/backend/internal/portfolio"
 	"loot/backend/internal/store"
 	"loot/proto/gen/go/v1/portv1connect"
@@ -48,6 +49,11 @@ func New(data *store.Store, baseCurrency string, taxRates []portfolio.TaxRate, p
 	mux.Handle(portv1connect.NewHoldingServiceHandler(s))
 	mux.Handle(portv1connect.NewSnapshotServiceHandler(s))
 	mux.Handle(portv1connect.NewSystemServiceHandler(s))
+
+	// Register Model Context Protocol (MCP) route
+	mcpHandler := mcp.NewHandler(mux)
+	mux.Handle("/mcp", mcpHandler)
+	mux.Handle("/mcp/", mcpHandler)
 
 	// UI fallback handler
 	mux.Handle("/", ui.Handler())

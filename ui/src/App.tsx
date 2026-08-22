@@ -207,7 +207,7 @@ export default function App() {
             Diagnostics
           </Tabs.Tab>
           <Tabs.Tab value="advisor" leftSection={<IconRobot size={16} />}>
-            AI Advisor
+            AI Assistant
           </Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="overview"><Overview data={data} reload={load} onSwitchTab={handleTabChange} /></Tabs.Panel>

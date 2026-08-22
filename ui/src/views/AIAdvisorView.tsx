@@ -146,66 +146,88 @@ export function AIAdvisorView({
 
   const presets = [
     'How can I lower my portfolio TER fees without changing my risk level?',
-    'Search the catalog for cheap MSCI World ETFs with TER under 0.15%.',
+    'Search the 4,000+ ETF catalog for cheap MSCI World ETFs with TER under 0.15%.',
     'Analyze my asset allocation drift and tell me what to rebalance next with €2,000.',
     'What are the biggest risks or overlap vulnerabilities in my current holdings?',
   ];
 
-  const tools = [
-    {
-      type: 'function',
-      function: {
-        name: 'search_etf_catalog',
-        description: 'Search the 4,000+ ETF catalog by keyword, ISIN, index, or provider.',
-        parameters: {
-          type: 'object',
-          properties: {
-            query: { type: 'string', description: 'Search term e.g. MSCI World, S&P 500, Gold, IE00B4L5Y983' },
-            max_ter_bps: { type: 'number', description: 'Maximum TER in basis points e.g. 20 for 0.20%' },
+  // Dynamically fetch and execute MCP tools from backend /mcp
+  const fetchMCPTools = async () => {
+    try {
+      const res = await fetch('/mcp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const mcpTools = json.result?.tools ?? [];
+        return mcpTools.map((t: any) => ({
+          type: 'function',
+          function: {
+            name: t.name,
+            description: t.description,
+            parameters: t.inputSchema || { type: 'object', properties: {} },
           },
-          required: ['query'],
+        }));
+      }
+    } catch {
+      /* fallback */
+    }
+    return [
+      {
+        type: 'function',
+        function: {
+          name: 'search_instruments',
+          description: 'Search the 4,000+ ETF catalog by ISIN, ticker, index name, or provider.',
+          parameters: {
+            type: 'object',
+            properties: { query: { type: 'string', description: 'Search term e.g. MSCI World, S&P 500, Gold' } },
+            required: ['query'],
+          },
         },
       },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'get_portfolio_diagnostics',
-        description: 'Retrieve active portfolio warnings and diagnostics.',
-        parameters: { type: 'object', properties: {} },
+      {
+        type: 'function',
+        function: {
+          name: 'get_diagnostics',
+          description: 'Retrieve active portfolio warnings and health diagnostics.',
+          parameters: { type: 'object', properties: {} },
+        },
       },
-    },
-  ];
+    ];
+  };
 
-  const executeToolCall = (name: string, args: any) => {
-    if (name === 'search_etf_catalog') {
-      const q = String(args.query || '').toLowerCase();
-      const maxTer = args.max_ter_bps ? Number(args.max_ter_bps) : 10000;
+  const executeMCPToolCall = async (name: string, args: any) => {
+    try {
+      const res = await fetch('/mcp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: Date.now(),
+          method: 'tools/call',
+          params: { name, arguments: args || {} },
+        }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.result?.content?.[0]?.text) {
+          return json.result.content[0].text;
+        }
+      }
+    } catch {
+      /* fallback */
+    }
+
+    if (name === 'search_instruments' || name === 'search_etf_catalog') {
+      const q = String(args?.query || '').toLowerCase();
       const matches = instruments
-        .filter(i => {
-          const matchesQuery = i.name.toLowerCase().includes(q) ||
-            i.isin.toLowerCase().includes(q) ||
-            (i.ticker ?? '').toLowerCase().includes(q) ||
-            (i.provider ?? '').toLowerCase().includes(q) ||
-            (i.index_name ?? '').toLowerCase().includes(q);
-          return matchesQuery && (i.ter_bps ?? 0) <= maxTer;
-        })
-        .slice(0, 6)
-        .map(i => ({
-          isin: i.isin,
-          name: i.name,
-          ter: percent(i.ter_bps),
-          provider: i.provider,
-          index: i.index_name,
-          size: `${i.fund_size_million}m`,
-          distribution: i.distribution,
-        }));
+        .filter(i => i.name.toLowerCase().includes(q) || i.isin.toLowerCase().includes(q))
+        .slice(0, 5);
       return JSON.stringify(matches);
     }
-    if (name === 'get_portfolio_diagnostics') {
-      return JSON.stringify(summary.diagnostics ?? []);
-    }
-    return JSON.stringify({ status: 'unknown tool' });
+    return JSON.stringify(summary.diagnostics ?? []);
   };
 
   const askAI = async (queryText = prompt) => {
@@ -226,9 +248,11 @@ export function AIAdvisorView({
     setError('');
 
     try {
-      const systemPrompt = `You are an expert, local-first financial portfolio AI advisor for LOOT. Analyze the user's anonymized portfolio context and answer their prompt concisely with actionable, structured bullet points. You can search the 4,000+ ETF catalog using your search_etf_catalog tool. Never give legal or binding tax advice. Keep explanations simple, practical, and clear.`;
+      const activeTools = await fetchMCPTools();
 
-      const userContent = `Portfolio Context:\n\`\`\`json\n${contextJSON}\n\`\`\`\n\nUser Question: ${textToSend}`;
+      const systemPrompt = `You are an expert, local-first financial portfolio AI assistant for LOOT. You have full Model Context Protocol (MCP) access to the backend Proto API tools (/mcp). Use tools like search_instruments, rank_instruments, get_summary, list_holdings, list_accounts, list_snapshots, and get_diagnostics to answer questions accurately. Never give legal or binding tax advice. Keep explanations simple, practical, and clear.`;
+
+      const userContent = `Portfolio Summary Context:\n\`\`\`json\n${contextJSON}\n\`\`\`\n\nUser Question: ${textToSend}`;
 
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -237,7 +261,6 @@ export function AIAdvisorView({
         headers['Authorization'] = `Bearer ${settings.apiKey}`;
       }
 
-      // Build conversation trajectory for API
       const conversationTrajectory: any[] = [
         { role: 'system', content: systemPrompt },
         ...messages.map(m => ({ role: m.role, content: m.content })),
@@ -250,7 +273,7 @@ export function AIAdvisorView({
         body: JSON.stringify({
           model: settings.model,
           messages: conversationTrajectory,
-          tools,
+          tools: activeTools,
           temperature: 0.3,
         }),
       });
@@ -270,7 +293,7 @@ export function AIAdvisorView({
         for (const tc of toolCalls) {
           let parsedArgs = {};
           try { parsedArgs = JSON.parse(tc.function.arguments); } catch { /* optional */ }
-          const toolResult = executeToolCall(tc.function.name, parsedArgs);
+          const toolResult = await executeMCPToolCall(tc.function.name, parsedArgs);
           toolConversation.push({
             role: 'tool',
             tool_call_id: tc.id,
@@ -337,9 +360,9 @@ export function AIAdvisorView({
       <Group justify="space-between">
         <Box>
           <Group gap="xs">
-            <Title order={2}>AI Portfolio Advisor</Title>
+            <Title order={2}>AI Portfolio Assistant</Title>
             <Badge color="teal" variant="light">
-              Local-First & Opt-In
+              MCP Proto API Enabled
             </Badge>
           </Group>
           <Text c="dimmed">
@@ -405,7 +428,7 @@ export function AIAdvisorView({
             >
               <Group justify="space-between" mb="xs">
                 <Text size="xs" fw={700} c={msg.role === 'user' ? 'teal' : 'dimmed'}>
-                  {msg.role === 'user' ? '👤 You' : '🤖 AI Advisor'}
+                  {msg.role === 'user' ? '👤 You' : '🤖 AI Assistant'}
                 </Text>
                 <Text size="xs" c="dimmed">
                   {msg.timestamp}
