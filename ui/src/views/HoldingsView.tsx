@@ -324,8 +324,8 @@ function HoldingModal({ opened, close, holding, accounts, holdings, instruments,
       const invested = value === 0 ? 0 : (form.sinceBuy === '' ? value : value - minor(form.sinceBuy));
       if (invested < 0) throw new Error('Since-buy gain/loss cannot be greater than the current value');
 
-      if (value === 0 && !isPacActive && plannedBpsVal === 0) {
-        throw new Error('Holdings with €0 value require a positive PAC allocation percentage or target weight');
+      if (value === 0 && pacBpsVal === 0 && plannedBpsVal === 0) {
+        throw new Error('Holdings with €0 value require a positive PAC allocation percentage (e.g. 5%) or target weight');
       }
 
       const body = {

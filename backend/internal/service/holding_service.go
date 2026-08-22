@@ -26,6 +26,12 @@ func (s *Server) ListHoldings(ctx context.Context, req *connect.Request[portv1.L
 
 	if sortField == "" {
 		slices.SortStableFunc(holdings, func(a, b portfolio.Holding) int {
+			if a.IsPAC != b.IsPAC {
+				if a.IsPAC {
+					return -1
+				}
+				return 1
+			}
 			if order := cmp.Compare(b.ValueMinor, a.ValueMinor); order != 0 {
 				return order
 			}
@@ -41,11 +47,28 @@ func (s *Server) ListHoldings(ctx context.Context, req *connect.Request[portv1.L
 			"asset_class": func(a, b portfolio.Holding) int { return cmp.Compare(a.AssetClass, b.AssetClass) },
 			"assetClass":  func(a, b portfolio.Holding) int { return cmp.Compare(a.AssetClass, b.AssetClass) },
 			"invested":    func(a, b portfolio.Holding) int { return cmp.Compare(a.InvestedMinor, b.InvestedMinor) },
-			"value":       func(a, b portfolio.Holding) int { return cmp.Compare(a.ValueMinor, b.ValueMinor) },
-			"profit":      func(a, b portfolio.Holding) int { return cmp.Compare(a.ValueMinor-a.InvestedMinor, b.ValueMinor-b.InvestedMinor) },
-			"planned":     func(a, b portfolio.Holding) int { return cmp.Compare(a.PlannedBPS, b.PlannedBPS) },
-			"actual":      func(a, b portfolio.Holding) int { return cmp.Compare(a.ActualBPS, b.ActualBPS) },
-			"ter":         func(a, b portfolio.Holding) int { return cmp.Compare(a.TERBPS, b.TERBPS) },
+			"value": func(a, b portfolio.Holding) int {
+				if order := cmp.Compare(a.ValueMinor, b.ValueMinor); order != 0 {
+					return order
+				}
+				if a.IsPAC != b.IsPAC {
+					if a.IsPAC {
+						return 1
+					}
+					return -1
+				}
+				return cmp.Compare(strings.ToLower(a.InstrumentName), strings.ToLower(b.InstrumentName))
+			},
+			"profit":  func(a, b portfolio.Holding) int { return cmp.Compare(a.ValueMinor-a.InvestedMinor, b.ValueMinor-b.InvestedMinor) },
+			"planned": func(a, b portfolio.Holding) int { return cmp.Compare(a.PlannedBPS, b.PlannedBPS) },
+			"actual":  func(a, b portfolio.Holding) int { return cmp.Compare(a.ActualBPS, b.ActualBPS) },
+			"ter":     func(a, b portfolio.Holding) int { return cmp.Compare(a.TERBPS, b.TERBPS) },
+			"pac": func(a, b portfolio.Holding) int {
+				if order := cmp.Compare(a.PACBPS, b.PACBPS); order != 0 {
+					return order
+				}
+				return cmp.Compare(strings.ToLower(a.InstrumentName), strings.ToLower(b.InstrumentName))
+			},
 		}
 		if err := sortSlice(sortField, holdings, columns); err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)

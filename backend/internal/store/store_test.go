@@ -183,3 +183,47 @@ func TestPACAllocationPercentageConstraint(t *testing.T) {
 		t.Fatalf("expected 40%% PAC (total 100%%) to succeed, got: %v", err)
 	}
 }
+
+func TestZeroValuePACHolding(t *testing.T) {
+	s, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	ctx := context.Background()
+
+	acc := portfolio.Account{Name: "Fineco", Currency: "EUR", PACAmountMinor: 50000}
+	if err := s.SaveAccount(ctx, &acc); err != nil {
+		t.Fatal(err)
+	}
+
+	inst := portfolio.Instrument{ISIN: "IE00B4L5Y983", Name: "World ETF", FundCurrency: "EUR", Distribution: "accumulating", Replication: "physical_full"}
+	if err := s.SaveInstrument(ctx, &inst); err != nil {
+		t.Fatal(err)
+	}
+
+	// Save €0 holding with 5% (500 bps) PAC
+	h := portfolio.Holding{
+		AccountID:    acc.ID,
+		InstrumentID: inst.ID,
+		ValueMinor:   0,
+		InvestedMinor: 0,
+		IsPAC:        true,
+		PACBPS:       500,
+		PACFrequency: "monthly",
+	}
+	if err := s.SaveHolding(ctx, &h); err != nil {
+		t.Fatalf("SaveHolding failed for €0 PAC holding: %v", err)
+	}
+
+	holdings, err := s.ListHoldings(ctx)
+	if err != nil {
+		t.Fatalf("ListHoldings failed: %v", err)
+	}
+	if len(holdings) != 1 {
+		t.Fatalf("expected 1 holding, got %d", len(holdings))
+	}
+	if holdings[0].ValueMinor != 0 || !holdings[0].IsPAC || holdings[0].PACBPS != 500 {
+		t.Fatalf("unexpected zero-value holding state: %+v", holdings[0])
+	}
+}
