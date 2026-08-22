@@ -89,9 +89,31 @@ export default function App() {
 
   const [updateModalOpened, setUpdateModalOpened] = useState(false);
   const [settingsModalOpened, setSettingsModalOpened] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>(() =>
-    new URLSearchParams(window.location.search).has('similarity') ? 'instruments' : 'overview'
-  );
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (new URLSearchParams(window.location.search).has('similarity')) {
+      return 'instruments';
+    }
+    try {
+      const saved = localStorage.getItem('loot.activeTab');
+      if (saved && ['overview', 'accounts', 'holdings', 'instruments', 'diagnostics', 'advisor'].includes(saved)) {
+        return saved;
+      }
+    } catch {
+      /* optional */
+    }
+    return 'overview';
+  });
+
+  const handleTabChange = (val: string | null) => {
+    const next = val || 'overview';
+    setActiveTab(next);
+    try {
+      localStorage.setItem('loot.activeTab', next);
+    } catch {
+      /* optional */
+    }
+  };
+
   const [hideBalances, setHideBalances] = useState(() => {
     try { return localStorage.getItem('loot.hideBalances') === 'true'; } catch { return false; }
   });
@@ -121,7 +143,7 @@ export default function App() {
         </Group>
       </Group>
       {error && <Alert color="red" mb="md" withCloseButton onClose={() => setError('')}>{error}</Alert>}
-      <Tabs value={activeTab} onChange={val => setActiveTab(val || 'overview')} keepMounted={false}>
+      <Tabs value={activeTab} onChange={handleTabChange} keepMounted={false}>
         <Tabs.List mb="xl">
           <Tabs.Tab value="overview">Overview</Tabs.Tab>
           <Tabs.Tab value="accounts">Accounts</Tabs.Tab>
@@ -135,7 +157,7 @@ export default function App() {
           </Tabs.Tab>
           <Tabs.Tab value="advisor">🤖 AI Advisor</Tabs.Tab>
         </Tabs.List>
-        <Tabs.Panel value="overview"><Overview data={data} reload={load} onSwitchTab={setActiveTab} /></Tabs.Panel>
+        <Tabs.Panel value="overview"><Overview data={data} reload={load} onSwitchTab={handleTabChange} /></Tabs.Panel>
         <Tabs.Panel value="accounts"><Accounts accounts={data.accounts} rates={data.rates} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
         <Tabs.Panel value="holdings"><Holdings holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
         <Tabs.Panel value="instruments"><InstrumentFinder instruments={data.instruments} reload={load} /></Tabs.Panel>
@@ -143,7 +165,7 @@ export default function App() {
           <DiagnosticsTab
             diagnostics={data.summary.diagnostics ?? []}
             onOpenSettings={() => setSettingsModalOpened(true)}
-            onOpenInvest={() => setActiveTab('holdings')}
+            onOpenInvest={() => handleTabChange('holdings')}
           />
         </Tabs.Panel>
         <Tabs.Panel value="advisor">
