@@ -24,6 +24,7 @@ import { Empty } from '../components/Empty';
 import { DataTable, TableAction, TableActions, type DataColumn } from '../DataTable';
 import { InvestModal } from '../InvestModal';
 import { confirmDelete, instrumentLabels, investedMoney, label, money, percent } from '../utils/format';
+import { DraftPortfoliosModal } from '../components/DraftPortfoliosModal';
 
 type Numeric = string | number;
 const n = (value: Numeric | undefined) => (value === '' || value === undefined ? 0 : Number(value));
@@ -44,6 +45,7 @@ type HoldingDraft = {
 
 export function HoldingsView({ holdings, accounts, instruments, taxRates, reload }: { holdings: Holding[]; accounts: Account[]; instruments: Instrument[]; taxRates: TaxRate[]; reload: () => Promise<void> }) {
   const [opened, setOpened] = useState(false); const [editing, setEditing] = useState<Holding>(); const [error, setError] = useState('');
+  const [draftsOpened, setDraftsOpened] = useState(false);
   const [accountIDs, setAccountIDs] = useState<string[]>([]);
   const table = useBackendRows('/api/holdings', holdings, 'value', 'desc');
   const activeAccounts = accounts.filter(account => !account.archived); const activeAccountIDs = new Set(activeAccounts.map(account => account.id));
@@ -119,12 +121,20 @@ export function HoldingsView({ holdings, accounts, instruments, taxRates, reload
     { key: 'actions', render: holding => <TableActions><TableAction label={`Edit ${holding.instrument_name}`} onClick={() => open(holding)}><IconPencil size={14} /></TableAction><TableAction label={`Delete ${holding.instrument_name}`} color="red" onClick={() => void remove(holding)}><IconTrash size={14} /></TableAction></TableActions> },
   ];
   const [investOpened, setInvestOpened] = useState(false);
-  return <Stack gap="lg"><Group justify="space-between"><Box><Title order={2}>Holdings</Title><Text c="dimmed">Actual allocation uses current holding values within each currency; planned allocation is your target.</Text></Box><Group gap="sm"><Button variant="light" color="teal" disabled={!ready} onClick={() => setInvestOpened(true)}>Invest & Rebalance</Button><Button disabled={!ready} onClick={() => open()}>Add holding</Button></Group></Group>
+  return <Stack gap="lg"><Group justify="space-between"><Box><Title order={2}>Holdings</Title><Text c="dimmed">Actual allocation uses current holding values within each currency; planned allocation is your target.</Text></Box><Group gap="sm"><Button variant="default" onClick={() => setDraftsOpened(true)}>📁 Draft Portfolios</Button><Button variant="light" color="teal" disabled={!ready} onClick={() => setInvestOpened(true)}>Invest & Rebalance</Button><Button disabled={!ready} onClick={() => open()}>Add holding</Button></Group></Group>
     {(error || table.sortError) && <Alert color="red">{error || table.sortError}</Alert>}
     {activeHoldings.length > 0 && <><MultiSelect w="100%" maw={360} searchable clearable label="Accounts" placeholder="All accounts" value={accountIDs} data={activeAccounts.map(account => ({ value: String(account.id), label: account.name }))} onChange={setAccountIDs} />{visibleHoldings.length > 0 && <SimpleGrid cols={{ base: 1, md: Math.min(2, Math.max(1, totals.size)) }}>{[...totals].map(([currency, summary]) => <Card key={currency} className="metric" p="lg" radius="lg"><Group justify="space-between" align="start"><Box><Text size="xs" c="dimmed">Visible holdings · {currency}</Text><Text size="xl" fw={750}>{money(summary.value, currency)}</Text></Box><Text size="sm" c="dimmed">{summary.count} {summary.count === 1 ? 'holding' : 'holdings'}</Text></Group><Group justify="space-between" align="center" mt={5}><Text size="xs" c="dimmed">Invested {investedMoney(summary.invested, summary.value, currency)}</Text><PerformanceResult value={summary.value} invested={summary.invested} currency={currency} /></Group><Group justify="space-between" align="center" mt={3}><Text size="xs" c="dimmed">Weighted TER: <Text span fw={700} c="dimmed">{summary.value > 0 ? `${(summary.weightedTERNum / summary.value / 100).toFixed(2)}%` : '0.00%'}</Text></Text><Text size="xs" c="dimmed">Fee drag: <Text span fw={700} c="orange">-{money(summary.annualFeeDrag, currency)}/yr</Text></Text></Group><AllocationBar total={summary.value} segments={[...summary.classes].map(([assetClass, value]) => ({ label: label(assetClass), value }))} /></Card>)}</SimpleGrid>}</>}
-    {!ready ? <Empty title="Accounts and instruments required" text="Add an active account and an instrument before recording a holding." /> : activeHoldings.length === 0 ? <Empty title="No active holdings" text="Add an investment or restore an archived account." /> : visibleHoldings.length === 0 ? <Empty title="No matching holdings" text="Choose another account or clear the filter." /> : <DataTable rows={visibleHoldings} columns={columns} rowKey={holding => holding.id} minWidth={1080} sort={table.sort} direction={table.direction} onSort={(key, direction) => void table.sortRows(key, direction)} rowStyle={holding => ({ opacity: holding.is_pac && (holding.pac_bps ?? 0) > 0 ? 1 : 0.75, backgroundColor: holding.is_pac && (holding.pac_bps ?? 0) > 0 ? 'rgba(32, 201, 151, 0.05)' : undefined })} />}
+    {!ready ? <Empty title="Accounts and instruments required" text="Add an active account and an instrument before recording a holding." /> : activeHoldings.length === 0 ? <Empty title="No active holdings" text="Add an investment or restore an archived account." /> : visibleHoldings.length === 0 ? <Empty title="No matching holdings" text="Choose another account or clear the filter." /> : <DataTable rows={visibleHoldings} columns={columns} rowKey={holding => holding.id} minWidth={1080} sort={table.sort} direction={table.direction} onSort={(key, direction) => void table.sortRows(key, direction)} rowStyle={holding => {
+      const isPacActive = holding.is_pac && (holding.pac_bps ?? 0) > 0;
+      return {
+        opacity: isPacActive ? 1 : 0.65,
+        backgroundColor: isPacActive ? 'rgba(32, 201, 151, 0.12)' : undefined,
+        borderLeft: isPacActive ? '4px solid #20c997' : undefined,
+      };
+    }} />}
     <HoldingModal key={editing?.id ?? 'new'} opened={opened} close={() => setOpened(false)} holding={editing} accounts={activeAccounts} instruments={instruments} taxRates={taxRates} saved={async () => { setOpened(false); await reload(); }} />
     <InvestModal opened={investOpened} onClose={() => setInvestOpened(false)} holdings={holdings} reload={reload} />
+    <DraftPortfoliosModal opened={draftsOpened} onClose={() => setDraftsOpened(false)} holdings={holdings} instruments={instruments} reload={reload} />
   </Stack>;
 }
 
