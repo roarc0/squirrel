@@ -45,6 +45,7 @@ func (s *Server) ListHoldings(ctx context.Context, req *connect.Request[portv1.L
 			"profit":      func(a, b portfolio.Holding) int { return cmp.Compare(a.ValueMinor-a.InvestedMinor, b.ValueMinor-b.InvestedMinor) },
 			"planned":     func(a, b portfolio.Holding) int { return cmp.Compare(a.PlannedBPS, b.PlannedBPS) },
 			"actual":      func(a, b portfolio.Holding) int { return cmp.Compare(a.ActualBPS, b.ActualBPS) },
+			"ter":         func(a, b portfolio.Holding) int { return cmp.Compare(a.TERBPS, b.TERBPS) },
 		}
 		if err := sortSlice(sortField, holdings, columns); err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)

@@ -10,7 +10,7 @@ import (
 
 func (s *Store) ListHoldings(ctx context.Context) ([]portfolio.Holding, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT h.id, h.account_id, h.instrument_id, a.name, a.currency, i.name, i.isin, i.ticker, i.instrument_type, i.asset_class,
+		SELECT h.id, h.account_id, h.instrument_id, a.name, a.currency, i.name, i.isin, i.ticker, i.instrument_type, i.asset_class, i.ter_bps,
 			h.invested_minor, h.value_minor, h.tax_bps, h.planned_bps
 		FROM holdings h
 		JOIN accounts a ON a.id = h.account_id
@@ -24,7 +24,7 @@ func (s *Store) ListHoldings(ctx context.Context) ([]portfolio.Holding, error) {
 	totals := make(map[string]int64)
 	for rows.Next() {
 		var holding portfolio.Holding
-		if err := rows.Scan(&holding.ID, &holding.AccountID, &holding.InstrumentID, &holding.AccountName, &holding.Currency, &holding.InstrumentName, &holding.InstrumentISIN, &holding.InstrumentTicker, &holding.InstrumentType, &holding.AssetClass, &holding.InvestedMinor, &holding.ValueMinor, &holding.TaxBPS, &holding.PlannedBPS); err != nil {
+		if err := rows.Scan(&holding.ID, &holding.AccountID, &holding.InstrumentID, &holding.AccountName, &holding.Currency, &holding.InstrumentName, &holding.InstrumentISIN, &holding.InstrumentTicker, &holding.InstrumentType, &holding.AssetClass, &holding.TERBPS, &holding.InvestedMinor, &holding.ValueMinor, &holding.TaxBPS, &holding.PlannedBPS); err != nil {
 			return nil, err
 		}
 		holdings = append(holdings, holding)

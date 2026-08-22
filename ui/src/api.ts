@@ -145,6 +145,7 @@ export type Holding = {
   tax_bps: number;
   planned_bps: number;
   actual_bps: number;
+  ter_bps?: number;
 };
 
 export type Snapshot = {

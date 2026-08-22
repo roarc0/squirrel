@@ -20,6 +20,7 @@ message Holding {
   int64 tax_bps = 13;
   int64 planned_bps = 14;
   int64 actual_bps = 15;
+  int64 ter_bps = 16;
 }
 
 message ListHoldingsRequest {

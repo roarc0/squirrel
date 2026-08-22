@@ -18,6 +18,7 @@ type Holding struct {
 	TaxBPS           int64  `json:"tax_bps"`
 	PlannedBPS       int64  `json:"planned_bps"`
 	ActualBPS        int64  `json:"actual_bps"`
+	TERBPS           int64  `json:"ter_bps,omitempty"`
 }
 
 func ValidateHolding(holding Holding) error {

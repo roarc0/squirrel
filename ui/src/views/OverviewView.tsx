@@ -9,6 +9,7 @@ import {
   Modal,
   NumberInput,
   Paper,
+  Progress,
   SegmentedControl,
   SimpleGrid,
   Stack,
@@ -73,6 +74,86 @@ function TERMetric({ holdings, instruments, currency }: { holdings: Holding[]; i
   );
 }
 
+function NetPassiveCashflowCard({ netInterestMinor, holdings, instruments, currency }: { netInterestMinor: number; holdings: Holding[]; instruments: Instrument[]; currency: string }) {
+  const instMap = new Map<number, Instrument>(instruments.map(i => [i.id, i]));
+  let annualTERDrag = 0;
+  for (const h of holdings) {
+    if ((h.currency ?? 'EUR') === currency) {
+      const terBps = h.ter_bps ?? instMap.get(h.instrument_id)?.ter_bps ?? 0;
+      annualTERDrag += Math.round((h.value_minor * terBps) / 10000);
+    }
+  }
+  const netBalance = netInterestMinor - annualTERDrag;
+  return (
+    <Card className="metric" p="lg" radius="lg">
+      <Group justify="space-between" mb="xs">
+        <Text fw={700} size="sm">Net Passive Flow</Text>
+        <Badge color={netBalance >= 0 ? 'teal' : 'red'} variant="light">
+          {netBalance >= 0 ? 'Positive Yield' : 'Net Cost'}
+        </Badge>
+      </Group>
+      <Group align="baseline" gap="xs">
+        <Text size="xl" fw={750} c={netBalance >= 0 ? 'teal' : 'red'}>
+          {netBalance >= 0 ? '+' : ''}{money(netBalance, currency)}/yr
+        </Text>
+      </Group>
+      <Text size="xs" c="dimmed" mt={4}>
+        +{money(netInterestMinor, currency)}/yr net interest · -{money(annualTERDrag, currency)}/yr TER fees
+      </Text>
+    </Card>
+  );
+}
+
+function EmergencyReserveCard({ cashMinor, currency }: { cashMinor: number; currency: string }) {
+  const [goal, setGoal] = useState<number>(() => {
+    try {
+      const val = localStorage.getItem(`loot.emergencyGoal.${currency}`);
+      return val ? Number(val) : 10000;
+    } catch { return 10000; }
+  });
+  const [editing, setEditing] = useState(false);
+  const [draftGoal, setDraftGoal] = useState<Numeric>(goal);
+
+  const saveGoal = () => {
+    const next = Math.max(1, Number(draftGoal) || 10000);
+    setGoal(next);
+    try { localStorage.setItem(`loot.emergencyGoal.${currency}`, String(next)); } catch { /* optional */ }
+    setEditing(false);
+  };
+
+  const goalMinor = goal * 100;
+  const pct = Math.min(100, Math.round((cashMinor / Math.max(1, goalMinor)) * 100));
+
+  return (
+    <Card className="metric" p="lg" radius="lg">
+      <Group justify="space-between" mb="xs">
+        <Group gap="xs">
+          <Text fw={700} size="sm">Emergency Reserve</Text>
+          <Button size="xs" variant="subtle" color="gray" onClick={() => { setDraftGoal(goal); setEditing(true); }}>
+            ✎ Goal
+          </Button>
+        </Group>
+        <Badge color={pct >= 100 ? 'teal' : pct >= 50 ? 'blue' : 'orange'} variant="filled">
+          {pct >= 100 ? 'Fully Reserved' : `${pct}% Funded`}
+        </Badge>
+      </Group>
+      <Group align="baseline" justify="space-between" mt={4}>
+        <Text size="lg" fw={750}>
+          {money(cashMinor, currency)} <Text span size="xs" c="dimmed">/ {money(goalMinor, currency)} goal</Text>
+        </Text>
+      </Group>
+      <Progress value={pct} color={pct >= 100 ? 'teal' : pct >= 50 ? 'blue' : 'orange'} animated={pct < 100} radius="xl" mt="xs" />
+      <Modal opened={editing} onClose={() => setEditing(false)} title={`Target Emergency Reserve (${currency})`} size="sm">
+        <Stack gap="sm">
+          <NumberInput label="Target Cash Goal" min={100} value={draftGoal} onChange={setDraftGoal} />
+          <Text size="xs" c="dimmed">Recommended: 3 to 6 months of essential living expenses kept in liquid cash.</Text>
+          <Button onClick={saveGoal}>Save Goal</Button>
+        </Stack>
+      </Modal>
+    </Card>
+  );
+}
+
 export function OverviewView({ data, reload, onSwitchTab }: { data: Data; reload: () => Promise<void>; onSwitchTab: (tab: string) => void }) {
   const currencies = data.summary.currencies ?? [];
   const diagnostics = data.summary.diagnostics ?? [];
@@ -104,6 +185,18 @@ export function OverviewView({ data, reload, onSwitchTab }: { data: Data; reload
           <PerformanceMetric value={item.portfolio_minor} invested={item.invested_minor} currency={item.currency} />
           <TERMetric holdings={data.holdings} instruments={data.instruments} currency={item.currency} />
           <Metric label="Total wealth" value={money(item.total_minor, item.currency)} positive />
+        </SimpleGrid>
+        <SimpleGrid cols={{ base: 1, sm: 2 }} mt="md">
+          <NetPassiveCashflowCard
+            netInterestMinor={item.net_revenue_minor}
+            holdings={data.holdings}
+            instruments={data.instruments}
+            currency={item.currency}
+          />
+          <EmergencyReserveCard
+            cashMinor={item.balance_minor}
+            currency={item.currency}
+          />
         </SimpleGrid>
         <Paper className="metric" p="lg" radius="lg" mt="md">
           <Group justify="space-between" mb="sm"><Text fw={700}>Asset allocation</Text><Text size="sm" c="dimmed">Cash interest/year: Gross {money(item.gross_revenue_minor, item.currency)} · Net {money(item.net_revenue_minor, item.currency)}</Text></Group>

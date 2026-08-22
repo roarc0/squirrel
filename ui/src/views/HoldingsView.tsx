@@ -14,6 +14,7 @@ import {
   Text,
   Title,
 } from '@mantine/core';
+import { IconPencil, IconTrash } from '@tabler/icons-react';
 import { api, type Account, type Holding, type Instrument, type TaxRate } from '../api';
 import { AllocationBar, PerformanceResult, useBackendRows } from '../App';
 import { Chip } from '../Chip';
@@ -62,13 +63,24 @@ export function HoldingsView({ holdings, accounts, instruments, taxRates, reload
     { key: 'instrument', label: 'Instrument', sortable: true, render: holding => <><Text fw={650}>{holding.instrument_name}</Text><Text size="xs" c="dimmed">{[holding.instrument_ticker, holding.instrument_isin].filter(Boolean).join(' · ')}</Text></> },
     { key: 'type', label: 'Type', sortable: true, render: holding => <Chip>{instrumentLabels[holding.instrument_type ?? 'other']}</Chip> },
     { key: 'asset_class', label: 'Asset class', sortable: true, render: holding => <Chip>{label(holding.asset_class || 'other')}</Chip> },
+    { key: 'ter', label: 'TER / Fee Drag', sortable: true, render: holding => {
+      const terBps = holding.ter_bps ?? instMap.get(holding.instrument_id)?.ter_bps;
+      if (!terBps || terBps <= 0) return <Text c="dimmed">—</Text>;
+      const annualDragMinor = Math.round((holding.value_minor * terBps) / 10000);
+      return (
+        <Stack gap={1}>
+          <Text size="sm">{percent(terBps)}</Text>
+          <Text size="xs" c="orange">-{money(annualDragMinor, holding.currency ?? 'EUR')}/yr</Text>
+        </Stack>
+      );
+    } },
     { key: 'value', label: 'Current value', sortable: true, render: holding => <Text fw={650}>{money(holding.value_minor, holding.currency ?? 'EUR')}</Text> },
     { key: 'actual', label: 'Actual', sortable: true, render: holding => percent(actualBPS(holding)) },
     { key: 'planned', label: 'Planned', sortable: true, render: holding => holding.planned_bps > 0 ? percent(holding.planned_bps) : '—' },
     { key: 'invested', label: 'Amount invested', sortable: true, render: holding => investedMoney(holding.invested_minor, holding.value_minor, holding.currency ?? 'EUR') },
     { key: 'change', label: 'Gain / loss', sortable: true, render: holding => { if (holding.invested_minor === 0) return <Text c="dimmed">—</Text>; const change = holding.value_minor - holding.invested_minor; return <Stack gap={1}><Text fw={650} c={change >= 0 ? 'teal' : 'red'}>{money(change, holding.currency ?? 'EUR')}</Text><Text size="xs" c="dimmed">{change >= 0 ? '+' : ''}{(change / holding.invested_minor * 100).toFixed(1)}%</Text></Stack>; } },
     { key: 'tax', label: 'Tax', sortable: true, render: holding => percent(holding.tax_bps) },
-    { key: 'actions', render: holding => <TableActions><TableAction label={`Edit ${holding.instrument_name}`} onClick={() => open(holding)}>✎</TableAction><TableAction label={`Delete ${holding.instrument_name}`} color="red" onClick={() => void remove(holding)}>×</TableAction></TableActions> },
+    { key: 'actions', render: holding => <TableActions><TableAction label={`Edit ${holding.instrument_name}`} onClick={() => open(holding)}><IconPencil size={14} /></TableAction><TableAction label={`Delete ${holding.instrument_name}`} color="red" onClick={() => void remove(holding)}><IconTrash size={14} /></TableAction></TableActions> },
   ];
   const [investOpened, setInvestOpened] = useState(false);
   return <Stack gap="lg"><Group justify="space-between"><Box><Title order={2}>Holdings</Title><Text c="dimmed">Actual allocation uses current holding values within each currency; planned allocation is your target.</Text></Box><Group gap="sm"><Button variant="light" color="teal" disabled={!ready} onClick={() => setInvestOpened(true)}>Invest & Rebalance</Button><Button disabled={!ready} onClick={() => open()}>Add holding</Button></Group></Group>

@@ -85,6 +85,11 @@ export declare class Holding extends Message<Holding> {
    */
   actualBps: bigint;
 
+  /**
+   * @generated from field: int64 ter_bps = 16;
+   */
+  terBps: bigint;
+
   constructor(data?: PartialMessage<Holding>);
 
   static readonly runtime: typeof proto3;

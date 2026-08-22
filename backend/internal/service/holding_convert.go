@@ -15,6 +15,7 @@ func holdingToProto(h portfolio.Holding) *portv1.Holding {
 		TaxBps:        h.TaxBPS,
 		PlannedBps:    h.PlannedBPS,
 		ActualBps:     h.ActualBPS,
+		TerBps:        h.TERBPS,
 	}
 	if h.AccountName != "" {
 		res.AccountName = &h.AccountName
@@ -53,6 +54,7 @@ func holdingFromProto(p *portv1.Holding) portfolio.Holding {
 		TaxBPS:        p.TaxBps,
 		PlannedBPS:    p.PlannedBps,
 		ActualBPS:     p.ActualBps,
+		TERBPS:        p.TerBps,
 	}
 	if p.AccountName != nil {
 		res.AccountName = *p.AccountName

@@ -26,6 +26,7 @@ export const Holding = /*@__PURE__*/ proto3.makeMessageType(
     { no: 13, name: "tax_bps", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
     { no: 14, name: "planned_bps", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
     { no: 15, name: "actual_bps", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 16, name: "ter_bps", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
   ],
 );
 
