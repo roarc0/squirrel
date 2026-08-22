@@ -21,30 +21,51 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Holding represents an asset position held within a specific account.
 type Holding struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	Id               int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	AccountId        int64                  `protobuf:"varint,2,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
-	InstrumentId     int64                  `protobuf:"varint,3,opt,name=instrument_id,json=instrumentId,proto3" json:"instrument_id,omitempty"`
-	AccountName      *string                `protobuf:"bytes,4,opt,name=account_name,json=accountName,proto3,oneof" json:"account_name,omitempty"`
-	Currency         *string                `protobuf:"bytes,5,opt,name=currency,proto3,oneof" json:"currency,omitempty"`
-	InstrumentName   *string                `protobuf:"bytes,6,opt,name=instrument_name,json=instrumentName,proto3,oneof" json:"instrument_name,omitempty"`
-	InstrumentIsin   *string                `protobuf:"bytes,7,opt,name=instrument_isin,json=instrumentIsin,proto3,oneof" json:"instrument_isin,omitempty"`
-	InstrumentTicker *string                `protobuf:"bytes,8,opt,name=instrument_ticker,json=instrumentTicker,proto3,oneof" json:"instrument_ticker,omitempty"`
-	InstrumentType   *string                `protobuf:"bytes,9,opt,name=instrument_type,json=instrumentType,proto3,oneof" json:"instrument_type,omitempty"`
-	AssetClass       *string                `protobuf:"bytes,10,opt,name=asset_class,json=assetClass,proto3,oneof" json:"asset_class,omitempty"`
-	InvestedMinor    int64                  `protobuf:"varint,11,opt,name=invested_minor,json=investedMinor,proto3" json:"invested_minor,omitempty"`
-	ValueMinor       int64                  `protobuf:"varint,12,opt,name=value_minor,json=valueMinor,proto3" json:"value_minor,omitempty"`
-	TaxBps           int64                  `protobuf:"varint,13,opt,name=tax_bps,json=taxBps,proto3" json:"tax_bps,omitempty"`
-	PlannedBps       int64                  `protobuf:"varint,14,opt,name=planned_bps,json=plannedBps,proto3" json:"planned_bps,omitempty"`
-	ActualBps        int64                  `protobuf:"varint,15,opt,name=actual_bps,json=actualBps,proto3" json:"actual_bps,omitempty"`
-	TerBps           int64                  `protobuf:"varint,16,opt,name=ter_bps,json=terBps,proto3" json:"ter_bps,omitempty"`
-	IsPac            bool                   `protobuf:"varint,17,opt,name=is_pac,json=isPac,proto3" json:"is_pac,omitempty"`
-	PacBps           int64                  `protobuf:"varint,18,opt,name=pac_bps,json=pacBps,proto3" json:"pac_bps,omitempty"`
-	PacFrequency     string                 `protobuf:"bytes,19,opt,name=pac_frequency,json=pacFrequency,proto3" json:"pac_frequency,omitempty"`
-	Notes            string                 `protobuf:"bytes,20,opt,name=notes,proto3" json:"notes,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Unique holding ID.
+	Id int64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Associated account ID.
+	AccountId int64 `protobuf:"varint,2,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	// Associated instrument ID.
+	InstrumentId int64 `protobuf:"varint,3,opt,name=instrument_id,json=instrumentId,proto3" json:"instrument_id,omitempty"`
+	// Name of the account holding this position.
+	AccountName *string `protobuf:"bytes,4,opt,name=account_name,json=accountName,proto3,oneof" json:"account_name,omitempty"`
+	// Base currency code (e.g. "EUR", "USD").
+	Currency *string `protobuf:"bytes,5,opt,name=currency,proto3,oneof" json:"currency,omitempty"`
+	// Full name of the instrument (e.g. "iShares Core MSCI World UCITS ETF").
+	InstrumentName *string `protobuf:"bytes,6,opt,name=instrument_name,json=instrumentName,proto3,oneof" json:"instrument_name,omitempty"`
+	// International Securities Identification Number (ISIN, e.g. "IE00B4L5Y983").
+	InstrumentIsin *string `protobuf:"bytes,7,opt,name=instrument_isin,json=instrumentIsin,proto3,oneof" json:"instrument_isin,omitempty"`
+	// Ticker symbol (e.g. "SWDA").
+	InstrumentTicker *string `protobuf:"bytes,8,opt,name=instrument_ticker,json=instrumentTicker,proto3,oneof" json:"instrument_ticker,omitempty"`
+	// Instrument type (e.g. "etf", "etc", "stock", "bond").
+	InstrumentType *string `protobuf:"bytes,9,opt,name=instrument_type,json=instrumentType,proto3,oneof" json:"instrument_type,omitempty"`
+	// Asset class (e.g. "equity", "bond", "commodity", "cash").
+	AssetClass *string `protobuf:"bytes,10,opt,name=asset_class,json=assetClass,proto3,oneof" json:"asset_class,omitempty"`
+	// Total cost basis / invested capital in minor units (cents).
+	InvestedMinor int64 `protobuf:"varint,11,opt,name=invested_minor,json=investedMinor,proto3" json:"invested_minor,omitempty"`
+	// Current market value in minor units (cents). May be 0 for new PAC accumulation plans.
+	ValueMinor int64 `protobuf:"varint,12,opt,name=value_minor,json=valueMinor,proto3" json:"value_minor,omitempty"`
+	// Applicable capital gains tax rate in basis points (e.g. 2600 bps = 26.00%).
+	TaxBps int64 `protobuf:"varint,13,opt,name=tax_bps,json=taxBps,proto3" json:"tax_bps,omitempty"`
+	// Target planned portfolio allocation weight in basis points (e.g. 8000 bps = 80.00%).
+	PlannedBps int64 `protobuf:"varint,14,opt,name=planned_bps,json=plannedBps,proto3" json:"planned_bps,omitempty"`
+	// Calculated actual weight of this holding relative to total currency wealth in basis points.
+	ActualBps int64 `protobuf:"varint,15,opt,name=actual_bps,json=actualBps,proto3" json:"actual_bps,omitempty"`
+	// Total Expense Ratio (TER) of the instrument in basis points (e.g. 20 bps = 0.20%).
+	TerBps int64 `protobuf:"varint,16,opt,name=ter_bps,json=terBps,proto3" json:"ter_bps,omitempty"`
+	// Whether this holding is part of an active PAC dollar-cost averaging plan.
+	IsPac bool `protobuf:"varint,17,opt,name=is_pac,json=isPac,proto3" json:"is_pac,omitempty"`
+	// Share of account monthly PAC budget allocated to this holding in basis points (e.g. 6400 bps = 64.00%).
+	PacBps int64 `protobuf:"varint,18,opt,name=pac_bps,json=pacBps,proto3" json:"pac_bps,omitempty"`
+	// PAC deposit frequency (e.g. "monthly", "weekly", "biweekly", "quarterly").
+	PacFrequency string `protobuf:"bytes,19,opt,name=pac_frequency,json=pacFrequency,proto3" json:"pac_frequency,omitempty"`
+	// User strategic notes and context explaining the role of this holding to the AI Assistant.
+	Notes         string `protobuf:"bytes,20,opt,name=notes,proto3" json:"notes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Holding) Reset() {
@@ -218,8 +239,9 @@ func (x *Holding) GetNotes() string {
 }
 
 type ListHoldingsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Sort          *string                `protobuf:"bytes,1,opt,name=sort,proto3,oneof" json:"sort,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Optional sorting parameter e.g. "value:desc" or "name:asc".
+	Sort          *string `protobuf:"bytes,1,opt,name=sort,proto3,oneof" json:"sort,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

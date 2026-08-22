@@ -21,10 +21,13 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// InstrumentAllocation represents portfolio allocation breakdown per asset class.
 type InstrumentAllocation struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AssetClass    string                 `protobuf:"bytes,1,opt,name=asset_class,json=assetClass,proto3" json:"asset_class,omitempty"`
-	ValueMinor    int64                  `protobuf:"varint,2,opt,name=value_minor,json=valueMinor,proto3" json:"value_minor,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Asset class name e.g. "equity", "bond", "commodity", "cash".
+	AssetClass string `protobuf:"bytes,1,opt,name=asset_class,json=assetClass,proto3" json:"asset_class,omitempty"`
+	// Total market value in minor units (cents).
+	ValueMinor    int64 `protobuf:"varint,2,opt,name=value_minor,json=valueMinor,proto3" json:"value_minor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -73,20 +76,31 @@ func (x *InstrumentAllocation) GetValueMinor() int64 {
 	return 0
 }
 
+// CurrencySummary provides aggregated total wealth, cash balances, yields, and allocation breakdown per currency.
 type CurrencySummary struct {
-	state             protoimpl.MessageState  `protogen:"open.v1"`
-	Currency          string                  `protobuf:"bytes,1,opt,name=currency,proto3" json:"currency,omitempty"`
-	BalanceMinor      int64                   `protobuf:"varint,2,opt,name=balance_minor,json=balanceMinor,proto3" json:"balance_minor,omitempty"`
-	GrossRevenueMinor int64                   `protobuf:"varint,3,opt,name=gross_revenue_minor,json=grossRevenueMinor,proto3" json:"gross_revenue_minor,omitempty"`
-	TaxMinor          int64                   `protobuf:"varint,4,opt,name=tax_minor,json=taxMinor,proto3" json:"tax_minor,omitempty"`
-	FeesMinor         int64                   `protobuf:"varint,5,opt,name=fees_minor,json=feesMinor,proto3" json:"fees_minor,omitempty"`
-	NetRevenueMinor   int64                   `protobuf:"varint,6,opt,name=net_revenue_minor,json=netRevenueMinor,proto3" json:"net_revenue_minor,omitempty"`
-	InvestedMinor     int64                   `protobuf:"varint,7,opt,name=invested_minor,json=investedMinor,proto3" json:"invested_minor,omitempty"`
-	PortfolioMinor    int64                   `protobuf:"varint,8,opt,name=portfolio_minor,json=portfolioMinor,proto3" json:"portfolio_minor,omitempty"`
-	TotalMinor        int64                   `protobuf:"varint,9,opt,name=total_minor,json=totalMinor,proto3" json:"total_minor,omitempty"`
-	Allocations       []*InstrumentAllocation `protobuf:"bytes,10,rep,name=allocations,proto3" json:"allocations,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Currency code e.g. "EUR", "USD".
+	Currency string `protobuf:"bytes,1,opt,name=currency,proto3" json:"currency,omitempty"`
+	// Total cash balance across accounts in minor units (cents).
+	BalanceMinor int64 `protobuf:"varint,2,opt,name=balance_minor,json=balanceMinor,proto3" json:"balance_minor,omitempty"`
+	// Total gross interest revenue in minor units (cents).
+	GrossRevenueMinor int64 `protobuf:"varint,3,opt,name=gross_revenue_minor,json=grossRevenueMinor,proto3" json:"gross_revenue_minor,omitempty"`
+	// Total interest tax in minor units (cents).
+	TaxMinor int64 `protobuf:"varint,4,opt,name=tax_minor,json=taxMinor,proto3" json:"tax_minor,omitempty"`
+	// Total account annual fees in minor units (cents).
+	FeesMinor int64 `protobuf:"varint,5,opt,name=fees_minor,json=feesMinor,proto3" json:"fees_minor,omitempty"`
+	// Total net interest revenue in minor units (cents).
+	NetRevenueMinor int64 `protobuf:"varint,6,opt,name=net_revenue_minor,json=netRevenueMinor,proto3" json:"net_revenue_minor,omitempty"`
+	// Total invested cost basis in minor units (cents).
+	InvestedMinor int64 `protobuf:"varint,7,opt,name=invested_minor,json=investedMinor,proto3" json:"invested_minor,omitempty"`
+	// Total portfolio investments market value in minor units (cents).
+	PortfolioMinor int64 `protobuf:"varint,8,opt,name=portfolio_minor,json=portfolioMinor,proto3" json:"portfolio_minor,omitempty"`
+	// Total net worth (cash balance + investments market value) in minor units (cents).
+	TotalMinor int64 `protobuf:"varint,9,opt,name=total_minor,json=totalMinor,proto3" json:"total_minor,omitempty"`
+	// Asset class allocation breakdown.
+	Allocations   []*InstrumentAllocation `protobuf:"bytes,10,rep,name=allocations,proto3" json:"allocations,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CurrencySummary) Reset() {
@@ -189,16 +203,22 @@ func (x *CurrencySummary) GetAllocations() []*InstrumentAllocation {
 	return nil
 }
 
+// Diagnostic represents an active portfolio health warning, fee drag alert, or cash goal alert.
 type Diagnostic struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Category      string                 `protobuf:"bytes,2,opt,name=category,proto3" json:"category,omitempty"`
-	Severity      string                 `protobuf:"bytes,3,opt,name=severity,proto3" json:"severity,omitempty"`
-	Title         string                 `protobuf:"bytes,4,opt,name=title,proto3" json:"title,omitempty"`
-	Message       string                 `protobuf:"bytes,5,opt,name=message,proto3" json:"message,omitempty"`
-	HoldingId     int64                  `protobuf:"varint,6,opt,name=holding_id,json=holdingId,proto3" json:"holding_id,omitempty"`
-	AccountId     int64                  `protobuf:"varint,7,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
-	Isin          string                 `protobuf:"bytes,8,opt,name=isin,proto3" json:"isin,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Diagnostic alert ID.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Category e.g. "allocation", "fee", "cash", "account".
+	Category string `protobuf:"bytes,2,opt,name=category,proto3" json:"category,omitempty"`
+	// Severity level: "info", "warning", or "alert".
+	Severity string `protobuf:"bytes,3,opt,name=severity,proto3" json:"severity,omitempty"`
+	// Alert title e.g. "High TER Fee Drag Detected", "Cash Reserve Below Target Goal".
+	Title string `protobuf:"bytes,4,opt,name=title,proto3" json:"title,omitempty"`
+	// Detailed diagnostic message and recommendation.
+	Message       string `protobuf:"bytes,5,opt,name=message,proto3" json:"message,omitempty"`
+	HoldingId     int64  `protobuf:"varint,6,opt,name=holding_id,json=holdingId,proto3" json:"holding_id,omitempty"`
+	AccountId     int64  `protobuf:"varint,7,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	Isin          string `protobuf:"bytes,8,opt,name=isin,proto3" json:"isin,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -289,11 +309,15 @@ func (x *Diagnostic) GetIsin() string {
 	return ""
 }
 
+// Summary represents the comprehensive portfolio state and health diagnostics.
 type Summary struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	BaseCurrency  string                 `protobuf:"bytes,1,opt,name=base_currency,json=baseCurrency,proto3" json:"base_currency,omitempty"`
-	Currencies    []*CurrencySummary     `protobuf:"bytes,2,rep,name=currencies,proto3" json:"currencies,omitempty"`
-	Diagnostics   []*Diagnostic          `protobuf:"bytes,3,rep,name=diagnostics,proto3" json:"diagnostics,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Primary base currency code.
+	BaseCurrency string `protobuf:"bytes,1,opt,name=base_currency,json=baseCurrency,proto3" json:"base_currency,omitempty"`
+	// Aggregated totals per currency.
+	Currencies []*CurrencySummary `protobuf:"bytes,2,rep,name=currencies,proto3" json:"currencies,omitempty"`
+	// Active health warnings and allocation diagnostics.
+	Diagnostics   []*Diagnostic `protobuf:"bytes,3,rep,name=diagnostics,proto3" json:"diagnostics,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -350,8 +374,9 @@ func (x *Summary) GetDiagnostics() []*Diagnostic {
 }
 
 type GetSummaryRequest struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	TargetCashMinor *int64                 `protobuf:"varint,1,opt,name=target_cash_minor,json=targetCashMinor,proto3,oneof" json:"target_cash_minor,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Optional emergency cash reserve goal target in minor units (cents).
+	TargetCashMinor *int64 `protobuf:"varint,1,opt,name=target_cash_minor,json=targetCashMinor,proto3,oneof" json:"target_cash_minor,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }

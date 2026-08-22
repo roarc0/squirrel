@@ -7,12 +7,16 @@ import { CreateAccountRequest, CreateAccountResponse, DeleteAccountRequest, Dele
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
+ * AccountService handles financial account management, interest yield calculations, and PAC budgets.
+ *
  * @generated from service v1.AccountService
  */
 export declare const AccountService: {
   readonly typeName: "v1.AccountService",
   readonly methods: {
     /**
+     * List all bank, broker, and cash accounts with calculated yields and balances.
+     *
      * @generated from rpc v1.AccountService.ListAccounts
      */
     readonly listAccounts: {
@@ -22,6 +26,8 @@ export declare const AccountService: {
       readonly kind: MethodKind.Unary,
     },
     /**
+     * Create a new bank or broker account.
+     *
      * @generated from rpc v1.AccountService.CreateAccount
      */
     readonly createAccount: {
@@ -31,6 +37,8 @@ export declare const AccountService: {
       readonly kind: MethodKind.Unary,
     },
     /**
+     * Update an existing account and recalculate interest tiers.
+     *
      * @generated from rpc v1.AccountService.UpdateAccount
      */
     readonly updateAccount: {
@@ -40,6 +48,8 @@ export declare const AccountService: {
       readonly kind: MethodKind.Unary,
     },
     /**
+     * Delete an account and its associated holdings.
+     *
      * @generated from rpc v1.AccountService.DeleteAccount
      */
     readonly deleteAccount: {

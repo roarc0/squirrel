@@ -49,9 +49,13 @@ const (
 
 // SystemServiceClient is a client for the v1.SystemService service.
 type SystemServiceClient interface {
+	// Export a complete encrypted backup archive of the SQLite database.
 	ExportBackup(context.Context, *connect.Request[v1.ExportBackupRequest]) (*connect.Response[v1.ExportBackupResponse], error)
+	// Restore the database state from a backup archive.
 	RestoreBackup(context.Context, *connect.Request[v1.RestoreBackupRequest]) (*connect.Response[v1.RestoreBackupResponse], error)
+	// List available recommended and downloaded open-weights AI models in data/models/.
 	ListAIModels(context.Context, *connect.Request[v1.ListAIModelsRequest]) (*connect.Response[v1.ListAIModelsResponse], error)
+	// Download an open-weights GGUF AI model into data/models/ given a name or Hugging Face repo.
 	DownloadAIModel(context.Context, *connect.Request[v1.DownloadAIModelRequest]) (*connect.Response[v1.DownloadAIModelResponse], error)
 }
 
@@ -123,9 +127,13 @@ func (c *systemServiceClient) DownloadAIModel(ctx context.Context, req *connect.
 
 // SystemServiceHandler is an implementation of the v1.SystemService service.
 type SystemServiceHandler interface {
+	// Export a complete encrypted backup archive of the SQLite database.
 	ExportBackup(context.Context, *connect.Request[v1.ExportBackupRequest]) (*connect.Response[v1.ExportBackupResponse], error)
+	// Restore the database state from a backup archive.
 	RestoreBackup(context.Context, *connect.Request[v1.RestoreBackupRequest]) (*connect.Response[v1.RestoreBackupResponse], error)
+	// List available recommended and downloaded open-weights AI models in data/models/.
 	ListAIModels(context.Context, *connect.Request[v1.ListAIModelsRequest]) (*connect.Response[v1.ListAIModelsResponse], error)
+	// Download an open-weights GGUF AI model into data/models/ given a name or Hugging Face repo.
 	DownloadAIModel(context.Context, *connect.Request[v1.DownloadAIModelRequest]) (*connect.Response[v1.DownloadAIModelResponse], error)
 }
 

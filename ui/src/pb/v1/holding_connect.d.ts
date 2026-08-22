@@ -7,12 +7,16 @@ import { CreateHoldingRequest, CreateHoldingResponse, DeleteHoldingRequest, Dele
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
+ * HoldingService handles portfolio holding positions, allocation weights, and PAC plans.
+ *
  * @generated from service v1.HoldingService
  */
 export declare const HoldingService: {
   readonly typeName: "v1.HoldingService",
   readonly methods: {
     /**
+     * List all asset holdings across accounts with calculated allocation percentages.
+     *
      * @generated from rpc v1.HoldingService.ListHoldings
      */
     readonly listHoldings: {
@@ -22,6 +26,8 @@ export declare const HoldingService: {
       readonly kind: MethodKind.Unary,
     },
     /**
+     * Add a new holding position or active PAC accumulation plan.
+     *
      * @generated from rpc v1.HoldingService.CreateHolding
      */
     readonly createHolding: {
@@ -31,6 +37,8 @@ export declare const HoldingService: {
       readonly kind: MethodKind.Unary,
     },
     /**
+     * Update an existing holding position, value, or PAC share.
+     *
      * @generated from rpc v1.HoldingService.UpdateHolding
      */
     readonly updateHolding: {
@@ -40,6 +48,8 @@ export declare const HoldingService: {
       readonly kind: MethodKind.Unary,
     },
     /**
+     * Delete a holding position.
+     *
      * @generated from rpc v1.HoldingService.DeleteHolding
      */
     readonly deleteHolding: {

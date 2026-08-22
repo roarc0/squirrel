@@ -138,6 +138,15 @@ func (h *Handler) registerProtoTools() {
 				"properties": map[string]interface{}{},
 			},
 		},
+		{
+			Name:        "list_ai_models",
+			Description: "List available open-weights GGUF AI models in data/models/.",
+			RPCPath:     "/v1.SystemService/ListAIModels",
+			InputSchema: map[string]interface{}{
+				"type":       "object",
+				"properties": map[string]interface{}{},
+			},
+		},
 	}
 
 	for _, tool := range toolsList {

@@ -21,13 +21,19 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// ReferenceRate defines central bank benchmark rates (e.g., €STR, ECB Deposit Facility Rate).
 type ReferenceRate struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
-	Label         string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
-	RateBps       int64                  `protobuf:"varint,3,opt,name=rate_bps,json=rateBps,proto3" json:"rate_bps,omitempty"`
-	ObservedOn    string                 `protobuf:"bytes,4,opt,name=observed_on,json=observedOn,proto3" json:"observed_on,omitempty"`
-	UpdatedAt     *string                `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3,oneof" json:"updated_at,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Rate code identifier e.g. "ESTR", "DFR".
+	Code string `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	// Human-readable label e.g. "Euro Short-Term Rate (€STR)".
+	Label string `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
+	// Interest rate in basis points (e.g. 366 bps = 3.66%).
+	RateBps int64 `protobuf:"varint,3,opt,name=rate_bps,json=rateBps,proto3" json:"rate_bps,omitempty"`
+	// Date rate was observed (YYYY-MM-DD).
+	ObservedOn string `protobuf:"bytes,4,opt,name=observed_on,json=observedOn,proto3" json:"observed_on,omitempty"`
+	// Timestamp of last rate update.
+	UpdatedAt     *string `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3,oneof" json:"updated_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -97,11 +103,15 @@ func (x *ReferenceRate) GetUpdatedAt() string {
 	return ""
 }
 
+// TaxRate defines jurisdiction tax rates on interest or capital gains.
 type TaxRate struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
-	Label         string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
-	RateBps       int64                  `protobuf:"varint,3,opt,name=rate_bps,json=rateBps,proto3" json:"rate_bps,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Tax code e.g. "IT_STANDARD", "DE_ABG".
+	Code string `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	// Tax label e.g. "Italy Standard Interest Tax (26.00%)".
+	Label string `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
+	// Tax rate in basis points (e.g. 2600 bps = 26.00%).
+	RateBps       int64 `protobuf:"varint,3,opt,name=rate_bps,json=rateBps,proto3" json:"rate_bps,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

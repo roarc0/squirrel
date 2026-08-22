@@ -49,9 +49,13 @@ const (
 
 // AccountServiceClient is a client for the v1.AccountService service.
 type AccountServiceClient interface {
+	// List all bank, broker, and cash accounts with calculated yields and balances.
 	ListAccounts(context.Context, *connect.Request[v1.ListAccountsRequest]) (*connect.Response[v1.ListAccountsResponse], error)
+	// Create a new bank or broker account.
 	CreateAccount(context.Context, *connect.Request[v1.CreateAccountRequest]) (*connect.Response[v1.CreateAccountResponse], error)
+	// Update an existing account and recalculate interest tiers.
 	UpdateAccount(context.Context, *connect.Request[v1.UpdateAccountRequest]) (*connect.Response[v1.UpdateAccountResponse], error)
+	// Delete an account and its associated holdings.
 	DeleteAccount(context.Context, *connect.Request[v1.DeleteAccountRequest]) (*connect.Response[v1.DeleteAccountResponse], error)
 }
 
@@ -123,9 +127,13 @@ func (c *accountServiceClient) DeleteAccount(ctx context.Context, req *connect.R
 
 // AccountServiceHandler is an implementation of the v1.AccountService service.
 type AccountServiceHandler interface {
+	// List all bank, broker, and cash accounts with calculated yields and balances.
 	ListAccounts(context.Context, *connect.Request[v1.ListAccountsRequest]) (*connect.Response[v1.ListAccountsResponse], error)
+	// Create a new bank or broker account.
 	CreateAccount(context.Context, *connect.Request[v1.CreateAccountRequest]) (*connect.Response[v1.CreateAccountResponse], error)
+	// Update an existing account and recalculate interest tiers.
 	UpdateAccount(context.Context, *connect.Request[v1.UpdateAccountRequest]) (*connect.Response[v1.UpdateAccountResponse], error)
+	// Delete an account and its associated holdings.
 	DeleteAccount(context.Context, *connect.Request[v1.DeleteAccountRequest]) (*connect.Response[v1.DeleteAccountResponse], error)
 }
 

@@ -7,135 +7,189 @@ import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialM
 import { Message, proto3 } from "@bufbuild/protobuf";
 
 /**
+ * Instrument represents a tradeable security (ETF, ETC, ETN, stock, bond) from the 4,000+ ETF catalog.
+ *
  * @generated from message v1.Instrument
  */
 export declare class Instrument extends Message<Instrument> {
   /**
+   * Unique instrument ID.
+   *
    * @generated from field: int64 id = 1;
    */
   id: bigint;
 
   /**
+   * ISIN security identifier (e.g. "IE00B4L5Y983").
+   *
    * @generated from field: string isin = 2;
    */
   isin: string;
 
   /**
+   * Full security name (e.g. "iShares Core MSCI World UCITS ETF USD (Acc)").
+   *
    * @generated from field: string name = 3;
    */
   name: string;
 
   /**
+   * Ticker symbol (e.g. "SWDA", "EUNL").
+   *
    * @generated from field: optional string ticker = 4;
    */
   ticker?: string;
 
   /**
+   * Instrument type: "etf", "etc", "etn", "fund", "stock", "bond", "crypto", "commodity", "real_estate".
+   *
    * @generated from field: string instrument_type = 5;
    */
   instrumentType: string;
 
   /**
+   * Fund provider or manager (e.g. "iShares", "Vanguard", "Xtrackers", "Amundi", "Invesco").
+   *
    * @generated from field: optional string provider = 6;
    */
   provider?: string;
 
   /**
+   * Tracked benchmark index name (e.g. "MSCI World", "S&P 500", "FTSE All-World").
+   *
    * @generated from field: optional string index_name = 7;
    */
   indexName?: string;
 
   /**
+   * Primary investment focus (e.g. "Equity", "Bonds", "Precious Metals").
+   *
    * @generated from field: optional string investment_focus = 8;
    */
   investmentFocus?: string;
 
   /**
+   * Broad asset class: "equity", "bond", "commodity", "real_estate", "money_market", "other".
+   *
    * @generated from field: optional string asset_class = 9;
    */
   assetClass?: string;
 
   /**
+   * Fund strategy or style (e.g. "Blend", "Value", "Growth", "Dividend").
+   *
    * @generated from field: optional string strategy = 10;
    */
   strategy?: string;
 
   /**
+   * Whether the fund is currency-hedged to the fund currency.
+   *
    * @generated from field: bool currency_hedged = 11;
    */
   currencyHedged: boolean;
 
   /**
+   * Whether the user starred this instrument for quick tracking.
+   *
    * @generated from field: bool starred = 12;
    */
   starred: boolean;
 
   /**
+   * Catalog enrichment status: "catalog", "enriched", "failed".
+   *
    * @generated from field: string data_status = 13;
    */
   dataStatus: string;
 
   /**
+   * Fund dividend distribution policy: "accumulating" or "distributing".
+   *
    * @generated from field: string distribution = 14;
    */
   distribution: string;
 
   /**
+   * Index replication method: "physical_full", "physical_sampled", or "synthetic_unfunded".
+   *
    * @generated from field: string replication = 15;
    */
   replication: string;
 
   /**
+   * Country of fund domicile (e.g. "Ireland", "Luxembourg").
+   *
    * @generated from field: optional string domicile = 16;
    */
   domicile?: string;
 
   /**
+   * Fund base currency (e.g. "EUR", "USD", "GBP").
+   *
    * @generated from field: string fund_currency = 17;
    */
   fundCurrency: string;
 
   /**
+   * Total Expense Ratio (TER) in basis points (e.g. 20 bps = 0.20%, 15 bps = 0.15%).
+   *
    * @generated from field: int64 ter_bps = 18;
    */
   terBps: bigint;
 
   /**
+   * Total fund size / Assets Under Management (AUM) in millions of EUR.
+   *
    * @generated from field: int64 fund_size_million = 19;
    */
   fundSizeMillion: bigint;
 
   /**
+   * Inception date in YYYY-MM-DD format.
+   *
    * @generated from field: optional string inception_date = 20;
    */
   inceptionDate?: string;
 
   /**
+   * 1-year tracking difference vs benchmark in basis points (negative means outperformance).
+   *
    * @generated from field: optional int64 tracking_difference_bps = 21;
    */
   trackingDifferenceBps?: bigint;
 
   /**
+   * 1-year tracking error / volatility vs benchmark in basis points.
+   *
    * @generated from field: optional int64 tracking_error_bps = 22;
    */
   trackingErrorBps?: bigint;
 
   /**
+   * Whether the fund is a UCITS-compliant European regulated fund.
+   *
    * @generated from field: bool ucits = 23;
    */
   ucits: boolean;
 
   /**
+   * Source profile URL on justETF.
+   *
    * @generated from field: optional string source_url = 24;
    */
   sourceUrl?: string;
 
   /**
+   * ISO timestamp of last catalog refresh.
+   *
    * @generated from field: optional string refreshed_at = 25;
    */
   refreshedAt?: string;
 
   /**
+   * ISO timestamp of last detailed profile enrichment.
+   *
    * @generated from field: optional string enriched_at = 26;
    */
   enrichedAt?: string;
@@ -156,6 +210,8 @@ export declare class Instrument extends Message<Instrument> {
 }
 
 /**
+ * InstrumentAlternative suggests cheaper or better-performing ETFs matching the same index exposure.
+ *
  * @generated from message v1.InstrumentAlternative
  */
 export declare class InstrumentAlternative extends Message<InstrumentAlternative> {
@@ -165,21 +221,29 @@ export declare class InstrumentAlternative extends Message<InstrumentAlternative
   instrument?: Instrument;
 
   /**
+   * Match quality: "exact_index" or "same_exposure".
+   *
    * @generated from field: string match = 2;
    */
   match: string;
 
   /**
+   * Whether this alternative has lower TER or better tracking metrics than the query instrument.
+   *
    * @generated from field: bool better = 3;
    */
   better: boolean;
 
   /**
+   * Overall composite rank score (0.0 to 100.0).
+   *
    * @generated from field: double score = 4;
    */
   score: number;
 
   /**
+   * Explanatory reasons why this alternative is recommended (e.g. "0.08% lower TER", "€2,500m larger AUM").
+   *
    * @generated from field: repeated string reasons = 5;
    */
   reasons: string[];
@@ -200,6 +264,8 @@ export declare class InstrumentAlternative extends Message<InstrumentAlternative
 }
 
 /**
+ * RankWeights defines customization weights for instrument ranking.
+ *
  * @generated from message v1.RankWeights
  */
 export declare class RankWeights extends Message<RankWeights> {
@@ -244,45 +310,63 @@ export declare class RankWeights extends Message<RankWeights> {
 }
 
 /**
+ * RankCriteria specifies filtering and ranking parameters for ETF comparison.
+ *
  * @generated from message v1.RankCriteria
  */
 export declare class RankCriteria extends Message<RankCriteria> {
   /**
+   * Target index or exposure query (e.g. "MSCI World", "S&P 500").
+   *
    * @generated from field: string index_query = 1;
    */
   indexQuery: string;
 
   /**
+   * Filter by distribution policy: "accumulating", "distributing", or "" for any.
+   *
    * @generated from field: string distribution = 2;
    */
   distribution: string;
 
   /**
+   * Filter by replication methods e.g. ["physical_full", "physical_sampled"].
+   *
    * @generated from field: repeated string replications = 3;
    */
   replications: string[];
 
   /**
+   * Filter by domiciles e.g. ["Ireland", "Luxembourg"].
+   *
    * @generated from field: repeated string domiciles = 4;
    */
   domiciles: string[];
 
   /**
+   * Maximum TER in basis points (e.g. 20 bps = 0.20%).
+   *
    * @generated from field: optional int64 max_ter_bps = 5;
    */
   maxTerBps?: bigint;
 
   /**
+   * Minimum AUM / fund size in millions of EUR.
+   *
    * @generated from field: int64 min_fund_size_million = 6;
    */
   minFundSizeMillion: bigint;
 
   /**
+   * Minimum fund age in years.
+   *
    * @generated from field: double min_age_years = 7;
    */
   minAgeYears: number;
 
   /**
+   * Scoring weights customization.
+   *
    * @generated from field: v1.RankWeights weights = 8;
    */
   weights?: RankWeights;
@@ -303,6 +387,8 @@ export declare class RankCriteria extends Message<RankCriteria> {
 }
 
 /**
+ * RankedInstrument represents an ETF evaluated and scored against ranking criteria.
+ *
  * @generated from message v1.RankedInstrument
  */
 export declare class RankedInstrument extends Message<RankedInstrument> {
@@ -312,11 +398,15 @@ export declare class RankedInstrument extends Message<RankedInstrument> {
   instrument?: Instrument;
 
   /**
+   * Overall composite score.
+   *
    * @generated from field: double total = 2;
    */
   total: number;
 
   /**
+   * Sub-scores.
+   *
    * @generated from field: double cost = 3;
    */
   cost: number;
@@ -483,6 +573,8 @@ export declare class ListInstrumentsResponse extends Message<ListInstrumentsResp
  */
 export declare class SearchInstrumentsRequest extends Message<SearchInstrumentsRequest> {
   /**
+   * Search term e.g. "MSCI World", "S&P 500", "Gold", "IE00B4L5Y983", "iShares".
+   *
    * @generated from field: string query = 1;
    */
   query: string;

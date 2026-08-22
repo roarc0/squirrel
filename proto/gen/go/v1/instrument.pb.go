@@ -21,36 +21,63 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Instrument represents a tradeable security (ETF, ETC, ETN, stock, bond) from the 4,000+ ETF catalog.
 type Instrument struct {
-	state                 protoimpl.MessageState `protogen:"open.v1"`
-	Id                    int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Isin                  string                 `protobuf:"bytes,2,opt,name=isin,proto3" json:"isin,omitempty"`
-	Name                  string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	Ticker                *string                `protobuf:"bytes,4,opt,name=ticker,proto3,oneof" json:"ticker,omitempty"`
-	InstrumentType        string                 `protobuf:"bytes,5,opt,name=instrument_type,json=instrumentType,proto3" json:"instrument_type,omitempty"`
-	Provider              *string                `protobuf:"bytes,6,opt,name=provider,proto3,oneof" json:"provider,omitempty"`
-	IndexName             *string                `protobuf:"bytes,7,opt,name=index_name,json=indexName,proto3,oneof" json:"index_name,omitempty"`
-	InvestmentFocus       *string                `protobuf:"bytes,8,opt,name=investment_focus,json=investmentFocus,proto3,oneof" json:"investment_focus,omitempty"`
-	AssetClass            *string                `protobuf:"bytes,9,opt,name=asset_class,json=assetClass,proto3,oneof" json:"asset_class,omitempty"`
-	Strategy              *string                `protobuf:"bytes,10,opt,name=strategy,proto3,oneof" json:"strategy,omitempty"`
-	CurrencyHedged        bool                   `protobuf:"varint,11,opt,name=currency_hedged,json=currencyHedged,proto3" json:"currency_hedged,omitempty"`
-	Starred               bool                   `protobuf:"varint,12,opt,name=starred,proto3" json:"starred,omitempty"`
-	DataStatus            string                 `protobuf:"bytes,13,opt,name=data_status,json=dataStatus,proto3" json:"data_status,omitempty"`
-	Distribution          string                 `protobuf:"bytes,14,opt,name=distribution,proto3" json:"distribution,omitempty"`
-	Replication           string                 `protobuf:"bytes,15,opt,name=replication,proto3" json:"replication,omitempty"`
-	Domicile              *string                `protobuf:"bytes,16,opt,name=domicile,proto3,oneof" json:"domicile,omitempty"`
-	FundCurrency          string                 `protobuf:"bytes,17,opt,name=fund_currency,json=fundCurrency,proto3" json:"fund_currency,omitempty"`
-	TerBps                int64                  `protobuf:"varint,18,opt,name=ter_bps,json=terBps,proto3" json:"ter_bps,omitempty"`
-	FundSizeMillion       int64                  `protobuf:"varint,19,opt,name=fund_size_million,json=fundSizeMillion,proto3" json:"fund_size_million,omitempty"`
-	InceptionDate         *string                `protobuf:"bytes,20,opt,name=inception_date,json=inceptionDate,proto3,oneof" json:"inception_date,omitempty"`
-	TrackingDifferenceBps *int64                 `protobuf:"varint,21,opt,name=tracking_difference_bps,json=trackingDifferenceBps,proto3,oneof" json:"tracking_difference_bps,omitempty"`
-	TrackingErrorBps      *int64                 `protobuf:"varint,22,opt,name=tracking_error_bps,json=trackingErrorBps,proto3,oneof" json:"tracking_error_bps,omitempty"`
-	Ucits                 bool                   `protobuf:"varint,23,opt,name=ucits,proto3" json:"ucits,omitempty"`
-	SourceUrl             *string                `protobuf:"bytes,24,opt,name=source_url,json=sourceUrl,proto3,oneof" json:"source_url,omitempty"`
-	RefreshedAt           *string                `protobuf:"bytes,25,opt,name=refreshed_at,json=refreshedAt,proto3,oneof" json:"refreshed_at,omitempty"`
-	EnrichedAt            *string                `protobuf:"bytes,26,opt,name=enriched_at,json=enrichedAt,proto3,oneof" json:"enriched_at,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Unique instrument ID.
+	Id int64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	// ISIN security identifier (e.g. "IE00B4L5Y983").
+	Isin string `protobuf:"bytes,2,opt,name=isin,proto3" json:"isin,omitempty"`
+	// Full security name (e.g. "iShares Core MSCI World UCITS ETF USD (Acc)").
+	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	// Ticker symbol (e.g. "SWDA", "EUNL").
+	Ticker *string `protobuf:"bytes,4,opt,name=ticker,proto3,oneof" json:"ticker,omitempty"`
+	// Instrument type: "etf", "etc", "etn", "fund", "stock", "bond", "crypto", "commodity", "real_estate".
+	InstrumentType string `protobuf:"bytes,5,opt,name=instrument_type,json=instrumentType,proto3" json:"instrument_type,omitempty"`
+	// Fund provider or manager (e.g. "iShares", "Vanguard", "Xtrackers", "Amundi", "Invesco").
+	Provider *string `protobuf:"bytes,6,opt,name=provider,proto3,oneof" json:"provider,omitempty"`
+	// Tracked benchmark index name (e.g. "MSCI World", "S&P 500", "FTSE All-World").
+	IndexName *string `protobuf:"bytes,7,opt,name=index_name,json=indexName,proto3,oneof" json:"index_name,omitempty"`
+	// Primary investment focus (e.g. "Equity", "Bonds", "Precious Metals").
+	InvestmentFocus *string `protobuf:"bytes,8,opt,name=investment_focus,json=investmentFocus,proto3,oneof" json:"investment_focus,omitempty"`
+	// Broad asset class: "equity", "bond", "commodity", "real_estate", "money_market", "other".
+	AssetClass *string `protobuf:"bytes,9,opt,name=asset_class,json=assetClass,proto3,oneof" json:"asset_class,omitempty"`
+	// Fund strategy or style (e.g. "Blend", "Value", "Growth", "Dividend").
+	Strategy *string `protobuf:"bytes,10,opt,name=strategy,proto3,oneof" json:"strategy,omitempty"`
+	// Whether the fund is currency-hedged to the fund currency.
+	CurrencyHedged bool `protobuf:"varint,11,opt,name=currency_hedged,json=currencyHedged,proto3" json:"currency_hedged,omitempty"`
+	// Whether the user starred this instrument for quick tracking.
+	Starred bool `protobuf:"varint,12,opt,name=starred,proto3" json:"starred,omitempty"`
+	// Catalog enrichment status: "catalog", "enriched", "failed".
+	DataStatus string `protobuf:"bytes,13,opt,name=data_status,json=dataStatus,proto3" json:"data_status,omitempty"`
+	// Fund dividend distribution policy: "accumulating" or "distributing".
+	Distribution string `protobuf:"bytes,14,opt,name=distribution,proto3" json:"distribution,omitempty"`
+	// Index replication method: "physical_full", "physical_sampled", or "synthetic_unfunded".
+	Replication string `protobuf:"bytes,15,opt,name=replication,proto3" json:"replication,omitempty"`
+	// Country of fund domicile (e.g. "Ireland", "Luxembourg").
+	Domicile *string `protobuf:"bytes,16,opt,name=domicile,proto3,oneof" json:"domicile,omitempty"`
+	// Fund base currency (e.g. "EUR", "USD", "GBP").
+	FundCurrency string `protobuf:"bytes,17,opt,name=fund_currency,json=fundCurrency,proto3" json:"fund_currency,omitempty"`
+	// Total Expense Ratio (TER) in basis points (e.g. 20 bps = 0.20%, 15 bps = 0.15%).
+	TerBps int64 `protobuf:"varint,18,opt,name=ter_bps,json=terBps,proto3" json:"ter_bps,omitempty"`
+	// Total fund size / Assets Under Management (AUM) in millions of EUR.
+	FundSizeMillion int64 `protobuf:"varint,19,opt,name=fund_size_million,json=fundSizeMillion,proto3" json:"fund_size_million,omitempty"`
+	// Inception date in YYYY-MM-DD format.
+	InceptionDate *string `protobuf:"bytes,20,opt,name=inception_date,json=inceptionDate,proto3,oneof" json:"inception_date,omitempty"`
+	// 1-year tracking difference vs benchmark in basis points (negative means outperformance).
+	TrackingDifferenceBps *int64 `protobuf:"varint,21,opt,name=tracking_difference_bps,json=trackingDifferenceBps,proto3,oneof" json:"tracking_difference_bps,omitempty"`
+	// 1-year tracking error / volatility vs benchmark in basis points.
+	TrackingErrorBps *int64 `protobuf:"varint,22,opt,name=tracking_error_bps,json=trackingErrorBps,proto3,oneof" json:"tracking_error_bps,omitempty"`
+	// Whether the fund is a UCITS-compliant European regulated fund.
+	Ucits bool `protobuf:"varint,23,opt,name=ucits,proto3" json:"ucits,omitempty"`
+	// Source profile URL on justETF.
+	SourceUrl *string `protobuf:"bytes,24,opt,name=source_url,json=sourceUrl,proto3,oneof" json:"source_url,omitempty"`
+	// ISO timestamp of last catalog refresh.
+	RefreshedAt *string `protobuf:"bytes,25,opt,name=refreshed_at,json=refreshedAt,proto3,oneof" json:"refreshed_at,omitempty"`
+	// ISO timestamp of last detailed profile enrichment.
+	EnrichedAt    *string `protobuf:"bytes,26,opt,name=enriched_at,json=enrichedAt,proto3,oneof" json:"enriched_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Instrument) Reset() {
@@ -265,13 +292,18 @@ func (x *Instrument) GetEnrichedAt() string {
 	return ""
 }
 
+// InstrumentAlternative suggests cheaper or better-performing ETFs matching the same index exposure.
 type InstrumentAlternative struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Instrument    *Instrument            `protobuf:"bytes,1,opt,name=instrument,proto3" json:"instrument,omitempty"`
-	Match         string                 `protobuf:"bytes,2,opt,name=match,proto3" json:"match,omitempty"`
-	Better        bool                   `protobuf:"varint,3,opt,name=better,proto3" json:"better,omitempty"`
-	Score         float64                `protobuf:"fixed64,4,opt,name=score,proto3" json:"score,omitempty"`
-	Reasons       []string               `protobuf:"bytes,5,rep,name=reasons,proto3" json:"reasons,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Instrument *Instrument            `protobuf:"bytes,1,opt,name=instrument,proto3" json:"instrument,omitempty"`
+	// Match quality: "exact_index" or "same_exposure".
+	Match string `protobuf:"bytes,2,opt,name=match,proto3" json:"match,omitempty"`
+	// Whether this alternative has lower TER or better tracking metrics than the query instrument.
+	Better bool `protobuf:"varint,3,opt,name=better,proto3" json:"better,omitempty"`
+	// Overall composite rank score (0.0 to 100.0).
+	Score float64 `protobuf:"fixed64,4,opt,name=score,proto3" json:"score,omitempty"`
+	// Explanatory reasons why this alternative is recommended (e.g. "0.08% lower TER", "€2,500m larger AUM").
+	Reasons       []string `protobuf:"bytes,5,rep,name=reasons,proto3" json:"reasons,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -341,6 +373,7 @@ func (x *InstrumentAlternative) GetReasons() []string {
 	return nil
 }
 
+// RankWeights defines customization weights for instrument ranking.
 type RankWeights struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
 	Cost               float64                `protobuf:"fixed64,1,opt,name=cost,proto3" json:"cost,omitempty"`
@@ -417,18 +450,27 @@ func (x *RankWeights) GetAge() float64 {
 	return 0
 }
 
+// RankCriteria specifies filtering and ranking parameters for ETF comparison.
 type RankCriteria struct {
-	state              protoimpl.MessageState `protogen:"open.v1"`
-	IndexQuery         string                 `protobuf:"bytes,1,opt,name=index_query,json=indexQuery,proto3" json:"index_query,omitempty"`
-	Distribution       string                 `protobuf:"bytes,2,opt,name=distribution,proto3" json:"distribution,omitempty"`
-	Replications       []string               `protobuf:"bytes,3,rep,name=replications,proto3" json:"replications,omitempty"`
-	Domiciles          []string               `protobuf:"bytes,4,rep,name=domiciles,proto3" json:"domiciles,omitempty"`
-	MaxTerBps          *int64                 `protobuf:"varint,5,opt,name=max_ter_bps,json=maxTerBps,proto3,oneof" json:"max_ter_bps,omitempty"`
-	MinFundSizeMillion int64                  `protobuf:"varint,6,opt,name=min_fund_size_million,json=minFundSizeMillion,proto3" json:"min_fund_size_million,omitempty"`
-	MinAgeYears        float64                `protobuf:"fixed64,7,opt,name=min_age_years,json=minAgeYears,proto3" json:"min_age_years,omitempty"`
-	Weights            *RankWeights           `protobuf:"bytes,8,opt,name=weights,proto3" json:"weights,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Target index or exposure query (e.g. "MSCI World", "S&P 500").
+	IndexQuery string `protobuf:"bytes,1,opt,name=index_query,json=indexQuery,proto3" json:"index_query,omitempty"`
+	// Filter by distribution policy: "accumulating", "distributing", or "" for any.
+	Distribution string `protobuf:"bytes,2,opt,name=distribution,proto3" json:"distribution,omitempty"`
+	// Filter by replication methods e.g. ["physical_full", "physical_sampled"].
+	Replications []string `protobuf:"bytes,3,rep,name=replications,proto3" json:"replications,omitempty"`
+	// Filter by domiciles e.g. ["Ireland", "Luxembourg"].
+	Domiciles []string `protobuf:"bytes,4,rep,name=domiciles,proto3" json:"domiciles,omitempty"`
+	// Maximum TER in basis points (e.g. 20 bps = 0.20%).
+	MaxTerBps *int64 `protobuf:"varint,5,opt,name=max_ter_bps,json=maxTerBps,proto3,oneof" json:"max_ter_bps,omitempty"`
+	// Minimum AUM / fund size in millions of EUR.
+	MinFundSizeMillion int64 `protobuf:"varint,6,opt,name=min_fund_size_million,json=minFundSizeMillion,proto3" json:"min_fund_size_million,omitempty"`
+	// Minimum fund age in years.
+	MinAgeYears float64 `protobuf:"fixed64,7,opt,name=min_age_years,json=minAgeYears,proto3" json:"min_age_years,omitempty"`
+	// Scoring weights customization.
+	Weights       *RankWeights `protobuf:"bytes,8,opt,name=weights,proto3" json:"weights,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RankCriteria) Reset() {
@@ -517,15 +559,18 @@ func (x *RankCriteria) GetWeights() *RankWeights {
 	return nil
 }
 
+// RankedInstrument represents an ETF evaluated and scored against ranking criteria.
 type RankedInstrument struct {
-	state              protoimpl.MessageState `protogen:"open.v1"`
-	Instrument         *Instrument            `protobuf:"bytes,1,opt,name=instrument,proto3" json:"instrument,omitempty"`
-	Total              float64                `protobuf:"fixed64,2,opt,name=total,proto3" json:"total,omitempty"`
-	Cost               float64                `protobuf:"fixed64,3,opt,name=cost,proto3" json:"cost,omitempty"`
-	TrackingDifference float64                `protobuf:"fixed64,4,opt,name=tracking_difference,json=trackingDifference,proto3" json:"tracking_difference,omitempty"`
-	TrackingError      float64                `protobuf:"fixed64,5,opt,name=tracking_error,json=trackingError,proto3" json:"tracking_error,omitempty"`
-	Size               float64                `protobuf:"fixed64,6,opt,name=size,proto3" json:"size,omitempty"`
-	Age                float64                `protobuf:"fixed64,7,opt,name=age,proto3" json:"age,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Instrument *Instrument            `protobuf:"bytes,1,opt,name=instrument,proto3" json:"instrument,omitempty"`
+	// Overall composite score.
+	Total float64 `protobuf:"fixed64,2,opt,name=total,proto3" json:"total,omitempty"`
+	// Sub-scores.
+	Cost               float64 `protobuf:"fixed64,3,opt,name=cost,proto3" json:"cost,omitempty"`
+	TrackingDifference float64 `protobuf:"fixed64,4,opt,name=tracking_difference,json=trackingDifference,proto3" json:"tracking_difference,omitempty"`
+	TrackingError      float64 `protobuf:"fixed64,5,opt,name=tracking_error,json=trackingError,proto3" json:"tracking_error,omitempty"`
+	Size               float64 `protobuf:"fixed64,6,opt,name=size,proto3" json:"size,omitempty"`
+	Age                float64 `protobuf:"fixed64,7,opt,name=age,proto3" json:"age,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -822,8 +867,9 @@ func (x *ListInstrumentsResponse) GetInstruments() []*Instrument {
 }
 
 type SearchInstrumentsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Query         string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Search term e.g. "MSCI World", "S&P 500", "Gold", "IE00B4L5Y983", "iShares".
+	Query         string `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

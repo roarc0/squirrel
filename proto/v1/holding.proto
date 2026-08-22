@@ -4,30 +4,52 @@ package v1;
 
 option go_package = "loot/proto/gen/go/v1;portv1";
 
+// Holding represents an asset position held within a specific account.
 message Holding {
+  // Unique holding ID.
   int64 id = 1;
+  // Associated account ID.
   int64 account_id = 2;
+  // Associated instrument ID.
   int64 instrument_id = 3;
+  // Name of the account holding this position.
   optional string account_name = 4;
+  // Base currency code (e.g. "EUR", "USD").
   optional string currency = 5;
+  // Full name of the instrument (e.g. "iShares Core MSCI World UCITS ETF").
   optional string instrument_name = 6;
+  // International Securities Identification Number (ISIN, e.g. "IE00B4L5Y983").
   optional string instrument_isin = 7;
+  // Ticker symbol (e.g. "SWDA").
   optional string instrument_ticker = 8;
+  // Instrument type (e.g. "etf", "etc", "stock", "bond").
   optional string instrument_type = 9;
+  // Asset class (e.g. "equity", "bond", "commodity", "cash").
   optional string asset_class = 10;
+  // Total cost basis / invested capital in minor units (cents).
   int64 invested_minor = 11;
+  // Current market value in minor units (cents). May be 0 for new PAC accumulation plans.
   int64 value_minor = 12;
+  // Applicable capital gains tax rate in basis points (e.g. 2600 bps = 26.00%).
   int64 tax_bps = 13;
+  // Target planned portfolio allocation weight in basis points (e.g. 8000 bps = 80.00%).
   int64 planned_bps = 14;
+  // Calculated actual weight of this holding relative to total currency wealth in basis points.
   int64 actual_bps = 15;
+  // Total Expense Ratio (TER) of the instrument in basis points (e.g. 20 bps = 0.20%).
   int64 ter_bps = 16;
+  // Whether this holding is part of an active PAC dollar-cost averaging plan.
   bool is_pac = 17;
+  // Share of account monthly PAC budget allocated to this holding in basis points (e.g. 6400 bps = 64.00%).
   int64 pac_bps = 18;
+  // PAC deposit frequency (e.g. "monthly", "weekly", "biweekly", "quarterly").
   string pac_frequency = 19;
+  // User strategic notes and context explaining the role of this holding to the AI Assistant.
   string notes = 20;
 }
 
 message ListHoldingsRequest {
+  // Optional sorting parameter e.g. "value:desc" or "name:asc".
   optional string sort = 1;
 }
 
@@ -58,9 +80,14 @@ message DeleteHoldingRequest {
 
 message DeleteHoldingResponse {}
 
+// HoldingService handles portfolio holding positions, allocation weights, and PAC plans.
 service HoldingService {
+  // List all asset holdings across accounts with calculated allocation percentages.
   rpc ListHoldings(ListHoldingsRequest) returns (ListHoldingsResponse);
+  // Add a new holding position or active PAC accumulation plan.
   rpc CreateHolding(CreateHoldingRequest) returns (CreateHoldingResponse);
+  // Update an existing holding position, value, or PAC share.
   rpc UpdateHolding(UpdateHoldingRequest) returns (UpdateHoldingResponse);
+  // Delete a holding position.
   rpc DeleteHolding(DeleteHoldingRequest) returns (DeleteHoldingResponse);
 }

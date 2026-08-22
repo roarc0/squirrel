@@ -4,17 +4,27 @@ package v1;
 
 option go_package = "loot/proto/gen/go/v1;portv1";
 
+// ReferenceRate defines central bank benchmark rates (e.g., €STR, ECB Deposit Facility Rate).
 message ReferenceRate {
+  // Rate code identifier e.g. "ESTR", "DFR".
   string code = 1;
+  // Human-readable label e.g. "Euro Short-Term Rate (€STR)".
   string label = 2;
+  // Interest rate in basis points (e.g. 366 bps = 3.66%).
   int64 rate_bps = 3;
+  // Date rate was observed (YYYY-MM-DD).
   string observed_on = 4;
+  // Timestamp of last rate update.
   optional string updated_at = 5;
 }
 
+// TaxRate defines jurisdiction tax rates on interest or capital gains.
 message TaxRate {
+  // Tax code e.g. "IT_STANDARD", "DE_ABG".
   string code = 1;
+  // Tax label e.g. "Italy Standard Interest Tax (26.00%)".
   string label = 2;
+  // Tax rate in basis points (e.g. 2600 bps = 26.00%).
   int64 rate_bps = 3;
 }
 
@@ -36,8 +46,12 @@ message ListTaxRatesResponse {
   repeated TaxRate rates = 1;
 }
 
+// RateService manages central bank benchmark interest rates and tax presets.
 service RateService {
+  // List configured central bank reference rates.
   rpc ListReferenceRates(ListReferenceRatesRequest) returns (ListReferenceRatesResponse);
+  // Update a central bank reference rate value.
   rpc UpdateReferenceRate(UpdateReferenceRateRequest) returns (UpdateReferenceRateResponse);
+  // List default jurisdiction tax rates.
   rpc ListTaxRates(ListTaxRatesRequest) returns (ListTaxRatesResponse);
 }

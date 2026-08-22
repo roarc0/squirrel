@@ -7,12 +7,16 @@ import { DownloadAIModelRequest, DownloadAIModelResponse, ExportBackupRequest, E
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
+ * SystemService manages database backups, system state, and local AI model management.
+ *
  * @generated from service v1.SystemService
  */
 export const SystemService = {
   typeName: "v1.SystemService",
   methods: {
     /**
+     * Export a complete encrypted backup archive of the SQLite database.
+     *
      * @generated from rpc v1.SystemService.ExportBackup
      */
     exportBackup: {
@@ -22,6 +26,8 @@ export const SystemService = {
       kind: MethodKind.Unary,
     },
     /**
+     * Restore the database state from a backup archive.
+     *
      * @generated from rpc v1.SystemService.RestoreBackup
      */
     restoreBackup: {
@@ -31,6 +37,8 @@ export const SystemService = {
       kind: MethodKind.Unary,
     },
     /**
+     * List available recommended and downloaded open-weights AI models in data/models/.
+     *
      * @generated from rpc v1.SystemService.ListAIModels
      */
     listAIModels: {
@@ -40,6 +48,8 @@ export const SystemService = {
       kind: MethodKind.Unary,
     },
     /**
+     * Download an open-weights GGUF AI model into data/models/ given a name or Hugging Face repo.
+     *
      * @generated from rpc v1.SystemService.DownloadAIModel
      */
     downloadAIModel: {

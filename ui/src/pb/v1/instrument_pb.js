@@ -6,6 +6,8 @@
 import { proto3 } from "@bufbuild/protobuf";
 
 /**
+ * Instrument represents a tradeable security (ETF, ETC, ETN, stock, bond) from the 4,000+ ETF catalog.
+ *
  * @generated from message v1.Instrument
  */
 export const Instrument = /*@__PURE__*/ proto3.makeMessageType(
@@ -41,6 +43,8 @@ export const Instrument = /*@__PURE__*/ proto3.makeMessageType(
 );
 
 /**
+ * InstrumentAlternative suggests cheaper or better-performing ETFs matching the same index exposure.
+ *
  * @generated from message v1.InstrumentAlternative
  */
 export const InstrumentAlternative = /*@__PURE__*/ proto3.makeMessageType(
@@ -55,6 +59,8 @@ export const InstrumentAlternative = /*@__PURE__*/ proto3.makeMessageType(
 );
 
 /**
+ * RankWeights defines customization weights for instrument ranking.
+ *
  * @generated from message v1.RankWeights
  */
 export const RankWeights = /*@__PURE__*/ proto3.makeMessageType(
@@ -69,6 +75,8 @@ export const RankWeights = /*@__PURE__*/ proto3.makeMessageType(
 );
 
 /**
+ * RankCriteria specifies filtering and ranking parameters for ETF comparison.
+ *
  * @generated from message v1.RankCriteria
  */
 export const RankCriteria = /*@__PURE__*/ proto3.makeMessageType(
@@ -86,6 +94,8 @@ export const RankCriteria = /*@__PURE__*/ proto3.makeMessageType(
 );
 
 /**
+ * RankedInstrument represents an ETF evaluated and scored against ranking criteria.
+ *
  * @generated from message v1.RankedInstrument
  */
 export const RankedInstrument = /*@__PURE__*/ proto3.makeMessageType(

@@ -4,13 +4,21 @@ package v1;
 
 option go_package = "loot/proto/gen/go/v1;portv1";
 
+// Snapshot represents a historical point-in-time wealth snapshot.
 message Snapshot {
+  // Snapshot record ID.
   int64 id = 1;
+  // Observation date in YYYY-MM-DD format.
   string observed_on = 2;
+  // Currency code e.g. "EUR".
   string currency = 3;
+  // Cash balance total in minor units (cents).
   int64 cash_minor = 4;
+  // Total cost basis invested in minor units (cents).
   int64 invested_minor = 5;
+  // Total portfolio investments market value in minor units (cents).
   int64 portfolio_minor = 6;
+  // Total net worth (cash + portfolio market value) in minor units (cents).
   int64 total_minor = 7;
 }
 
@@ -23,6 +31,7 @@ message ListSnapshotsResponse {
 }
 
 message CreateSnapshotRequest {
+  // Observation date in YYYY-MM-DD format.
   string observed_on = 1;
 }
 
@@ -69,10 +78,16 @@ message UpdateSituationResponse {
   bool snapshot_saved = 1;
 }
 
+// SnapshotService manages historical net worth snapshots and portfolio situation updates.
 service SnapshotService {
+  // List historical net worth snapshots for trend analysis.
   rpc ListSnapshots(ListSnapshotsRequest) returns (ListSnapshotsResponse);
+  // Create a snapshot record from current account and holding totals.
   rpc CreateSnapshot(CreateSnapshotRequest) returns (CreateSnapshotResponse);
+  // Update a historical snapshot record.
   rpc UpdateSnapshot(UpdateSnapshotRequest) returns (UpdateSnapshotResponse);
+  // Delete a historical snapshot record.
   rpc DeleteSnapshot(DeleteSnapshotRequest) returns (DeleteSnapshotResponse);
+  // Bulk update current account cash balances and holding market values with optional snapshot recording.
   rpc UpdateSituation(UpdateSituationRequest) returns (UpdateSituationResponse);
 }

@@ -7,30 +7,42 @@ import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialM
 import { Message, proto3 } from "@bufbuild/protobuf";
 
 /**
+ * ReferenceRate defines central bank benchmark rates (e.g., €STR, ECB Deposit Facility Rate).
+ *
  * @generated from message v1.ReferenceRate
  */
 export declare class ReferenceRate extends Message<ReferenceRate> {
   /**
+   * Rate code identifier e.g. "ESTR", "DFR".
+   *
    * @generated from field: string code = 1;
    */
   code: string;
 
   /**
+   * Human-readable label e.g. "Euro Short-Term Rate (€STR)".
+   *
    * @generated from field: string label = 2;
    */
   label: string;
 
   /**
+   * Interest rate in basis points (e.g. 366 bps = 3.66%).
+   *
    * @generated from field: int64 rate_bps = 3;
    */
   rateBps: bigint;
 
   /**
+   * Date rate was observed (YYYY-MM-DD).
+   *
    * @generated from field: string observed_on = 4;
    */
   observedOn: string;
 
   /**
+   * Timestamp of last rate update.
+   *
    * @generated from field: optional string updated_at = 5;
    */
   updatedAt?: string;
@@ -51,20 +63,28 @@ export declare class ReferenceRate extends Message<ReferenceRate> {
 }
 
 /**
+ * TaxRate defines jurisdiction tax rates on interest or capital gains.
+ *
  * @generated from message v1.TaxRate
  */
 export declare class TaxRate extends Message<TaxRate> {
   /**
+   * Tax code e.g. "IT_STANDARD", "DE_ABG".
+   *
    * @generated from field: string code = 1;
    */
   code: string;
 
   /**
+   * Tax label e.g. "Italy Standard Interest Tax (26.00%)".
+   *
    * @generated from field: string label = 2;
    */
   label: string;
 
   /**
+   * Tax rate in basis points (e.g. 2600 bps = 26.00%).
+   *
    * @generated from field: int64 rate_bps = 3;
    */
   rateBps: bigint;

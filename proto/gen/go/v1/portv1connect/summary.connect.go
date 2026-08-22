@@ -40,6 +40,7 @@ const (
 
 // SummaryServiceClient is a client for the v1.SummaryService service.
 type SummaryServiceClient interface {
+	// Get aggregated portfolio wealth summary, net worth, interest yields, and active health diagnostics.
 	GetSummary(context.Context, *connect.Request[v1.GetSummaryRequest]) (*connect.Response[v1.GetSummaryResponse], error)
 }
 
@@ -75,6 +76,7 @@ func (c *summaryServiceClient) GetSummary(ctx context.Context, req *connect.Requ
 
 // SummaryServiceHandler is an implementation of the v1.SummaryService service.
 type SummaryServiceHandler interface {
+	// Get aggregated portfolio wealth summary, net worth, interest yields, and active health diagnostics.
 	GetSummary(context.Context, *connect.Request[v1.GetSummaryRequest]) (*connect.Response[v1.GetSummaryResponse], error)
 }
 

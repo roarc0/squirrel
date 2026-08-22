@@ -6,6 +6,8 @@
 import { proto3 } from "@bufbuild/protobuf";
 
 /**
+ * ReferenceRate defines central bank benchmark rates (e.g., €STR, ECB Deposit Facility Rate).
+ *
  * @generated from message v1.ReferenceRate
  */
 export const ReferenceRate = /*@__PURE__*/ proto3.makeMessageType(
@@ -20,6 +22,8 @@ export const ReferenceRate = /*@__PURE__*/ proto3.makeMessageType(
 );
 
 /**
+ * TaxRate defines jurisdiction tax rates on interest or capital gains.
+ *
  * @generated from message v1.TaxRate
  */
 export const TaxRate = /*@__PURE__*/ proto3.makeMessageType(

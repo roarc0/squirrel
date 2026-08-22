@@ -6,6 +6,8 @@
 import { proto3 } from "@bufbuild/protobuf";
 
 /**
+ * InstrumentAllocation represents portfolio allocation breakdown per asset class.
+ *
  * @generated from message v1.InstrumentAllocation
  */
 export const InstrumentAllocation = /*@__PURE__*/ proto3.makeMessageType(
@@ -17,6 +19,8 @@ export const InstrumentAllocation = /*@__PURE__*/ proto3.makeMessageType(
 );
 
 /**
+ * CurrencySummary provides aggregated total wealth, cash balances, yields, and allocation breakdown per currency.
+ *
  * @generated from message v1.CurrencySummary
  */
 export const CurrencySummary = /*@__PURE__*/ proto3.makeMessageType(
@@ -36,6 +40,8 @@ export const CurrencySummary = /*@__PURE__*/ proto3.makeMessageType(
 );
 
 /**
+ * Diagnostic represents an active portfolio health warning, fee drag alert, or cash goal alert.
+ *
  * @generated from message v1.Diagnostic
  */
 export const Diagnostic = /*@__PURE__*/ proto3.makeMessageType(
@@ -53,6 +59,8 @@ export const Diagnostic = /*@__PURE__*/ proto3.makeMessageType(
 );
 
 /**
+ * Summary represents the comprehensive portfolio state and health diagnostics.
+ *
  * @generated from message v1.Summary
  */
 export const Summary = /*@__PURE__*/ proto3.makeMessageType(

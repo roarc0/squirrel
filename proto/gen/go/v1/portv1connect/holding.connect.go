@@ -49,9 +49,13 @@ const (
 
 // HoldingServiceClient is a client for the v1.HoldingService service.
 type HoldingServiceClient interface {
+	// List all asset holdings across accounts with calculated allocation percentages.
 	ListHoldings(context.Context, *connect.Request[v1.ListHoldingsRequest]) (*connect.Response[v1.ListHoldingsResponse], error)
+	// Add a new holding position or active PAC accumulation plan.
 	CreateHolding(context.Context, *connect.Request[v1.CreateHoldingRequest]) (*connect.Response[v1.CreateHoldingResponse], error)
+	// Update an existing holding position, value, or PAC share.
 	UpdateHolding(context.Context, *connect.Request[v1.UpdateHoldingRequest]) (*connect.Response[v1.UpdateHoldingResponse], error)
+	// Delete a holding position.
 	DeleteHolding(context.Context, *connect.Request[v1.DeleteHoldingRequest]) (*connect.Response[v1.DeleteHoldingResponse], error)
 }
 
@@ -123,9 +127,13 @@ func (c *holdingServiceClient) DeleteHolding(ctx context.Context, req *connect.R
 
 // HoldingServiceHandler is an implementation of the v1.HoldingService service.
 type HoldingServiceHandler interface {
+	// List all asset holdings across accounts with calculated allocation percentages.
 	ListHoldings(context.Context, *connect.Request[v1.ListHoldingsRequest]) (*connect.Response[v1.ListHoldingsResponse], error)
+	// Add a new holding position or active PAC accumulation plan.
 	CreateHolding(context.Context, *connect.Request[v1.CreateHoldingRequest]) (*connect.Response[v1.CreateHoldingResponse], error)
+	// Update an existing holding position, value, or PAC share.
 	UpdateHolding(context.Context, *connect.Request[v1.UpdateHoldingRequest]) (*connect.Response[v1.UpdateHoldingResponse], error)
+	// Delete a holding position.
 	DeleteHolding(context.Context, *connect.Request[v1.DeleteHoldingRequest]) (*connect.Response[v1.DeleteHoldingResponse], error)
 }
 

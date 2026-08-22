@@ -21,17 +21,25 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Snapshot represents a historical point-in-time wealth snapshot.
 type Snapshot struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Id             int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	ObservedOn     string                 `protobuf:"bytes,2,opt,name=observed_on,json=observedOn,proto3" json:"observed_on,omitempty"`
-	Currency       string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
-	CashMinor      int64                  `protobuf:"varint,4,opt,name=cash_minor,json=cashMinor,proto3" json:"cash_minor,omitempty"`
-	InvestedMinor  int64                  `protobuf:"varint,5,opt,name=invested_minor,json=investedMinor,proto3" json:"invested_minor,omitempty"`
-	PortfolioMinor int64                  `protobuf:"varint,6,opt,name=portfolio_minor,json=portfolioMinor,proto3" json:"portfolio_minor,omitempty"`
-	TotalMinor     int64                  `protobuf:"varint,7,opt,name=total_minor,json=totalMinor,proto3" json:"total_minor,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Snapshot record ID.
+	Id int64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Observation date in YYYY-MM-DD format.
+	ObservedOn string `protobuf:"bytes,2,opt,name=observed_on,json=observedOn,proto3" json:"observed_on,omitempty"`
+	// Currency code e.g. "EUR".
+	Currency string `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
+	// Cash balance total in minor units (cents).
+	CashMinor int64 `protobuf:"varint,4,opt,name=cash_minor,json=cashMinor,proto3" json:"cash_minor,omitempty"`
+	// Total cost basis invested in minor units (cents).
+	InvestedMinor int64 `protobuf:"varint,5,opt,name=invested_minor,json=investedMinor,proto3" json:"invested_minor,omitempty"`
+	// Total portfolio investments market value in minor units (cents).
+	PortfolioMinor int64 `protobuf:"varint,6,opt,name=portfolio_minor,json=portfolioMinor,proto3" json:"portfolio_minor,omitempty"`
+	// Total net worth (cash + portfolio market value) in minor units (cents).
+	TotalMinor    int64 `protobuf:"varint,7,opt,name=total_minor,json=totalMinor,proto3" json:"total_minor,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Snapshot) Reset() {
@@ -202,8 +210,9 @@ func (x *ListSnapshotsResponse) GetSnapshots() []*Snapshot {
 }
 
 type CreateSnapshotRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ObservedOn    string                 `protobuf:"bytes,1,opt,name=observed_on,json=observedOn,proto3" json:"observed_on,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Observation date in YYYY-MM-DD format.
+	ObservedOn    string `protobuf:"bytes,1,opt,name=observed_on,json=observedOn,proto3" json:"observed_on,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

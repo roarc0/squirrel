@@ -4,43 +4,76 @@ package v1;
 
 option go_package = "loot/proto/gen/go/v1;portv1";
 
+// Instrument represents a tradeable security (ETF, ETC, ETN, stock, bond) from the 4,000+ ETF catalog.
 message Instrument {
+  // Unique instrument ID.
   int64 id = 1;
+  // ISIN security identifier (e.g. "IE00B4L5Y983").
   string isin = 2;
+  // Full security name (e.g. "iShares Core MSCI World UCITS ETF USD (Acc)").
   string name = 3;
+  // Ticker symbol (e.g. "SWDA", "EUNL").
   optional string ticker = 4;
+  // Instrument type: "etf", "etc", "etn", "fund", "stock", "bond", "crypto", "commodity", "real_estate".
   string instrument_type = 5;
+  // Fund provider or manager (e.g. "iShares", "Vanguard", "Xtrackers", "Amundi", "Invesco").
   optional string provider = 6;
+  // Tracked benchmark index name (e.g. "MSCI World", "S&P 500", "FTSE All-World").
   optional string index_name = 7;
+  // Primary investment focus (e.g. "Equity", "Bonds", "Precious Metals").
   optional string investment_focus = 8;
+  // Broad asset class: "equity", "bond", "commodity", "real_estate", "money_market", "other".
   optional string asset_class = 9;
+  // Fund strategy or style (e.g. "Blend", "Value", "Growth", "Dividend").
   optional string strategy = 10;
+  // Whether the fund is currency-hedged to the fund currency.
   bool currency_hedged = 11;
+  // Whether the user starred this instrument for quick tracking.
   bool starred = 12;
+  // Catalog enrichment status: "catalog", "enriched", "failed".
   string data_status = 13;
+  // Fund dividend distribution policy: "accumulating" or "distributing".
   string distribution = 14;
+  // Index replication method: "physical_full", "physical_sampled", or "synthetic_unfunded".
   string replication = 15;
+  // Country of fund domicile (e.g. "Ireland", "Luxembourg").
   optional string domicile = 16;
+  // Fund base currency (e.g. "EUR", "USD", "GBP").
   string fund_currency = 17;
+  // Total Expense Ratio (TER) in basis points (e.g. 20 bps = 0.20%, 15 bps = 0.15%).
   int64 ter_bps = 18;
+  // Total fund size / Assets Under Management (AUM) in millions of EUR.
   int64 fund_size_million = 19;
+  // Inception date in YYYY-MM-DD format.
   optional string inception_date = 20;
+  // 1-year tracking difference vs benchmark in basis points (negative means outperformance).
   optional int64 tracking_difference_bps = 21;
+  // 1-year tracking error / volatility vs benchmark in basis points.
   optional int64 tracking_error_bps = 22;
+  // Whether the fund is a UCITS-compliant European regulated fund.
   bool ucits = 23;
+  // Source profile URL on justETF.
   optional string source_url = 24;
+  // ISO timestamp of last catalog refresh.
   optional string refreshed_at = 25;
+  // ISO timestamp of last detailed profile enrichment.
   optional string enriched_at = 26;
 }
 
+// InstrumentAlternative suggests cheaper or better-performing ETFs matching the same index exposure.
 message InstrumentAlternative {
   Instrument instrument = 1;
+  // Match quality: "exact_index" or "same_exposure".
   string match = 2;
+  // Whether this alternative has lower TER or better tracking metrics than the query instrument.
   bool better = 3;
+  // Overall composite rank score (0.0 to 100.0).
   double score = 4;
+  // Explanatory reasons why this alternative is recommended (e.g. "0.08% lower TER", "€2,500m larger AUM").
   repeated string reasons = 5;
 }
 
+// RankWeights defines customization weights for instrument ranking.
 message RankWeights {
   double cost = 1;
   double tracking_difference = 2;
@@ -49,20 +82,32 @@ message RankWeights {
   double age = 5;
 }
 
+// RankCriteria specifies filtering and ranking parameters for ETF comparison.
 message RankCriteria {
+  // Target index or exposure query (e.g. "MSCI World", "S&P 500").
   string index_query = 1;
+  // Filter by distribution policy: "accumulating", "distributing", or "" for any.
   string distribution = 2;
+  // Filter by replication methods e.g. ["physical_full", "physical_sampled"].
   repeated string replications = 3;
+  // Filter by domiciles e.g. ["Ireland", "Luxembourg"].
   repeated string domiciles = 4;
+  // Maximum TER in basis points (e.g. 20 bps = 0.20%).
   optional int64 max_ter_bps = 5;
+  // Minimum AUM / fund size in millions of EUR.
   int64 min_fund_size_million = 6;
+  // Minimum fund age in years.
   double min_age_years = 7;
+  // Scoring weights customization.
   RankWeights weights = 8;
 }
 
+// RankedInstrument represents an ETF evaluated and scored against ranking criteria.
 message RankedInstrument {
   Instrument instrument = 1;
+  // Overall composite score.
   double total = 2;
+  // Sub-scores.
   double cost = 3;
   double tracking_difference = 4;
   double tracking_error = 5;
@@ -93,6 +138,7 @@ message ListInstrumentsResponse {
 }
 
 message SearchInstrumentsRequest {
+  // Search term e.g. "MSCI World", "S&P 500", "Gold", "IE00B4L5Y983", "iShares".
   string query = 1;
 }
 
@@ -175,17 +221,30 @@ message RankInstrumentsResponse {
   repeated RankedInstrument ranked_instruments = 1;
 }
 
+// InstrumentService provides access to the 4,000+ ETF catalog, searching, enrichment, and ETF alternative ranking.
 service InstrumentService {
+  // List saved instruments in the user catalog.
   rpc ListInstruments(ListInstrumentsRequest) returns (ListInstrumentsResponse);
+  // Search the 4,000+ ETF catalog by ISIN, ticker, name, or index.
   rpc SearchInstruments(SearchInstrumentsRequest) returns (SearchInstrumentsResponse);
+  // Sync the latest instrument catalog list from justETF.
   rpc SyncInstrumentCatalog(SyncInstrumentCatalogRequest) returns (SyncInstrumentCatalogResponse);
+  // Enrich catalog items with TER, AUM, tracking error, and replication profile data.
   rpc EnrichInstrumentCatalog(EnrichInstrumentCatalogRequest) returns (EnrichInstrumentCatalogResponse);
+  // Stream catalog enrichment progress events over gRPC server streaming.
   rpc StreamInstrumentCatalog(StreamInstrumentCatalogRequest) returns (stream EnrichmentProgress);
+  // Manually add a custom instrument.
   rpc CreateInstrument(CreateInstrumentRequest) returns (CreateInstrumentResponse);
+  // Lookup security details by ISIN or query.
   rpc LookupInstrument(LookupInstrumentRequest) returns (LookupInstrumentResponse);
+  // Batch import securities by ISIN list.
   rpc ImportInstruments(ImportInstrumentsRequest) returns (ImportInstrumentsResponse);
+  // Delete an instrument from the catalog.
   rpc DeleteInstrument(DeleteInstrumentRequest) returns (DeleteInstrumentResponse);
+  // Star or unstar an instrument for quick tracking.
   rpc StarInstrument(StarInstrumentRequest) returns (StarInstrumentResponse);
+  // Find cheaper or better-performing alternative ETFs for a target instrument.
   rpc GetInstrumentAlternatives(GetInstrumentAlternativesRequest) returns (GetInstrumentAlternativesResponse);
+  // Rank ETF candidates according to TER cost, tracking metrics, AUM size, and fund age.
   rpc RankInstruments(RankInstrumentsRequest) returns (RankInstrumentsResponse);
 }

@@ -4,38 +4,66 @@ package v1;
 
 option go_package = "loot/proto/gen/go/v1;portv1";
 
+// InterestTier defines tiered interest rates for cash balances (e.g. fixed APY or ECB reference rates + spread).
 message InterestTier {
+  // Tier unique ID.
   optional int64 id = 1;
+  // Maximum balance threshold in minor units (cents) for this tier. Null means unlimited upper bound.
   optional int64 up_to_minor = 2;
+  // Fixed annual interest rate in basis points (e.g., 350 bps = 3.50%). Mutually exclusive with reference_code.
   optional int64 fixed_rate_bps = 3;
+  // Reference rate ticker code (e.g., "ESTR", "DFR"). Mutually exclusive with fixed_rate_bps.
   optional string reference_code = 4;
+  // Spread added to reference rate in basis points (e.g., -50 bps = -0.50%).
   int64 spread_bps = 5;
+  // Computed effective annual rate in basis points (resolved at runtime).
   optional int64 resolved_rate_bps = 6;
 }
 
+// Account represents a financial bank, broker, or cash storage account.
 message Account {
+  // Unique account ID.
   int64 id = 1;
+  // Human-readable account label (e.g. "Trade Republic Broker", "Fineco Savings").
   string name = 2;
+  // Financial institution or bank provider (e.g. "Trade Republic", "IBKR").
   string institution = 3;
+  // Account category: "bank", "broker", or "other".
   string type = 4;
+  // Whether this is the default account for newly registered holdings.
   bool preferred = 5;
+  // Whether this account is archived.
   bool archived = 6;
+  // ISO 4217 3-letter currency code (e.g. "EUR", "USD").
   string currency = 7;
+  // Liquid cash balance in minor units (cents, e.g. 10000 = €100.00).
   int64 balance_minor = 8;
+  // Applicable tax rate on interest in basis points (e.g. 2600 bps = 26.00%).
   int64 tax_bps = 9;
+  // Fixed annual account maintenance fee in minor units (cents).
   int64 annual_fee_minor = 10;
+  // Tiered interest calculation rules.
   repeated InterestTier tiers = 11;
+  // Calculated annual gross interest revenue in minor units (cents).
   int64 gross_revenue_minor = 12;
+  // Calculated annual tax on interest in minor units (cents).
   int64 tax_minor = 13;
+  // Calculated annual net interest revenue in minor units (cents).
   int64 net_revenue_minor = 14;
+  // Total number of active holdings associated with this account.
   int64 holding_count = 15;
+  // Total investment holdings market value in minor units (cents).
   int64 holdings_value_minor = 16;
+  // Total assets (cash + holdings value) in minor units (cents).
   int64 total_assets_minor = 17;
+  // Total monthly PAC accumulation plan budget in minor units (cents, e.g. 30000 = €300.00/mo).
   int64 pac_amount_minor = 18;
+  // User strategic notes and context explaining the purpose of this account to the AI Assistant.
   string notes = 19;
 }
 
 message ListAccountsRequest {
+  // Optional sorting parameter e.g. "total:desc" or "name:asc".
   optional string sort = 1;
 }
 
@@ -66,9 +94,14 @@ message DeleteAccountRequest {
 
 message DeleteAccountResponse {}
 
+// AccountService handles financial account management, interest yield calculations, and PAC budgets.
 service AccountService {
+  // List all bank, broker, and cash accounts with calculated yields and balances.
   rpc ListAccounts(ListAccountsRequest) returns (ListAccountsResponse);
+  // Create a new bank or broker account.
   rpc CreateAccount(CreateAccountRequest) returns (CreateAccountResponse);
+  // Update an existing account and recalculate interest tiers.
   rpc UpdateAccount(UpdateAccountRequest) returns (UpdateAccountResponse);
+  // Delete an account and its associated holdings.
   rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse);
 }

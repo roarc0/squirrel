@@ -30,11 +30,15 @@ export declare class ExportBackupRequest extends Message<ExportBackupRequest> {
  */
 export declare class ExportBackupResponse extends Message<ExportBackupResponse> {
   /**
+   * Gzipped tar archive containing database files.
+   *
    * @generated from field: bytes backup_tar_gz = 1;
    */
   backupTarGz: Uint8Array;
 
   /**
+   * Suggested backup filename.
+   *
    * @generated from field: string filename = 2;
    */
   filename: string;
@@ -59,6 +63,8 @@ export declare class ExportBackupResponse extends Message<ExportBackupResponse> 
  */
 export declare class RestoreBackupRequest extends Message<RestoreBackupRequest> {
   /**
+   * Gzipped tar archive payload.
+   *
    * @generated from field: bytes backup_tar_gz = 1;
    */
   backupTarGz: Uint8Array;
@@ -127,40 +133,56 @@ export declare class ListAIModelsRequest extends Message<ListAIModelsRequest> {
 }
 
 /**
+ * AIModelInfo represents an available or downloaded open-weights GGUF AI model.
+ *
  * @generated from message v1.AIModelInfo
  */
 export declare class AIModelInfo extends Message<AIModelInfo> {
   /**
+   * Model identifier e.g. "qwen2.5-3b-instruct".
+   *
    * @generated from field: string id = 1;
    */
   id: string;
 
   /**
+   * Human-readable model display name.
+   *
    * @generated from field: string name = 2;
    */
   name: string;
 
   /**
+   * File name in data/models/ directory e.g. "qwen2.5-3b-instruct-q4_k_m.gguf".
+   *
    * @generated from field: string filename = 3;
    */
   filename: string;
 
   /**
+   * File size in bytes (0 if not yet downloaded).
+   *
    * @generated from field: int64 size_bytes = 4;
    */
   sizeBytes: bigint;
 
   /**
+   * Whether the model file is already saved in data/models/.
+   *
    * @generated from field: bool is_downloaded = 5;
    */
   isDownloaded: boolean;
 
   /**
+   * Direct download URL on Hugging Face.
+   *
    * @generated from field: string source_url = 6;
    */
   sourceUrl: string;
 
   /**
+   * Model description and specs.
+   *
    * @generated from field: string description = 7;
    */
   description: string;
@@ -209,11 +231,15 @@ export declare class ListAIModelsResponse extends Message<ListAIModelsResponse> 
  */
 export declare class DownloadAIModelRequest extends Message<DownloadAIModelRequest> {
   /**
+   * Model ID or Hugging Face repository name (e.g. "Qwen/Qwen2.5-1.5B-Instruct-GGUF").
+   *
    * @generated from field: string model_name = 1;
    */
   modelName: string;
 
   /**
+   * Optional direct GGUF URL override.
+   *
    * @generated from field: string url_override = 2;
    */
   urlOverride: string;

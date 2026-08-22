@@ -7,40 +7,56 @@ import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialM
 import { Message, proto3 } from "@bufbuild/protobuf";
 
 /**
+ * Snapshot represents a historical point-in-time wealth snapshot.
+ *
  * @generated from message v1.Snapshot
  */
 export declare class Snapshot extends Message<Snapshot> {
   /**
+   * Snapshot record ID.
+   *
    * @generated from field: int64 id = 1;
    */
   id: bigint;
 
   /**
+   * Observation date in YYYY-MM-DD format.
+   *
    * @generated from field: string observed_on = 2;
    */
   observedOn: string;
 
   /**
+   * Currency code e.g. "EUR".
+   *
    * @generated from field: string currency = 3;
    */
   currency: string;
 
   /**
+   * Cash balance total in minor units (cents).
+   *
    * @generated from field: int64 cash_minor = 4;
    */
   cashMinor: bigint;
 
   /**
+   * Total cost basis invested in minor units (cents).
+   *
    * @generated from field: int64 invested_minor = 5;
    */
   investedMinor: bigint;
 
   /**
+   * Total portfolio investments market value in minor units (cents).
+   *
    * @generated from field: int64 portfolio_minor = 6;
    */
   portfolioMinor: bigint;
 
   /**
+   * Total net worth (cash + portfolio market value) in minor units (cents).
+   *
    * @generated from field: int64 total_minor = 7;
    */
   totalMinor: bigint;
@@ -113,6 +129,8 @@ export declare class ListSnapshotsResponse extends Message<ListSnapshotsResponse
  */
 export declare class CreateSnapshotRequest extends Message<CreateSnapshotRequest> {
   /**
+   * Observation date in YYYY-MM-DD format.
+   *
    * @generated from field: string observed_on = 1;
    */
   observedOn: string;

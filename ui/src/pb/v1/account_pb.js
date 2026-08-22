@@ -6,6 +6,8 @@
 import { proto3 } from "@bufbuild/protobuf";
 
 /**
+ * InterestTier defines tiered interest rates for cash balances (e.g. fixed APY or ECB reference rates + spread).
+ *
  * @generated from message v1.InterestTier
  */
 export const InterestTier = /*@__PURE__*/ proto3.makeMessageType(
@@ -21,6 +23,8 @@ export const InterestTier = /*@__PURE__*/ proto3.makeMessageType(
 );
 
 /**
+ * Account represents a financial bank, broker, or cash storage account.
+ *
  * @generated from message v1.Account
  */
 export const Account = /*@__PURE__*/ proto3.makeMessageType(

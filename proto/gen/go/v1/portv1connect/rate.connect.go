@@ -46,8 +46,11 @@ const (
 
 // RateServiceClient is a client for the v1.RateService service.
 type RateServiceClient interface {
+	// List configured central bank reference rates.
 	ListReferenceRates(context.Context, *connect.Request[v1.ListReferenceRatesRequest]) (*connect.Response[v1.ListReferenceRatesResponse], error)
+	// Update a central bank reference rate value.
 	UpdateReferenceRate(context.Context, *connect.Request[v1.UpdateReferenceRateRequest]) (*connect.Response[v1.UpdateReferenceRateResponse], error)
+	// List default jurisdiction tax rates.
 	ListTaxRates(context.Context, *connect.Request[v1.ListTaxRatesRequest]) (*connect.Response[v1.ListTaxRatesResponse], error)
 }
 
@@ -107,8 +110,11 @@ func (c *rateServiceClient) ListTaxRates(ctx context.Context, req *connect.Reque
 
 // RateServiceHandler is an implementation of the v1.RateService service.
 type RateServiceHandler interface {
+	// List configured central bank reference rates.
 	ListReferenceRates(context.Context, *connect.Request[v1.ListReferenceRatesRequest]) (*connect.Response[v1.ListReferenceRatesResponse], error)
+	// Update a central bank reference rate value.
 	UpdateReferenceRate(context.Context, *connect.Request[v1.UpdateReferenceRateRequest]) (*connect.Response[v1.UpdateReferenceRateResponse], error)
+	// List default jurisdiction tax rates.
 	ListTaxRates(context.Context, *connect.Request[v1.ListTaxRatesRequest]) (*connect.Response[v1.ListTaxRatesResponse], error)
 }
 

@@ -54,6 +54,8 @@ export const ListAIModelsRequest = /*@__PURE__*/ proto3.makeMessageType(
 );
 
 /**
+ * AIModelInfo represents an available or downloaded open-weights GGUF AI model.
+ *
  * @generated from message v1.AIModelInfo
  */
 export const AIModelInfo = /*@__PURE__*/ proto3.makeMessageType(

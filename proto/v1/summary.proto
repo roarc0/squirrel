@@ -4,42 +4,67 @@ package v1;
 
 option go_package = "loot/proto/gen/go/v1;portv1";
 
+// InstrumentAllocation represents portfolio allocation breakdown per asset class.
 message InstrumentAllocation {
+  // Asset class name e.g. "equity", "bond", "commodity", "cash".
   string asset_class = 1;
+  // Total market value in minor units (cents).
   int64 value_minor = 2;
 }
 
+// CurrencySummary provides aggregated total wealth, cash balances, yields, and allocation breakdown per currency.
 message CurrencySummary {
+  // Currency code e.g. "EUR", "USD".
   string currency = 1;
+  // Total cash balance across accounts in minor units (cents).
   int64 balance_minor = 2;
+  // Total gross interest revenue in minor units (cents).
   int64 gross_revenue_minor = 3;
+  // Total interest tax in minor units (cents).
   int64 tax_minor = 4;
+  // Total account annual fees in minor units (cents).
   int64 fees_minor = 5;
+  // Total net interest revenue in minor units (cents).
   int64 net_revenue_minor = 6;
+  // Total invested cost basis in minor units (cents).
   int64 invested_minor = 7;
+  // Total portfolio investments market value in minor units (cents).
   int64 portfolio_minor = 8;
+  // Total net worth (cash balance + investments market value) in minor units (cents).
   int64 total_minor = 9;
+  // Asset class allocation breakdown.
   repeated InstrumentAllocation allocations = 10;
 }
 
+// Diagnostic represents an active portfolio health warning, fee drag alert, or cash goal alert.
 message Diagnostic {
+  // Diagnostic alert ID.
   string id = 1;
+  // Category e.g. "allocation", "fee", "cash", "account".
   string category = 2;
+  // Severity level: "info", "warning", or "alert".
   string severity = 3;
+  // Alert title e.g. "High TER Fee Drag Detected", "Cash Reserve Below Target Goal".
   string title = 4;
+  // Detailed diagnostic message and recommendation.
   string message = 5;
   int64 holding_id = 6;
   int64 account_id = 7;
   string isin = 8;
 }
 
+// Summary represents the comprehensive portfolio state and health diagnostics.
 message Summary {
+  // Primary base currency code.
   string base_currency = 1;
+  // Aggregated totals per currency.
   repeated CurrencySummary currencies = 2;
+  // Active health warnings and allocation diagnostics.
   repeated Diagnostic diagnostics = 3;
 }
 
 message GetSummaryRequest {
+  // Optional emergency cash reserve goal target in minor units (cents).
   optional int64 target_cash_minor = 1;
 }
 
@@ -47,6 +72,8 @@ message GetSummaryResponse {
   Summary summary = 1;
 }
 
+// SummaryService provides aggregated wealth totals, currency summaries, and portfolio health diagnostics.
 service SummaryService {
+  // Get aggregated portfolio wealth summary, net worth, interest yields, and active health diagnostics.
   rpc GetSummary(GetSummaryRequest) returns (GetSummaryResponse);
 }

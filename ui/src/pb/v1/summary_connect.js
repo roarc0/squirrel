@@ -7,12 +7,16 @@ import { GetSummaryRequest, GetSummaryResponse } from "./summary_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
+ * SummaryService provides aggregated wealth totals, currency summaries, and portfolio health diagnostics.
+ *
  * @generated from service v1.SummaryService
  */
 export const SummaryService = {
   typeName: "v1.SummaryService",
   methods: {
     /**
+     * Get aggregated portfolio wealth summary, net worth, interest yields, and active health diagnostics.
+     *
      * @generated from rpc v1.SummaryService.GetSummary
      */
     getSummary: {

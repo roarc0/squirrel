@@ -7,12 +7,16 @@ import { CreateInstrumentRequest, CreateInstrumentResponse, DeleteInstrumentRequ
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
+ * InstrumentService provides access to the 4,000+ ETF catalog, searching, enrichment, and ETF alternative ranking.
+ *
  * @generated from service v1.InstrumentService
  */
 export const InstrumentService = {
   typeName: "v1.InstrumentService",
   methods: {
     /**
+     * List saved instruments in the user catalog.
+     *
      * @generated from rpc v1.InstrumentService.ListInstruments
      */
     listInstruments: {
@@ -22,6 +26,8 @@ export const InstrumentService = {
       kind: MethodKind.Unary,
     },
     /**
+     * Search the 4,000+ ETF catalog by ISIN, ticker, name, or index.
+     *
      * @generated from rpc v1.InstrumentService.SearchInstruments
      */
     searchInstruments: {
@@ -31,6 +37,8 @@ export const InstrumentService = {
       kind: MethodKind.Unary,
     },
     /**
+     * Sync the latest instrument catalog list from justETF.
+     *
      * @generated from rpc v1.InstrumentService.SyncInstrumentCatalog
      */
     syncInstrumentCatalog: {
@@ -40,6 +48,8 @@ export const InstrumentService = {
       kind: MethodKind.Unary,
     },
     /**
+     * Enrich catalog items with TER, AUM, tracking error, and replication profile data.
+     *
      * @generated from rpc v1.InstrumentService.EnrichInstrumentCatalog
      */
     enrichInstrumentCatalog: {
@@ -49,6 +59,8 @@ export const InstrumentService = {
       kind: MethodKind.Unary,
     },
     /**
+     * Stream catalog enrichment progress events over gRPC server streaming.
+     *
      * @generated from rpc v1.InstrumentService.StreamInstrumentCatalog
      */
     streamInstrumentCatalog: {
@@ -58,6 +70,8 @@ export const InstrumentService = {
       kind: MethodKind.ServerStreaming,
     },
     /**
+     * Manually add a custom instrument.
+     *
      * @generated from rpc v1.InstrumentService.CreateInstrument
      */
     createInstrument: {
@@ -67,6 +81,8 @@ export const InstrumentService = {
       kind: MethodKind.Unary,
     },
     /**
+     * Lookup security details by ISIN or query.
+     *
      * @generated from rpc v1.InstrumentService.LookupInstrument
      */
     lookupInstrument: {
@@ -76,6 +92,8 @@ export const InstrumentService = {
       kind: MethodKind.Unary,
     },
     /**
+     * Batch import securities by ISIN list.
+     *
      * @generated from rpc v1.InstrumentService.ImportInstruments
      */
     importInstruments: {
@@ -85,6 +103,8 @@ export const InstrumentService = {
       kind: MethodKind.Unary,
     },
     /**
+     * Delete an instrument from the catalog.
+     *
      * @generated from rpc v1.InstrumentService.DeleteInstrument
      */
     deleteInstrument: {
@@ -94,6 +114,8 @@ export const InstrumentService = {
       kind: MethodKind.Unary,
     },
     /**
+     * Star or unstar an instrument for quick tracking.
+     *
      * @generated from rpc v1.InstrumentService.StarInstrument
      */
     starInstrument: {
@@ -103,6 +125,8 @@ export const InstrumentService = {
       kind: MethodKind.Unary,
     },
     /**
+     * Find cheaper or better-performing alternative ETFs for a target instrument.
+     *
      * @generated from rpc v1.InstrumentService.GetInstrumentAlternatives
      */
     getInstrumentAlternatives: {
@@ -112,6 +136,8 @@ export const InstrumentService = {
       kind: MethodKind.Unary,
     },
     /**
+     * Rank ETF candidates according to TER cost, tracking metrics, AUM size, and fund age.
+     *
      * @generated from rpc v1.InstrumentService.RankInstruments
      */
     rankInstruments: {

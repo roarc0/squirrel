@@ -6,6 +6,8 @@
 import { proto3 } from "@bufbuild/protobuf";
 
 /**
+ * Holding represents an asset position held within a specific account.
+ *
  * @generated from message v1.Holding
  */
 export const Holding = /*@__PURE__*/ proto3.makeMessageType(

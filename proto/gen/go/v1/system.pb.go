@@ -58,9 +58,11 @@ func (*ExportBackupRequest) Descriptor() ([]byte, []int) {
 }
 
 type ExportBackupResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	BackupTarGz   []byte                 `protobuf:"bytes,1,opt,name=backup_tar_gz,json=backupTarGz,proto3" json:"backup_tar_gz,omitempty"`
-	Filename      string                 `protobuf:"bytes,2,opt,name=filename,proto3" json:"filename,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Gzipped tar archive containing database files.
+	BackupTarGz []byte `protobuf:"bytes,1,opt,name=backup_tar_gz,json=backupTarGz,proto3" json:"backup_tar_gz,omitempty"`
+	// Suggested backup filename.
+	Filename      string `protobuf:"bytes,2,opt,name=filename,proto3" json:"filename,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -110,8 +112,9 @@ func (x *ExportBackupResponse) GetFilename() string {
 }
 
 type RestoreBackupRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	BackupTarGz   []byte                 `protobuf:"bytes,1,opt,name=backup_tar_gz,json=backupTarGz,proto3" json:"backup_tar_gz,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Gzipped tar archive payload.
+	BackupTarGz   []byte `protobuf:"bytes,1,opt,name=backup_tar_gz,json=backupTarGz,proto3" json:"backup_tar_gz,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -241,15 +244,23 @@ func (*ListAIModelsRequest) Descriptor() ([]byte, []int) {
 	return file_v1_system_proto_rawDescGZIP(), []int{4}
 }
 
+// AIModelInfo represents an available or downloaded open-weights GGUF AI model.
 type AIModelInfo struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Filename      string                 `protobuf:"bytes,3,opt,name=filename,proto3" json:"filename,omitempty"`
-	SizeBytes     int64                  `protobuf:"varint,4,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
-	IsDownloaded  bool                   `protobuf:"varint,5,opt,name=is_downloaded,json=isDownloaded,proto3" json:"is_downloaded,omitempty"`
-	SourceUrl     string                 `protobuf:"bytes,6,opt,name=source_url,json=sourceUrl,proto3" json:"source_url,omitempty"`
-	Description   string                 `protobuf:"bytes,7,opt,name=description,proto3" json:"description,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Model identifier e.g. "qwen2.5-3b-instruct".
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Human-readable model display name.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// File name in data/models/ directory e.g. "qwen2.5-3b-instruct-q4_k_m.gguf".
+	Filename string `protobuf:"bytes,3,opt,name=filename,proto3" json:"filename,omitempty"`
+	// File size in bytes (0 if not yet downloaded).
+	SizeBytes int64 `protobuf:"varint,4,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	// Whether the model file is already saved in data/models/.
+	IsDownloaded bool `protobuf:"varint,5,opt,name=is_downloaded,json=isDownloaded,proto3" json:"is_downloaded,omitempty"`
+	// Direct download URL on Hugging Face.
+	SourceUrl string `protobuf:"bytes,6,opt,name=source_url,json=sourceUrl,proto3" json:"source_url,omitempty"`
+	// Model description and specs.
+	Description   string `protobuf:"bytes,7,opt,name=description,proto3" json:"description,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -378,9 +389,11 @@ func (x *ListAIModelsResponse) GetModels() []*AIModelInfo {
 }
 
 type DownloadAIModelRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ModelName     string                 `protobuf:"bytes,1,opt,name=model_name,json=modelName,proto3" json:"model_name,omitempty"`
-	UrlOverride   string                 `protobuf:"bytes,2,opt,name=url_override,json=urlOverride,proto3" json:"url_override,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Model ID or Hugging Face repository name (e.g. "Qwen/Qwen2.5-1.5B-Instruct-GGUF").
+	ModelName string `protobuf:"bytes,1,opt,name=model_name,json=modelName,proto3" json:"model_name,omitempty"`
+	// Optional direct GGUF URL override.
+	UrlOverride   string `protobuf:"bytes,2,opt,name=url_override,json=urlOverride,proto3" json:"url_override,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

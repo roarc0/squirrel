@@ -21,14 +21,21 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// InterestTier defines tiered interest rates for cash balances (e.g. fixed APY or ECB reference rates + spread).
 type InterestTier struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	Id              *int64                 `protobuf:"varint,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
-	UpToMinor       *int64                 `protobuf:"varint,2,opt,name=up_to_minor,json=upToMinor,proto3,oneof" json:"up_to_minor,omitempty"`
-	FixedRateBps    *int64                 `protobuf:"varint,3,opt,name=fixed_rate_bps,json=fixedRateBps,proto3,oneof" json:"fixed_rate_bps,omitempty"`
-	ReferenceCode   *string                `protobuf:"bytes,4,opt,name=reference_code,json=referenceCode,proto3,oneof" json:"reference_code,omitempty"`
-	SpreadBps       int64                  `protobuf:"varint,5,opt,name=spread_bps,json=spreadBps,proto3" json:"spread_bps,omitempty"`
-	ResolvedRateBps *int64                 `protobuf:"varint,6,opt,name=resolved_rate_bps,json=resolvedRateBps,proto3,oneof" json:"resolved_rate_bps,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Tier unique ID.
+	Id *int64 `protobuf:"varint,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
+	// Maximum balance threshold in minor units (cents) for this tier. Null means unlimited upper bound.
+	UpToMinor *int64 `protobuf:"varint,2,opt,name=up_to_minor,json=upToMinor,proto3,oneof" json:"up_to_minor,omitempty"`
+	// Fixed annual interest rate in basis points (e.g., 350 bps = 3.50%). Mutually exclusive with reference_code.
+	FixedRateBps *int64 `protobuf:"varint,3,opt,name=fixed_rate_bps,json=fixedRateBps,proto3,oneof" json:"fixed_rate_bps,omitempty"`
+	// Reference rate ticker code (e.g., "ESTR", "DFR"). Mutually exclusive with fixed_rate_bps.
+	ReferenceCode *string `protobuf:"bytes,4,opt,name=reference_code,json=referenceCode,proto3,oneof" json:"reference_code,omitempty"`
+	// Spread added to reference rate in basis points (e.g., -50 bps = -0.50%).
+	SpreadBps int64 `protobuf:"varint,5,opt,name=spread_bps,json=spreadBps,proto3" json:"spread_bps,omitempty"`
+	// Computed effective annual rate in basis points (resolved at runtime).
+	ResolvedRateBps *int64 `protobuf:"varint,6,opt,name=resolved_rate_bps,json=resolvedRateBps,proto3,oneof" json:"resolved_rate_bps,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -105,29 +112,49 @@ func (x *InterestTier) GetResolvedRateBps() int64 {
 	return 0
 }
 
+// Account represents a financial bank, broker, or cash storage account.
 type Account struct {
-	state              protoimpl.MessageState `protogen:"open.v1"`
-	Id                 int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name               string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Institution        string                 `protobuf:"bytes,3,opt,name=institution,proto3" json:"institution,omitempty"`
-	Type               string                 `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
-	Preferred          bool                   `protobuf:"varint,5,opt,name=preferred,proto3" json:"preferred,omitempty"`
-	Archived           bool                   `protobuf:"varint,6,opt,name=archived,proto3" json:"archived,omitempty"`
-	Currency           string                 `protobuf:"bytes,7,opt,name=currency,proto3" json:"currency,omitempty"`
-	BalanceMinor       int64                  `protobuf:"varint,8,opt,name=balance_minor,json=balanceMinor,proto3" json:"balance_minor,omitempty"`
-	TaxBps             int64                  `protobuf:"varint,9,opt,name=tax_bps,json=taxBps,proto3" json:"tax_bps,omitempty"`
-	AnnualFeeMinor     int64                  `protobuf:"varint,10,opt,name=annual_fee_minor,json=annualFeeMinor,proto3" json:"annual_fee_minor,omitempty"`
-	Tiers              []*InterestTier        `protobuf:"bytes,11,rep,name=tiers,proto3" json:"tiers,omitempty"`
-	GrossRevenueMinor  int64                  `protobuf:"varint,12,opt,name=gross_revenue_minor,json=grossRevenueMinor,proto3" json:"gross_revenue_minor,omitempty"`
-	TaxMinor           int64                  `protobuf:"varint,13,opt,name=tax_minor,json=taxMinor,proto3" json:"tax_minor,omitempty"`
-	NetRevenueMinor    int64                  `protobuf:"varint,14,opt,name=net_revenue_minor,json=netRevenueMinor,proto3" json:"net_revenue_minor,omitempty"`
-	HoldingCount       int64                  `protobuf:"varint,15,opt,name=holding_count,json=holdingCount,proto3" json:"holding_count,omitempty"`
-	HoldingsValueMinor int64                  `protobuf:"varint,16,opt,name=holdings_value_minor,json=holdingsValueMinor,proto3" json:"holdings_value_minor,omitempty"`
-	TotalAssetsMinor   int64                  `protobuf:"varint,17,opt,name=total_assets_minor,json=totalAssetsMinor,proto3" json:"total_assets_minor,omitempty"`
-	PacAmountMinor     int64                  `protobuf:"varint,18,opt,name=pac_amount_minor,json=pacAmountMinor,proto3" json:"pac_amount_minor,omitempty"`
-	Notes              string                 `protobuf:"bytes,19,opt,name=notes,proto3" json:"notes,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Unique account ID.
+	Id int64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Human-readable account label (e.g. "Trade Republic Broker", "Fineco Savings").
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// Financial institution or bank provider (e.g. "Trade Republic", "IBKR").
+	Institution string `protobuf:"bytes,3,opt,name=institution,proto3" json:"institution,omitempty"`
+	// Account category: "bank", "broker", or "other".
+	Type string `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
+	// Whether this is the default account for newly registered holdings.
+	Preferred bool `protobuf:"varint,5,opt,name=preferred,proto3" json:"preferred,omitempty"`
+	// Whether this account is archived.
+	Archived bool `protobuf:"varint,6,opt,name=archived,proto3" json:"archived,omitempty"`
+	// ISO 4217 3-letter currency code (e.g. "EUR", "USD").
+	Currency string `protobuf:"bytes,7,opt,name=currency,proto3" json:"currency,omitempty"`
+	// Liquid cash balance in minor units (cents, e.g. 10000 = €100.00).
+	BalanceMinor int64 `protobuf:"varint,8,opt,name=balance_minor,json=balanceMinor,proto3" json:"balance_minor,omitempty"`
+	// Applicable tax rate on interest in basis points (e.g. 2600 bps = 26.00%).
+	TaxBps int64 `protobuf:"varint,9,opt,name=tax_bps,json=taxBps,proto3" json:"tax_bps,omitempty"`
+	// Fixed annual account maintenance fee in minor units (cents).
+	AnnualFeeMinor int64 `protobuf:"varint,10,opt,name=annual_fee_minor,json=annualFeeMinor,proto3" json:"annual_fee_minor,omitempty"`
+	// Tiered interest calculation rules.
+	Tiers []*InterestTier `protobuf:"bytes,11,rep,name=tiers,proto3" json:"tiers,omitempty"`
+	// Calculated annual gross interest revenue in minor units (cents).
+	GrossRevenueMinor int64 `protobuf:"varint,12,opt,name=gross_revenue_minor,json=grossRevenueMinor,proto3" json:"gross_revenue_minor,omitempty"`
+	// Calculated annual tax on interest in minor units (cents).
+	TaxMinor int64 `protobuf:"varint,13,opt,name=tax_minor,json=taxMinor,proto3" json:"tax_minor,omitempty"`
+	// Calculated annual net interest revenue in minor units (cents).
+	NetRevenueMinor int64 `protobuf:"varint,14,opt,name=net_revenue_minor,json=netRevenueMinor,proto3" json:"net_revenue_minor,omitempty"`
+	// Total number of active holdings associated with this account.
+	HoldingCount int64 `protobuf:"varint,15,opt,name=holding_count,json=holdingCount,proto3" json:"holding_count,omitempty"`
+	// Total investment holdings market value in minor units (cents).
+	HoldingsValueMinor int64 `protobuf:"varint,16,opt,name=holdings_value_minor,json=holdingsValueMinor,proto3" json:"holdings_value_minor,omitempty"`
+	// Total assets (cash + holdings value) in minor units (cents).
+	TotalAssetsMinor int64 `protobuf:"varint,17,opt,name=total_assets_minor,json=totalAssetsMinor,proto3" json:"total_assets_minor,omitempty"`
+	// Total monthly PAC accumulation plan budget in minor units (cents, e.g. 30000 = €300.00/mo).
+	PacAmountMinor int64 `protobuf:"varint,18,opt,name=pac_amount_minor,json=pacAmountMinor,proto3" json:"pac_amount_minor,omitempty"`
+	// User strategic notes and context explaining the purpose of this account to the AI Assistant.
+	Notes         string `protobuf:"bytes,19,opt,name=notes,proto3" json:"notes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Account) Reset() {
@@ -294,8 +321,9 @@ func (x *Account) GetNotes() string {
 }
 
 type ListAccountsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Sort          *string                `protobuf:"bytes,1,opt,name=sort,proto3,oneof" json:"sort,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Optional sorting parameter e.g. "total:desc" or "name:asc".
+	Sort          *string `protobuf:"bytes,1,opt,name=sort,proto3,oneof" json:"sort,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

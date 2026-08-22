@@ -73,17 +73,29 @@ const (
 
 // InstrumentServiceClient is a client for the v1.InstrumentService service.
 type InstrumentServiceClient interface {
+	// List saved instruments in the user catalog.
 	ListInstruments(context.Context, *connect.Request[v1.ListInstrumentsRequest]) (*connect.Response[v1.ListInstrumentsResponse], error)
+	// Search the 4,000+ ETF catalog by ISIN, ticker, name, or index.
 	SearchInstruments(context.Context, *connect.Request[v1.SearchInstrumentsRequest]) (*connect.Response[v1.SearchInstrumentsResponse], error)
+	// Sync the latest instrument catalog list from justETF.
 	SyncInstrumentCatalog(context.Context, *connect.Request[v1.SyncInstrumentCatalogRequest]) (*connect.Response[v1.SyncInstrumentCatalogResponse], error)
+	// Enrich catalog items with TER, AUM, tracking error, and replication profile data.
 	EnrichInstrumentCatalog(context.Context, *connect.Request[v1.EnrichInstrumentCatalogRequest]) (*connect.Response[v1.EnrichInstrumentCatalogResponse], error)
+	// Stream catalog enrichment progress events over gRPC server streaming.
 	StreamInstrumentCatalog(context.Context, *connect.Request[v1.StreamInstrumentCatalogRequest]) (*connect.ServerStreamForClient[v1.EnrichmentProgress], error)
+	// Manually add a custom instrument.
 	CreateInstrument(context.Context, *connect.Request[v1.CreateInstrumentRequest]) (*connect.Response[v1.CreateInstrumentResponse], error)
+	// Lookup security details by ISIN or query.
 	LookupInstrument(context.Context, *connect.Request[v1.LookupInstrumentRequest]) (*connect.Response[v1.LookupInstrumentResponse], error)
+	// Batch import securities by ISIN list.
 	ImportInstruments(context.Context, *connect.Request[v1.ImportInstrumentsRequest]) (*connect.Response[v1.ImportInstrumentsResponse], error)
+	// Delete an instrument from the catalog.
 	DeleteInstrument(context.Context, *connect.Request[v1.DeleteInstrumentRequest]) (*connect.Response[v1.DeleteInstrumentResponse], error)
+	// Star or unstar an instrument for quick tracking.
 	StarInstrument(context.Context, *connect.Request[v1.StarInstrumentRequest]) (*connect.Response[v1.StarInstrumentResponse], error)
+	// Find cheaper or better-performing alternative ETFs for a target instrument.
 	GetInstrumentAlternatives(context.Context, *connect.Request[v1.GetInstrumentAlternativesRequest]) (*connect.Response[v1.GetInstrumentAlternativesResponse], error)
+	// Rank ETF candidates according to TER cost, tracking metrics, AUM size, and fund age.
 	RankInstruments(context.Context, *connect.Request[v1.RankInstrumentsRequest]) (*connect.Response[v1.RankInstrumentsResponse], error)
 }
 
@@ -251,17 +263,29 @@ func (c *instrumentServiceClient) RankInstruments(ctx context.Context, req *conn
 
 // InstrumentServiceHandler is an implementation of the v1.InstrumentService service.
 type InstrumentServiceHandler interface {
+	// List saved instruments in the user catalog.
 	ListInstruments(context.Context, *connect.Request[v1.ListInstrumentsRequest]) (*connect.Response[v1.ListInstrumentsResponse], error)
+	// Search the 4,000+ ETF catalog by ISIN, ticker, name, or index.
 	SearchInstruments(context.Context, *connect.Request[v1.SearchInstrumentsRequest]) (*connect.Response[v1.SearchInstrumentsResponse], error)
+	// Sync the latest instrument catalog list from justETF.
 	SyncInstrumentCatalog(context.Context, *connect.Request[v1.SyncInstrumentCatalogRequest]) (*connect.Response[v1.SyncInstrumentCatalogResponse], error)
+	// Enrich catalog items with TER, AUM, tracking error, and replication profile data.
 	EnrichInstrumentCatalog(context.Context, *connect.Request[v1.EnrichInstrumentCatalogRequest]) (*connect.Response[v1.EnrichInstrumentCatalogResponse], error)
+	// Stream catalog enrichment progress events over gRPC server streaming.
 	StreamInstrumentCatalog(context.Context, *connect.Request[v1.StreamInstrumentCatalogRequest], *connect.ServerStream[v1.EnrichmentProgress]) error
+	// Manually add a custom instrument.
 	CreateInstrument(context.Context, *connect.Request[v1.CreateInstrumentRequest]) (*connect.Response[v1.CreateInstrumentResponse], error)
+	// Lookup security details by ISIN or query.
 	LookupInstrument(context.Context, *connect.Request[v1.LookupInstrumentRequest]) (*connect.Response[v1.LookupInstrumentResponse], error)
+	// Batch import securities by ISIN list.
 	ImportInstruments(context.Context, *connect.Request[v1.ImportInstrumentsRequest]) (*connect.Response[v1.ImportInstrumentsResponse], error)
+	// Delete an instrument from the catalog.
 	DeleteInstrument(context.Context, *connect.Request[v1.DeleteInstrumentRequest]) (*connect.Response[v1.DeleteInstrumentResponse], error)
+	// Star or unstar an instrument for quick tracking.
 	StarInstrument(context.Context, *connect.Request[v1.StarInstrumentRequest]) (*connect.Response[v1.StarInstrumentResponse], error)
+	// Find cheaper or better-performing alternative ETFs for a target instrument.
 	GetInstrumentAlternatives(context.Context, *connect.Request[v1.GetInstrumentAlternativesRequest]) (*connect.Response[v1.GetInstrumentAlternativesResponse], error)
+	// Rank ETF candidates according to TER cost, tracking metrics, AUM size, and fund age.
 	RankInstruments(context.Context, *connect.Request[v1.RankInstrumentsRequest]) (*connect.Response[v1.RankInstrumentsResponse], error)
 }
 

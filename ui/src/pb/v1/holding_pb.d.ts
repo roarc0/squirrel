@@ -7,105 +7,147 @@ import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialM
 import { Message, proto3 } from "@bufbuild/protobuf";
 
 /**
+ * Holding represents an asset position held within a specific account.
+ *
  * @generated from message v1.Holding
  */
 export declare class Holding extends Message<Holding> {
   /**
+   * Unique holding ID.
+   *
    * @generated from field: int64 id = 1;
    */
   id: bigint;
 
   /**
+   * Associated account ID.
+   *
    * @generated from field: int64 account_id = 2;
    */
   accountId: bigint;
 
   /**
+   * Associated instrument ID.
+   *
    * @generated from field: int64 instrument_id = 3;
    */
   instrumentId: bigint;
 
   /**
+   * Name of the account holding this position.
+   *
    * @generated from field: optional string account_name = 4;
    */
   accountName?: string;
 
   /**
+   * Base currency code (e.g. "EUR", "USD").
+   *
    * @generated from field: optional string currency = 5;
    */
   currency?: string;
 
   /**
+   * Full name of the instrument (e.g. "iShares Core MSCI World UCITS ETF").
+   *
    * @generated from field: optional string instrument_name = 6;
    */
   instrumentName?: string;
 
   /**
+   * International Securities Identification Number (ISIN, e.g. "IE00B4L5Y983").
+   *
    * @generated from field: optional string instrument_isin = 7;
    */
   instrumentIsin?: string;
 
   /**
+   * Ticker symbol (e.g. "SWDA").
+   *
    * @generated from field: optional string instrument_ticker = 8;
    */
   instrumentTicker?: string;
 
   /**
+   * Instrument type (e.g. "etf", "etc", "stock", "bond").
+   *
    * @generated from field: optional string instrument_type = 9;
    */
   instrumentType?: string;
 
   /**
+   * Asset class (e.g. "equity", "bond", "commodity", "cash").
+   *
    * @generated from field: optional string asset_class = 10;
    */
   assetClass?: string;
 
   /**
+   * Total cost basis / invested capital in minor units (cents).
+   *
    * @generated from field: int64 invested_minor = 11;
    */
   investedMinor: bigint;
 
   /**
+   * Current market value in minor units (cents). May be 0 for new PAC accumulation plans.
+   *
    * @generated from field: int64 value_minor = 12;
    */
   valueMinor: bigint;
 
   /**
+   * Applicable capital gains tax rate in basis points (e.g. 2600 bps = 26.00%).
+   *
    * @generated from field: int64 tax_bps = 13;
    */
   taxBps: bigint;
 
   /**
+   * Target planned portfolio allocation weight in basis points (e.g. 8000 bps = 80.00%).
+   *
    * @generated from field: int64 planned_bps = 14;
    */
   plannedBps: bigint;
 
   /**
+   * Calculated actual weight of this holding relative to total currency wealth in basis points.
+   *
    * @generated from field: int64 actual_bps = 15;
    */
   actualBps: bigint;
 
   /**
+   * Total Expense Ratio (TER) of the instrument in basis points (e.g. 20 bps = 0.20%).
+   *
    * @generated from field: int64 ter_bps = 16;
    */
   terBps: bigint;
 
   /**
+   * Whether this holding is part of an active PAC dollar-cost averaging plan.
+   *
    * @generated from field: bool is_pac = 17;
    */
   isPac: boolean;
 
   /**
+   * Share of account monthly PAC budget allocated to this holding in basis points (e.g. 6400 bps = 64.00%).
+   *
    * @generated from field: int64 pac_bps = 18;
    */
   pacBps: bigint;
 
   /**
+   * PAC deposit frequency (e.g. "monthly", "weekly", "biweekly", "quarterly").
+   *
    * @generated from field: string pac_frequency = 19;
    */
   pacFrequency: string;
 
   /**
+   * User strategic notes and context explaining the role of this holding to the AI Assistant.
+   *
    * @generated from field: string notes = 20;
    */
   notes: string;
@@ -130,6 +172,8 @@ export declare class Holding extends Message<Holding> {
  */
 export declare class ListHoldingsRequest extends Message<ListHoldingsRequest> {
   /**
+   * Optional sorting parameter e.g. "value:desc" or "name:asc".
+   *
    * @generated from field: optional string sort = 1;
    */
   sort?: string;

@@ -7,12 +7,16 @@ import { CreateSnapshotRequest, CreateSnapshotResponse, DeleteSnapshotRequest, D
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
+ * SnapshotService manages historical net worth snapshots and portfolio situation updates.
+ *
  * @generated from service v1.SnapshotService
  */
 export const SnapshotService = {
   typeName: "v1.SnapshotService",
   methods: {
     /**
+     * List historical net worth snapshots for trend analysis.
+     *
      * @generated from rpc v1.SnapshotService.ListSnapshots
      */
     listSnapshots: {
@@ -22,6 +26,8 @@ export const SnapshotService = {
       kind: MethodKind.Unary,
     },
     /**
+     * Create a snapshot record from current account and holding totals.
+     *
      * @generated from rpc v1.SnapshotService.CreateSnapshot
      */
     createSnapshot: {
@@ -31,6 +37,8 @@ export const SnapshotService = {
       kind: MethodKind.Unary,
     },
     /**
+     * Update a historical snapshot record.
+     *
      * @generated from rpc v1.SnapshotService.UpdateSnapshot
      */
     updateSnapshot: {
@@ -40,6 +48,8 @@ export const SnapshotService = {
       kind: MethodKind.Unary,
     },
     /**
+     * Delete a historical snapshot record.
+     *
      * @generated from rpc v1.SnapshotService.DeleteSnapshot
      */
     deleteSnapshot: {
@@ -49,6 +59,8 @@ export const SnapshotService = {
       kind: MethodKind.Unary,
     },
     /**
+     * Bulk update current account cash balances and holding market values with optional snapshot recording.
+     *
      * @generated from rpc v1.SnapshotService.UpdateSituation
      */
     updateSituation: {

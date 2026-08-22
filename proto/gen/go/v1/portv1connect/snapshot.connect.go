@@ -52,10 +52,15 @@ const (
 
 // SnapshotServiceClient is a client for the v1.SnapshotService service.
 type SnapshotServiceClient interface {
+	// List historical net worth snapshots for trend analysis.
 	ListSnapshots(context.Context, *connect.Request[v1.ListSnapshotsRequest]) (*connect.Response[v1.ListSnapshotsResponse], error)
+	// Create a snapshot record from current account and holding totals.
 	CreateSnapshot(context.Context, *connect.Request[v1.CreateSnapshotRequest]) (*connect.Response[v1.CreateSnapshotResponse], error)
+	// Update a historical snapshot record.
 	UpdateSnapshot(context.Context, *connect.Request[v1.UpdateSnapshotRequest]) (*connect.Response[v1.UpdateSnapshotResponse], error)
+	// Delete a historical snapshot record.
 	DeleteSnapshot(context.Context, *connect.Request[v1.DeleteSnapshotRequest]) (*connect.Response[v1.DeleteSnapshotResponse], error)
+	// Bulk update current account cash balances and holding market values with optional snapshot recording.
 	UpdateSituation(context.Context, *connect.Request[v1.UpdateSituationRequest]) (*connect.Response[v1.UpdateSituationResponse], error)
 }
 
@@ -139,10 +144,15 @@ func (c *snapshotServiceClient) UpdateSituation(ctx context.Context, req *connec
 
 // SnapshotServiceHandler is an implementation of the v1.SnapshotService service.
 type SnapshotServiceHandler interface {
+	// List historical net worth snapshots for trend analysis.
 	ListSnapshots(context.Context, *connect.Request[v1.ListSnapshotsRequest]) (*connect.Response[v1.ListSnapshotsResponse], error)
+	// Create a snapshot record from current account and holding totals.
 	CreateSnapshot(context.Context, *connect.Request[v1.CreateSnapshotRequest]) (*connect.Response[v1.CreateSnapshotResponse], error)
+	// Update a historical snapshot record.
 	UpdateSnapshot(context.Context, *connect.Request[v1.UpdateSnapshotRequest]) (*connect.Response[v1.UpdateSnapshotResponse], error)
+	// Delete a historical snapshot record.
 	DeleteSnapshot(context.Context, *connect.Request[v1.DeleteSnapshotRequest]) (*connect.Response[v1.DeleteSnapshotResponse], error)
+	// Bulk update current account cash balances and holding market values with optional snapshot recording.
 	UpdateSituation(context.Context, *connect.Request[v1.UpdateSituationRequest]) (*connect.Response[v1.UpdateSituationResponse], error)
 }
 

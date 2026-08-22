@@ -7,12 +7,16 @@ import { ListReferenceRatesRequest, ListReferenceRatesResponse, ListTaxRatesRequ
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
+ * RateService manages central bank benchmark interest rates and tax presets.
+ *
  * @generated from service v1.RateService
  */
 export const RateService = {
   typeName: "v1.RateService",
   methods: {
     /**
+     * List configured central bank reference rates.
+     *
      * @generated from rpc v1.RateService.ListReferenceRates
      */
     listReferenceRates: {
@@ -22,6 +26,8 @@ export const RateService = {
       kind: MethodKind.Unary,
     },
     /**
+     * Update a central bank reference rate value.
+     *
      * @generated from rpc v1.RateService.UpdateReferenceRate
      */
     updateReferenceRate: {
@@ -31,6 +37,8 @@ export const RateService = {
       kind: MethodKind.Unary,
     },
     /**
+     * List default jurisdiction tax rates.
+     *
      * @generated from rpc v1.RateService.ListTaxRates
      */
     listTaxRates: {

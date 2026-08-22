@@ -7,15 +7,21 @@ import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialM
 import { Message, proto3 } from "@bufbuild/protobuf";
 
 /**
+ * InstrumentAllocation represents portfolio allocation breakdown per asset class.
+ *
  * @generated from message v1.InstrumentAllocation
  */
 export declare class InstrumentAllocation extends Message<InstrumentAllocation> {
   /**
+   * Asset class name e.g. "equity", "bond", "commodity", "cash".
+   *
    * @generated from field: string asset_class = 1;
    */
   assetClass: string;
 
   /**
+   * Total market value in minor units (cents).
+   *
    * @generated from field: int64 value_minor = 2;
    */
   valueMinor: bigint;
@@ -36,55 +42,77 @@ export declare class InstrumentAllocation extends Message<InstrumentAllocation> 
 }
 
 /**
+ * CurrencySummary provides aggregated total wealth, cash balances, yields, and allocation breakdown per currency.
+ *
  * @generated from message v1.CurrencySummary
  */
 export declare class CurrencySummary extends Message<CurrencySummary> {
   /**
+   * Currency code e.g. "EUR", "USD".
+   *
    * @generated from field: string currency = 1;
    */
   currency: string;
 
   /**
+   * Total cash balance across accounts in minor units (cents).
+   *
    * @generated from field: int64 balance_minor = 2;
    */
   balanceMinor: bigint;
 
   /**
+   * Total gross interest revenue in minor units (cents).
+   *
    * @generated from field: int64 gross_revenue_minor = 3;
    */
   grossRevenueMinor: bigint;
 
   /**
+   * Total interest tax in minor units (cents).
+   *
    * @generated from field: int64 tax_minor = 4;
    */
   taxMinor: bigint;
 
   /**
+   * Total account annual fees in minor units (cents).
+   *
    * @generated from field: int64 fees_minor = 5;
    */
   feesMinor: bigint;
 
   /**
+   * Total net interest revenue in minor units (cents).
+   *
    * @generated from field: int64 net_revenue_minor = 6;
    */
   netRevenueMinor: bigint;
 
   /**
+   * Total invested cost basis in minor units (cents).
+   *
    * @generated from field: int64 invested_minor = 7;
    */
   investedMinor: bigint;
 
   /**
+   * Total portfolio investments market value in minor units (cents).
+   *
    * @generated from field: int64 portfolio_minor = 8;
    */
   portfolioMinor: bigint;
 
   /**
+   * Total net worth (cash balance + investments market value) in minor units (cents).
+   *
    * @generated from field: int64 total_minor = 9;
    */
   totalMinor: bigint;
 
   /**
+   * Asset class allocation breakdown.
+   *
    * @generated from field: repeated v1.InstrumentAllocation allocations = 10;
    */
   allocations: InstrumentAllocation[];
@@ -105,30 +133,42 @@ export declare class CurrencySummary extends Message<CurrencySummary> {
 }
 
 /**
+ * Diagnostic represents an active portfolio health warning, fee drag alert, or cash goal alert.
+ *
  * @generated from message v1.Diagnostic
  */
 export declare class Diagnostic extends Message<Diagnostic> {
   /**
+   * Diagnostic alert ID.
+   *
    * @generated from field: string id = 1;
    */
   id: string;
 
   /**
+   * Category e.g. "allocation", "fee", "cash", "account".
+   *
    * @generated from field: string category = 2;
    */
   category: string;
 
   /**
+   * Severity level: "info", "warning", or "alert".
+   *
    * @generated from field: string severity = 3;
    */
   severity: string;
 
   /**
+   * Alert title e.g. "High TER Fee Drag Detected", "Cash Reserve Below Target Goal".
+   *
    * @generated from field: string title = 4;
    */
   title: string;
 
   /**
+   * Detailed diagnostic message and recommendation.
+   *
    * @generated from field: string message = 5;
    */
   message: string;
@@ -164,20 +204,28 @@ export declare class Diagnostic extends Message<Diagnostic> {
 }
 
 /**
+ * Summary represents the comprehensive portfolio state and health diagnostics.
+ *
  * @generated from message v1.Summary
  */
 export declare class Summary extends Message<Summary> {
   /**
+   * Primary base currency code.
+   *
    * @generated from field: string base_currency = 1;
    */
   baseCurrency: string;
 
   /**
+   * Aggregated totals per currency.
+   *
    * @generated from field: repeated v1.CurrencySummary currencies = 2;
    */
   currencies: CurrencySummary[];
 
   /**
+   * Active health warnings and allocation diagnostics.
+   *
    * @generated from field: repeated v1.Diagnostic diagnostics = 3;
    */
   diagnostics: Diagnostic[];
@@ -202,6 +250,8 @@ export declare class Summary extends Message<Summary> {
  */
 export declare class GetSummaryRequest extends Message<GetSummaryRequest> {
   /**
+   * Optional emergency cash reserve goal target in minor units (cents).
+   *
    * @generated from field: optional int64 target_cash_minor = 1;
    */
   targetCashMinor?: bigint;

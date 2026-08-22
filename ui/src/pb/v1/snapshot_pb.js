@@ -6,6 +6,8 @@
 import { proto3 } from "@bufbuild/protobuf";
 
 /**
+ * Snapshot represents a historical point-in-time wealth snapshot.
+ *
  * @generated from message v1.Snapshot
  */
 export const Snapshot = /*@__PURE__*/ proto3.makeMessageType(

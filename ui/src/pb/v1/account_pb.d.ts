@@ -7,35 +7,49 @@ import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialM
 import { Message, proto3 } from "@bufbuild/protobuf";
 
 /**
+ * InterestTier defines tiered interest rates for cash balances (e.g. fixed APY or ECB reference rates + spread).
+ *
  * @generated from message v1.InterestTier
  */
 export declare class InterestTier extends Message<InterestTier> {
   /**
+   * Tier unique ID.
+   *
    * @generated from field: optional int64 id = 1;
    */
   id?: bigint;
 
   /**
+   * Maximum balance threshold in minor units (cents) for this tier. Null means unlimited upper bound.
+   *
    * @generated from field: optional int64 up_to_minor = 2;
    */
   upToMinor?: bigint;
 
   /**
+   * Fixed annual interest rate in basis points (e.g., 350 bps = 3.50%). Mutually exclusive with reference_code.
+   *
    * @generated from field: optional int64 fixed_rate_bps = 3;
    */
   fixedRateBps?: bigint;
 
   /**
+   * Reference rate ticker code (e.g., "ESTR", "DFR"). Mutually exclusive with fixed_rate_bps.
+   *
    * @generated from field: optional string reference_code = 4;
    */
   referenceCode?: string;
 
   /**
+   * Spread added to reference rate in basis points (e.g., -50 bps = -0.50%).
+   *
    * @generated from field: int64 spread_bps = 5;
    */
   spreadBps: bigint;
 
   /**
+   * Computed effective annual rate in basis points (resolved at runtime).
+   *
    * @generated from field: optional int64 resolved_rate_bps = 6;
    */
   resolvedRateBps?: bigint;
@@ -56,100 +70,140 @@ export declare class InterestTier extends Message<InterestTier> {
 }
 
 /**
+ * Account represents a financial bank, broker, or cash storage account.
+ *
  * @generated from message v1.Account
  */
 export declare class Account extends Message<Account> {
   /**
+   * Unique account ID.
+   *
    * @generated from field: int64 id = 1;
    */
   id: bigint;
 
   /**
+   * Human-readable account label (e.g. "Trade Republic Broker", "Fineco Savings").
+   *
    * @generated from field: string name = 2;
    */
   name: string;
 
   /**
+   * Financial institution or bank provider (e.g. "Trade Republic", "IBKR").
+   *
    * @generated from field: string institution = 3;
    */
   institution: string;
 
   /**
+   * Account category: "bank", "broker", or "other".
+   *
    * @generated from field: string type = 4;
    */
   type: string;
 
   /**
+   * Whether this is the default account for newly registered holdings.
+   *
    * @generated from field: bool preferred = 5;
    */
   preferred: boolean;
 
   /**
+   * Whether this account is archived.
+   *
    * @generated from field: bool archived = 6;
    */
   archived: boolean;
 
   /**
+   * ISO 4217 3-letter currency code (e.g. "EUR", "USD").
+   *
    * @generated from field: string currency = 7;
    */
   currency: string;
 
   /**
+   * Liquid cash balance in minor units (cents, e.g. 10000 = €100.00).
+   *
    * @generated from field: int64 balance_minor = 8;
    */
   balanceMinor: bigint;
 
   /**
+   * Applicable tax rate on interest in basis points (e.g. 2600 bps = 26.00%).
+   *
    * @generated from field: int64 tax_bps = 9;
    */
   taxBps: bigint;
 
   /**
+   * Fixed annual account maintenance fee in minor units (cents).
+   *
    * @generated from field: int64 annual_fee_minor = 10;
    */
   annualFeeMinor: bigint;
 
   /**
+   * Tiered interest calculation rules.
+   *
    * @generated from field: repeated v1.InterestTier tiers = 11;
    */
   tiers: InterestTier[];
 
   /**
+   * Calculated annual gross interest revenue in minor units (cents).
+   *
    * @generated from field: int64 gross_revenue_minor = 12;
    */
   grossRevenueMinor: bigint;
 
   /**
+   * Calculated annual tax on interest in minor units (cents).
+   *
    * @generated from field: int64 tax_minor = 13;
    */
   taxMinor: bigint;
 
   /**
+   * Calculated annual net interest revenue in minor units (cents).
+   *
    * @generated from field: int64 net_revenue_minor = 14;
    */
   netRevenueMinor: bigint;
 
   /**
+   * Total number of active holdings associated with this account.
+   *
    * @generated from field: int64 holding_count = 15;
    */
   holdingCount: bigint;
 
   /**
+   * Total investment holdings market value in minor units (cents).
+   *
    * @generated from field: int64 holdings_value_minor = 16;
    */
   holdingsValueMinor: bigint;
 
   /**
+   * Total assets (cash + holdings value) in minor units (cents).
+   *
    * @generated from field: int64 total_assets_minor = 17;
    */
   totalAssetsMinor: bigint;
 
   /**
+   * Total monthly PAC accumulation plan budget in minor units (cents, e.g. 30000 = €300.00/mo).
+   *
    * @generated from field: int64 pac_amount_minor = 18;
    */
   pacAmountMinor: bigint;
 
   /**
+   * User strategic notes and context explaining the purpose of this account to the AI Assistant.
+   *
    * @generated from field: string notes = 19;
    */
   notes: string;
@@ -174,6 +228,8 @@ export declare class Account extends Message<Account> {
  */
 export declare class ListAccountsRequest extends Message<ListAccountsRequest> {
   /**
+   * Optional sorting parameter e.g. "total:desc" or "name:asc".
+   *
    * @generated from field: optional string sort = 1;
    */
   sort?: string;
