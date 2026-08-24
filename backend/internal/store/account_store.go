@@ -49,8 +49,15 @@ func (s *Store) SaveReferenceRate(ctx context.Context, rate portfolio.ReferenceR
 	return err
 }
 
-func (s *Store) ListAccounts(ctx context.Context) ([]portfolio.Account, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, name, institution, account_type, preferred, archived, currency, balance_minor, tax_bps, annual_fee_minor, pac_amount_minor, COALESCE(notes, '') FROM accounts ORDER BY archived, name, id`)
+func (s *Store) ListAccounts(ctx context.Context, userID string) ([]portfolio.Account, error) {
+	query := `SELECT id, name, institution, account_type, preferred, archived, currency, balance_minor, tax_bps, annual_fee_minor, pac_amount_minor, COALESCE(notes, '') FROM accounts`
+	var args []any
+	if userID != "" {
+		query += ` WHERE (user_id = ? OR user_id = '')`
+		args = append(args, userID)
+	}
+	query += ` ORDER BY archived, name, id`
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +101,7 @@ func (s *Store) ListAccounts(ctx context.Context) ([]portfolio.Account, error) {
 	return accounts, tiers.Err()
 }
 
-func (s *Store) SaveAccount(ctx context.Context, account *portfolio.Account) error {
+func (s *Store) SaveAccount(ctx context.Context, account *portfolio.Account, userID string) error {
 	account.Name = strings.TrimSpace(account.Name)
 	account.Institution = strings.TrimSpace(account.Institution)
 	account.Currency = strings.ToUpper(strings.TrimSpace(account.Currency))
@@ -129,7 +136,7 @@ func (s *Store) SaveAccount(ctx context.Context, account *portfolio.Account) err
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
 	if account.ID == 0 {
-		result, err := tx.ExecContext(ctx, `INSERT INTO accounts (name, institution, account_type, preferred, archived, currency, balance_minor, tax_bps, annual_fee_minor, pac_amount_minor, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, account.Name, account.Institution, account.Type, account.Preferred, account.Archived, account.Currency, account.BalanceMinor, account.TaxBPS, account.AnnualFeeMinor, account.PACAmountMinor, account.Notes, now, now)
+		result, err := tx.ExecContext(ctx, `INSERT INTO accounts (name, institution, account_type, preferred, archived, currency, balance_minor, tax_bps, annual_fee_minor, pac_amount_minor, notes, user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, account.Name, account.Institution, account.Type, account.Preferred, account.Archived, account.Currency, account.BalanceMinor, account.TaxBPS, account.AnnualFeeMinor, account.PACAmountMinor, account.Notes, userID, now, now)
 		if err != nil {
 			return err
 		}
@@ -138,7 +145,14 @@ func (s *Store) SaveAccount(ctx context.Context, account *portfolio.Account) err
 			return err
 		}
 	} else {
-		result, err := tx.ExecContext(ctx, `UPDATE accounts SET name=?, institution=?, account_type=?, preferred=?, archived=?, currency=?, balance_minor=?, tax_bps=?, annual_fee_minor=?, pac_amount_minor=?, notes=?, updated_at=? WHERE id=?`, account.Name, account.Institution, account.Type, account.Preferred, account.Archived, account.Currency, account.BalanceMinor, account.TaxBPS, account.AnnualFeeMinor, account.PACAmountMinor, account.Notes, now, account.ID)
+		ownerClause := ""
+		var ownerArgs []any
+		if userID != "" {
+			ownerClause = ` AND (user_id = ? OR user_id = '')`
+			ownerArgs = []any{userID}
+		}
+		args := append([]any{account.Name, account.Institution, account.Type, account.Preferred, account.Archived, account.Currency, account.BalanceMinor, account.TaxBPS, account.AnnualFeeMinor, account.PACAmountMinor, account.Notes, now, account.ID}, ownerArgs...)
+		result, err := tx.ExecContext(ctx, `UPDATE accounts SET name=?, institution=?, account_type=?, preferred=?, archived=?, currency=?, balance_minor=?, tax_bps=?, annual_fee_minor=?, pac_amount_minor=?, notes=?, updated_at=? WHERE id=?`+ownerClause, args...)
 		if err != nil {
 			return err
 		}
@@ -162,20 +176,26 @@ func (s *Store) SaveAccount(ctx context.Context, account *portfolio.Account) err
 	return tx.Commit()
 }
 
-func (s *Store) DeleteAccount(ctx context.Context, id int64) error {
+func (s *Store) DeleteAccount(ctx context.Context, id int64, userID string) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 	var preferred bool
-	if err := tx.QueryRowContext(ctx, `SELECT preferred FROM accounts WHERE id=?`, id).Scan(&preferred); err != nil {
+	ownerClause := ""
+	var ownerArgs []any
+	if userID != "" {
+		ownerClause = ` AND (user_id = ? OR user_id = '')`
+		ownerArgs = []any{userID}
+	}
+	if err := tx.QueryRowContext(ctx, `SELECT preferred FROM accounts WHERE id=?`+ownerClause, append([]any{id}, ownerArgs...)...).Scan(&preferred); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return errors.New("account not found")
 		}
 		return err
 	}
-	result, err := tx.ExecContext(ctx, `DELETE FROM accounts WHERE id=?`, id)
+	result, err := tx.ExecContext(ctx, `DELETE FROM accounts WHERE id=?`+ownerClause, append([]any{id}, ownerArgs...)...)
 	if err != nil {
 		return err
 	}

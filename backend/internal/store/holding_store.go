@@ -9,14 +9,20 @@ import (
 	"loot/backend/internal/portfolio"
 )
 
-func (s *Store) ListHoldings(ctx context.Context) ([]portfolio.Holding, error) {
+func (s *Store) ListHoldings(ctx context.Context, userID string) ([]portfolio.Holding, error) {
+	where := ""
+	var args []any
+	if userID != "" {
+		where = ` WHERE (a.user_id = ? OR a.user_id = '')`
+		args = append(args, userID)
+	}
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT h.id, h.account_id, h.instrument_id, a.name, a.currency, i.name, i.isin, i.ticker, i.instrument_type, i.asset_class, i.ter_bps,
 			h.invested_minor, h.value_minor, h.tax_bps, h.planned_bps, h.is_pac, h.pac_bps, h.pac_frequency, COALESCE(h.notes, '')
 		FROM holdings h
 		JOIN accounts a ON a.id = h.account_id
-		JOIN instruments i ON i.id = h.instrument_id
-		ORDER BY h.is_pac DESC, h.value_minor DESC, i.name`)
+		JOIN instruments i ON i.id = h.instrument_id`+where+`
+		ORDER BY h.is_pac DESC, h.value_minor DESC, i.name`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +51,35 @@ func (s *Store) ListHoldings(ctx context.Context) ([]portfolio.Holding, error) {
 		}
 	}
 	return holdings, nil
+}
+
+func (s *Store) GetHolding(ctx context.Context, id int64, userID string) (*portfolio.Holding, error) {
+	var h portfolio.Holding
+	var isPacInt int
+	where := `WHERE h.id = ?`
+	args := []any{id}
+	if userID != "" {
+		where += ` AND (a.user_id = ? OR a.user_id = '')`
+		args = append(args, userID)
+	}
+	err := s.db.QueryRowContext(ctx, `
+		SELECT h.id, h.account_id, h.instrument_id, a.name, a.currency, i.name, i.isin, i.ticker, i.instrument_type, i.asset_class, i.ter_bps,
+			h.invested_minor, h.value_minor, h.tax_bps, h.planned_bps, h.is_pac, h.pac_bps, h.pac_frequency, COALESCE(h.notes, '')
+		FROM holdings h
+		JOIN accounts a ON a.id = h.account_id
+		JOIN instruments i ON i.id = h.instrument_id
+		`+where, args...).Scan(
+		&h.ID, &h.AccountID, &h.InstrumentID, &h.AccountName, &h.Currency, &h.InstrumentName, &h.InstrumentISIN, &h.InstrumentTicker, &h.InstrumentType, &h.AssetClass, &h.TERBPS,
+		&h.InvestedMinor, &h.ValueMinor, &h.TaxBPS, &h.PlannedBPS, &isPacInt, &h.PACBPS, &h.PACFrequency, &h.Notes,
+	)
+	if err != nil {
+		return nil, err
+	}
+	h.IsPAC = isPacInt != 0
+	if h.PACFrequency == "" {
+		h.PACFrequency = "monthly"
+	}
+	return &h, nil
 }
 
 func (s *Store) SaveHolding(ctx context.Context, holding *portfolio.Holding) error {
@@ -84,6 +119,11 @@ func (s *Store) SaveHolding(ctx context.Context, holding *portfolio.Holding) err
 				is_pac=excluded.is_pac, pac_bps=excluded.pac_bps, pac_frequency=excluded.pac_frequency, notes=excluded.notes, updated_at=excluded.updated_at
 			RETURNING id`, holding.AccountID, holding.InstrumentID, holding.InvestedMinor, holding.ValueMinor, holding.TaxBPS, holding.PlannedBPS, isPacInt, holding.PACBPS, holding.PACFrequency, holding.Notes, now).Scan(&holding.ID)
 	}
+	// Guard against moving to an (account, instrument) pair that already exists.
+	var conflict int64
+	if err := s.db.QueryRowContext(ctx, `SELECT id FROM holdings WHERE account_id=? AND instrument_id=? AND id!=?`, holding.AccountID, holding.InstrumentID, holding.ID).Scan(&conflict); err == nil {
+		return fmt.Errorf("a holding for this instrument already exists in this account — delete the duplicate first")
+	}
 	result, err := s.db.ExecContext(ctx, `UPDATE holdings SET account_id=?, instrument_id=?, invested_minor=?, value_minor=?, tax_bps=?, planned_bps=?, is_pac=?, pac_bps=?, pac_frequency=?, notes=?, updated_at=? WHERE id=?`, holding.AccountID, holding.InstrumentID, holding.InvestedMinor, holding.ValueMinor, holding.TaxBPS, holding.PlannedBPS, isPacInt, holding.PACBPS, holding.PACFrequency, holding.Notes, now, holding.ID)
 	if err != nil {
 		return err
@@ -94,8 +134,14 @@ func (s *Store) SaveHolding(ctx context.Context, holding *portfolio.Holding) err
 	return nil
 }
 
-func (s *Store) DeleteHolding(ctx context.Context, id int64) error {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM holdings WHERE id=?`, id)
+func (s *Store) DeleteHolding(ctx context.Context, id int64, userID string) error {
+	query := `DELETE FROM holdings WHERE id=?`
+	args := []any{id}
+	if userID != "" {
+		query += ` AND account_id IN (SELECT id FROM accounts WHERE user_id = ? OR user_id = '')`
+		args = append(args, userID)
+	}
+	result, err := s.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		return err
 	}

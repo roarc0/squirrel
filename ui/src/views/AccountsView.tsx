@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   ActionIcon,
-  Alert,
   Badge,
   Box,
   Button,
@@ -28,6 +27,7 @@ import { Empty } from '../components/Empty';
 import { DataTable, TableAction, TableActions, type DataColumn } from '../DataTable';
 import { confirmDelete as legacyConfirmDelete, money, percent } from '../utils/format';
 import { useConfirmDelete } from '../components/ConfirmDeleteModal';
+import { notifications } from '@mantine/notifications';
 
 type Numeric = string | number;
 const n = (value: Numeric | undefined) => (value === '' || value === undefined ? 0 : Number(value));
@@ -42,7 +42,6 @@ const blankAccount = (tax = 26): AccountDraft => ({ name: '', institution: '', t
 export function AccountsView({ accounts, rates, taxRates, reload }: { accounts: Account[]; rates: ReferenceRate[]; taxRates: TaxRate[]; reload: () => Promise<void> }) {
   const [opened, setOpened] = useState(false);
   const [editing, setEditing] = useState<Account>();
-  const [error, setError] = useState('');
   const { confirmDelete, modal: confirmDeleteModal } = useConfirmDelete();
   const table = useBackendRows('/api/accounts', accounts, 'total', 'desc');
   const open = (account?: Account) => { setEditing(account); setOpened(true); };
@@ -52,7 +51,7 @@ export function AccountsView({ accounts, rates, taxRates, reload }: { accounts: 
       await reload();
     }, 'Its current holdings will also be removed. Saved snapshots stay intact.');
   };
-  const toggleArchived = async (account: Account) => { try { await api(`/api/accounts/${account.id}`, { method: 'PUT', body: JSON.stringify({ ...account, archived: !account.archived }) }); setError(''); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } };
+  const toggleArchived = async (account: Account) => { try { await api(`/api/accounts/${account.id}`, { method: 'PUT', body: JSON.stringify({ ...account, archived: !account.archived }) }); await reload(); } catch (cause) { notifications.show({ color: 'red', title: 'Failed to update account', message: cause instanceof Error ? cause.message : String(cause) }); } };
   const columns: DataColumn<Account>[] = [
     {
       key: 'name',
@@ -98,7 +97,6 @@ export function AccountsView({ accounts, rates, taxRates, reload }: { accounts: 
   ];
   return <Stack gap="lg">
     <Group justify="space-between"><Box><Title order={2}>Accounts</Title><Text c="dimmed">Marginal rate tiers, taxes, and recurring annual fees.</Text></Box><Button onClick={() => open()}>Add account</Button></Group>
-    {(error || table.sortError) && <Alert color="red">{error || table.sortError}</Alert>}
     {accounts.length === 0 ? <Empty title="No accounts" text="Add the places where you hold cash." /> : <DataTable rows={table.rows} columns={columns} rowKey={account => account.id} minWidth={960} sort={table.sort} direction={table.direction} onSort={(key, direction) => void table.sortRows(key, direction)} rowStyle={account => account.archived ? { opacity: 0.48 } : undefined} />}
     <AccountModal key={editing?.id ?? 'new'} opened={opened} close={() => setOpened(false)} account={editing} rates={rates} taxRates={taxRates} saved={async () => { setOpened(false); await reload(); }} />
     {confirmDeleteModal}
@@ -126,20 +124,24 @@ function AccountModal({ opened, close, account, rates, taxRates, saved }: { open
     tax: account.tax_bps / 100, fee: account.annual_fee_minor / 100, pacAmount: account.pac_amount_minor ? account.pac_amount_minor / 100 : '', notes: account.notes ?? '',
     tiers: (account.tiers ?? []).map(tier => ({ upTo: tier.up_to_minor === null ? '' : tier.up_to_minor / 100, kind: tier.fixed_rate_bps === null ? 'reference' : 'fixed', rate: (tier.fixed_rate_bps ?? 0) / 100, reference: tier.reference_code ?? '', spread: tier.spread_bps / 100 })),
   } : blankAccount((taxRates[0]?.rate_bps ?? 2600) / 100));
-  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
   const tier = (index: number, patch: Partial<TierDraft>) => setForm(current => ({ ...current, tiers: current.tiers.map((item, i) => i === index ? { ...item, ...patch } : item) }));
   const save = async () => {
+    setSaving(true);
     try {
       const body = {
         name: form.name, institution: form.institution, type: form.type, preferred: form.preferred, archived: form.archived, currency: form.currency.toUpperCase(), balance_minor: minor(form.balance), tax_bps: bps(form.tax), annual_fee_minor: minor(form.fee), pac_amount_minor: minor(form.pacAmount), notes: form.notes,
         tiers: form.tiers.map(item => ({ up_to_minor: item.upTo === '' ? null : minor(item.upTo), fixed_rate_bps: item.kind === 'fixed' ? bps(item.rate) : null, reference_code: item.kind === 'reference' ? item.reference : '', spread_bps: item.kind === 'reference' ? bps(item.spread) : 0 })),
       };
       await api(account ? `/api/accounts/${account.id}` : '/api/accounts', { method: account ? 'PUT' : 'POST', body: JSON.stringify(body) });
+      notifications.show({ color: 'teal', title: account ? 'Account updated' : 'Account added', message: account ? 'Changes saved successfully.' : 'New account added.' });
       await saved();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    } catch (cause) {
+      notifications.show({ color: 'red', title: 'Failed to save account', message: cause instanceof Error ? cause.message : String(cause) });
+    } finally { setSaving(false); }
   };
   return <Modal opened={opened} onClose={close} title={account ? 'Edit account' : 'Add account'} size="lg">
-    <Stack>{error && <Alert color="red">{error}</Alert>}<SimpleGrid cols={{ base: 1, sm: 2 }}>
+    <Stack><SimpleGrid cols={{ base: 1, sm: 2 }}>
       <TextInput required label="Name" value={form.name} onChange={e => setForm({ ...form, name: e.currentTarget.value })} />
       <TextInput label="Institution" value={form.institution} onChange={e => setForm({ ...form, institution: e.currentTarget.value })} />
       <Select label="Account type" value={form.type} data={[{ value: 'bank', label: 'Bank' }, { value: 'broker', label: 'Broker' }, { value: 'other', label: 'Other' }]} onChange={value => setForm({ ...form, type: (value ?? 'other') as Account['type'] })} />
@@ -160,7 +162,7 @@ function AccountModal({ opened, close, account, rates, taxRates, saved }: { open
         <Grid.Col span={{ base: 10, sm: 5 }}>{item.kind === 'fixed' ? <NumberInput label="Annual rate (%)" decimalScale={2} value={item.rate} onChange={value => tier(index, { rate: value })} /> : <Group grow align="end"><Select label="Reference" value={item.reference} data={rates.map(rate => ({ value: rate.code, label: `${rate.label} (${percent(rate.rate_bps)})` }))} onChange={value => tier(index, { reference: value ?? '' })} /><NumberInput label="Spread (%)" decimalScale={2} value={item.spread} onChange={value => tier(index, { spread: value })} /></Group>}</Grid.Col>
         <Grid.Col span={{ base: 2, sm: 1 }}><Tooltip label="Remove tier"><ActionIcon color="red" variant="subtle" aria-label="Remove tier" onClick={() => setForm(current => ({ ...current, tiers: current.tiers.filter((_, i) => i !== index) }))}>×</ActionIcon></Tooltip></Grid.Col>
       </Grid></Card>)}
-      <Group justify="space-between"><Button variant="light" onClick={() => setForm(current => ({ ...current, tiers: [...current.tiers, blankTier()] }))}>Add tier</Button><Button onClick={() => void save()}>Save account</Button></Group>
+      <Group justify="space-between"><Button variant="light" onClick={() => setForm(current => ({ ...current, tiers: [...current.tiers, blankTier()] }))}>Add tier</Button><Button loading={saving} onClick={() => void save()}>Save account</Button></Group>
     </Stack>
   </Modal>;
 }

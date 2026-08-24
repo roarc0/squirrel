@@ -11,10 +11,10 @@ import {
   Paper,
   Table,
   Badge,
-  Alert,
   Divider,
 } from '@mantine/core';
 import { updateSituation, type Account, type Holding } from './api';
+import { notifications } from '@mantine/notifications';
 
 type Props = {
   opened: boolean;
@@ -32,7 +32,6 @@ export function UpdateSituationModal({ opened, onClose, accounts, holdings, relo
   const [saveSnapshot, setSaveSnapshot] = useState(true);
   const [observedOn, setObservedOn] = useState(() => new Date().toISOString().split('T')[0]);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     if (opened) {
@@ -50,7 +49,6 @@ export function UpdateSituationModal({ opened, onClose, accounts, holdings, relo
 
       setSaveSnapshot(true);
       setObservedOn(new Date().toISOString().split('T')[0]);
-      setError('');
     }
   }, [opened, accounts, holdings]);
 
@@ -66,7 +64,6 @@ export function UpdateSituationModal({ opened, onClose, accounts, holdings, relo
 
   const handleSave = async () => {
     setSaving(true);
-    setError('');
     try {
       const accountUpdates = activeAccounts.map(a => ({
         accountId: BigInt(a.id),
@@ -85,10 +82,11 @@ export function UpdateSituationModal({ opened, onClose, accounts, holdings, relo
         observedOn: saveSnapshot ? observedOn : undefined,
       });
 
+      notifications.show({ color: 'teal', title: 'Situation updated', message: saveSnapshot ? 'Values saved and snapshot recorded.' : 'Values updated.' });
       await reload();
       onClose();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      notifications.show({ color: 'red', title: 'Failed to update situation', message: cause instanceof Error ? cause.message : String(cause) });
     } finally {
       setSaving(false);
     }
@@ -107,8 +105,6 @@ export function UpdateSituationModal({ opened, onClose, accounts, holdings, relo
       size="xl"
     >
       <Stack gap="md">
-        {error && <Alert color="red">{error}</Alert>}
-
         <Text size="sm" c="dimmed">
           Quickly update cash balances and current asset values across all accounts in one place.
         </Text>

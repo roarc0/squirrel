@@ -11,9 +11,12 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"connectrpc.com/connect"
 
@@ -261,6 +264,28 @@ func (s *Server) DownloadAIModel(ctx context.Context, req *connect.Request[portv
 	}), nil
 }
 
+// probeServerContext tries to read the actual n_ctx from a running llama-server /props endpoint.
+// Returns 0 if not available (non-llama-server or unreachable).
+func probeServerContext(endpoint string) int {
+	base := strings.TrimSuffix(strings.TrimSuffix(endpoint, "/v1"), "/")
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, base+"/props", nil)
+	if err != nil {
+		return 0
+	}
+	res, err := (&http.Client{Timeout: 2 * time.Second}).Do(req)
+	if err != nil {
+		return 0
+	}
+	defer res.Body.Close()
+	var props struct {
+		NCtx int `json:"n_ctx"`
+	}
+	if json.NewDecoder(res.Body).Decode(&props) == nil && props.NCtx > 0 {
+		return props.NCtx
+	}
+	return 0
+}
+
 func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.StreamChatRequest], stream *connect.ServerStream[portv1.StreamChatResponse]) error {
 	msg := req.Msg
 	endpoint := strings.TrimRight(strings.TrimSpace(msg.Endpoint), "/")
@@ -269,13 +294,56 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 	}
 	model := strings.TrimSpace(msg.Model)
 	if model == "" {
-		model = "deepseek-r1-distill-qwen-7b"
+		model = s.config.AIModel
 	}
 
-	systemPrompt := `You are an expert, local-first financial portfolio AI assistant for LOOT. You have full Model Context Protocol (MCP) access to backend Proto API tools (/mcp). Use tools like search_instruments, rank_instruments, get_summary, list_holdings, list_accounts, list_snapshots, and get_diagnostics to answer questions accurately. Never give legal or binding tax advice. Keep explanations simple, practical, and clear.`
+	contextSize := req.Msg.ContextSize
+	if contextSize <= 0 {
+		contextSize = int32(s.config.AIContextSize)
+	}
+	if contextSize <= 0 {
+		contextSize = 16384
+	}
 
+	// Probe the actual server context window — overrides user setting when server is smaller.
+	// This makes the context budget accurate regardless of what the user configured.
+	if actualCtx := probeServerContext(endpoint); actualCtx > 0 && int32(actualCtx) < contextSize {
+		slog.InfoContext(ctx, "Server context smaller than configured — using server limit", "server_n_ctx", actualCtx, "configured", contextSize)
+		contextSize = int32(actualCtx)
+	}
+
+	// Fetch tools first so we can account for their token cost in budget calculations.
+	var tools []map[string]interface{}
+	if s.mcpHandler != nil {
+		tools = s.mcpHandler.OpenAITools()
+	}
+	toolTokens := 0
+	if len(tools) > 0 {
+		if toolsJSON, err2 := json.Marshal(tools); err2 == nil {
+			toolTokens = len(toolsJSON) / 3
+		}
+	}
+
+	// Total prompt budget: context minus output headroom and tool schema overhead.
+	totalPromptBudget := int(contextSize) - 500 - toolTokens
+	if totalPromptBudget < 400 {
+		totalPromptBudget = 400
+	}
+
+	basePrompt := s.config.AISystemPrompt
+	baseTokens := len(basePrompt) / 3
+
+	systemPrompt := basePrompt
 	if msg.PortfolioContextJson != "" {
-		systemPrompt += fmt.Sprintf("\n\nReal-time Live Portfolio State:\n```json\n%s\n```", msg.PortfolioContextJson)
+		// Reserve 200 tokens for last user message turn.
+		portfolioBudgetChars := (totalPromptBudget - baseTokens - 200) * 3
+		portfolioJSON := msg.PortfolioContextJson
+		if portfolioBudgetChars > 0 && len(portfolioJSON) > portfolioBudgetChars {
+			portfolioJSON = portfolioJSON[:portfolioBudgetChars] + "\n... (truncated to fit context)"
+		}
+		if portfolioBudgetChars > 0 {
+			systemPrompt += fmt.Sprintf("\n\nReal-time Live Portfolio State:\n```json\n%s\n```", portfolioJSON)
+		}
 	}
 
 	var conversation []map[string]interface{}
@@ -283,6 +351,12 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 		"role":    "system",
 		"content": systemPrompt,
 	})
+
+	systemTokens := len(systemPrompt) / 3
+	maxHistoryTokens := totalPromptBudget - systemTokens
+	if maxHistoryTokens < 150 {
+		maxHistoryTokens = 150
+	}
 
 	for _, m := range msg.Messages {
 		if m.Role != "user" && m.Role != "assistant" {
@@ -297,20 +371,6 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 		})
 	}
 
-	contextSize := req.Msg.ContextSize
-	if contextSize <= 0 {
-		contextSize = int32(s.config.AIContextSize)
-	}
-	if contextSize <= 0 {
-		contextSize = 16384
-	}
-
-	// Estimate token count across string, map, or struct content (approx. 1 token = 4 characters)
-	maxPromptTokens := int(contextSize) - 500
-	if maxPromptTokens < 1000 {
-		maxPromptTokens = 1000
-	}
-
 	estimateTokens := func(turns []map[string]interface{}) int {
 		totalChars := 0
 		for _, turn := range turns {
@@ -322,45 +382,47 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 				totalChars += len(b)
 			}
 		}
-		return totalChars / 4
+		return totalChars / 3
 	}
 
-	// Prune older history turns if prompt trajectory exceeds context limit
-	for len(conversation) > 2 && estimateTokens(conversation) > maxPromptTokens {
+	// Prune older history turns so conversation[1:] fits within maxHistoryTokens.
+	for len(conversation) > 2 && estimateTokens(conversation[1:]) > maxHistoryTokens {
 		conversation = append(conversation[:1], conversation[2:]...)
 	}
-
-	// Hard-truncate oversized single turns if still exceeding maxPromptTokens
-	if len(conversation) > 0 && estimateTokens(conversation) > maxPromptTokens {
-		for i := range conversation {
-			if content, ok := conversation[i]["content"].(string); ok && len(content) > maxPromptTokens*3 {
-				conversation[i]["content"] = content[:maxPromptTokens*3] + "\n... (truncated for context limit)"
+	// Hard-truncate a single oversized user message if still exceeding budget.
+	if len(conversation) > 1 && estimateTokens(conversation[1:]) > maxHistoryTokens {
+		for i := 1; i < len(conversation); i++ {
+			if content, ok := conversation[i]["content"].(string); ok && len(content) > maxHistoryTokens*4 {
+				conversation[i]["content"] = content[:maxHistoryTokens*4] + "\n... (truncated for context limit)"
 			}
 		}
 	}
 
-	var tools []map[string]interface{}
-	if s.mcpHandler != nil {
-		tools = s.mcpHandler.OpenAITools()
-	}
-
 	payload := map[string]interface{}{
-		"model":       model,
-		"messages":    conversation,
-		"temperature": 0.3,
-		"stream":      true,
-		"max_tokens":  2048,
-		"num_ctx":     contextSize,
-		"n_ctx":       contextSize,
+		"model":              model,
+		"messages":           conversation,
+		"temperature":        0.6,
+		"stream":             true,
+		"max_tokens":         2048,
+		"repeat_penalty":     1.15,
+		"repetition_penalty": 1.15,
+		"presence_penalty":   0.1,
+		"num_ctx":            contextSize,
+		"n_ctx":              contextSize,
 		"options": map[string]interface{}{
-			"num_ctx": contextSize,
+			"num_ctx":        contextSize,
+			"repeat_penalty": 1.15,
 		},
 	}
 	if len(tools) > 0 {
 		payload["tools"] = tools
+		payload["tool_choice"] = "auto"
 	}
 
-	return s.executeStreamChatPayload(ctx, endpoint, msg.ApiKey, payload, conversation, stream, maxPromptTokens, estimateTokens)
+	if err := stream.Send(&portv1.StreamChatResponse{ActualNCtx: contextSize}); err != nil {
+		return err
+	}
+	return s.executeStreamChatPayload(ctx, endpoint, msg.ApiKey, payload, conversation, stream, maxHistoryTokens, estimateTokens)
 }
 
 func (s *Server) executeStreamChatPayload(
@@ -397,7 +459,65 @@ func (s *Server) executeStreamChatPayload(
 
 	if res.StatusCode >= 400 {
 		errBody, _ := io.ReadAll(res.Body)
-		return connect.NewError(connect.CodeInternal, fmt.Errorf("AI provider HTTP %d: %s", res.StatusCode, string(errBody)))
+
+		// On context overflow errors: extract the server's actual n_ctx, truncate system message, retry once.
+		var errResp struct {
+			Error struct {
+				Type  string `json:"type"`
+				NCtx  int    `json:"n_ctx"`
+			} `json:"error"`
+		}
+		if json.Unmarshal(errBody, &errResp) == nil && errResp.Error.Type == "exceed_context_size_error" && errResp.Error.NCtx > 0 {
+			actualCtx := errResp.Error.NCtx
+
+			// Small context (≤8192): tools alone are too expensive — drop them unconditionally.
+			if actualCtx <= 8192 {
+				delete(payload, "tools")
+			}
+
+			totalBudget := actualCtx - 500
+			if totalBudget < 300 {
+				totalBudget = 300
+			}
+			msgReserve := 200 // tokens always reserved for the last user turn
+			sysBudget := totalBudget - msgReserve
+
+			if msgs, ok := payload["messages"].([]map[string]interface{}); ok && len(msgs) > 0 {
+				// Truncate system message to sysBudget using conservative /3 estimate.
+				if content, ok := msgs[0]["content"].(string); ok && len(content)/3 > sysBudget {
+					msgs[0]["content"] = content[:sysBudget*3] + "\n... (truncated: server context is " + fmt.Sprintf("%d", actualCtx) + " tokens)"
+				}
+				sysTokens := len(msgs[0]["content"].(string)) / 3
+				histBudget := totalBudget - sysTokens
+				if histBudget < msgReserve {
+					histBudget = msgReserve
+				}
+				// Prune older history, always keep the last user message (msgs[len-1]).
+				for len(msgs) > 2 && estimateTokens(msgs[1:]) > histBudget {
+					msgs = append(msgs[:1], msgs[2:]...)
+				}
+				payload["messages"] = msgs
+				conversation = msgs
+			}
+			bodyBytes2, _ := json.Marshal(payload)
+			httpReq2, _ := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes2))
+			httpReq2.Header.Set("Content-Type", "application/json")
+			if apiKey != "" {
+				httpReq2.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+			}
+			res2, err2 := (&http.Client{Timeout: 0}).Do(httpReq2)
+			if err2 != nil {
+				return connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to AI server on retry: %w", err2))
+			}
+			defer res2.Body.Close()
+			if res2.StatusCode >= 400 {
+				errBody2, _ := io.ReadAll(res2.Body)
+				return connect.NewError(connect.CodeInternal, fmt.Errorf("AI provider HTTP %d (retry after context trim): %s", res2.StatusCode, string(errBody2)))
+			}
+			res = res2
+		} else {
+			return connect.NewError(connect.CodeInternal, fmt.Errorf("AI provider HTTP %d: %s", res.StatusCode, string(errBody)))
+		}
 	}
 
 	type toolCallDelta struct {
@@ -539,8 +659,10 @@ func (s *Server) executeStreamChatPayload(
 			"temperature": 0.3,
 			"stream":      true,
 		}
-		if tools, ok := payload["tools"]; ok {
-			nextPayload["tools"] = tools
+		for _, k := range []string{"tools", "num_ctx", "n_ctx", "options", "max_tokens", "repeat_penalty", "repetition_penalty", "presence_penalty"} {
+			if v, ok := payload[k]; ok {
+				nextPayload[k] = v
+			}
 		}
 
 		return s.executeStreamChatPayload(ctx, endpoint, apiKey, nextPayload, conversation, stream, maxPromptTokens, estimateTokens)
@@ -548,4 +670,180 @@ func (s *Server) executeStreamChatPayload(
 
 	_ = stream.Send(&portv1.StreamChatResponse{Done: true})
 	return nil
+}
+
+func (s *Server) ListOllamaModels(ctx context.Context, req *connect.Request[portv1.ListOllamaModelsRequest]) (*connect.Response[portv1.ListOllamaModelsResponse], error) {
+	endpoint := strings.TrimSuffix(strings.TrimSuffix(req.Msg.Endpoint, "/v1"), "/")
+	if endpoint == "" {
+		endpoint = "http://localhost:11434"
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint+"/api/tags", nil)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("build request: %w", err))
+	}
+
+	res, err := (&http.Client{}).Do(httpReq)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("ollama unreachable at %s: %w", endpoint, err))
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode >= 400 {
+		body, _ := io.ReadAll(res.Body)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("ollama /api/tags HTTP %d: %s", res.StatusCode, string(body)))
+	}
+
+	var resp struct {
+		Models []struct {
+			Name       string `json:"name"`
+			Size       int64  `json:"size"`
+			ModifiedAt string `json:"modified_at"`
+		} `json:"models"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&resp); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("decode ollama response: %w", err))
+	}
+
+	models := make([]*portv1.OllamaModelInfo, 0, len(resp.Models))
+	for _, m := range resp.Models {
+		models = append(models, &portv1.OllamaModelInfo{
+			Name:       m.Name,
+			SizeBytes:  m.Size,
+			ModifiedAt: m.ModifiedAt,
+		})
+	}
+
+	return connect.NewResponse(&portv1.ListOllamaModelsResponse{Models: models}), nil
+}
+
+func (s *Server) LoadOllamaModel(ctx context.Context, req *connect.Request[portv1.LoadOllamaModelRequest]) (*connect.Response[portv1.LoadOllamaModelResponse], error) {
+	endpoint := strings.TrimSuffix(strings.TrimSuffix(req.Msg.Endpoint, "/v1"), "/")
+	if endpoint == "" {
+		endpoint = "http://localhost:11434"
+	}
+	model := req.Msg.Model
+	contextSize := req.Msg.ContextSize
+	if contextSize <= 0 {
+		contextSize = 16384
+	}
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"model":      model,
+		"keep_alive": "30m",
+		"stream":     false,
+		"options": map[string]interface{}{
+			"num_ctx": contextSize,
+		},
+	})
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint+"/api/generate", bytes.NewReader(body))
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("build request: %w", err))
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	res, err := (&http.Client{}).Do(httpReq)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("ollama unreachable at %s: %w", endpoint, err))
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode >= 400 {
+		errBody, _ := io.ReadAll(res.Body)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("ollama load HTTP %d: %s", res.StatusCode, string(errBody)))
+	}
+
+	slog.InfoContext(ctx, "Ollama model loaded", "model", model, "num_ctx", contextSize)
+	return connect.NewResponse(&portv1.LoadOllamaModelResponse{
+		Success: true,
+		Message: fmt.Sprintf("Model %s loaded with %d token context", model, contextSize),
+	}), nil
+}
+
+func (s *Server) RestartLocalServer(ctx context.Context, req *connect.Request[portv1.RestartLocalServerRequest]) (*connect.Response[portv1.RestartLocalServerResponse], error) {
+	filename := strings.TrimSpace(req.Msg.ModelFilename)
+	if filename == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("model_filename is required"))
+	}
+	contextSize := req.Msg.ContextSize
+	if contextSize <= 0 {
+		contextSize = 16384
+	}
+	port := int(req.Msg.Port)
+	if port <= 0 {
+		port = 8080
+	}
+
+	modelPath := filepath.Join("data", "models", filename)
+	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("model file not found: %s", modelPath))
+	}
+
+	pidFile := filepath.Join("data", "models", "llama-server.pid")
+
+	// Kill existing llama-server via PID file.
+	if pidBytes, err := os.ReadFile(pidFile); err == nil {
+		if pid, err := strconv.Atoi(strings.TrimSpace(string(pidBytes))); err == nil {
+			if proc, err := os.FindProcess(pid); err == nil {
+				_ = proc.Kill()
+			}
+		}
+		_ = os.Remove(pidFile)
+	}
+	// Also kill any stray llama-server processes.
+	_ = exec.Command("pkill", "-f", "llama-server").Run()
+	time.Sleep(500 * time.Millisecond)
+
+	alias := strings.TrimSuffix(filename, ".gguf")
+	logPath := filepath.Join("data", "models", "llama-server.log")
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("open log file: %w", err))
+	}
+
+	cmd := exec.Command("llama-server",
+		"-m", modelPath,
+		"--port", strconv.Itoa(port),
+		"--host", "127.0.0.1",
+		"-ngl", "99",
+		"-c", strconv.Itoa(int(contextSize)),
+		"--alias", alias,
+		"--jinja",        // Jinja2 chat template — required for tool/function calling
+		"--flash-attn",   // flash attention — faster inference and larger context on Apple Silicon
+	)
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
+	if err := cmd.Start(); err != nil {
+		_ = logFile.Close()
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("start llama-server: %w", err))
+	}
+	_ = logFile.Close()
+
+	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(cmd.Process.Pid)), 0644); err != nil {
+		slog.WarnContext(ctx, "Failed to write llama-server PID file", "err", err)
+	}
+
+	// Wait up to 10s for server to become ready.
+	endpoint := fmt.Sprintf("http://127.0.0.1:%d", port)
+	ready := false
+	for i := 0; i < 20; i++ {
+		time.Sleep(500 * time.Millisecond)
+		if n := probeServerContext(endpoint + "/v1"); n > 0 {
+			ready = true
+			slog.InfoContext(ctx, "llama-server ready", "pid", cmd.Process.Pid, "n_ctx", n, "model", filename)
+			break
+		}
+	}
+
+	msg := fmt.Sprintf("llama-server started (PID %d) with %s, context %d", cmd.Process.Pid, filename, contextSize)
+	if !ready {
+		msg += " — server still loading, give it a few seconds"
+	}
+	return connect.NewResponse(&portv1.RestartLocalServerResponse{
+		Success:    true,
+		Message:    msg,
+		Port:       int32(port),
+		ActualNCtx: contextSize,
+	}), nil
 }

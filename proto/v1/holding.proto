@@ -66,7 +66,10 @@ message CreateHoldingResponse {
 }
 
 message UpdateHoldingRequest {
+  // ID of the holding to update. If zero, holding.id is used instead.
   int64 id = 1;
+  // Fields to update — only set what you want to change (e.g. pac_bps=0, is_pac=false).
+  // All percentage/monetary values are in basis points: 10000=100%, 5000=50%, 0=0%.
   Holding holding = 2;
 }
 
@@ -86,7 +89,7 @@ service HoldingService {
   rpc ListHoldings(ListHoldingsRequest) returns (ListHoldingsResponse);
   // Add a new holding position or active PAC accumulation plan.
   rpc CreateHolding(CreateHoldingRequest) returns (CreateHoldingResponse);
-  // Update an existing holding position, value, or PAC share.
+  // Update an existing holding's allocation, PAC share, or flags. Pass id + a holding object with only the fields to change. To remove a holding from PAC: set is_pac=false and pac_bps=0.
   rpc UpdateHolding(UpdateHoldingRequest) returns (UpdateHoldingResponse);
   // Delete a holding position.
   rpc DeleteHolding(DeleteHoldingRequest) returns (DeleteHoldingResponse);

@@ -10,26 +10,8 @@ import (
 	"loot/backend/internal/portfolio"
 )
 
-func (s *Store) CreateSnapshot(ctx context.Context, observedOn string, defaultCurrency string) (portfolio.Snapshot, error) {
-	if _, err := time.Parse(time.DateOnly, observedOn); err != nil {
-		return portfolio.Snapshot{}, errors.New("snapshot date must use YYYY-MM-DD")
-	}
-	if err := s.SaveSnapshot(ctx, observedOn); err != nil {
-		return portfolio.Snapshot{}, err
-	}
-	snapshots, err := s.ListSnapshots(ctx)
-	if err != nil {
-		return portfolio.Snapshot{}, err
-	}
-	for _, snap := range snapshots {
-		if snap.ObservedOn == observedOn {
-			return snap, nil
-		}
-	}
-	return portfolio.Snapshot{}, errors.New("snapshot creation failed")
-}
 
-func (s *Store) SaveSnapshot(ctx context.Context, observedOn string) error {
+func (s *Store) SaveSnapshot(ctx context.Context, observedOn string, userID string) error {
 	if _, err := time.Parse(time.DateOnly, observedOn); err != nil {
 		return errors.New("snapshot date must use YYYY-MM-DD")
 	}
@@ -38,8 +20,16 @@ func (s *Store) SaveSnapshot(ctx context.Context, observedOn string) error {
 		return err
 	}
 	defer tx.Rollback()
+
+	userFilter := ""
+	var userArgs []any
+	if userID != "" {
+		userFilter = ` AND (user_id=? OR user_id='')`
+		userArgs = []any{userID}
+	}
+
 	var accountCount int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM accounts WHERE archived=0`).Scan(&accountCount); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM accounts WHERE archived=0`+userFilter, userArgs...).Scan(&accountCount); err != nil {
 		return err
 	}
 	if accountCount == 0 {
@@ -48,9 +38,9 @@ func (s *Store) SaveSnapshot(ctx context.Context, observedOn string) error {
 	var snapshotID int64
 	now := time.Now().UTC().Format(time.RFC3339)
 	if err := tx.QueryRowContext(ctx, `
-		INSERT INTO snapshots (observed_on, created_at) VALUES (?, ?)
-		ON CONFLICT(observed_on) DO UPDATE SET created_at=excluded.created_at
-		RETURNING id`, observedOn, now).Scan(&snapshotID); err != nil {
+		INSERT INTO snapshots (user_id, observed_on, created_at) VALUES (?, ?, ?)
+		ON CONFLICT(observed_on, user_id) DO UPDATE SET created_at=excluded.created_at
+		RETURNING id`, userID, observedOn, now).Scan(&snapshotID); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM snapshot_entries WHERE snapshot_id=?`, snapshotID); err != nil {
@@ -58,28 +48,39 @@ func (s *Store) SaveSnapshot(ctx context.Context, observedOn string) error {
 	}
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO snapshot_entries (snapshot_id, account_name, currency, kind, asset_name, value_minor, tax_bps)
-		SELECT ?, name, currency, 'cash', 'Cash', balance_minor, tax_bps FROM accounts WHERE archived=0`, snapshotID); err != nil {
+		SELECT ?, name, currency, 'cash', 'Cash', balance_minor, tax_bps FROM accounts WHERE archived=0`+userFilter,
+		append([]any{snapshotID}, userArgs...)...); err != nil {
 		return err
+	}
+	joinFilter := ""
+	if userID != "" {
+		joinFilter = ` AND (a.user_id=? OR a.user_id='')`
 	}
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO snapshot_entries (snapshot_id, account_name, currency, kind, asset_key, asset_name, invested_minor, value_minor, tax_bps)
 		SELECT ?, a.name, a.currency, 'holding', i.isin, i.name, h.invested_minor, h.value_minor, h.tax_bps
-		FROM holdings h JOIN accounts a ON a.id=h.account_id JOIN instruments i ON i.id=h.instrument_id WHERE a.archived=0`, snapshotID); err != nil {
+		FROM holdings h JOIN accounts a ON a.id=h.account_id JOIN instruments i ON i.id=h.instrument_id WHERE a.archived=0`+joinFilter,
+		append([]any{snapshotID}, userArgs...)...); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 
-func (s *Store) ListSnapshots(ctx context.Context) ([]portfolio.Snapshot, error) {
-	rows, err := s.db.QueryContext(ctx, `
+func (s *Store) ListSnapshots(ctx context.Context, userID string) ([]portfolio.Snapshot, error) {
+	query := `
 		SELECT s.id, s.observed_on, e.currency,
 			SUM(CASE WHEN e.kind='cash' THEN e.value_minor ELSE 0 END),
 			SUM(CASE WHEN e.kind='holding' THEN e.invested_minor ELSE 0 END),
 			SUM(CASE WHEN e.kind='holding' THEN e.value_minor ELSE 0 END),
 			SUM(e.value_minor)
-		FROM snapshots s JOIN snapshot_entries e ON e.snapshot_id=s.id
-		GROUP BY s.id, s.observed_on, e.currency
-		ORDER BY s.observed_on, e.currency`)
+		FROM snapshots s JOIN snapshot_entries e ON e.snapshot_id=s.id`
+	var args []any
+	if userID != "" {
+		query += ` WHERE s.user_id = ?`
+		args = append(args, userID)
+	}
+	query += ` GROUP BY s.id, s.observed_on, e.currency ORDER BY s.observed_on, e.currency`
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +148,7 @@ func (s *Store) DeleteSnapshot(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (s *Store) UpdateSituation(ctx context.Context, accountUpdates map[int64]int64, holdingValueUpdates map[int64]int64, holdingInvestedUpdates map[int64]*int64, saveSnapshot bool, observedOn string) (bool, error) {
+func (s *Store) UpdateSituation(ctx context.Context, userID string, accountUpdates map[int64]int64, holdingValueUpdates map[int64]int64, holdingInvestedUpdates map[int64]*int64, saveSnapshot bool, observedOn string) (bool, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return false, err
@@ -156,11 +157,22 @@ func (s *Store) UpdateSituation(ctx context.Context, accountUpdates map[int64]in
 
 	now := time.Now().UTC().Format(time.RFC3339)
 
+	accountOwner := ""
+	holdingOwner := ""
+	if userID != "" {
+		accountOwner = ` AND (user_id=? OR user_id='')`
+		holdingOwner = ` AND account_id IN (SELECT id FROM accounts WHERE user_id=? OR user_id='')`
+	}
+
 	for accountID, balanceMinor := range accountUpdates {
 		if balanceMinor < 0 || balanceMinor > 1_000_000_000_000 {
 			return false, errors.New("account balance is outside the supported range")
 		}
-		if _, err := tx.ExecContext(ctx, `UPDATE accounts SET balance_minor=?, updated_at=? WHERE id=?`, balanceMinor, now, accountID); err != nil {
+		args := []any{balanceMinor, now, accountID}
+		if userID != "" {
+			args = append(args, userID)
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE accounts SET balance_minor=?, updated_at=? WHERE id=?`+accountOwner, args...); err != nil {
 			return false, fmt.Errorf("update account %d cash: %w", accountID, err)
 		}
 	}
@@ -174,11 +186,19 @@ func (s *Store) UpdateSituation(ctx context.Context, accountUpdates map[int64]in
 			if investedMinor < 0 || investedMinor > 1_000_000_000_000 {
 				return false, errors.New("invested value is outside the supported range")
 			}
-			if _, err := tx.ExecContext(ctx, `UPDATE holdings SET value_minor=?, invested_minor=?, updated_at=? WHERE id=?`, valueMinor, investedMinor, now, holdingID); err != nil {
+			args := []any{valueMinor, investedMinor, now, holdingID}
+			if userID != "" {
+				args = append(args, userID)
+			}
+			if _, err := tx.ExecContext(ctx, `UPDATE holdings SET value_minor=?, invested_minor=?, updated_at=? WHERE id=?`+holdingOwner, args...); err != nil {
 				return false, fmt.Errorf("update holding %d value and invested: %w", holdingID, err)
 			}
 		} else {
-			if _, err := tx.ExecContext(ctx, `UPDATE holdings SET value_minor=?, updated_at=? WHERE id=?`, valueMinor, now, holdingID); err != nil {
+			args := []any{valueMinor, now, holdingID}
+			if userID != "" {
+				args = append(args, userID)
+			}
+			if _, err := tx.ExecContext(ctx, `UPDATE holdings SET value_minor=?, updated_at=? WHERE id=?`+holdingOwner, args...); err != nil {
 				return false, fmt.Errorf("update holding %d value: %w", holdingID, err)
 			}
 		}
@@ -192,7 +212,7 @@ func (s *Store) UpdateSituation(ctx context.Context, accountUpdates map[int64]in
 		if observedOn == "" {
 			observedOn = time.Now().Format(time.DateOnly)
 		}
-		if err := s.SaveSnapshot(ctx, observedOn); err != nil {
+		if err := s.SaveSnapshot(ctx, observedOn, userID); err != nil {
 			return false, fmt.Errorf("save snapshot: %w", err)
 		}
 		return true, nil

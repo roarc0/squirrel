@@ -1,3 +1,20 @@
+# ai_system_prompt: |
+#   Override the default AI assistant system prompt. Leave unset to use the built-in prompt.
+#   Example: "You are a portfolio assistant. Always use tools — never write code blocks."
+
+# Google OAuth login — optional. Omit the auth block entirely to run without authentication.
+# Setup steps:
+#   1. Go to https://console.cloud.google.com → APIs & Services → Credentials
+#   2. Create an OAuth 2.0 Client ID (Web application)
+#   3. Add authorized redirect URI: http://localhost:7340/auth/callback/google
+#   4. Fill in the values below
+#   5. Start the app, log in with Google, then paste your google_id from /auth/me into admin_google_id
+# auth:
+#   google_client_id: "YOUR_CLIENT_ID.apps.googleusercontent.com"
+#   google_client_secret: "YOUR_CLIENT_SECRET"
+#   session_secret: "at-least-32-random-chars-change-this"
+#   admin_google_id: ""  # fill in after first login — see /auth/me
+
 listen: 127.0.0.1:7340
 database: data/loot.db
 base_currency: EUR

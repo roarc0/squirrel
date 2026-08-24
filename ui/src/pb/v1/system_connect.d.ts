@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { DownloadAIModelRequest, DownloadAIModelResponse, ExportBackupRequest, ExportBackupResponse, ListAIModelsRequest, ListAIModelsResponse, RestoreBackupRequest, RestoreBackupResponse, StreamChatRequest, StreamChatResponse } from "./system_pb.js";
+import { DownloadAIModelRequest, DownloadAIModelResponse, ExportBackupRequest, ExportBackupResponse, ListAIModelsRequest, ListAIModelsResponse, ListOllamaModelsRequest, ListOllamaModelsResponse, LoadOllamaModelRequest, LoadOllamaModelResponse, RestartLocalServerRequest, RestartLocalServerResponse, RestoreBackupRequest, RestoreBackupResponse, StreamChatRequest, StreamChatResponse } from "./system_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -68,6 +68,39 @@ export declare const SystemService: {
       readonly I: typeof StreamChatRequest,
       readonly O: typeof StreamChatResponse,
       readonly kind: MethodKind.ServerStreaming,
+    },
+    /**
+     * List models available in a running Ollama instance.
+     *
+     * @generated from rpc v1.SystemService.ListOllamaModels
+     */
+    readonly listOllamaModels: {
+      readonly name: "ListOllamaModels",
+      readonly I: typeof ListOllamaModelsRequest,
+      readonly O: typeof ListOllamaModelsResponse,
+      readonly kind: MethodKind.Unary,
+    },
+    /**
+     * Load an Ollama model into memory with the specified context size.
+     *
+     * @generated from rpc v1.SystemService.LoadOllamaModel
+     */
+    readonly loadOllamaModel: {
+      readonly name: "LoadOllamaModel",
+      readonly I: typeof LoadOllamaModelRequest,
+      readonly O: typeof LoadOllamaModelResponse,
+      readonly kind: MethodKind.Unary,
+    },
+    /**
+     * Kill and restart the local llama-server process with a new model and context size.
+     *
+     * @generated from rpc v1.SystemService.RestartLocalServer
+     */
+    readonly restartLocalServer: {
+      readonly name: "RestartLocalServer",
+      readonly I: typeof RestartLocalServerRequest,
+      readonly O: typeof RestartLocalServerResponse,
+      readonly kind: MethodKind.Unary,
     },
   }
 };

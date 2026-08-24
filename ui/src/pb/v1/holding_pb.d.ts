@@ -270,11 +270,16 @@ export declare class CreateHoldingResponse extends Message<CreateHoldingResponse
  */
 export declare class UpdateHoldingRequest extends Message<UpdateHoldingRequest> {
   /**
+   * ID of the holding to update. If zero, holding.id is used instead.
+   *
    * @generated from field: int64 id = 1;
    */
   id: bigint;
 
   /**
+   * Fields to update — only set what you want to change (e.g. pac_bps=0, is_pac=false).
+   * All percentage/monetary values are in basis points: 10000=100%, 5000=50%, 0=0%.
+   *
    * @generated from field: v1.Holding holding = 2;
    */
   holding?: Holding;

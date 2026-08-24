@@ -38,7 +38,7 @@ func TestAccountsIncludeHoldingsAndSummary(t *testing.T) {
 
 	account := portfolio.Account{Name: "Broker", Type: portfolio.AccountTypeBroker, Currency: "EUR", BalanceMinor: 10_000}
 	instrument := portfolio.Instrument{ISIN: "IE00B4L5Y983", Name: "World ETF", Distribution: portfolio.DistributionAccumulating, Replication: portfolio.ReplicationPhysicalFull, FundCurrency: "EUR", UCITS: true}
-	if err := data.SaveAccount(ctx, &account); err != nil {
+	if err := data.SaveAccount(ctx, &account, "testuser"); err != nil {
 		t.Fatal(err)
 	}
 	if err := data.SaveInstrument(ctx, &instrument); err != nil {
@@ -49,10 +49,10 @@ func TestAccountsIncludeHoldingsAndSummary(t *testing.T) {
 	}
 	rich := portfolio.Account{Name: "Rich", Currency: "EUR", BalanceMinor: 50_000}
 	archived := portfolio.Account{Name: "Archived", Currency: "EUR", BalanceMinor: 1_000_000, Archived: true}
-	if err := data.SaveAccount(ctx, &rich); err != nil {
+	if err := data.SaveAccount(ctx, &rich, "testuser"); err != nil {
 		t.Fatal(err)
 	}
-	if err := data.SaveAccount(ctx, &archived); err != nil {
+	if err := data.SaveAccount(ctx, &archived, "testuser"); err != nil {
 		t.Fatal(err)
 	}
 

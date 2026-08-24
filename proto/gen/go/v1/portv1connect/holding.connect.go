@@ -53,7 +53,7 @@ type HoldingServiceClient interface {
 	ListHoldings(context.Context, *connect.Request[v1.ListHoldingsRequest]) (*connect.Response[v1.ListHoldingsResponse], error)
 	// Add a new holding position or active PAC accumulation plan.
 	CreateHolding(context.Context, *connect.Request[v1.CreateHoldingRequest]) (*connect.Response[v1.CreateHoldingResponse], error)
-	// Update an existing holding position, value, or PAC share.
+	// Update an existing holding's allocation, PAC share, or flags. Pass id + a holding object with only the fields to change. To remove a holding from PAC: set is_pac=false and pac_bps=0.
 	UpdateHolding(context.Context, *connect.Request[v1.UpdateHoldingRequest]) (*connect.Response[v1.UpdateHoldingResponse], error)
 	// Delete a holding position.
 	DeleteHolding(context.Context, *connect.Request[v1.DeleteHoldingRequest]) (*connect.Response[v1.DeleteHoldingResponse], error)
@@ -131,7 +131,7 @@ type HoldingServiceHandler interface {
 	ListHoldings(context.Context, *connect.Request[v1.ListHoldingsRequest]) (*connect.Response[v1.ListHoldingsResponse], error)
 	// Add a new holding position or active PAC accumulation plan.
 	CreateHolding(context.Context, *connect.Request[v1.CreateHoldingRequest]) (*connect.Response[v1.CreateHoldingResponse], error)
-	// Update an existing holding position, value, or PAC share.
+	// Update an existing holding's allocation, PAC share, or flags. Pass id + a holding object with only the fields to change. To remove a holding from PAC: set is_pac=false and pac_bps=0.
 	UpdateHolding(context.Context, *connect.Request[v1.UpdateHoldingRequest]) (*connect.Response[v1.UpdateHoldingResponse], error)
 	// Delete a holding position.
 	DeleteHolding(context.Context, *connect.Request[v1.DeleteHoldingRequest]) (*connect.Response[v1.DeleteHoldingResponse], error)

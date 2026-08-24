@@ -8,12 +8,13 @@ import (
 
 	"connectrpc.com/connect"
 
+	"loot/backend/internal/auth"
 	"loot/backend/internal/portfolio"
 	portv1 "loot/proto/gen/go/v1"
 )
 
 func (s *Server) ListSnapshots(ctx context.Context, req *connect.Request[portv1.ListSnapshotsRequest]) (*connect.Response[portv1.ListSnapshotsResponse], error) {
-	snapshots, err := s.store.ListSnapshots(ctx)
+	snapshots, err := s.store.ListSnapshots(ctx, auth.UserIDOrEmpty(ctx))
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -54,7 +55,7 @@ func (s *Server) CreateSnapshot(ctx context.Context, req *connect.Request[portv1
 	if observedOn == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("observed_on is required"))
 	}
-	if err := s.store.SaveSnapshot(ctx, observedOn); err != nil {
+	if err := s.store.SaveSnapshot(ctx, observedOn, auth.UserIDOrEmpty(ctx)); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	return connect.NewResponse(&portv1.CreateSnapshotResponse{}), nil
@@ -103,7 +104,7 @@ func (s *Server) UpdateSituation(ctx context.Context, req *connect.Request[portv
 		observedOn = *req.Msg.ObservedOn
 	}
 
-	saved, err := s.store.UpdateSituation(ctx, accountUpdates, holdingValueUpdates, holdingInvestedUpdates, req.Msg.SaveSnapshot, observedOn)
+	saved, err := s.store.UpdateSituation(ctx, auth.UserIDOrEmpty(ctx), accountUpdates, holdingValueUpdates, holdingInvestedUpdates, req.Msg.SaveSnapshot, observedOn)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}

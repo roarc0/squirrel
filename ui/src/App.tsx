@@ -14,6 +14,12 @@ import {
   IconTrash,
   IconStar,
   IconStarFilled,
+  IconUser,
+  IconEye,
+  IconEyeOff,
+  IconSun,
+  IconMoon,
+  IconSettings,
 } from '@tabler/icons-react';
 import {
   ActionIcon,
@@ -38,6 +44,7 @@ import {
   Select,
   SimpleGrid,
   Stack,
+  Menu,
   Tabs,
   Text,
   TextInput,
@@ -51,7 +58,7 @@ import { Chip, chipColor } from './Chip';
 import { DataTable, TableAction, TableActions, type DataColumn, type SortDirection } from './DataTable';
 import { CompareModal } from './CompareModal';
 import { InvestModal } from './InvestModal';
-import { SettingsModal } from './SettingsModal';
+import { SettingsView } from './SettingsView';
 import { UpdateSituationModal } from './UpdateSituationModal';
 import { OverviewView } from './views/OverviewView';
 import { AccountsView } from './views/AccountsView';
@@ -65,6 +72,9 @@ import { chartGeometry, matchesExactFilters, pageBounds, performanceMood } from 
 type Data = { summary: Summary; accounts: Account[]; rates: ReferenceRate[]; taxRates: TaxRate[]; instruments: Instrument[]; holdings: Holding[]; snapshots: Snapshot[] };
 type Numeric = string | number;
 import { money, investedMoney, setHideBalancesState } from './utils/format';
+import { captureTokenFromURL, clearToken, fetchMe, isUnauthenticatedError, type AuthUser } from './auth';
+import { LoginView } from './LoginView';
+import { loadProfile, useProfile } from './hooks/useProfile';
 
 export function useBackendRows<T>(endpoint: string, source: T[], initialSort = '', initialDirection: SortDirection = 'asc') {
   const [rows, setRows] = useState(source);
@@ -82,9 +92,12 @@ export function useBackendRows<T>(endpoint: string, source: T[], initialSort = '
 }
 
 export default function App() {
+  const [needsLogin, setNeedsLogin] = useState(false);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [data, setData] = useState<Data>();
   const [error, setError] = useState('');
   const load = useCallback(async () => {
+    captureTokenFromURL();
     try {
       const [summary, accounts, rates, taxRates, instruments, holdings, snapshots] = await Promise.all([
         api<Summary>('/api/summary'),
@@ -96,17 +109,23 @@ export default function App() {
         api<Snapshot[]>('/api/snapshots'),
       ]);
       setData({ summary, accounts: accounts ?? [], rates: rates ?? [], taxRates: taxRates ?? [], instruments: instruments ?? [], holdings: holdings ?? [], snapshots: snapshots ?? [] });
+      setNeedsLogin(false);
       setError('');
+      fetchMe().then(u => setCurrentUser(u));
+      void loadProfile();
     } catch (cause) {
+      if (isUnauthenticatedError(cause)) {
+        setNeedsLogin(true);
+        return;
+      }
       setError(cause instanceof Error ? cause.message : String(cause));
     }
   }, []);
   useEffect(() => void load(), [load]);
 
   const [updateModalOpened, setUpdateModalOpened] = useState(false);
-  const [settingsModalOpened, setSettingsModalOpened] = useState(false);
 
-  const VALID_TABS = ['overview', 'accounts', 'holdings', 'drafts', 'instruments', 'diagnostics', 'advisor'];
+  const VALID_TABS = ['overview', 'accounts', 'holdings', 'drafts', 'instruments', 'diagnostics', 'advisor', 'settings'];
 
   const [activeTab, setActiveTab] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -153,32 +172,82 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  const [hideBalances, setHideBalances] = useState(() => {
-    try { return localStorage.getItem('loot.hideBalances') === 'true'; } catch { return false; }
-  });
+  const [profile, setProfileField] = useProfile();
+  const hideBalances = profile.hide_balances;
+  const setHideBalances = (fn: boolean | ((prev: boolean) => boolean)) => {
+    const next = typeof fn === 'function' ? fn(profile.hide_balances) : fn;
+    setProfileField({ hide_balances: next });
+  };
 
   useEffect(() => {
     setHideBalancesState(hideBalances);
-    try { localStorage.setItem('loot.hideBalances', String(hideBalances)); } catch { /* optional */ }
   }, [hideBalances]);
 
+  if (needsLogin) return <LoginView />;
   if (!data) return <Group justify="center" h="100vh">{error ? <Alert color="red">{error}</Alert> : <Loader />}</Group>;
   setHideBalancesState(hideBalances);
   const diagnosticsCount = data.summary.diagnostics?.length ?? 0;
   return (
+  <>
     <main className="shell">
       <Group justify="space-between" align="end" mb="xl">
         <Box>
           <Text size="xs" fw={700} c="teal" tt="uppercase" lts={2}>Know what you own</Text>
           <Title order={1} size="3rem" className="brand">LOOT</Title>
         </Box>
-        <Group>
-          <Button color="teal" variant="light" onClick={() => setUpdateModalOpened(true)}>Update situation</Button>
-          <Button variant="default" onClick={() => setSettingsModalOpened(true)}>Settings</Button>
-          <Button variant="default" title={hideBalances ? 'Show balances' : 'Hide balances'} onClick={() => setHideBalances(v => !v)}>
-            {hideBalances ? '🙈 Hide' : '👁️ Show'}
-          </Button>
-          <ThemeToggle />
+        <Group gap="xs">
+          <Tooltip label="Update situation" position="bottom">
+            <ActionIcon variant="default" size="lg" onClick={() => setUpdateModalOpened(true)} aria-label="Update situation">
+              <IconArrowsExchange size={18} />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label={hideBalances ? 'Show balances' : 'Hide balances'} position="bottom">
+            <ActionIcon variant="default" size="lg" onClick={() => setHideBalances(v => !v)} aria-label={hideBalances ? 'Show balances' : 'Hide balances'}>
+              {hideBalances ? <IconEyeOff size={18} /> : <IconEye size={18} />}
+            </ActionIcon>
+          </Tooltip>
+          <ThemeToggleIcon />
+          {currentUser ? (
+            <Menu shadow="md" width={240} position="bottom-end">
+              <Menu.Target>
+                <Tooltip label={currentUser.email} position="bottom">
+                  <ActionIcon variant="default" size="lg" aria-label="User menu">
+                    <IconUser size={18} />
+                  </ActionIcon>
+                </Tooltip>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Label>
+                  <Stack gap={2}>
+                    <Group gap="xs" align="center">
+                      <Text size="sm" fw={600}>{currentUser.email}</Text>
+                      {currentUser.is_admin && <Badge size="xs" color="teal">admin</Badge>}
+                    </Group>
+                    <Text
+                      size="xs"
+                      c="dimmed"
+                      style={{ fontFamily: 'monospace', cursor: 'pointer', wordBreak: 'break-all' }}
+                      title="Click to copy"
+                      onClick={() => navigator.clipboard.writeText(currentUser.google_id)}
+                    >
+                      {currentUser.google_id}
+                    </Text>
+                  </Stack>
+                </Menu.Label>
+                <Menu.Divider />
+                <Menu.Item leftSection={<IconSettings size={14} />} onClick={() => handleTabChange('settings')}>
+                  Settings
+                </Menu.Item>
+                <Menu.Divider />
+                <Menu.Item
+                  color="red"
+                  onClick={() => { clearToken(); setNeedsLogin(true); setCurrentUser(null); setData(undefined); }}
+                >
+                  Sign out
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+          ) : null}
         </Group>
       </Group>
       {error && <Alert color="red" mb="md" withCloseButton onClose={() => setError('')}>{error}</Alert>}
@@ -209,6 +278,9 @@ export default function App() {
           <Tabs.Tab value="advisor" leftSection={<IconRobot size={16} />}>
             AI Assistant
           </Tabs.Tab>
+          <Tabs.Tab value="settings" leftSection={<IconSettings size={16} />}>
+            Settings
+          </Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="overview"><Overview data={data} reload={load} onSwitchTab={handleTabChange} /></Tabs.Panel>
         <Tabs.Panel value="accounts"><Accounts accounts={data.accounts} rates={data.rates} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
@@ -225,7 +297,7 @@ export default function App() {
         <Tabs.Panel value="diagnostics">
           <DiagnosticsTab
             diagnostics={data.summary.diagnostics ?? []}
-            onOpenSettings={() => setSettingsModalOpened(true)}
+            onOpenSettings={() => handleTabChange('settings')}
             onOpenInvest={() => handleTabChange('holdings')}
           />
         </Tabs.Panel>
@@ -237,6 +309,9 @@ export default function App() {
             instruments={data.instruments}
           />
         </Tabs.Panel>
+        <Tabs.Panel value="settings">
+          <SettingsView reload={load} />
+        </Tabs.Panel>
       </Tabs>
       <UpdateSituationModal
         opened={updateModalOpened}
@@ -245,12 +320,11 @@ export default function App() {
         holdings={data.holdings}
         reload={load}
       />
-      <SettingsModal
-        opened={settingsModalOpened}
-        onClose={() => setSettingsModalOpened(false)}
-        reload={load}
-      />
     </main>
+    <footer className="app-footer">
+      <Text size="xs" c="dimmed">LOOT · Know what you own</Text>
+    </footer>
+  </>
   );
 }
 
@@ -294,9 +368,22 @@ export function PerformanceResult({ value, invested, currency, mood = false }: {
   return <Group gap={6} wrap="nowrap" align="center">{mood && <Text title={state.label} size="lg" lh={1}>{state.emoji}</Text>}<Text size="sm" fw={700} c={change >= 0 ? 'teal' : 'red'}>{change >= 0 ? '+' : ''}{money(change, currency)} · {change >= 0 ? '+' : ''}{changePercent.toFixed(1)}%</Text></Group>;
 }
 
-function ThemeToggle() {
-  const scheme = useComputedColorScheme('light'); const { setColorScheme } = useMantineColorScheme();
-  return <Button variant="default" aria-label={`Use ${scheme === 'dark' ? 'light' : 'dark'} theme`} onClick={() => setColorScheme(scheme === 'dark' ? 'light' : 'dark')}>{scheme === 'dark' ? '☀ Light' : '☾ Dark'}</Button>;
+function ThemeToggleIcon() {
+  const scheme = useComputedColorScheme('light');
+  const { setColorScheme } = useMantineColorScheme();
+  const isDark = scheme === 'dark';
+  return (
+    <Tooltip label={isDark ? 'Light mode' : 'Dark mode'} position="bottom">
+      <ActionIcon
+        variant="default"
+        size="lg"
+        aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        onClick={() => setColorScheme(isDark ? 'light' : 'dark')}
+      >
+        {isDark ? <IconSun size={18} /> : <IconMoon size={18} />}
+      </ActionIcon>
+    </Tooltip>
+  );
 }
 
 export function AllocationBar({ segments, total }: { segments: { label: string; value: number }[]; total: number }) {

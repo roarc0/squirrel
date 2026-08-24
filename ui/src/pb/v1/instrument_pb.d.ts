@@ -69,7 +69,7 @@ export declare class Instrument extends Message<Instrument> {
   investmentFocus?: string;
 
   /**
-   * Broad asset class: "equity", "bond", "commodity", "real_estate", "money_market", "other".
+   * Broad asset class: "equity", "bond", "commodity", "real_estate", "monetary", "crypto", "mixed", "other".
    *
    * @generated from field: optional string asset_class = 9;
    */

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"slices"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
+	"loot/backend/internal/auth"
 	"loot/backend/internal/config"
 	"loot/backend/internal/justetf"
 	"loot/backend/internal/mcp"
@@ -54,14 +56,41 @@ func NewWithConfig(data *store.Store, cfg config.Config, profileInterval ...time
 
 	mux := http.NewServeMux()
 
+	// Auth is optional: only active when session_secret is configured.
+	var connectOpts []connect.HandlerOption
+	if cfg.Auth.SessionSecret != "" {
+		connectOpts = append(connectOpts, connect.WithInterceptors(auth.NewInterceptor(cfg.Auth.SessionSecret)))
+
+		_, port, _ := net.SplitHostPort(cfg.Listen)
+		redirectURL := "http://localhost:" + port + "/auth/callback/google"
+		authHandler := auth.NewHandler(
+			cfg.Auth.GoogleClientID,
+			cfg.Auth.GoogleClientSecret,
+			redirectURL,
+			cfg.Auth.SessionSecret,
+			cfg.Auth.AdminGoogleID,
+			data,
+		)
+		mux.HandleFunc("GET /auth/login/google", authHandler.Login)
+		mux.HandleFunc("GET /auth/callback/google", authHandler.Callback)
+		mux.HandleFunc("GET /auth/me", authHandler.Me)
+
+		if cfg.Auth.AdminGoogleID != "" {
+			if err := data.ClaimAdminData(context.Background(), cfg.Auth.AdminGoogleID); err != nil {
+				slog.Warn("startup claim admin data failed", "error", err)
+			}
+		}
+	}
+
 	// Register Connect RPC Handlers
-	mux.Handle(portv1connect.NewRateServiceHandler(s))
-	mux.Handle(portv1connect.NewAccountServiceHandler(s))
-	mux.Handle(portv1connect.NewSummaryServiceHandler(s))
-	mux.Handle(portv1connect.NewInstrumentServiceHandler(s))
-	mux.Handle(portv1connect.NewHoldingServiceHandler(s))
-	mux.Handle(portv1connect.NewSnapshotServiceHandler(s))
-	mux.Handle(portv1connect.NewSystemServiceHandler(s))
+	mux.Handle(portv1connect.NewRateServiceHandler(s, connectOpts...))
+	mux.Handle(portv1connect.NewAccountServiceHandler(s, connectOpts...))
+	mux.Handle(portv1connect.NewSummaryServiceHandler(s, connectOpts...))
+	mux.Handle(portv1connect.NewInstrumentServiceHandler(s, connectOpts...))
+	mux.Handle(portv1connect.NewHoldingServiceHandler(s, connectOpts...))
+	mux.Handle(portv1connect.NewSnapshotServiceHandler(s, connectOpts...))
+	mux.Handle(portv1connect.NewSystemServiceHandler(s, connectOpts...))
+	mux.Handle(portv1connect.NewProfileServiceHandler(s, connectOpts...))
 
 	// Register Model Context Protocol (MCP) route
 	mcpHandler := mcp.NewHandler(mux)
@@ -72,9 +101,10 @@ func NewWithConfig(data *store.Store, cfg config.Config, profileInterval ...time
 	// UI fallback handler
 	mux.Handle("/", ui.Handler())
 
-	// CORS & Security headers middleware
-	corsHandler := withCORS(securityHeaders(mux))
-	return h2c.NewHandler(corsHandler, &http2.Server{})
+	// CORS & Security headers & request logging middleware
+	reqLog := newRequestLogger()
+	handler := requestLoggingMiddleware(reqLog)(withCORS(securityHeaders(mux)))
+	return h2c.NewHandler(handler, &http2.Server{})
 }
 
 func withCORS(h http.Handler) http.Handler {

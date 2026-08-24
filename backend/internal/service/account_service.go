@@ -10,6 +10,7 @@ import (
 
 	"connectrpc.com/connect"
 
+	"loot/backend/internal/auth"
 	"loot/backend/internal/portfolio"
 	portv1 "loot/proto/gen/go/v1"
 )
@@ -23,11 +24,12 @@ func (s *Server) accountsWithRevenue(ctx context.Context) ([]portfolio.Account, 
 	for _, rate := range rates {
 		references[rate.Code] = rate.RateBPS
 	}
-	accounts, err := s.store.ListAccounts(ctx)
+	userID := auth.UserIDOrEmpty(ctx)
+	accounts, err := s.store.ListAccounts(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	holdings, err := s.store.ListHoldings(ctx)
+	holdings, err := s.store.ListHoldings(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +116,7 @@ func (s *Server) CreateAccount(ctx context.Context, req *connect.Request[portv1.
 	}
 	account := accountFromProto(req.Msg.Account)
 	account.ID = 0
-	if err := s.store.SaveAccount(ctx, &account); err != nil {
+	if err := s.store.SaveAccount(ctx, &account, auth.UserIDOrEmpty(ctx)); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	return connect.NewResponse(&portv1.CreateAccountResponse{Account: accountToProto(account)}), nil
@@ -126,14 +128,14 @@ func (s *Server) UpdateAccount(ctx context.Context, req *connect.Request[portv1.
 	}
 	account := accountFromProto(req.Msg.Account)
 	account.ID = req.Msg.Id
-	if err := s.store.SaveAccount(ctx, &account); err != nil {
+	if err := s.store.SaveAccount(ctx, &account, auth.UserIDOrEmpty(ctx)); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	return connect.NewResponse(&portv1.UpdateAccountResponse{Account: accountToProto(account)}), nil
 }
 
 func (s *Server) DeleteAccount(ctx context.Context, req *connect.Request[portv1.DeleteAccountRequest]) (*connect.Response[portv1.DeleteAccountResponse], error) {
-	if err := s.store.DeleteAccount(ctx, req.Msg.Id); err != nil {
+	if err := s.store.DeleteAccount(ctx, req.Msg.Id, auth.UserIDOrEmpty(ctx)); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	return connect.NewResponse(&portv1.DeleteAccountResponse{}), nil

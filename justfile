@@ -1,5 +1,8 @@
 version := env_var_or_default("VERSION", "dev")
 
+default:
+	@just --list
+
 generate:
 	cd proto && just generate
 
@@ -7,7 +10,7 @@ ui: generate
 	cd ui && npm run build
 
 run *args: ui
-	CGO_ENABLED=0 go run github.com/air-verse/air@latest -- {{args}}
+	CGO_ENABLED=0 go run github.com/air-verse/air@latest -- -config loot.yaml {{args}}
 
 build: ui
 	mkdir -p bin
@@ -18,17 +21,33 @@ test: ui
 	cd ui && npm run check
 	cd ui && npm test
 
+db *args:
+	#!/usr/bin/env bash
+	DB_PATH="data/loot.db"
+	if [ -f loot.yaml ]; then
+		CONF_DB=$(grep -E '^\s*database:' loot.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
+		if [ -n "$CONF_DB" ]; then
+			DB_PATH="$CONF_DB"
+		fi
+	fi
+	if ! command -v sqlite3 >/dev/null 2>&1; then
+		echo "sqlite3 command is not installed. Please install sqlite3."
+		exit 1
+	fi
+	mkdir -p "$(dirname "$DB_PATH")"
+	exec sqlite3 "$DB_PATH" {{args}}
+
 ai-setup:
 	@mkdir -p data/models
 	@if ! command -v llama-server >/dev/null 2>&1; then \
 		echo "Installing llama.cpp via Homebrew..."; \
 		brew install llama.cpp; \
 	fi
-	@if [ ! -f data/models/qwen2.5-3b-instruct-q4_k_m.gguf ]; then \
-		echo "Downloading Qwen2.5-3B-Instruct GGUF into data/models/..."; \
-		curl -L -C - -o data/models/qwen2.5-3b-instruct-q4_k_m.gguf "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf"; \
+	@if [ ! -f data/models/Qwen_Qwen3-8B-Q4_K_M.gguf ]; then \
+		echo "Downloading Qwen3-8B GGUF into data/models/ (~5GB, best tool-calling model for M5)..."; \
+		curl -L -C - -o data/models/Qwen_Qwen3-8B-Q4_K_M.gguf "https://huggingface.co/bartowski/Qwen_Qwen3-8B-GGUF/resolve/main/Qwen_Qwen3-8B-Q4_K_M.gguf"; \
 	else \
-		echo "Model data/models/qwen2.5-3b-instruct-q4_k_m.gguf is ready."; \
+		echo "Model data/models/Qwen_Qwen3-8B-Q4_K_M.gguf is ready."; \
 	fi
 
 ai-start: ai-setup
@@ -36,8 +55,8 @@ ai-start: ai-setup
 	if [ -f data/models/llama-server.pid ] && kill -0 $(cat data/models/llama-server.pid) 2>/dev/null; then
 		echo "Local AI OpenAI Server is already running on http://127.0.0.1:8080/v1 (PID $(cat data/models/llama-server.pid))"
 	else
-		echo "Starting Local AI OpenAI Server on http://127.0.0.1:8080/v1 (Metal GPU enabled)..."
-		nohup llama-server -m data/models/qwen2.5-3b-instruct-q4_k_m.gguf --port 8080 --host 127.0.0.1 -ngl 99 -c 16384 --alias qwen2.5-3b-instruct > data/models/llama-server.log 2>&1 &
+		echo "Starting Local AI OpenAI Server on http://127.0.0.1:8080/v1 (Metal GPU + flash attention)..."
+		nohup llama-server -m data/models/Qwen_Qwen3-8B-Q4_K_M.gguf --port 8080 --host 127.0.0.1 -ngl 99 -c 32768 --alias qwen3-8b --jinja --flash-attn auto > data/models/llama-server.log 2>&1 &
 		echo $! > data/models/llama-server.pid
 		echo "Local AI Server started (PID $(cat data/models/llama-server.pid)). Logs: data/models/llama-server.log"
 	fi

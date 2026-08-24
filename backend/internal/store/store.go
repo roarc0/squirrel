@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"embed"
 	"fmt"
@@ -92,6 +93,18 @@ func migrate(db *sql.DB) error {
 		return fmt.Errorf("ensure notes columns: %w", err)
 	}
 
+	if err := ensureUserIDColumns(db); err != nil {
+		return fmt.Errorf("ensure user_id columns: %w", err)
+	}
+
+	if err := ensureSnapshotUserIDColumn(db); err != nil {
+		return fmt.Errorf("ensure snapshot user_id column: %w", err)
+	}
+
+	if err := ensureUserProfilesTable(db); err != nil {
+		return fmt.Errorf("ensure user_profiles table: %w", err)
+	}
+
 	return backfillInstrumentTypes(db)
 }
 
@@ -136,6 +149,71 @@ func ensurePACHoldingsColumns(db *sql.DB) error {
 	return nil
 }
 
+func ensureUserIDColumns(db *sql.DB) error {
+	var hasUserID int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('accounts') WHERE name='user_id'`).Scan(&hasUserID); err == nil && hasUserID == 0 {
+		_, _ = db.Exec(`ALTER TABLE accounts ADD COLUMN user_id TEXT NOT NULL DEFAULT '';`)
+	}
+	return nil
+}
+
+func ensureSnapshotUserIDColumn(db *sql.DB) error {
+	var hasSnapshotsTable int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='snapshots'`).Scan(&hasSnapshotsTable); err != nil || hasSnapshotsTable == 0 {
+		return nil
+	}
+	var hasUserID int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('snapshots') WHERE name='user_id'`).Scan(&hasUserID); err != nil {
+		return err
+	}
+	if hasUserID > 0 {
+		return nil
+	}
+	if _, err := db.Exec(`PRAGMA foreign_keys = OFF`); err != nil {
+		return err
+	}
+	steps := []string{
+		`PRAGMA legacy_alter_table = ON`,
+		`ALTER TABLE snapshots RENAME TO snapshots_legacy`,
+		`CREATE TABLE snapshots (
+			id INTEGER PRIMARY KEY,
+			user_id TEXT NOT NULL DEFAULT '',
+			observed_on TEXT NOT NULL,
+			created_at TEXT NOT NULL,
+			UNIQUE(observed_on, user_id)
+		)`,
+		`INSERT INTO snapshots (id, user_id, observed_on, created_at)
+			SELECT id, '', observed_on, created_at FROM snapshots_legacy`,
+		`DROP TABLE snapshots_legacy`,
+		`PRAGMA legacy_alter_table = OFF`,
+	}
+	for _, step := range steps {
+		if _, err := db.Exec(step); err != nil {
+			db.Exec(`PRAGMA foreign_keys = ON`)
+			return err
+		}
+	}
+	_, err := db.Exec(`PRAGMA foreign_keys = ON`)
+	return err
+}
+
+// ClaimAdminData assigns all unclaimed accounts and snapshots (user_id='') to the given Google ID.
+// Called on first admin login so existing data becomes owned by the admin.
+func (s *Store) ClaimAdminData(ctx context.Context, googleID string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `UPDATE accounts SET user_id=? WHERE user_id=''`, googleID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE snapshots SET user_id=? WHERE user_id=''`, googleID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func backfillInstrumentTypes(db *sql.DB) error {
 	var hasName int
 	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('instruments') WHERE name='name'`).Scan(&hasName); err != nil || hasName == 0 {
@@ -147,6 +225,15 @@ func backfillInstrumentTypes(db *sql.DB) error {
 		UPDATE instruments SET asset_class='bond' WHERE asset_class IN ('', 'other') AND
 			(lower(investment_focus) LIKE 'bond%' OR lower(name) LIKE '% bond%' OR lower(index_name) LIKE '% treasury%');
 		UPDATE instruments SET asset_class='commodity' WHERE asset_class IN ('', 'other') AND
-			(lower(investment_focus) LIKE 'commodit%' OR lower(investment_focus) LIKE 'precious metal%' OR lower(name) LIKE '% gold%' OR lower(name) LIKE '% silver%');`)
+			(lower(investment_focus) LIKE 'commodit%' OR lower(investment_focus) LIKE 'precious metal%' OR lower(name) LIKE '% gold%' OR lower(name) LIKE '% silver%');
+		UPDATE instruments SET asset_class='monetary' WHERE asset_class='money_market';
+		UPDATE instruments SET asset_class='monetary' WHERE asset_class IN ('', 'other') AND
+			(lower(investment_focus) LIKE 'money market%'
+			 OR lower(name) LIKE '%money market%'
+			 OR lower(index_name) LIKE '%money market%'
+			 OR lower(index_name) LIKE '%eonia%'
+			 OR lower(index_name) LIKE '%euribor%'
+			 OR lower(index_name) LIKE '%%str%'
+			 OR (lower(name) LIKE '%cash%' AND (lower(name) LIKE '%month%' OR lower(name) LIKE '%overnight%' OR lower(name) LIKE '%liquidity%')));`)
 	return err
 }

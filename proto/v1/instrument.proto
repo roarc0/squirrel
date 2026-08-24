@@ -22,7 +22,7 @@ message Instrument {
   optional string index_name = 7;
   // Primary investment focus (e.g. "Equity", "Bonds", "Precious Metals").
   optional string investment_focus = 8;
-  // Broad asset class: "equity", "bond", "commodity", "real_estate", "money_market", "other".
+  // Broad asset class: "equity", "bond", "commodity", "real_estate", "monetary", "crypto", "mixed", "other".
   optional string asset_class = 9;
   // Fund strategy or style (e.g. "Blend", "Value", "Growth", "Dividend").
   optional string strategy = 10;

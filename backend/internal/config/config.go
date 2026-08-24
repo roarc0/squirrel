@@ -21,6 +21,13 @@ type AIModelConfig struct {
 	Description string `yaml:"description"`
 }
 
+type AuthConfig struct {
+	GoogleClientID     string `yaml:"google_client_id"`
+	GoogleClientSecret string `yaml:"google_client_secret"`
+	SessionSecret      string `yaml:"session_secret"`
+	AdminGoogleID      string `yaml:"admin_google_id"`
+}
+
 type Config struct {
 	Listen                string              `yaml:"listen"`
 	Database              string              `yaml:"database"`
@@ -33,38 +40,95 @@ type Config struct {
 	AIModel               string              `yaml:"ai_model"`
 	AIAPIKey              string              `yaml:"ai_api_key"`
 	AIContextSize         int                 `yaml:"ai_context_size"`
+	AISystemPrompt        string              `yaml:"ai_system_prompt"`
 	AIModels              []AIModelConfig     `yaml:"ai_models"`
+	Auth                  AuthConfig          `yaml:"auth"`
+}
+
+func DefaultSystemPrompt() string {
+	return `You are an expert local-first financial portfolio AI assistant for LOOT. You have MCP tools available and MUST use them to answer questions and take actions.
+
+CRITICAL RULE: Always call tools using the tool_calls mechanism. NEVER write Python, pseudocode, shell commands, or code blocks to simulate a tool call. NEVER describe what you would do — always do it by invoking the real tool directly.
+
+Read tools: list_holdings, list_accounts, search_instruments, rank_instruments, lookup_instrument, get_summary, get_diagnostics, list_snapshots, list_tax_rates.
+Write tools: update_holding, create_holding, delete_holding.
+
+Updating a holding: call update_holding with {"id": <holding_id>, "holding": {"pac_bps": <value>, "planned_bps": <value>, "is_pac": <bool>}}. All monetary/percentage values use basis points (bps): 10000 bps = 100%, 5000 bps = 50%, 0 = zero.
+
+Workflow for portfolio changes:
+1. Call list_holdings to get holding IDs and current values.
+2. Call update_holding / create_holding / delete_holding to make the change.
+3. Confirm what changed in plain language.
+
+Never output raw JSON blobs, HTTP requests, or code. Never give binding legal or tax advice.`
 }
 
 func DefaultAIModels() []AIModelConfig {
 	return []AIModelConfig{
+		// --- Recommended for M5 / tool-calling ---
+		{
+			ID:          "qwen3-8b",
+			Name:        "Qwen3 8B ★ Best tool calling ~5GB",
+			Filename:    "Qwen_Qwen3-8B-Q4_K_M.gguf",
+			SourceURL:   "https://huggingface.co/bartowski/Qwen_Qwen3-8B-GGUF/resolve/main/Qwen_Qwen3-8B-Q4_K_M.gguf",
+			Description: "#1 tool-calling model at the 8B size class (2025-2026 benchmarks). Native Jinja function-call template. Recommended default for M5.",
+		},
+		{
+			ID:          "qwen3-14b",
+			Name:        "Qwen3 14B ★ Best quality/speed ~10GB",
+			Filename:    "Qwen_Qwen3-14B-Q4_K_M.gguf",
+			SourceURL:   "https://huggingface.co/bartowski/Qwen_Qwen3-14B-GGUF/resolve/main/Qwen_Qwen3-14B-Q4_K_M.gguf",
+			Description: "Top-ranked sub-20B model for structured tool calling. Sweet spot for M5 Pro/Max. Excellent reasoning.",
+		},
+		{
+			ID:          "qwen3-27b-moe",
+			Name:        "Qwen3.6 27B MoE ★ Fast reasoning ~17GB",
+			Filename:    "Qwen_Qwen3.6-27B-Q4_K_M.gguf",
+			SourceURL:   "https://huggingface.co/bartowski/Qwen_Qwen3.6-27B-GGUF/resolve/main/Qwen_Qwen3.6-27B-Q4_K_M.gguf",
+			Description: "Mixture-of-Experts: only ~6B params active per token so fast inference despite size. #1 in 2026 function-calling benchmarks. For M5 Max 64GB+.",
+		},
+		{
+			ID:          "deepseek-r1-0528-qwen3-8b",
+			Name:        "DeepSeek R1 0528 Qwen3 8B ~5GB",
+			Filename:    "deepseek-ai_DeepSeek-R1-0528-Qwen3-8B-Q4_K_M.gguf",
+			SourceURL:   "https://huggingface.co/bartowski/deepseek-ai_DeepSeek-R1-0528-Qwen3-8B-GGUF/resolve/main/deepseek-ai_DeepSeek-R1-0528-Qwen3-8B-Q4_K_M.gguf",
+			Description: "Qwen3-8B distilled with DeepSeek R1 reasoning traces. Strong chain-of-thought before tool dispatch.",
+		},
+		{
+			ID:          "deepseek-r1-distill-qwen-14b",
+			Name:        "DeepSeek R1 Distill Qwen 14B ~9GB",
+			Filename:    "DeepSeek-R1-Distill-Qwen-14B-Q4_K_M.gguf",
+			SourceURL:   "https://huggingface.co/bartowski/DeepSeek-R1-Distill-Qwen-14B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-14B-Q4_K_M.gguf",
+			Description: "R1 reasoning distilled onto Qwen2.5-14B. Excellent for multi-step agentic workflows.",
+		},
+		{
+			ID:          "deepseek-r1-distill-qwen-32b",
+			Name:        "DeepSeek R1 Distill Qwen 32B ~20GB",
+			Filename:    "DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf",
+			SourceURL:   "https://huggingface.co/bartowski/DeepSeek-R1-Distill-Qwen-32B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf",
+			Description: "R1 reasoning on Qwen2.5-32B. Best reasoning quality before 70B. For M5 Max 48GB+.",
+		},
+		{
+			ID:          "llama-3.3-70b-instruct",
+			Name:        "Llama 3.3 70B Instruct ~40GB",
+			Filename:    "Llama-3.3-70B-Instruct-Q4_K_M.gguf",
+			SourceURL:   "https://huggingface.co/bartowski/Llama-3.3-70B-Instruct-GGUF/resolve/main/Llama-3.3-70B-Instruct-Q4_K_M.gguf",
+			Description: "Meta's 70B flagship. Native tool-call JSON format. Best overall instruction following. For M5 Max 64GB+.",
+		},
+		// --- Legacy / kept for compatibility ---
 		{
 			ID:          "deepseek-r1-distill-qwen-7b",
-			Name:        "DeepSeek R1 Distill Qwen 7B (Premier Math & Reasoning)",
+			Name:        "DeepSeek R1 Distill Qwen 7B ~4.5GB",
 			Filename:    "deepseek-r1-distill-qwen-7b-q4_k_m.gguf",
 			SourceURL:   "https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-7B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf",
-			Description: "High-precision reasoning model with chain-of-thought verification for portfolio math & fee calculations.",
-		},
-		{
-			ID:          "qwen2.5-math-7b-instruct",
-			Name:        "Qwen 2.5 Math 7B Instruct (High Math Accuracy)",
-			Filename:    "qwen2.5-math-7b-instruct-q4_k_m.gguf",
-			SourceURL:   "https://huggingface.co/Qwen/Qwen2.5-Math-7B-Instruct-GGUF/resolve/main/qwen2.5-math-7b-instruct-q4_k_m.gguf",
-			Description: "Specialized mathematical reasoning model tuned for zero-hallucination arithmetic and asset math.",
-		},
-		{
-			ID:          "deepseek-r1-distill-qwen-1.5b",
-			Name:        "DeepSeek R1 Distill Qwen 1.5B (Fast Local Reasoning)",
-			Filename:    "deepseek-r1-distill-qwen-1.5b-q4_k_m.gguf",
-			SourceURL:   "https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf",
-			Description: "Fast 1.5B reasoning model for local Metal GPU execution.",
+			Description: "Reasoning model distilled from DeepSeek R1 onto Qwen2.5-7B.",
 		},
 		{
 			ID:          "qwen2.5-3b-instruct",
-			Name:        "Qwen 2.5 3B Instruct (Default)",
+			Name:        "Qwen 2.5 3B Instruct ~2GB (too small for tools)",
 			Filename:    "qwen2.5-3b-instruct-q4_k_m.gguf",
 			SourceURL:   "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf",
-			Description: "3B parameters, high accuracy for financial analysis & portfolio rebalancing.",
+			Description: "Lightweight 3B model. Not recommended for tool calling — hallucination-prone at this size.",
 		},
 		{
 			ID:          "llama-3.2-3b-instruct",
@@ -96,10 +160,11 @@ func Load(path string) (Config, error) {
 		},
 		AIProvider: "local",
 		AIEndpoint: "http://127.0.0.1:8080/v1",
-		AIModel:       "deepseek-r1-distill-qwen-7b",
+		AIModel:       "qwen3-8b",
 		AIAPIKey:      "",
 		AIContextSize: 16384,
-		AIModels:      DefaultAIModels(),
+		AISystemPrompt: DefaultSystemPrompt(),
+		AIModels:       DefaultAIModels(),
 	}
 	if path != "" {
 		f, err := os.Open(path)
@@ -116,6 +181,9 @@ func Load(path string) (Config, error) {
 
 	if cfg.AIContextSize <= 0 {
 		cfg.AIContextSize = 16384
+	}
+	if cfg.AISystemPrompt == "" {
+		cfg.AISystemPrompt = DefaultSystemPrompt()
 	}
 
 	cfg.BaseCurrency = strings.ToUpper(strings.TrimSpace(cfg.BaseCurrency))
@@ -162,6 +230,11 @@ func (c Config) validate() error {
 	case "debug", "info", "warn", "error":
 	default:
 		return errors.New("log_level must be debug, info, warn, or error")
+	}
+	if c.Auth.GoogleClientID != "" || c.Auth.GoogleClientSecret != "" {
+		if c.Auth.GoogleClientID == "" || c.Auth.GoogleClientSecret == "" || c.Auth.SessionSecret == "" {
+			return errors.New("auth requires google_client_id, google_client_secret, and session_secret")
+		}
 	}
 	return nil
 }

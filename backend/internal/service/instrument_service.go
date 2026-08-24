@@ -12,6 +12,7 @@ import (
 
 	"connectrpc.com/connect"
 
+	"loot/backend/internal/auth"
 	"loot/backend/internal/portfolio"
 	"loot/backend/internal/store"
 	portv1 "loot/proto/gen/go/v1"
@@ -117,6 +118,9 @@ func (s *Server) SearchInstruments(ctx context.Context, req *connect.Request[por
 }
 
 func (s *Server) SyncInstrumentCatalog(ctx context.Context, req *connect.Request[portv1.SyncInstrumentCatalogRequest]) (*connect.Response[portv1.SyncInstrumentCatalogResponse], error) {
+	if err := auth.RequireAdmin(ctx, s.config.Auth.AdminGoogleID); err != nil {
+		return nil, err
+	}
 	limit := int(req.Msg.Limit)
 	if limit <= 0 {
 		limit = 4000
@@ -133,6 +137,9 @@ func (s *Server) SyncInstrumentCatalog(ctx context.Context, req *connect.Request
 }
 
 func (s *Server) StreamInstrumentCatalog(ctx context.Context, req *connect.Request[portv1.StreamInstrumentCatalogRequest], stream *connect.ServerStream[portv1.EnrichmentProgress]) error {
+	if err := auth.RequireAdmin(ctx, s.config.Auth.AdminGoogleID); err != nil {
+		return err
+	}
 	mode := req.Msg.Mode
 	if mode == "" {
 		mode = "missing"
@@ -185,6 +192,9 @@ func (s *Server) StreamInstrumentCatalog(ctx context.Context, req *connect.Reque
 }
 
 func (s *Server) EnrichInstrumentCatalog(ctx context.Context, req *connect.Request[portv1.EnrichInstrumentCatalogRequest]) (*connect.Response[portv1.EnrichInstrumentCatalogResponse], error) {
+	if err := auth.RequireAdmin(ctx, s.config.Auth.AdminGoogleID); err != nil {
+		return nil, err
+	}
 	limit := int(req.Msg.Limit)
 	if limit <= 0 {
 		limit = 20
@@ -206,6 +216,9 @@ func (s *Server) EnrichInstrumentCatalog(ctx context.Context, req *connect.Reque
 }
 
 func (s *Server) CreateInstrument(ctx context.Context, req *connect.Request[portv1.CreateInstrumentRequest]) (*connect.Response[portv1.CreateInstrumentResponse], error) {
+	if err := auth.RequireAdmin(ctx, s.config.Auth.AdminGoogleID); err != nil {
+		return nil, err
+	}
 	if req.Msg.Instrument == nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("instrument is required"))
 	}
@@ -218,35 +231,31 @@ func (s *Server) CreateInstrument(ctx context.Context, req *connect.Request[port
 }
 
 func (s *Server) LookupInstrument(ctx context.Context, req *connect.Request[portv1.LookupInstrumentRequest]) (*connect.Response[portv1.LookupInstrumentResponse], error) {
+	if err := auth.RequireAdmin(ctx, s.config.Auth.AdminGoogleID); err != nil {
+		return nil, err
+	}
 	query := strings.TrimSpace(req.Msg.Query)
 	if query == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("lookup query is required"))
 	}
-	if portfolio.ValidISIN(query) {
-		inst, err := s.store.GetInstrumentByISIN(ctx, query)
-		if err == nil {
-			return connect.NewResponse(&portv1.LookupInstrumentResponse{Instrument: instrumentToProto(inst)}), nil
+	isin := query
+	if !portfolio.ValidISIN(query) {
+		results, err := s.justETF.Search(ctx, query)
+		if err != nil {
+			return nil, justETFConnectError(ctx, query, err)
 		}
-	}
-	results, err := s.justETF.Search(ctx, query)
-	if err != nil {
-		return nil, justETFConnectError(ctx, query, err)
-	}
-	if len(results) == 0 {
-		return nil, connect.NewError(connect.CodeNotFound, errors.New("no matching instrument found"))
-	}
-	target := results[0]
-	existing, err := s.store.GetInstrumentByISIN(ctx, target.ISIN)
-	if err == nil {
-		target = existing
-	}
-	if err := s.enrichInstrument(ctx, target.ISIN); err != nil {
-		if target.ID > 0 {
-			return connect.NewResponse(&portv1.LookupInstrumentResponse{Instrument: instrumentToProto(target)}), nil
+		if len(results) == 0 {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("no matching instrument found"))
 		}
-		return nil, justETFConnectError(ctx, target.ISIN, err)
+		isin = results[0].ISIN
 	}
-	saved, err := s.store.GetInstrumentByISIN(ctx, target.ISIN)
+	if err := s.enrichInstrument(ctx, isin); err != nil {
+		if existing, dbErr := s.store.GetInstrumentByISIN(ctx, isin); dbErr == nil {
+			return connect.NewResponse(&portv1.LookupInstrumentResponse{Instrument: instrumentToProto(existing)}), nil
+		}
+		return nil, justETFConnectError(ctx, isin, err)
+	}
+	saved, err := s.store.GetInstrumentByISIN(ctx, isin)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -254,6 +263,9 @@ func (s *Server) LookupInstrument(ctx context.Context, req *connect.Request[port
 }
 
 func (s *Server) ImportInstruments(ctx context.Context, req *connect.Request[portv1.ImportInstrumentsRequest]) (*connect.Response[portv1.ImportInstrumentsResponse], error) {
+	if err := auth.RequireAdmin(ctx, s.config.Auth.AdminGoogleID); err != nil {
+		return nil, err
+	}
 	isins := req.Msg.Isins
 	var result []portfolio.Instrument
 	for _, raw := range isins {
@@ -275,6 +287,9 @@ func (s *Server) ImportInstruments(ctx context.Context, req *connect.Request[por
 }
 
 func (s *Server) DeleteInstrument(ctx context.Context, req *connect.Request[portv1.DeleteInstrumentRequest]) (*connect.Response[portv1.DeleteInstrumentResponse], error) {
+	if err := auth.RequireAdmin(ctx, s.config.Auth.AdminGoogleID); err != nil {
+		return nil, err
+	}
 	if err := s.store.DeleteInstrument(ctx, req.Msg.Id); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}

@@ -40,7 +40,7 @@ type Instrument struct {
 	IndexName *string `protobuf:"bytes,7,opt,name=index_name,json=indexName,proto3,oneof" json:"index_name,omitempty"`
 	// Primary investment focus (e.g. "Equity", "Bonds", "Precious Metals").
 	InvestmentFocus *string `protobuf:"bytes,8,opt,name=investment_focus,json=investmentFocus,proto3,oneof" json:"investment_focus,omitempty"`
-	// Broad asset class: "equity", "bond", "commodity", "real_estate", "money_market", "other".
+	// Broad asset class: "equity", "bond", "commodity", "real_estate", "monetary", "crypto", "mixed", "other".
 	AssetClass *string `protobuf:"bytes,9,opt,name=asset_class,json=assetClass,proto3,oneof" json:"asset_class,omitempty"`
 	// Fund strategy or style (e.g. "Blend", "Value", "Growth", "Dividend").
 	Strategy *string `protobuf:"bytes,10,opt,name=strategy,proto3,oneof" json:"strategy,omitempty"`

@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { DownloadAIModelRequest, DownloadAIModelResponse, ExportBackupRequest, ExportBackupResponse, ListAIModelsRequest, ListAIModelsResponse, RestoreBackupRequest, RestoreBackupResponse, StreamChatRequest, StreamChatResponse } from "./system_pb.js";
+import { DownloadAIModelRequest, DownloadAIModelResponse, ExportBackupRequest, ExportBackupResponse, ListAIModelsRequest, ListAIModelsResponse, ListOllamaModelsRequest, ListOllamaModelsResponse, LoadOllamaModelRequest, LoadOllamaModelResponse, RestartLocalServerRequest, RestartLocalServerResponse, RestoreBackupRequest, RestoreBackupResponse, StreamChatRequest, StreamChatResponse } from "./system_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -68,6 +68,39 @@ export const SystemService = {
       I: StreamChatRequest,
       O: StreamChatResponse,
       kind: MethodKind.ServerStreaming,
+    },
+    /**
+     * List models available in a running Ollama instance.
+     *
+     * @generated from rpc v1.SystemService.ListOllamaModels
+     */
+    listOllamaModels: {
+      name: "ListOllamaModels",
+      I: ListOllamaModelsRequest,
+      O: ListOllamaModelsResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Load an Ollama model into memory with the specified context size.
+     *
+     * @generated from rpc v1.SystemService.LoadOllamaModel
+     */
+    loadOllamaModel: {
+      name: "LoadOllamaModel",
+      I: LoadOllamaModelRequest,
+      O: LoadOllamaModelResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Kill and restart the local llama-server process with a new model and context size.
+     *
+     * @generated from rpc v1.SystemService.RestartLocalServer
+     */
+    restartLocalServer: {
+      name: "RestartLocalServer",
+      I: RestartLocalServerRequest,
+      O: RestartLocalServerResponse,
+      kind: MethodKind.Unary,
     },
   }
 };

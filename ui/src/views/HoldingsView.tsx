@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  ActionIcon,
   Alert,
   Badge,
   Box,
@@ -11,6 +12,7 @@ import {
   MultiSelect,
   NumberInput,
   Paper,
+  Progress,
   Select,
   SimpleGrid,
   Stack,
@@ -18,8 +20,10 @@ import {
   TextInput,
   Textarea,
   Title,
+  Tooltip,
 } from '@mantine/core';
-import { IconPencil, IconTrash } from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications';
+import { IconCheck, IconPencil, IconTrash, IconX } from '@tabler/icons-react';
 import { api, type Account, type Holding, type Instrument, type TaxRate } from '../api';
 import { AllocationBar, PerformanceResult, useBackendRows } from '../App';
 import { Chip } from '../Chip';
@@ -28,6 +32,7 @@ import { DataTable, TableAction, TableActions, type DataColumn } from '../DataTa
 import { InvestModal } from '../InvestModal';
 import { confirmDelete as legacyConfirmDelete, instrumentLabels, investedMoney, label, money, percent } from '../utils/format';
 import { useConfirmDelete } from '../components/ConfirmDeleteModal';
+import { useQueryParamArray } from '../hooks/useQueryParam';
 
 type Numeric = string | number;
 const n = (value: Numeric | undefined) => (value === '' || value === undefined ? 0 : Number(value));
@@ -47,9 +52,127 @@ type HoldingDraft = {
   notes: string;
 };
 
+function PacAmountEditor({ account, currency, onSaved }: { account: Account; currency: string; onSaved: () => Promise<void> }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState<number | string>('');
+  const [saving, setSaving] = useState(false);
+
+  const start = () => { setValue((account.pac_amount_minor ?? 0) / 100); setEditing(true); };
+  const cancel = () => setEditing(false);
+  const save = async () => {
+    setSaving(true);
+    try {
+      await api(`/api/accounts/${account.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ ...account, pac_amount_minor: Math.round(Number(value) * 100) }),
+      });
+      notifications.show({ color: 'teal', title: 'PAC budget updated', message: `Monthly deposit set to ${money(Math.round(Number(value) * 100), currency)}/mo` });
+      setEditing(false);
+      await onSaved();
+    } catch (cause) {
+      notifications.show({ color: 'red', title: 'Failed to update PAC budget', message: cause instanceof Error ? cause.message : String(cause) });
+    } finally {
+      setSaving(false);
+    }
+  };
+  const onKey = (e: React.KeyboardEvent) => { if (e.key === 'Enter') void save(); if (e.key === 'Escape') cancel(); };
+
+  if (!editing) {
+    return (
+      <Group gap={6} align="center" wrap="nowrap" justify="flex-end">
+        <Text size="xl" fw={800} c="teal">{money(account.pac_amount_minor ?? 0, currency)}/mo</Text>
+        <Tooltip label="Edit monthly deposit" position="top" withArrow>
+          <ActionIcon size={20} variant="subtle" color="teal" onClick={start}>
+            <IconPencil size={13} />
+          </ActionIcon>
+        </Tooltip>
+      </Group>
+    );
+  }
+
+  return (
+    <Group gap={4} wrap="nowrap" align="center" justify="flex-end">
+      <NumberInput size="sm" w={110} min={0} decimalScale={2} value={value} onChange={setValue} onKeyDown={onKey} autoFocus
+        leftSection={<Text size="xs" c="dimmed">{currency}</Text>} leftSectionWidth={36} />
+      <ActionIcon size={26} variant="filled" color="teal" loading={saving} onClick={() => void save()}>
+        <IconCheck size={14} />
+      </ActionIcon>
+      <ActionIcon size={26} variant="subtle" color="gray" onClick={cancel}>
+        <IconX size={14} />
+      </ActionIcon>
+    </Group>
+  );
+}
+
+function PacBpsEditor({ holding, onSaved }: { holding: Holding; onSaved: () => Promise<void> }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState<number | string>('');
+  const [saving, setSaving] = useState(false);
+
+  const start = () => { setValue((holding.pac_bps ?? 0) / 100); setEditing(true); };
+  const cancel = () => setEditing(false);
+  const save = async () => {
+    setSaving(true);
+    try {
+      await api(`/api/holdings/${holding.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ ...holding, pac_bps: Math.round(Number(value) * 100) }),
+      });
+      notifications.show({ color: 'teal', title: 'PAC updated', message: `${holding.instrument_name} → ${Number(value).toFixed(2)}%` });
+      setEditing(false);
+      await onSaved();
+    } catch (cause) {
+      notifications.show({ color: 'red', title: 'Failed to update PAC', message: cause instanceof Error ? cause.message : String(cause) });
+    } finally {
+      setSaving(false);
+    }
+  };
+  const onKey = (e: React.KeyboardEvent) => { if (e.key === 'Enter') void save(); if (e.key === 'Escape') cancel(); };
+
+  if (!editing) {
+    return (
+      <Group gap={4} wrap="nowrap" align="center">
+        <Badge color="teal" variant="filled" size="sm" style={{ flexShrink: 0 }}>
+          🔄 {percent(holding.pac_bps ?? 0)}
+        </Badge>
+        <Tooltip label="Edit PAC %" position="top" withArrow>
+          <ActionIcon size={18} variant="subtle" color="teal" onClick={start} style={{ flexShrink: 0 }}>
+            <IconPencil size={12} />
+          </ActionIcon>
+        </Tooltip>
+      </Group>
+    );
+  }
+
+  return (
+    <Group gap={4} wrap="nowrap" align="center">
+      <NumberInput
+        size="xs"
+        w={72}
+        min={0}
+        max={100}
+        decimalScale={2}
+        value={value}
+        onChange={setValue}
+        onKeyDown={onKey}
+        autoFocus
+        rightSection={<Text size="xs" c="dimmed" pr={4}>%</Text>}
+        rightSectionWidth={20}
+        styles={{ input: { paddingRight: 20 } }}
+      />
+      <ActionIcon size={22} variant="filled" color="teal" loading={saving} onClick={() => void save()}>
+        <IconCheck size={12} />
+      </ActionIcon>
+      <ActionIcon size={22} variant="subtle" color="gray" onClick={cancel}>
+        <IconX size={12} />
+      </ActionIcon>
+    </Group>
+  );
+}
+
 export function HoldingsView({ holdings, accounts, instruments, taxRates, reload, onOpenDrafts }: { holdings: Holding[]; accounts: Account[]; instruments: Instrument[]; taxRates: TaxRate[]; reload: () => Promise<void>; onOpenDrafts?: () => void }) {
   const [opened, setOpened] = useState(false); const [editing, setEditing] = useState<Holding>(); const [error, setError] = useState('');
-  const [accountIDs, setAccountIDs] = useState<string[]>([]);
+  const [accountIDs, setAccountIDs] = useQueryParamArray('accounts');
   const { confirmDelete, modal: confirmDeleteModal } = useConfirmDelete();
   const table = useBackendRows('/api/holdings', holdings, 'value', 'desc');
   const activeAccounts = accounts.filter(account => !account.archived); const activeAccountIDs = new Set(activeAccounts.map(account => account.id));
@@ -192,6 +315,21 @@ export function HoldingsView({ holdings, accounts, instruments, taxRates, reload
 
   const pacWeightedTERBps = totalPacMonthlyInvestedMinor > 0 ? totalPacWeightedTERNum / totalPacMonthlyInvestedMinor : 0;
 
+  // PAC accounts (accounts that have active PAC holdings, ordered by preference)
+  const pacAccountsList = [...new Set(pacItems.map(i => i.holding.account_id))]
+    .map(id => activeAccounts.find(a => a.id === id))
+    .filter(Boolean) as Account[];
+
+  // Per-account PAC allocation totals
+  const pacByAccount = new Map<number, { name: string; allocatedBps: number }>();
+  pacItems.forEach(item => {
+    const cur = pacByAccount.get(item.holding.account_id);
+    pacByAccount.set(item.holding.account_id, {
+      name: item.accountName ?? 'Account',
+      allocatedBps: (cur?.allocatedBps ?? 0) + item.pacBps,
+    });
+  });
+
   return <Stack gap="lg"><Group justify="space-between"><Box><Title order={2}>Holdings</Title><Text c="dimmed">Actual allocation uses current holding values within each currency; planned allocation is your target.</Text></Box><Group gap="sm"><Button variant="light" color="teal" disabled={!ready} onClick={() => setInvestOpened(true)}>Invest & Rebalance</Button><Button disabled={!ready} onClick={() => open()}>Add holding</Button></Group></Group>
     {(error || table.sortError) && <Alert color="red">{error || table.sortError}</Alert>}
 
@@ -209,11 +347,19 @@ export function HoldingsView({ holdings, accounts, instruments, taxRates, reload
           <Group gap="xl">
             <Box ta="right">
               <Text size="xs" c="dimmed">Monthly Deposit</Text>
-              <Text size="xl" fw={800} color="teal">{money(totalMonthlyPacMinor, currency)}/mo</Text>
+              {pacAccountsList.length === 1 ? (
+                <PacAmountEditor account={pacAccountsList[0]} currency={currency} onSaved={reload} />
+              ) : (
+                <Stack gap={2} align="flex-end">
+                  {pacAccountsList.map(a => (
+                    <PacAmountEditor key={a.id} account={a} currency={currency} onSaved={reload} />
+                  ))}
+                </Stack>
+              )}
             </Box>
             <Box ta="right">
               <Text size="xs" c="dimmed">Yearly Investment</Text>
-              <Text size="xl" fw={800} color="teal">{money(totalMonthlyPacMinor * 12, currency)}/yr</Text>
+              <Text size="xl" fw={800} c="teal">{money(totalMonthlyPacMinor * 12, currency)}/yr</Text>
             </Box>
             <Box ta="right">
               <Text size="xs" c="dimmed">Weighted PAC TER</Text>
@@ -226,6 +372,33 @@ export function HoldingsView({ holdings, accounts, instruments, taxRates, reload
             </Box>
           </Group>
         </Group>
+
+        {[...pacByAccount.entries()].map(([accountId, { name, allocatedBps }]) => {
+          const pct = Math.min(allocatedBps / 100, 100);
+          const over = allocatedBps > 10000;
+          const full = allocatedBps === 10000;
+          return (
+            <Box key={accountId} mb="md">
+              <Group justify="space-between" mb={4}>
+                <Text size="xs" c="dimmed">{name} · PAC allocation</Text>
+                <Text size="xs" fw={700} c={over ? 'red' : full ? 'teal' : 'dimmed'}>
+                  {(allocatedBps / 100).toFixed(2)}% / 100%
+                  {full && ' ✓'}
+                  {over && ' ⚠ over'}
+                </Text>
+              </Group>
+              <Progress
+                value={pct}
+                color={over ? 'red' : full ? 'teal' : 'yellow'}
+                size="sm"
+                radius="xl"
+              />
+              {!full && !over && (
+                <Text size="xs" c="dimmed" mt={2}>{((10000 - allocatedBps) / 100).toFixed(2)}% unallocated</Text>
+              )}
+            </Box>
+          );
+        })}
 
         <SimpleGrid cols={{ base: 1, sm: 2, md: Math.min(3, Math.max(1, pacItems.length)) }} spacing="md">
           {pacItems.map(item => (
@@ -252,9 +425,7 @@ export function HoldingsView({ holdings, accounts, instruments, taxRates, reload
                       {item.accountName} {[item.ticker, item.isin].filter(Boolean).length > 0 ? `· ${[item.ticker, item.isin].filter(Boolean).join(' · ')}` : ''}
                     </Text>
                   </Box>
-                  <Badge color="teal" variant="filled" size="sm" style={{ flexShrink: 0 }}>
-                    🔄 {percent(item.pacBps)}
-                  </Badge>
+                  <PacBpsEditor holding={item.holding} onSaved={reload} />
                 </Group>
 
                 <Paper p="xs" radius="sm" style={{ backgroundColor: 'rgba(0,0,0,0.15)' }}>
@@ -304,7 +475,7 @@ export function HoldingsView({ holdings, accounts, instruments, taxRates, reload
 
 function HoldingModal({ opened, close, holding, accounts, holdings, instruments, taxRates, saved }: { opened: boolean; close: () => void; holding?: Holding; accounts: Account[]; holdings: Holding[]; instruments: Instrument[]; taxRates: TaxRate[]; saved: () => Promise<void> }) {
   const [form, setForm] = useState<HoldingDraft>(() => holding ? { accountID: String(holding.account_id), instrumentID: String(holding.instrument_id), value: holding.value_minor / 100, sinceBuy: holding.invested_minor ? (holding.value_minor - holding.invested_minor) / 100 : '', planned: holding.planned_bps / 100, tax: holding.tax_bps / 100, isPAC: Boolean(holding.is_pac), pacBps: holding.pac_bps ? holding.pac_bps / 100 : '', pacFrequency: holding.pac_frequency || 'monthly', notes: holding.notes ?? '' } : { accountID: String(accounts.find(item => item.preferred)?.id ?? accounts[0]?.id ?? ''), instrumentID: String(instruments[0]?.id ?? ''), value: 0, sinceBuy: '', planned: 0, tax: (taxRates[0]?.rate_bps ?? 2600) / 100, isPAC: true, pacBps: '', pacFrequency: 'monthly', notes: '' });
-  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const selectedAccount = accounts.find(a => String(a.id) === form.accountID);
   const otherHoldingsPacBps = holdings
@@ -315,6 +486,7 @@ function HoldingModal({ opened, close, holding, accounts, holdings, instruments,
   const totalAccountPacBps = otherHoldingsPacBps + currentEnteredPacBps;
 
   const save = async () => {
+    setSaving(true);
     try {
       const value = minor(form.value);
       const pacBpsVal = bps(form.pacBps);
@@ -341,11 +513,15 @@ function HoldingModal({ opened, close, holding, accounts, holdings, instruments,
         notes: form.notes,
       };
       await api(holding ? `/api/holdings/${holding.id}` : '/api/holdings', { method: holding ? 'PUT' : 'POST', body: JSON.stringify(body) });
+      notifications.show({ color: 'teal', title: holding ? 'Holding updated' : 'Holding added', message: holding ? 'Changes saved successfully.' : 'New holding added to your portfolio.' });
       await saved();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      const message = cause instanceof Error ? cause.message : String(cause);
+      notifications.show({ color: 'red', title: 'Failed to save holding', message });
+    } finally {
+      setSaving(false);
     }
   };
 
-  return <Modal opened={opened} onClose={close} title={holding ? 'Edit holding' : 'Add holding'}><Stack>{error && <Alert color="red">{error}</Alert>}<Select searchable required label="Account" value={form.accountID} data={accounts.map(item => ({ value: String(item.id), label: `${item.name} · ${item.type}${item.preferred ? ' · default' : ''} · ${item.currency}` }))} onChange={value => setForm({ ...form, accountID: value ?? '' })} /><Select searchable required label="Instrument" nothingFoundMessage="No ticker, name, or ISIN match" value={form.instrumentID} data={instruments.map(item => ({ value: String(item.id), label: [item.ticker, item.name, instrumentLabels[item.instrument_type], item.isin].filter(Boolean).join(' · ') }))} onChange={value => setForm({ ...form, instrumentID: value ?? '' })} /><SimpleGrid cols={2}><NumberInput label="Current value" min={0} decimalScale={2} value={form.value} onChange={value => setForm({ ...form, value })} /><NumberInput label="Planned allocation (%)" min={0} max={100} decimalScale={2} value={form.planned} onChange={value => setForm({ ...form, planned: value })} /><NumberInput label="Since buy gain / loss (optional)" placeholder="Example: -0.85" decimalScale={2} value={form.sinceBuy} onChange={value => setForm({ ...form, sinceBuy: value })} /><NumberInput label="Applicable tax (%)" min={0} max={100} decimalScale={2} value={form.tax} onChange={value => setForm({ ...form, tax: value })} /></SimpleGrid><Textarea label="Notes & Context for AI Assistant" placeholder="e.g. Core global equity allocation for long-term 20yr wealth accumulation..." rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.currentTarget.value })} /><Group mt="xs" align="center" justify="space-between"><Checkbox label="Active Accumulation Plan (PAC / Dollar-cost averaging)" checked={form.isPAC || bps(form.pacBps) > 0} onChange={e => setForm({ ...form, isPAC: e.currentTarget.checked })} /></Group>{(form.isPAC || bps(form.pacBps) > 0) && <Stack gap="xs" mt="xs"><SimpleGrid cols={2}><NumberInput label="PAC Share of Account (%)" placeholder="e.g. 64" min={0} max={100} decimalScale={2} value={form.pacBps} onChange={value => setForm({ ...form, pacBps: value, isPAC: true })} /><Select label="PAC Frequency" value={form.pacFrequency} data={[{ value: 'monthly', label: 'Monthly' }, { value: 'biweekly', label: 'Biweekly' }, { value: 'weekly', label: 'Weekly' }, { value: 'quarterly', label: 'Quarterly' }]} onChange={val => setForm({ ...form, pacFrequency: val ?? 'monthly' })} /></SimpleGrid><Text size="xs" c={totalAccountPacBps > 10000 ? 'red' : 'dimmed'}>Total PAC allocated for {selectedAccount?.name || 'Account'}: <Text span fw={700}>{percent(totalAccountPacBps)}</Text> / 100.00% (Account Total: {money(selectedAccount?.pac_amount_minor ?? 0, selectedAccount?.currency ?? 'EUR')}/mo)</Text></Stack>}<Text size="xs" c="dimmed">Holdings with €0 value are fully supported for new PAC accumulation plans prior to your first purchase.</Text><Select label="Tax preset" data={taxRates.map(item => ({ value: String(item.rate_bps), label: `${item.label} (${percent(item.rate_bps)})` }))} onChange={value => value && setForm({ ...form, tax: Number(value) / 100 })} /><Group justify="end"><Button onClick={() => void save()}>Save holding</Button></Group></Stack></Modal>;
+  return <Modal opened={opened} onClose={close} title={holding ? 'Edit holding' : 'Add holding'}><Stack><Select searchable required label="Account" value={form.accountID} data={accounts.map(item => ({ value: String(item.id), label: `${item.name} · ${item.type}${item.preferred ? ' · default' : ''} · ${item.currency}` }))} onChange={value => setForm({ ...form, accountID: value ?? '' })} /><Select searchable required label="Instrument" nothingFoundMessage="No ticker, name, or ISIN match" value={form.instrumentID} data={instruments.map(item => ({ value: String(item.id), label: [item.ticker, item.name, instrumentLabels[item.instrument_type], item.isin].filter(Boolean).join(' · ') }))} onChange={value => setForm({ ...form, instrumentID: value ?? '' })} /><SimpleGrid cols={2}><NumberInput label="Current value" min={0} decimalScale={2} value={form.value} onChange={value => setForm({ ...form, value })} /><NumberInput label="Planned allocation (%)" min={0} max={100} decimalScale={2} value={form.planned} onChange={value => setForm({ ...form, planned: value })} /><NumberInput label="Since buy gain / loss (optional)" placeholder="Example: -0.85" decimalScale={2} value={form.sinceBuy} onChange={value => setForm({ ...form, sinceBuy: value })} /><NumberInput label="Applicable tax (%)" min={0} max={100} decimalScale={2} value={form.tax} onChange={value => setForm({ ...form, tax: value })} /></SimpleGrid><Textarea label="Notes & Context for AI Assistant" placeholder="e.g. Core global equity allocation for long-term 20yr wealth accumulation..." rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.currentTarget.value })} /><Group mt="xs" align="center" justify="space-between"><Checkbox label="Active Accumulation Plan (PAC / Dollar-cost averaging)" checked={form.isPAC || bps(form.pacBps) > 0} onChange={e => setForm({ ...form, isPAC: e.currentTarget.checked })} /></Group>{(form.isPAC || bps(form.pacBps) > 0) && <Stack gap="xs" mt="xs"><SimpleGrid cols={2}><NumberInput label="PAC Share of Account (%)" placeholder="e.g. 64" min={0} max={100} decimalScale={2} value={form.pacBps} onChange={value => setForm({ ...form, pacBps: value, isPAC: true })} /><Select label="PAC Frequency" value={form.pacFrequency} data={[{ value: 'monthly', label: 'Monthly' }, { value: 'biweekly', label: 'Biweekly' }, { value: 'weekly', label: 'Weekly' }, { value: 'quarterly', label: 'Quarterly' }]} onChange={val => setForm({ ...form, pacFrequency: val ?? 'monthly' })} /></SimpleGrid><Text size="xs" c={totalAccountPacBps > 10000 ? 'red' : 'dimmed'}>Total PAC allocated for {selectedAccount?.name || 'Account'}: <Text span fw={700}>{percent(totalAccountPacBps)}</Text> / 100.00% (Account Total: {money(selectedAccount?.pac_amount_minor ?? 0, selectedAccount?.currency ?? 'EUR')}/mo)</Text></Stack>}<Text size="xs" c="dimmed">Holdings with €0 value are fully supported for new PAC accumulation plans prior to your first purchase.</Text><Select label="Tax preset" data={taxRates.map(item => ({ value: String(item.rate_bps), label: `${item.label} (${percent(item.rate_bps)})` }))} onChange={value => value && setForm({ ...form, tax: Number(value) / 100 })} /><Group justify="end"><Button loading={saving} onClick={() => void save()}>Save holding</Button></Group></Stack></Modal>;
 }

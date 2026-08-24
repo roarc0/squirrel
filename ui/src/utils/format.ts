@@ -22,6 +22,11 @@ export const money = (value: number | undefined, currency: string) =>
       ? '—'
       : new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 }).format(value / 100);
 
+export const compactMoney = (value: number, currency: string) =>
+  hideBalancesGlobal
+    ? '••••••'
+    : new Intl.NumberFormat(undefined, { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(value / 100);
+
 export const investedMoney = (invested: number, current: number, currency: string) =>
   invested > 0 || current === 0 ? money(invested, currency) : '—';
 

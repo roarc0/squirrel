@@ -135,7 +135,7 @@ func ClassifyInstrument(instrument *Instrument) {
 	case "bond", "bonds":
 		instrument.AssetClass = "bond"
 	case "money market":
-		instrument.AssetClass = "money_market"
+		instrument.AssetClass = "monetary"
 	case "commodity", "commodities", "precious metals":
 		instrument.AssetClass = "commodity"
 	case "real estate", "property":
@@ -152,6 +152,8 @@ func ClassifyInstrument(instrument *Instrument) {
 			instrument.AssetClass = "equity"
 		case instrument.InstrumentType == InstrumentTypeCommodity || instrument.InstrumentType == InstrumentTypeETC || containsAny(text, "gold", "silver", "commodity"):
 			instrument.AssetClass = "commodity"
+		case containsAny(text, "money market"):
+			instrument.AssetClass = "monetary"
 		default:
 			instrument.AssetClass = "other"
 		}

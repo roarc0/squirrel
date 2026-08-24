@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package v1;
+
+option go_package = "loot/proto/gen/go/v1;portv1";
+
+// UserProfile stores per-user application preferences.
+message UserProfile {
+  // UI color scheme: "light", "dark", or "" for system default.
+  string theme = 1;
+  // Preferred display currency code e.g. "EUR", "USD".
+  string preferred_currency = 2;
+  // Monthly living expenses in minor units (cents) for emergency reserve calculation.
+  int64 monthly_expenses_minor = 3;
+  // Number of months of expenses to target as emergency reserve (default 6).
+  int32 reserve_months = 4;
+  // Whether to hide monetary balances in the UI.
+  bool hide_balances = 5;
+  // Target emergency cash reserve in minor units (cents).
+  int64 emergency_goal_minor = 6;
+  // Annual expenses for FIRE calculation in minor units (cents).
+  int64 fire_expenses_minor = 7;
+  // JSON string of visible instrument column IDs for the instrument finder.
+  string instrument_columns_json = 8;
+  // Whether to show the FIRE / financial independence calculator on the Overview.
+  bool show_fire_calculator = 9;
+}
+
+message GetProfileRequest {}
+
+message GetProfileResponse {
+  UserProfile profile = 1;
+}
+
+message UpdateProfileRequest {
+  UserProfile profile = 1;
+}
+
+message UpdateProfileResponse {
+  UserProfile profile = 1;
+}
+
+// ProfileService manages per-user application preferences.
+service ProfileService {
+  // Get the authenticated user's profile and preferences.
+  rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
+  // Update the authenticated user's profile preferences.
+  rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
+}

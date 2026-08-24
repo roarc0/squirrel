@@ -152,6 +152,87 @@ export const StreamChatResponse = /*@__PURE__*/ proto3.makeMessageType(
     { no: 4, name: "tool_args_json", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 5, name: "tool_result_json", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 6, name: "done", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 7, name: "actual_n_ctx", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+  ],
+);
+
+/**
+ * @generated from message v1.RestartLocalServerRequest
+ */
+export const RestartLocalServerRequest = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.RestartLocalServerRequest",
+  () => [
+    { no: 1, name: "model_filename", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "context_size", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 3, name: "port", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+  ],
+);
+
+/**
+ * @generated from message v1.RestartLocalServerResponse
+ */
+export const RestartLocalServerResponse = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.RestartLocalServerResponse",
+  () => [
+    { no: 1, name: "success", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 2, name: "message", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "port", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 4, name: "actual_n_ctx", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+  ],
+);
+
+/**
+ * @generated from message v1.ListOllamaModelsRequest
+ */
+export const ListOllamaModelsRequest = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.ListOllamaModelsRequest",
+  () => [
+    { no: 1, name: "endpoint", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ],
+);
+
+/**
+ * @generated from message v1.OllamaModelInfo
+ */
+export const OllamaModelInfo = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.OllamaModelInfo",
+  () => [
+    { no: 1, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "size_bytes", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 3, name: "modified_at", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ],
+);
+
+/**
+ * @generated from message v1.ListOllamaModelsResponse
+ */
+export const ListOllamaModelsResponse = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.ListOllamaModelsResponse",
+  () => [
+    { no: 1, name: "models", kind: "message", T: OllamaModelInfo, repeated: true },
+  ],
+);
+
+/**
+ * @generated from message v1.LoadOllamaModelRequest
+ */
+export const LoadOllamaModelRequest = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.LoadOllamaModelRequest",
+  () => [
+    { no: 1, name: "endpoint", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "model", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "context_size", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+  ],
+);
+
+/**
+ * @generated from message v1.LoadOllamaModelResponse
+ */
+export const LoadOllamaModelResponse = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.LoadOllamaModelResponse",
+  () => [
+    { no: 1, name: "success", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 2, name: "message", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ],
 );
 

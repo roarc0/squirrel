@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Alert,
   Badge,
@@ -21,9 +21,10 @@ import { api, type Holding, type Instrument, type Snapshot, type Summary } from 
 import { AllocationBar, PerformanceResult, useBackendRows } from '../App';
 import { Empty } from '../components/Empty';
 import { DataTable, TableAction, TableActions, type DataColumn } from '../DataTable';
-import { investedMoney, label, money } from '../utils/format';
-import { chartGeometry } from '../visual';
+import { compactMoney, investedMoney, label, money } from '../utils/format';
+import { chartGeometry, filterChartRange, nearestChartIndex, type ChartRange } from '../visual';
 import { useConfirmDelete } from '../components/ConfirmDeleteModal';
+import { useProfile } from '../hooks/useProfile';
 
 type Data = { summary: Summary; accounts: any[]; rates: any[]; taxRates: any[]; instruments: Instrument[]; holdings: Holding[]; snapshots: Snapshot[] };
 type Numeric = string | number;
@@ -106,19 +107,15 @@ function NetPassiveCashflowCard({ netInterestMinor, holdings, instruments, curre
 }
 
 function EmergencyReserveCard({ cashMinor, currency }: { cashMinor: number; currency: string }) {
-  const [goal, setGoal] = useState<number>(() => {
-    try {
-      const val = localStorage.getItem(`loot.emergencyGoal.${currency}`);
-      return val ? Number(val) : 10000;
-    } catch { return 10000; }
-  });
+  const [profile, setProfile] = useProfile();
+  const goal = Math.round(profile.emergency_goal_minor / 100) || 10000;
   const [editing, setEditing] = useState(false);
   const [draftGoal, setDraftGoal] = useState<Numeric>(goal);
+  useEffect(() => { setDraftGoal(Math.round(profile.emergency_goal_minor / 100) || 10000); }, [profile.emergency_goal_minor]);
 
   const saveGoal = () => {
     const next = Math.max(1, Number(draftGoal) || 10000);
-    setGoal(next);
-    try { localStorage.setItem(`loot.emergencyGoal.${currency}`, String(next)); } catch { /* optional */ }
+    setProfile({ emergency_goal_minor: next * 100 });
     setEditing(false);
   };
 
@@ -156,19 +153,15 @@ function EmergencyReserveCard({ cashMinor, currency }: { cashMinor: number; curr
 }
 
 function FreedomCalculatorCard({ totalWealthMinor, currency }: { totalWealthMinor: number; currency: string }) {
-  const [annualExpenses, setAnnualExpenses] = useState<number>(() => {
-    try {
-      const val = localStorage.getItem(`loot.fireExpenses.${currency}`);
-      return val ? Number(val) : 24000;
-    } catch { return 24000; }
-  });
+  const [profile, setProfile] = useProfile();
+  const annualExpenses = Math.round(profile.fire_expenses_minor / 100) || 24000;
   const [editing, setEditing] = useState(false);
   const [draftExpenses, setDraftExpenses] = useState<Numeric>(annualExpenses);
+  useEffect(() => { setDraftExpenses(Math.round(profile.fire_expenses_minor / 100) || 24000); }, [profile.fire_expenses_minor]);
 
   const saveExpenses = () => {
     const next = Math.max(1000, Number(draftExpenses) || 24000);
-    setAnnualExpenses(next);
-    try { localStorage.setItem(`loot.fireExpenses.${currency}`, String(next)); } catch { /* optional */ }
+    setProfile({ fire_expenses_minor: next * 100 });
     setEditing(false);
   };
 
@@ -222,6 +215,7 @@ function FreedomCalculatorCard({ totalWealthMinor, currency }: { totalWealthMino
 }
 
 export function OverviewView({ data, reload, onSwitchTab }: { data: Data; reload: () => Promise<void>; onSwitchTab: (tab: string) => void }) {
+  const [profile] = useProfile();
   const currencies = data.summary.currencies ?? [];
   const diagnostics = data.summary.diagnostics ?? [];
   return <Stack gap="xl">
@@ -265,10 +259,12 @@ export function OverviewView({ data, reload, onSwitchTab }: { data: Data; reload
             currency={item.currency}
           />
         </SimpleGrid>
-        <FreedomCalculatorCard
-          totalWealthMinor={item.total_minor}
-          currency={item.currency}
-        />
+        {profile.show_fire_calculator && (
+          <FreedomCalculatorCard
+            totalWealthMinor={item.total_minor}
+            currency={item.currency}
+          />
+        )}
         <Paper className="metric" p="lg" radius="lg" mt="md">
           <Group justify="space-between" mb="sm"><Text fw={700}>Asset allocation</Text><Text size="sm" c="dimmed">Cash interest/year: Gross {money(item.gross_revenue_minor, item.currency)} · Net {money(item.net_revenue_minor, item.currency)}</Text></Group>
           <AllocationBar total={item.total_minor} segments={[{ label: 'Cash', value: item.balance_minor }, ...allocations.map(allocation => ({ label: label(allocation.asset_class), value: allocation.value_minor }))]} />
@@ -316,10 +312,47 @@ function SnapshotModal({ snapshot, close, saved }: { snapshot?: Snapshot; close:
 }
 
 function WealthChart({ snapshots, currency }: { snapshots: Snapshot[]; currency: string }) {
-  type MetricKey = 'total' | 'cash' | 'portfolio';
-  const [metric, setMetric] = useState<MetricKey>('total');
-  const metrics: Record<MetricKey, { label: string; value: (snapshot: Snapshot) => number }> = { total: { label: 'Total wealth', value: snapshot => snapshot.total_minor }, cash: { label: 'Cash', value: snapshot => snapshot.cash_minor }, portfolio: { label: 'Investments', value: snapshot => snapshot.portfolio_minor } };
-  const selected = metrics[metric]; const values = snapshots.map(selected.value); const geometry = chartGeometry(values); const points = geometry.points.map(point => `${point.x},${point.y}`).join(' '); const first = values[0]; const latest = values.at(-1) ?? 0; const change = latest - first; const changePercent = first > 0 ? change / first * 100 : undefined;
-  const dates = [0, Math.floor((snapshots.length - 1) / 2), snapshots.length - 1].filter((index, position, all) => all.indexOf(index) === position);
-  return <Card className="metric" p="lg" radius="lg"><Group justify="space-between" align="start" mb="sm"><Box><Text fw={700}>{selected.label} over time</Text><Group gap="xs"><Text size="xl" fw={750}>{money(latest, currency)}</Text><Text size="sm" fw={700} c={change >= 0 ? 'teal' : 'red'}>{change >= 0 ? '+' : ''}{money(change, currency)}{changePercent === undefined ? '' : ` · ${change >= 0 ? '+' : ''}${changePercent.toFixed(1)}%`}</Text></Group></Box><SegmentedControl size="xs" value={metric} onChange={value => setMetric(value as MetricKey)} data={[{ value: 'total', label: 'Total' }, { value: 'cash', label: 'Cash' }, { value: 'portfolio', label: 'Investments' }]} /></Group><svg className="wealth-chart" viewBox="0 0 760 260" role="img" aria-label={`${selected.label} history`}>{[0, 1, 2, 3].map(index => { const ratio = index / 3; const y = 24 + ratio * 196; const value = geometry.high - ratio * (geometry.high - geometry.low); return <g key={index}><line x1="74" x2="740" y1={y} y2={y} stroke="currentColor" opacity="0.12" /><text x="66" y={y + 4} textAnchor="end">{new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(value / 100)}</text></g>; })}<defs><linearGradient id="wealth-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--mantine-color-teal-5)" stopOpacity="0.34" /><stop offset="100%" stopColor="var(--mantine-color-teal-5)" stopOpacity="0.02" /></linearGradient></defs><path d={`M ${geometry.points[0].x} 220 L ${points.replaceAll(',', ' ')} L ${geometry.points.at(-1)?.x ?? 740} 220 Z`} fill="url(#wealth-fill)" /><polyline points={points} fill="none" stroke="var(--mantine-color-teal-5)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />{geometry.points.map((point, index) => <circle key={snapshots[index].observed_on} cx={point.x} cy={point.y} r="4" fill="var(--mantine-color-body)" stroke="var(--mantine-color-teal-5)" strokeWidth="3"><title>{`${snapshots[index].observed_on}: ${money(values[index], currency)}`}</title></circle>)}{dates.map(index => <text key={index} x={geometry.points[index].x} y="248" textAnchor={index === 0 ? 'start' : index === snapshots.length - 1 ? 'end' : 'middle'}>{new Date(`${snapshots[index].observed_on}T00:00:00`).toLocaleDateString()}</text>)}</svg></Card>;
+  type MetricKey = 'total' | 'invested' | 'portfolio' | 'cash';
+  const metrics: Record<MetricKey, { label: string; color: string; value: (snapshot: Snapshot) => number }> = {
+    total: { label: 'Total', color: 'teal', value: snapshot => snapshot.total_minor },
+    invested: { label: 'Invested', color: 'orange', value: snapshot => snapshot.invested_minor },
+    portfolio: { label: 'Investment value', color: 'blue', value: snapshot => snapshot.portfolio_minor },
+    cash: { label: 'Cash', color: 'cyan', value: snapshot => snapshot.cash_minor },
+  };
+  const metricKeys = Object.keys(metrics) as MetricKey[];
+  const [range, setRange] = useState<ChartRange>('max');
+  const [visible, setVisible] = useState<MetricKey[]>(metricKeys);
+  const [hovered, setHovered] = useState<number>();
+  const shown = filterChartRange(snapshots, range);
+  const active = metricKeys.filter(key => visible.includes(key));
+  const scaleValues = (active.length ? active : metricKeys).flatMap(key => shown.map(metrics[key].value));
+  const geometry = chartGeometry(scaleValues);
+  const xPoints = chartGeometry(shown.map(() => 0), scaleValues).points;
+  const hoverIndex = hovered === undefined ? undefined : Math.min(hovered, shown.length - 1);
+  const hoverX = hoverIndex === undefined ? 0 : xPoints[hoverIndex].x;
+  const dates = [0, Math.floor((shown.length - 1) / 2), shown.length - 1].filter((index, position, all) => all.indexOf(index) === position);
+
+  return <Card className="metric" p="lg" radius="lg"><Stack gap="sm">
+    <Text fw={700}>Wealth over time</Text>
+    <SegmentedControl fullWidth size="xs" value={range} onChange={value => setRange(value as ChartRange)} data={['1w', '2w', '1m', '3m', '6m', '1y', '3y', '5y', 'max']} />
+    <Group gap="xs" role="group" aria-label="Chart series">
+      {metricKeys.map(key => <Button key={key} size="compact-xs" variant={visible.includes(key) ? 'light' : 'subtle'} color={metrics[key].color} aria-pressed={visible.includes(key)} style={{ opacity: visible.includes(key) ? 1 : 0.45 }} leftSection={<Box w={14} h={2} bg={`${metrics[key].color}.5`} />} onClick={() => setVisible(current => current.includes(key) ? current.filter(item => item !== key) : [...current, key])}>{metrics[key].label}</Button>)}
+    </Group>
+    <svg className="wealth-chart" viewBox="0 0 760 260" role="img" tabIndex={0} aria-label={hoverIndex === undefined ? 'Wealth history. Hover or use arrow keys to inspect snapshots.' : `${shown[hoverIndex].observed_on}: ${active.map(key => `${metrics[key].label} ${money(metrics[key].value(shown[hoverIndex]), currency)}`).join(', ')}`} style={{ cursor: 'crosshair' }} onPointerMove={event => { const bounds = event.currentTarget.getBoundingClientRect(); setHovered(nearestChartIndex((event.clientX - bounds.left) / bounds.width * 760, shown.length)); }} onPointerLeave={() => setHovered(undefined)} onFocus={() => setHovered(current => current ?? shown.length - 1)} onBlur={() => setHovered(undefined)} onKeyDown={event => { if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return; event.preventDefault(); setHovered(current => Math.min(shown.length - 1, Math.max(0, (current ?? shown.length - 1) + (event.key === 'ArrowLeft' ? -1 : 1)))); }}>
+      {active.length === 0 ? <text x="407" y="130" textAnchor="middle">Enable a series to show it</text> : <>
+        {[0, 1, 2, 3].map(index => { const ratio = index / 3; const y = 24 + ratio * 196; const value = geometry.high - ratio * (geometry.high - geometry.low); return <g key={index}><line x1="74" x2="740" y1={y} y2={y} stroke="currentColor" opacity="0.12" /><text x="66" y={y + 4} textAnchor="end">{compactMoney(value, currency)}</text></g>; })}
+        {active.map(key => { const values = shown.map(metrics[key].value); const series = chartGeometry(values, scaleValues); const points = series.points.map(point => `${point.x},${point.y}`).join(' '); return <g key={key}><polyline points={points} fill="none" stroke={`var(--mantine-color-${metrics[key].color}-5)`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />{series.points.map((point, index) => <circle key={shown[index].observed_on} cx={point.x} cy={point.y} r="3" fill="var(--mantine-color-body)" stroke={`var(--mantine-color-${metrics[key].color}-5)`} strokeWidth="2"><title>{`${metrics[key].label} · ${shown[index].observed_on}: ${money(values[index], currency)}`}</title></circle>)}</g>; })}
+        {dates.map(index => <text key={index} x={xPoints[index].x} y="248" textAnchor={shown.length === 1 ? 'middle' : index === 0 ? 'start' : index === shown.length - 1 ? 'end' : 'middle'}>{new Date(`${shown[index].observed_on}T00:00:00`).toLocaleDateString()}</text>)}
+        {hoverIndex !== undefined && <>
+          <line x1={hoverX} x2={hoverX} y1="24" y2="220" stroke="currentColor" strokeDasharray="4 4" opacity="0.45" />
+          {active.map(key => { const point = chartGeometry(shown.map(metrics[key].value), scaleValues).points[hoverIndex]; return <circle key={key} cx={point.x} cy={point.y} r="5" fill="var(--mantine-color-body)" stroke={`var(--mantine-color-${metrics[key].color}-5)`} strokeWidth="2" />; })}
+          <g transform={`translate(${hoverX > 520 ? hoverX - 212 : hoverX + 12} 32)`} style={{ pointerEvents: 'none' }}>
+            <rect width="200" height={32 + active.length * 20} rx="8" fill="var(--mantine-color-body)" stroke="currentColor" strokeOpacity="0.25" />
+            <text x="12" y="20" style={{ fontWeight: 700 }}>{new Date(`${shown[hoverIndex].observed_on}T00:00:00`).toLocaleDateString(undefined, { dateStyle: 'medium' })}</text>
+            {active.map((key, index) => <g key={key}><line x1="12" x2="24" y1={42 + index * 20} y2={42 + index * 20} stroke={`var(--mantine-color-${metrics[key].color}-5)`} strokeWidth="2" /><text x="30" y={46 + index * 20}>{metrics[key].label}: {money(metrics[key].value(shown[hoverIndex]), currency)}</text></g>)}
+          </g>
+        </>}
+      </>}
+    </svg>
+  </Stack></Card>;
 }

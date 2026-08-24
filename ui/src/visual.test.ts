@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { chartGeometry, chipColor, matchesExactFilters, pageBounds, performanceMood } from './visual.ts';
+import { compactMoney, setHideBalancesState } from './utils/format.ts';
+import { chartGeometry, chipColor, filterChartRange, matchesExactFilters, nearestChartIndex, pageBounds, performanceMood } from './visual.ts';
 
 test('financial labels use semantic colors and unknown labels stay stable', () => {
   assert.equal(chipColor('Cash'), 'teal');
@@ -18,6 +19,29 @@ test('chart geometry stays finite for a flat series', () => {
   const geometry = chartGeometry([100, 100]);
   assert.ok(geometry.points.every(point => Number.isFinite(point.x) && Number.isFinite(point.y)));
   assert.ok(geometry.high > geometry.low);
+  assert.equal(chartGeometry([100]).points[0].x, 407);
+});
+
+test('chart ranges use the latest snapshot as their endpoint', () => {
+  const snapshots = ['2025-01-01', '2026-01-01', '2026-01-07', '2026-01-08'].map(observed_on => ({ observed_on }));
+  assert.deepEqual(filterChartRange(snapshots, '1w').map(item => item.observed_on), ['2026-01-01', '2026-01-07', '2026-01-08']);
+  assert.equal(filterChartRange(snapshots, 'max').length, 4);
+  const monthEnd = ['2026-01-30', '2026-02-28', '2026-03-31'].map(observed_on => ({ observed_on }));
+  assert.deepEqual(filterChartRange(monthEnd, '1m').map(item => item.observed_on), ['2026-02-28', '2026-03-31']);
+});
+
+test('compact chart labels respect hidden balance mode', () => {
+  setHideBalancesState(true);
+  assert.equal(compactMoney(12_345_678, 'EUR'), '••••••');
+  setHideBalancesState(false);
+  assert.notEqual(compactMoney(12_345_678, 'EUR'), '••••••');
+});
+
+test('chart hover snaps to the nearest visible snapshot', () => {
+  assert.equal(nearestChartIndex(74, 4), 0);
+  assert.equal(nearestChartIndex(407, 4), 2);
+  assert.equal(nearestChartIndex(900, 4), 3);
+  assert.equal(nearestChartIndex(407, 1), 0);
 });
 
 test('pagination caps pages at one hundred rows', () => {

@@ -31,7 +31,9 @@ func NewHandler(rpcHandler http.Handler) *Handler {
 		rpcHandler: rpcHandler,
 		tools:      make(map[string]ToolDefinition),
 	}
-	h.registerProtoTools()
+	for _, tool := range buildToolsFromProto() {
+		h.tools[tool.Name] = tool
+	}
 	return h
 }
 
@@ -60,124 +62,6 @@ func (h *Handler) ExecuteTool(ctx context.Context, name string, args map[string]
 	return h.dispatchRPCCall(ctx, tool.RPCPath, args)
 }
 
-func (h *Handler) registerProtoTools() {
-	toolsList := []ToolDefinition{
-		{
-			Name:        "get_summary",
-			Description: "Retrieve current portfolio wealth summary across currencies, balance totals, and active health diagnostics.",
-			RPCPath:     "/v1.SummaryService/GetSummary",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"target_cash_minor": map[string]interface{}{
-						"type":        "integer",
-						"description": "Optional target emergency cash goal in minor units (cents)",
-					},
-				},
-			},
-		},
-		{
-			Name:        "get_diagnostics",
-			Description: "Retrieve active portfolio warnings, fee drag alerts, and allocation drift diagnostics.",
-			RPCPath:     "/v1.SummaryService/GetDiagnostics",
-			InputSchema: map[string]interface{}{
-				"type":       "object",
-				"properties": map[string]interface{}{},
-			},
-		},
-		{
-			Name:        "list_accounts",
-			Description: "List all bank, broker, and liquid cash accounts with current balances and PAC deposits.",
-			RPCPath:     "/v1.AccountService/ListAccounts",
-			InputSchema: map[string]interface{}{
-				"type":       "object",
-				"properties": map[string]interface{}{},
-			},
-		},
-		{
-			Name:        "list_holdings",
-			Description: "List actual investment holdings with asset classes, current values, invested capital, TER drag, and PAC shares.",
-			RPCPath:     "/v1.HoldingService/ListHoldings",
-			InputSchema: map[string]interface{}{
-				"type":       "object",
-				"properties": map[string]interface{}{},
-			},
-		},
-		{
-			Name:        "list_instruments",
-			Description: "List all saved instruments in the user catalog.",
-			RPCPath:     "/v1.InstrumentService/ListInstruments",
-			InputSchema: map[string]interface{}{
-				"type":       "object",
-				"properties": map[string]interface{}{},
-			},
-		},
-		{
-			Name:        "search_instruments",
-			Description: "Search the 4,000+ ETF catalog by ISIN, ticker, index name, asset class, or provider.",
-			RPCPath:     "/v1.InstrumentService/SearchInstruments",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"query": map[string]interface{}{
-						"type":        "string",
-						"description": "Search term e.g. 'MSCI World', 'S&P 500', 'IE00B4L5Y983', 'iShares'",
-					},
-				},
-				"required": []string{"query"},
-			},
-		},
-		{
-			Name:        "rank_instruments",
-			Description: "Rank ETF instruments according to cost/TER, tracking error, tracking difference, size, and age metrics.",
-			RPCPath:     "/v1.InstrumentService/RankInstruments",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"index_query": map[string]interface{}{
-						"type":        "string",
-						"description": "Target benchmark index or exposure to filter rank candidates",
-					},
-					"max_ter_bps": map[string]interface{}{
-						"type":        "integer",
-						"description": "Maximum TER in basis points e.g. 20 for 0.20%",
-					},
-				},
-			},
-		},
-		{
-			Name:        "list_snapshots",
-			Description: "List historical wealth snapshot records for net worth trend analysis.",
-			RPCPath:     "/v1.SnapshotService/ListSnapshots",
-			InputSchema: map[string]interface{}{
-				"type":       "object",
-				"properties": map[string]interface{}{},
-			},
-		},
-		{
-			Name:        "list_tax_rates",
-			Description: "List default and jurisdiction tax rates.",
-			RPCPath:     "/v1.RateService/ListTaxRates",
-			InputSchema: map[string]interface{}{
-				"type":       "object",
-				"properties": map[string]interface{}{},
-			},
-		},
-		{
-			Name:        "list_ai_models",
-			Description: "List available open-weights GGUF AI models in data/models/.",
-			RPCPath:     "/v1.SystemService/ListAIModels",
-			InputSchema: map[string]interface{}{
-				"type":       "object",
-				"properties": map[string]interface{}{},
-			},
-		},
-	}
-
-	for _, tool := range toolsList {
-		h.tools[tool.Name] = tool
-	}
-}
 
 type jsonRPCRequest struct {
 	JSONRPC string          `json:"jsonrpc"`

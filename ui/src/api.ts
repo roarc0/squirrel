@@ -1,4 +1,5 @@
 import { createPromiseClient } from '@connectrpc/connect';
+import type { Interceptor } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-web';
 
 import { AccountService } from './pb/v1/account_connect.js';
@@ -8,9 +9,20 @@ import { RateService } from './pb/v1/rate_connect.js';
 import { SnapshotService } from './pb/v1/snapshot_connect.js';
 import { SummaryService } from './pb/v1/summary_connect.js';
 import { SystemService } from './pb/v1/system_connect.js';
+import { ProfileService } from './pb/v1/profile_connect.js';
+import { getToken } from './auth';
+
+const authInterceptor: Interceptor = (next) => async (req) => {
+  const token = getToken();
+  if (token) {
+    req.header.set('Authorization', `Bearer ${token}`);
+  }
+  return next(req);
+};
 
 const transport = createConnectTransport({
   baseUrl: '',
+  interceptors: [authInterceptor],
 });
 
 export const accountClient: any = createPromiseClient(AccountService as any, transport);
@@ -20,6 +32,7 @@ export const rateClient: any = createPromiseClient(RateService as any, transport
 export const snapshotClient: any = createPromiseClient(SnapshotService as any, transport);
 export const summaryClient: any = createPromiseClient(SummaryService as any, transport);
 export const systemClient: any = createPromiseClient(SystemService as any, transport);
+export const profileClient: any = createPromiseClient(ProfileService as any, transport);
 
 export type ReferenceRate = {
   code: string;
@@ -350,7 +363,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
   // Accounts
   if (path.startsWith('/api/accounts')) {
-    if (path === '/api/accounts' || path.startsWith('/api/accounts?')) {
+    if ((path === '/api/accounts' || path.startsWith('/api/accounts?')) && method === 'GET') {
       const urlParams = new URLSearchParams(path.includes('?') ? path.split('?')[1] : '');
       const sortParam = urlParams.get('sort');
       const dirParam = urlParams.get('direction');
@@ -442,7 +455,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
   // Holdings
   if (path.startsWith('/api/holdings')) {
-    if (path === '/api/holdings' || path.startsWith('/api/holdings?')) {
+    if ((path === '/api/holdings' || path.startsWith('/api/holdings?')) && method === 'GET') {
       const urlParams = new URLSearchParams(path.includes('?') ? path.split('?')[1] : '');
       const sortParam = urlParams.get('sort');
       const dirParam = urlParams.get('direction');
@@ -498,7 +511,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
   // Snapshots
   if (path.startsWith('/api/snapshots')) {
-    if (path === '/api/snapshots' || path.startsWith('/api/snapshots?')) {
+    if ((path === '/api/snapshots' || path.startsWith('/api/snapshots?')) && method === 'GET') {
       const urlParams = new URLSearchParams(path.includes('?') ? path.split('?')[1] : '');
       const sortParam = urlParams.get('sort');
       const dirParam = urlParams.get('direction');
@@ -533,7 +546,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
   // Instruments
   if (path.startsWith('/api/instruments')) {
-    if (path === '/api/instruments' || path.startsWith('/api/instruments?')) {
+    if ((path === '/api/instruments' || path.startsWith('/api/instruments?')) && method === 'GET') {
       const urlParams = new URLSearchParams(path.includes('?') ? path.split('?')[1] : '');
       const sortParam = urlParams.get('sort');
       const dirParam = urlParams.get('direction');
@@ -715,6 +728,38 @@ export async function downloadAIModel(modelName: string): Promise<{ success: boo
   };
 }
 
+export type OllamaModelInfo = {
+  name: string;
+  size_bytes: number;
+  modified_at: string;
+};
+
+export async function listOllamaModels(endpoint: string): Promise<OllamaModelInfo[]> {
+  const res = await systemClient.listOllamaModels({ endpoint });
+  return (res.models ?? []).map((m: any) => ({
+    name: m.name,
+    size_bytes: Number(m.sizeBytes ?? 0),
+    modified_at: m.modifiedAt ?? '',
+  }));
+}
+
+export async function loadOllamaModel(endpoint: string, model: string, contextSize: number): Promise<{ success: boolean; message: string }> {
+  const res = await systemClient.loadOllamaModel({ endpoint, model, contextSize });
+  return {
+    success: Boolean(res.success),
+    message: res.message ?? '',
+  };
+}
+
+export async function restartLocalServer(modelFilename: string, contextSize: number, port?: number): Promise<{ success: boolean; message: string; actualNCtx: number }> {
+  const res = await systemClient.restartLocalServer({ modelFilename, contextSize, port: port ?? 8080 });
+  return {
+    success: Boolean(res.success),
+    message: res.message ?? '',
+    actualNCtx: Number(res.actualNCtx ?? 0),
+  };
+}
+
 export type StreamChatChunk = {
   deltaText: string;
   isMcpToolCall: boolean;
@@ -722,6 +767,7 @@ export type StreamChatChunk = {
   toolArgsJson: string;
   toolResultJson: string;
   done: boolean;
+  actualNCtx: number;
 };
 
 export async function* streamChat(
@@ -757,6 +803,7 @@ export async function* streamChat(
       toolArgsJson: chunk.toolArgsJson ?? '',
       toolResultJson: chunk.toolResultJson ?? '',
       done: Boolean(chunk.done),
+      actualNCtx: Number(chunk.actualNCtx ?? 0),
     };
   }
 }

@@ -90,6 +90,46 @@ message StreamChatResponse {
   string tool_args_json = 4;
   string tool_result_json = 5;
   bool done = 6;
+  // Actual server context window detected at request time (0 if unknown).
+  int32 actual_n_ctx = 7;
+}
+
+message RestartLocalServerRequest {
+  string model_filename = 1;
+  int32 context_size = 2;
+  int32 port = 3;
+}
+
+message RestartLocalServerResponse {
+  bool success = 1;
+  string message = 2;
+  int32 port = 3;
+  int32 actual_n_ctx = 4;
+}
+
+message ListOllamaModelsRequest {
+  string endpoint = 1;
+}
+
+message OllamaModelInfo {
+  string name = 1;
+  int64 size_bytes = 2;
+  string modified_at = 3;
+}
+
+message ListOllamaModelsResponse {
+  repeated OllamaModelInfo models = 1;
+}
+
+message LoadOllamaModelRequest {
+  string endpoint = 1;
+  string model = 2;
+  int32 context_size = 3;
+}
+
+message LoadOllamaModelResponse {
+  bool success = 1;
+  string message = 2;
 }
 
 // SystemService manages database backups, system state, local AI models, and Connect Protobuf AI streaming.
@@ -104,4 +144,10 @@ service SystemService {
   rpc DownloadAIModel(DownloadAIModelRequest) returns (DownloadAIModelResponse);
   // Stream AI assistant chat tokens and MCP tool calls over Connect Protobuf server-streaming.
   rpc StreamChat(StreamChatRequest) returns (stream StreamChatResponse);
+  // List models available in a running Ollama instance.
+  rpc ListOllamaModels(ListOllamaModelsRequest) returns (ListOllamaModelsResponse);
+  // Load an Ollama model into memory with the specified context size.
+  rpc LoadOllamaModel(LoadOllamaModelRequest) returns (LoadOllamaModelResponse);
+  // Kill and restart the local llama-server process with a new model and context size.
+  rpc RestartLocalServer(RestartLocalServerRequest) returns (RestartLocalServerResponse);
 }

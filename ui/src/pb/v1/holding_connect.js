@@ -37,7 +37,7 @@ export const HoldingService = {
       kind: MethodKind.Unary,
     },
     /**
-     * Update an existing holding position, value, or PAC share.
+     * Update an existing holding's allocation, PAC share, or flags. Pass id + a holding object with only the fields to change. To remove a holding from PAC: set is_pac=false and pac_bps=0.
      *
      * @generated from rpc v1.HoldingService.UpdateHolding
      */

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  Alert,
   Modal,
   Button,
   Group,
@@ -9,7 +10,6 @@ import {
   Paper,
   Table,
   Badge,
-  Alert,
   Divider,
   SimpleGrid,
   Card,
@@ -17,6 +17,7 @@ import {
 } from '@mantine/core';
 import { api, type Holding } from './api';
 import { money, percent } from './utils/format';
+import { notifications } from '@mantine/notifications';
 
 type Props = {
   opened: boolean;
@@ -40,7 +41,6 @@ export function InvestModal({ opened, onClose, holdings, reload }: Props) {
   const activeHoldings = holdings.filter(h => !h.account_name?.toLowerCase().includes('archived'));
   const [contribution, setContribution] = useState<number>(1000);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
 
   const totalCurrentMinor = activeHoldings.reduce((sum, h) => sum + h.value_minor, 0);
   const totalPlannedBps = activeHoldings.reduce((sum, h) => sum + (h.planned_bps || 0), 0);
@@ -104,7 +104,6 @@ export function InvestModal({ opened, onClose, holdings, reload }: Props) {
 
   const handleApply = async () => {
     setSaving(true);
-    setError('');
     try {
       for (const r of rows) {
         if (r.suggestedMinor > 0) {
@@ -119,10 +118,11 @@ export function InvestModal({ opened, onClose, holdings, reload }: Props) {
           });
         }
       }
+      notifications.show({ color: 'teal', title: 'Rebalance applied', message: `Updated ${activeRebalanceCount} holding${activeRebalanceCount !== 1 ? 's' : ''}.` });
       await reload();
       onClose();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      notifications.show({ color: 'red', title: 'Rebalance failed', message: cause instanceof Error ? cause.message : String(cause) });
     } finally {
       setSaving(false);
     }
@@ -138,8 +138,6 @@ export function InvestModal({ opened, onClose, holdings, reload }: Props) {
       size="xl"
     >
       <Stack gap="md">
-        {error && <Alert color="red">{error}</Alert>}
-
         <Text size="sm" c="dimmed">
           Enter a new cash deposit to automatically distribute it across underweight holdings, bringing your portfolio closer to your target allocation without selling existing positions.
         </Text>

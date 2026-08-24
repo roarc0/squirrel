@@ -23,10 +23,10 @@ func TestStoreRoundTrip(t *testing.T) {
 	}
 	limit, fixed := int64(5_000_000), int64(300)
 	account := portfolio.Account{Name: "Savings", Currency: "eur", BalanceMinor: 7_000_000, Tiers: []portfolio.InterestTier{{UpToMinor: &limit, FixedRateBPS: &fixed}, {ReferenceCode: "ecb_dfr"}}}
-	if err := s.SaveAccount(ctx, &account); err != nil {
+	if err := s.SaveAccount(ctx, &account, "testuser"); err != nil {
 		t.Fatal(err)
 	}
-	accounts, err := s.ListAccounts(ctx)
+	accounts, err := s.ListAccounts(ctx, "testuser")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,18 +34,18 @@ func TestStoreRoundTrip(t *testing.T) {
 		t.Fatalf("unexpected accounts: %+v", accounts)
 	}
 	second := portfolio.Account{Name: "Broker", Type: portfolio.AccountTypeBroker, Currency: "EUR", Preferred: true}
-	if err := s.SaveAccount(ctx, &second); err != nil {
+	if err := s.SaveAccount(ctx, &second, "testuser"); err != nil {
 		t.Fatal(err)
 	}
-	accounts, err = s.ListAccounts(ctx)
+	accounts, err = s.ListAccounts(ctx, "testuser")
 	if err != nil || len(accounts) != 2 || !accounts[0].Preferred || accounts[1].Preferred {
 		t.Fatalf("expected only Broker to be preferred: err=%v accounts=%+v", err, accounts)
 	}
 	second.Archived = true
-	if err := s.SaveAccount(ctx, &second); err != nil {
+	if err := s.SaveAccount(ctx, &second, "testuser"); err != nil {
 		t.Fatal(err)
 	}
-	accounts, err = s.ListAccounts(ctx)
+	accounts, err = s.ListAccounts(ctx, "testuser")
 	if err != nil || !accounts[0].Preferred || accounts[1].Preferred || !accounts[1].Archived {
 		t.Fatalf("expected archived Broker and active preferred Savings: err=%v accounts=%+v", err, accounts)
 	}
@@ -90,14 +90,14 @@ func TestStoreRoundTrip(t *testing.T) {
 	if err := s.SaveHolding(ctx, &portfolio.Holding{AccountID: account.ID, InstrumentID: gold.ID, ValueMinor: 900_000, TaxBPS: 2600, PlannedBPS: 4000}); err != nil {
 		t.Fatal(err)
 	}
-	holdings, err := s.ListHoldings(ctx)
+	holdings, err := s.ListHoldings(ctx, "testuser")
 	if err != nil || len(holdings) != 2 || holdings[0].InstrumentID != instrument.ID || holdings[0].InstrumentType != portfolio.InstrumentTypeETF || holdings[0].AssetClass != "equity" || holdings[0].PlannedBPS != 6000 || holdings[0].ActualBPS != 5500 || holdings[1].ActualBPS != 4500 {
 		t.Fatalf("unexpected holdings: err=%v holdings=%+v", err, holdings)
 	}
-	if err := s.SaveSnapshot(ctx, "2026-08-21"); err != nil {
+	if err := s.SaveSnapshot(ctx, "2026-08-21", "testuser"); err != nil {
 		t.Fatal(err)
 	}
-	snapshots, err := s.ListSnapshots(ctx)
+	snapshots, err := s.ListSnapshots(ctx, "testuser")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,14 +109,14 @@ func TestStoreRoundTrip(t *testing.T) {
 	if err := s.UpdateSnapshot(ctx, &corrected); err != nil {
 		t.Fatal(err)
 	}
-	snapshots, err = s.ListSnapshots(ctx)
+	snapshots, err = s.ListSnapshots(ctx, "testuser")
 	if err != nil || len(snapshots) != 1 || snapshots[0].ObservedOn != "2026-08-22" || snapshots[0].CashMinor != 6_900_000 || snapshots[0].InvestedMinor != 1_100_000 || snapshots[0].PortfolioMinor != 2_100_000 || snapshots[0].TotalMinor != 9_000_000 {
 		t.Fatalf("unexpected corrected snapshot: err=%v snapshots=%+v", err, snapshots)
 	}
 	if err := s.DeleteSnapshot(ctx, corrected.ID); err != nil {
 		t.Fatal(err)
 	}
-	if snapshots, err = s.ListSnapshots(ctx); err != nil || len(snapshots) != 0 {
+	if snapshots, err = s.ListSnapshots(ctx, "testuser"); err != nil || len(snapshots) != 0 {
 		t.Fatalf("snapshot was not deleted: err=%v snapshots=%+v", err, snapshots)
 	}
 }
@@ -152,7 +152,7 @@ func TestPACAllocationPercentageConstraint(t *testing.T) {
 	ctx := context.Background()
 
 	acc := portfolio.Account{Name: "Trade Republic", Currency: "EUR", PACAmountMinor: 30000}
-	if err := s.SaveAccount(ctx, &acc); err != nil {
+	if err := s.SaveAccount(ctx, &acc, "testuser"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -193,7 +193,7 @@ func TestZeroValuePACHolding(t *testing.T) {
 	ctx := context.Background()
 
 	acc := portfolio.Account{Name: "Fineco", Currency: "EUR", PACAmountMinor: 50000}
-	if err := s.SaveAccount(ctx, &acc); err != nil {
+	if err := s.SaveAccount(ctx, &acc, "testuser"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -216,7 +216,7 @@ func TestZeroValuePACHolding(t *testing.T) {
 		t.Fatalf("SaveHolding failed for €0 PAC holding: %v", err)
 	}
 
-	holdings, err := s.ListHoldings(ctx)
+	holdings, err := s.ListHoldings(ctx, "testuser")
 	if err != nil {
 		t.Fatalf("ListHoldings failed: %v", err)
 	}

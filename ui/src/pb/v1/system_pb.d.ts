@@ -435,6 +435,13 @@ export declare class StreamChatResponse extends Message<StreamChatResponse> {
    */
   done: boolean;
 
+  /**
+   * Actual server context window detected at request time (0 if unknown).
+   *
+   * @generated from field: int32 actual_n_ctx = 7;
+   */
+  actualNCtx: number;
+
   constructor(data?: PartialMessage<StreamChatResponse>);
 
   static readonly runtime: typeof proto3;
@@ -448,5 +455,223 @@ export declare class StreamChatResponse extends Message<StreamChatResponse> {
   static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): StreamChatResponse;
 
   static equals(a: StreamChatResponse | PlainMessage<StreamChatResponse> | undefined, b: StreamChatResponse | PlainMessage<StreamChatResponse> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.RestartLocalServerRequest
+ */
+export declare class RestartLocalServerRequest extends Message<RestartLocalServerRequest> {
+  /**
+   * @generated from field: string model_filename = 1;
+   */
+  modelFilename: string;
+
+  /**
+   * @generated from field: int32 context_size = 2;
+   */
+  contextSize: number;
+
+  /**
+   * @generated from field: int32 port = 3;
+   */
+  port: number;
+
+  constructor(data?: PartialMessage<RestartLocalServerRequest>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.RestartLocalServerRequest";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RestartLocalServerRequest;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RestartLocalServerRequest;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RestartLocalServerRequest;
+
+  static equals(a: RestartLocalServerRequest | PlainMessage<RestartLocalServerRequest> | undefined, b: RestartLocalServerRequest | PlainMessage<RestartLocalServerRequest> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.RestartLocalServerResponse
+ */
+export declare class RestartLocalServerResponse extends Message<RestartLocalServerResponse> {
+  /**
+   * @generated from field: bool success = 1;
+   */
+  success: boolean;
+
+  /**
+   * @generated from field: string message = 2;
+   */
+  message: string;
+
+  /**
+   * @generated from field: int32 port = 3;
+   */
+  port: number;
+
+  /**
+   * @generated from field: int32 actual_n_ctx = 4;
+   */
+  actualNCtx: number;
+
+  constructor(data?: PartialMessage<RestartLocalServerResponse>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.RestartLocalServerResponse";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RestartLocalServerResponse;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RestartLocalServerResponse;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RestartLocalServerResponse;
+
+  static equals(a: RestartLocalServerResponse | PlainMessage<RestartLocalServerResponse> | undefined, b: RestartLocalServerResponse | PlainMessage<RestartLocalServerResponse> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.ListOllamaModelsRequest
+ */
+export declare class ListOllamaModelsRequest extends Message<ListOllamaModelsRequest> {
+  /**
+   * @generated from field: string endpoint = 1;
+   */
+  endpoint: string;
+
+  constructor(data?: PartialMessage<ListOllamaModelsRequest>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.ListOllamaModelsRequest";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListOllamaModelsRequest;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ListOllamaModelsRequest;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ListOllamaModelsRequest;
+
+  static equals(a: ListOllamaModelsRequest | PlainMessage<ListOllamaModelsRequest> | undefined, b: ListOllamaModelsRequest | PlainMessage<ListOllamaModelsRequest> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.OllamaModelInfo
+ */
+export declare class OllamaModelInfo extends Message<OllamaModelInfo> {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * @generated from field: int64 size_bytes = 2;
+   */
+  sizeBytes: bigint;
+
+  /**
+   * @generated from field: string modified_at = 3;
+   */
+  modifiedAt: string;
+
+  constructor(data?: PartialMessage<OllamaModelInfo>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.OllamaModelInfo";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): OllamaModelInfo;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): OllamaModelInfo;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): OllamaModelInfo;
+
+  static equals(a: OllamaModelInfo | PlainMessage<OllamaModelInfo> | undefined, b: OllamaModelInfo | PlainMessage<OllamaModelInfo> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.ListOllamaModelsResponse
+ */
+export declare class ListOllamaModelsResponse extends Message<ListOllamaModelsResponse> {
+  /**
+   * @generated from field: repeated v1.OllamaModelInfo models = 1;
+   */
+  models: OllamaModelInfo[];
+
+  constructor(data?: PartialMessage<ListOllamaModelsResponse>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.ListOllamaModelsResponse";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListOllamaModelsResponse;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ListOllamaModelsResponse;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ListOllamaModelsResponse;
+
+  static equals(a: ListOllamaModelsResponse | PlainMessage<ListOllamaModelsResponse> | undefined, b: ListOllamaModelsResponse | PlainMessage<ListOllamaModelsResponse> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.LoadOllamaModelRequest
+ */
+export declare class LoadOllamaModelRequest extends Message<LoadOllamaModelRequest> {
+  /**
+   * @generated from field: string endpoint = 1;
+   */
+  endpoint: string;
+
+  /**
+   * @generated from field: string model = 2;
+   */
+  model: string;
+
+  /**
+   * @generated from field: int32 context_size = 3;
+   */
+  contextSize: number;
+
+  constructor(data?: PartialMessage<LoadOllamaModelRequest>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.LoadOllamaModelRequest";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): LoadOllamaModelRequest;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): LoadOllamaModelRequest;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): LoadOllamaModelRequest;
+
+  static equals(a: LoadOllamaModelRequest | PlainMessage<LoadOllamaModelRequest> | undefined, b: LoadOllamaModelRequest | PlainMessage<LoadOllamaModelRequest> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.LoadOllamaModelResponse
+ */
+export declare class LoadOllamaModelResponse extends Message<LoadOllamaModelResponse> {
+  /**
+   * @generated from field: bool success = 1;
+   */
+  success: boolean;
+
+  /**
+   * @generated from field: string message = 2;
+   */
+  message: string;
+
+  constructor(data?: PartialMessage<LoadOllamaModelResponse>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.LoadOllamaModelResponse";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): LoadOllamaModelResponse;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): LoadOllamaModelResponse;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): LoadOllamaModelResponse;
+
+  static equals(a: LoadOllamaModelResponse | PlainMessage<LoadOllamaModelResponse> | undefined, b: LoadOllamaModelResponse | PlainMessage<LoadOllamaModelResponse> | undefined): boolean;
 }
 

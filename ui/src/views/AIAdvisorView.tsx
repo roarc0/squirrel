@@ -22,8 +22,8 @@ import {
   Textarea,
   Title,
 } from '@mantine/core';
-import type { Account, Holding, Instrument, Summary, AIModelInfo } from '../api';
-import { listAIModels, downloadAIModel, streamChat } from '../api';
+import type { Account, Holding, Instrument, Summary, AIModelInfo, OllamaModelInfo } from '../api';
+import { listAIModels, downloadAIModel, streamChat, listOllamaModels, loadOllamaModel, restartLocalServer } from '../api';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import { money, percent } from '../utils/format';
 
@@ -89,6 +89,7 @@ export function AIAdvisorView({
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [detectedNCtx, setDetectedNCtx] = useState<number>(0);
 
   // Persist chat messages temporarily in sessionStorage until refresh
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
@@ -315,6 +316,16 @@ export function AIAdvisorView({
     try {
       let accumulatedText = '';
       const toolRecords: MCPToolCallRecord[] = [];
+      // Loop detection: track last 300 chars; if the same ~60-char segment repeats 4+ times, abort.
+      const detectLoop = (text: string): boolean => {
+        if (text.length < 240) return false;
+        const tail = text.slice(-300);
+        const seg = tail.slice(0, 60).trim();
+        if (seg.length < 20) return false;
+        const escaped = seg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const matches = tail.match(new RegExp(escaped, 'g'));
+        return (matches?.length ?? 0) >= 4;
+      };
 
       const stream = streamChat(
         {
@@ -330,6 +341,9 @@ export function AIAdvisorView({
       );
 
       for await (const chunk of stream) {
+        if (chunk.actualNCtx && chunk.actualNCtx > 0) {
+          setDetectedNCtx(chunk.actualNCtx);
+        }
         if (chunk.isMcpToolCall && chunk.toolName) {
           let args = {};
           try { args = JSON.parse(chunk.toolArgsJson); } catch { /* optional */ }
@@ -341,6 +355,10 @@ export function AIAdvisorView({
         }
         if (chunk.deltaText) {
           accumulatedText += chunk.deltaText;
+          if (detectLoop(accumulatedText)) {
+            controller.abort();
+            accumulatedText = accumulatedText.slice(0, -300).trimEnd() + '\n\n*(generation stopped: repetition loop detected)*';
+          }
           currentMessages = currentMessages.map(m =>
             m.id === assistantMsgId
               ? {
@@ -477,13 +495,15 @@ export function AIAdvisorView({
                 maxWidth: '85%',
                 backgroundColor:
                   msg.role === 'user'
-                    ? 'var(--mantine-color-teal-9, rgba(32, 201, 151, 0.12))'
-                    : undefined,
-                border: msg.role === 'user' ? '1px solid rgba(32, 201, 151, 0.3)' : undefined,
+                    ? 'light-dark(var(--mantine-color-teal-1), var(--mantine-color-teal-9))'
+                    : 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))',
+                border: msg.role === 'user'
+                  ? '1px solid light-dark(var(--mantine-color-teal-3), rgba(32,201,151,0.3))'
+                  : '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4))',
               }}
             >
               <Group justify="space-between" mb="xs">
-                <Text size="xs" fw={700} c={msg.role === 'user' ? 'teal' : 'dimmed'}>
+                <Text size="xs" fw={700} c={msg.role === 'user' ? 'teal.7' : 'dimmed'}>
                   {msg.role === 'user' ? '👤 You' : '🤖 AI Assistant'}
                 </Text>
                 <Text size="xs" c="dimmed">
@@ -514,7 +534,7 @@ export function AIAdvisorView({
                             /* optional */
                           }
                           return (
-                            <Paper key={idx} withBorder p="xs" radius="sm" style={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }}>
+                            <Paper key={idx} withBorder p="xs" radius="sm" style={{ backgroundColor: 'light-dark(var(--mantine-color-gray-1), rgba(0,0,0,0.2))' }}>
                               <Group justify="space-between" mb={4}>
                                 <Group gap="xs">
                                   <Code color="teal" fw={700}>POST /mcp → {tc.name}</Code>
@@ -558,9 +578,9 @@ export function AIAdvisorView({
           position: 'sticky',
           bottom: 12,
           zIndex: 100,
-          backgroundColor: 'var(--mantine-color-body)',
-          border: '1px solid var(--mantine-color-default-border)',
-          boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.3)',
+          backgroundColor: 'light-dark(white, var(--mantine-color-dark-7))',
+          border: '1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4))',
+          boxShadow: 'light-dark(0 4px 24px rgba(0,0,0,0.10), 0 -4px 20px rgba(0,0,0,0.4))',
         }}
       >
         <Stack gap="sm">
@@ -574,7 +594,14 @@ export function AIAdvisorView({
 
           <Group justify="space-between" align="center">
             <Text size="xs" c="dimmed">
-              Press <Text span fw={600} ff="monospace">Enter</Text> to send · Active Model: <Text span fw={700} c="teal">{settings.model}</Text> ({settings.provider} · <Text span fw={700} c="teal">{settings.contextSize >= 1024 ? `${Math.round(settings.contextSize / 1024)}K` : settings.contextSize} Context</Text>)
+              Press <Text span fw={600} ff="monospace">Enter</Text> to send · Active Model: <Text span fw={700} c="teal">{settings.model}</Text> ({settings.provider} · {detectedNCtx > 0 && detectedNCtx !== settings.contextSize ? (
+                <Text span>
+                  <Text span fw={700} c="orange">{detectedNCtx >= 1024 ? `${Math.round(detectedNCtx / 1024)}K` : detectedNCtx} Context</Text>
+                  <Text span c="dimmed" size="xs"> (server limit; configured {settings.contextSize >= 1024 ? `${Math.round(settings.contextSize / 1024)}K` : settings.contextSize}K — restart server with <Text span ff="monospace">just ai-start</Text>)</Text>
+                </Text>
+              ) : (
+                <Text span fw={700} c="teal">{settings.contextSize >= 1024 ? `${Math.round(settings.contextSize / 1024)}K` : settings.contextSize} Context</Text>
+              )})
             </Text>
             {loading ? (
               <Button
@@ -657,6 +684,13 @@ function AISettingsModal({
   const [contextSize, setContextSize] = useState(settings.contextSize || 16384);
 
   const [availableModels, setAvailableModels] = useState<AIModelInfo[]>([]);
+  const [ollamaModels, setOllamaModels] = useState<OllamaModelInfo[]>([]);
+  const [ollamaLoading, setOllamaLoading] = useState(false);
+  const [ollamaLoadNotice, setOllamaLoadNotice] = useState('');
+  const [ollamaLoadError, setOllamaLoadError] = useState('');
+  const [localServerLoading, setLocalServerLoading] = useState(false);
+  const [localServerNotice, setLocalServerNotice] = useState('');
+  const [localServerError, setLocalServerError] = useState('');
   const [downloadInput, setDownloadInput] = useState('');
   const [downloading, setDownloading] = useState(false);
   const [downloadNotice, setDownloadNotice] = useState('');
@@ -671,6 +705,33 @@ function AISettingsModal({
     }
   };
 
+  const fetchOllamaModels = async (ep: string) => {
+    try {
+      const models = await listOllamaModels(ep);
+      setOllamaModels(models);
+    } catch {
+      setOllamaModels([]);
+    }
+  };
+
+  const handleLoadOllamaModel = async () => {
+    setOllamaLoading(true);
+    setOllamaLoadError('');
+    setOllamaLoadNotice('');
+    try {
+      const res = await loadOllamaModel(endpoint, model, contextSize);
+      if (res.success) {
+        setOllamaLoadNotice(res.message);
+      } else {
+        setOllamaLoadError(res.message || 'Failed to load model');
+      }
+    } catch (cause) {
+      setOllamaLoadError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setOllamaLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!opened) return;
     setProvider(settings.provider);
@@ -679,11 +740,35 @@ function AISettingsModal({
     setApiKey(settings.apiKey);
     setContextSize(settings.contextSize || 16384);
     void loadModels();
+    if (settings.provider === 'ollama') {
+      void fetchOllamaModels(settings.endpoint);
+    }
     const interval = setInterval(() => {
       void loadModels();
     }, 1000);
     return () => clearInterval(interval);
   }, [opened, settings]);
+
+  const handleRestartLocalServer = async () => {
+    const found = availableModels.find(m => m.id === model);
+    const filename = found?.filename ?? (model.endsWith('.gguf') ? model : model + '.gguf');
+    setLocalServerLoading(true);
+    setLocalServerError('');
+    setLocalServerNotice('');
+    try {
+      const portNum = endpoint.match(/:(\d+)/)?.[1];
+      const res = await restartLocalServer(filename, contextSize, portNum ? Number(portNum) : 8080);
+      if (res.success) {
+        setLocalServerNotice(res.message);
+      } else {
+        setLocalServerError(res.message || 'Failed to restart server');
+      }
+    } catch (cause) {
+      setLocalServerError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setLocalServerLoading(false);
+    }
+  };
 
   const handleProviderChange = (val: string | null) => {
     const next = (val as AISettings['provider']) || 'local';
@@ -691,10 +776,9 @@ function AISettingsModal({
     if (next === 'local') {
       setEndpoint('http://localhost:8080/v1');
     } else if (next === 'ollama') {
-      setEndpoint('http://localhost:11434/v1');
-      if (!model || model.startsWith('deepseek') || model.startsWith('qwen')) {
-        setModel('llama3.2');
-      }
+      const ollamaEndpoint = 'http://localhost:11434/v1';
+      setEndpoint(ollamaEndpoint);
+      void fetchOllamaModels(ollamaEndpoint);
     } else if (next === 'openai') {
       setEndpoint('https://api.openai.com/v1');
       if (!model || !model.startsWith('gpt-')) {
@@ -726,35 +810,49 @@ function AISettingsModal({
     }
   };
 
-  const modelOptions = [
-    {
-      group: 'Downloaded Local GGUF Models (./data/models/)',
-      items: availableModels
-        .filter(m => m.is_downloaded)
-        .map(m => ({
-          value: m.id,
-          label: `✓ ${m.name} (${m.size_bytes > 0 ? `${(m.size_bytes / (1024 * 1024 * 1024)).toFixed(1)}GB` : 'Saved'})`,
-        })),
-    },
-    {
-      group: 'Recommended Open-Weights Math & Reasoning Models',
-      items: availableModels
-        .filter(m => !m.is_downloaded)
-        .map(m => ({
-          value: m.id,
-          label: m.is_downloading ? `⏳ [${m.download_percent}%] ${m.name}` : `⬇️ ${m.name}`,
-        })),
-    },
-    {
-      group: 'Standard Cloud Models',
-      items: [
-        { value: 'gpt-4o-mini', label: 'OpenAI gpt-4o-mini' },
-        { value: 'gpt-4o', label: 'OpenAI gpt-4o' },
-        { value: 'llama3.2', label: 'Ollama llama3.2' },
-        { value: 'qwen2.5:3b', label: 'Ollama qwen2.5:3b' },
-      ],
-    },
-  ].filter(g => g.items.length > 0);
+  const modelOptions = provider === 'ollama'
+    ? [
+        {
+          group: ollamaModels.length > 0 ? 'Ollama Models (from running instance)' : 'Ollama Models',
+          items: ollamaModels.length > 0
+            ? ollamaModels.map(m => ({
+                value: m.name,
+                label: `${m.name} (${m.size_bytes > 0 ? `${(m.size_bytes / (1024 * 1024 * 1024)).toFixed(1)}GB` : 'local'})`,
+              }))
+            : [
+                { value: 'llama3.2', label: 'llama3.2' },
+                { value: 'qwen2.5:3b', label: 'qwen2.5:3b' },
+                { value: 'deepseek-r1:7b', label: 'deepseek-r1:7b' },
+              ],
+        },
+      ]
+    : [
+        {
+          group: 'Downloaded Local GGUF Models (./data/models/)',
+          items: availableModels
+            .filter(m => m.is_downloaded)
+            .map(m => ({
+              value: m.id,
+              label: `✓ ${m.name} (${m.size_bytes > 0 ? `${(m.size_bytes / (1024 * 1024 * 1024)).toFixed(1)}GB` : 'Saved'})`,
+            })),
+        },
+        {
+          group: 'Recommended Open-Weights Math & Reasoning Models',
+          items: availableModels
+            .filter(m => !m.is_downloaded)
+            .map(m => ({
+              value: m.id,
+              label: m.is_downloading ? `⏳ [${m.download_percent}%] ${m.name}` : `⬇️ ${m.name}`,
+            })),
+        },
+        {
+          group: 'Standard Cloud Models',
+          items: [
+            { value: 'gpt-4o-mini', label: 'OpenAI gpt-4o-mini' },
+            { value: 'gpt-4o', label: 'OpenAI gpt-4o' },
+          ],
+        },
+      ].filter(g => g.items.length > 0);
 
   return (
     <Modal opened={opened} onClose={onClose} title="AI Assistant & Model Settings" size="lg">
@@ -827,6 +925,69 @@ function AISettingsModal({
                 value={apiKey}
                 onChange={e => setApiKey(e.currentTarget.value)}
               />
+            )}
+
+            {provider === 'local' && (
+              <Box>
+                {localServerError && (
+                  <Alert color="red" mb="xs" withCloseButton onClose={() => setLocalServerError('')}>
+                    {localServerError}
+                  </Alert>
+                )}
+                {localServerNotice && (
+                  <Alert color="teal" mb="xs" withCloseButton onClose={() => setLocalServerNotice('')}>
+                    {localServerNotice}
+                  </Alert>
+                )}
+                <Button
+                  size="xs"
+                  variant="light"
+                  color="blue"
+                  loading={localServerLoading}
+                  onClick={handleRestartLocalServer}
+                >
+                  Reload Server with Model & Context
+                </Button>
+                <Text size="xs" c="dimmed" mt={4}>
+                  Kills and restarts llama-server with <Text span ff="monospace">{availableModels.find(m => m.id === model)?.filename ?? model}</Text> and {contextSize >= 1024 ? `${Math.round(contextSize / 1024)}K` : contextSize} token context. Server will be unavailable for ~5–10 seconds.
+                </Text>
+              </Box>
+            )}
+
+            {provider === 'ollama' && (
+              <Box>
+                {ollamaLoadError && (
+                  <Alert color="red" mb="xs" withCloseButton onClose={() => setOllamaLoadError('')}>
+                    {ollamaLoadError}
+                  </Alert>
+                )}
+                {ollamaLoadNotice && (
+                  <Alert color="teal" mb="xs" withCloseButton onClose={() => setOllamaLoadNotice('')}>
+                    {ollamaLoadNotice}
+                  </Alert>
+                )}
+                <Group gap="xs">
+                  <Button
+                    size="xs"
+                    variant="light"
+                    color="teal"
+                    loading={ollamaLoading}
+                    onClick={handleLoadOllamaModel}
+                  >
+                    Load Model with Context
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="subtle"
+                    onClick={() => void fetchOllamaModels(endpoint)}
+                  >
+                    Refresh Models
+                  </Button>
+                </Group>
+                <Text size="xs" c="dimmed" mt={4}>
+                  Preloads <Text span ff="monospace">{model}</Text> in Ollama with {contextSize >= 1024 ? `${Math.round(contextSize / 1024)}K` : contextSize} token context window. Required when the model is already loaded with a smaller context.
+                </Text>
+              </Box>
             )}
           </Stack>
         </Paper>

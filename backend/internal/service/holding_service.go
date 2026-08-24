@@ -4,17 +4,19 @@ import (
 	"cmp"
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 
 	"connectrpc.com/connect"
 
+	"loot/backend/internal/auth"
 	"loot/backend/internal/portfolio"
 	portv1 "loot/proto/gen/go/v1"
 )
 
 func (s *Server) ListHoldings(ctx context.Context, req *connect.Request[portv1.ListHoldingsRequest]) (*connect.Response[portv1.ListHoldingsResponse], error) {
-	holdings, err := s.store.ListHoldings(ctx)
+	holdings, err := s.store.ListHoldings(ctx, auth.UserIDOrEmpty(ctx))
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -88,6 +90,23 @@ func (s *Server) CreateHolding(ctx context.Context, req *connect.Request[portv1.
 	}
 	holding := holdingFromProto(req.Msg.Holding)
 	holding.ID = 0
+	userID := auth.UserIDOrEmpty(ctx)
+	if userID != "" {
+		accounts, err := s.store.ListAccounts(ctx, userID)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		owned := false
+		for _, a := range accounts {
+			if a.ID == holding.AccountID {
+				owned = true
+				break
+			}
+		}
+		if !owned {
+			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("account not found"))
+		}
+	}
 	if err := s.store.SaveHolding(ctx, &holding); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
@@ -98,16 +117,42 @@ func (s *Server) UpdateHolding(ctx context.Context, req *connect.Request[portv1.
 	if req.Msg.Holding == nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("holding is required"))
 	}
-	holding := holdingFromProto(req.Msg.Holding)
-	holding.ID = req.Msg.Id
-	if err := s.store.SaveHolding(ctx, &holding); err != nil {
+	// Accept ID from either root field or holding.id — both refer to the same entity.
+	holdingID := req.Msg.Id
+	if holdingID == 0 {
+		holdingID = req.Msg.Holding.Id
+	}
+	// Load existing so FK fields (account_id, instrument_id) are never zeroed out by a partial update.
+	existing, err := s.store.GetHolding(ctx, holdingID, auth.UserIDOrEmpty(ctx))
+	if err != nil {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("holding %d not found: %w", holdingID, err))
+	}
+	patch := req.Msg.Holding
+	// Apply all user-editable fields; protect FK fields from accidental zero.
+	if patch.AccountId != 0 {
+		existing.AccountID = patch.AccountId
+	}
+	if patch.InstrumentId != 0 {
+		existing.InstrumentID = patch.InstrumentId
+	}
+	existing.InvestedMinor = patch.InvestedMinor
+	existing.ValueMinor = patch.ValueMinor
+	existing.TaxBPS = patch.TaxBps
+	existing.PlannedBPS = patch.PlannedBps
+	existing.IsPAC = patch.IsPac
+	existing.PACBPS = patch.PacBps
+	if patch.PacFrequency != "" {
+		existing.PACFrequency = patch.PacFrequency
+	}
+	existing.Notes = patch.Notes
+	if err := s.store.SaveHolding(ctx, existing); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	return connect.NewResponse(&portv1.UpdateHoldingResponse{Holding: holdingToProto(holding)}), nil
+	return connect.NewResponse(&portv1.UpdateHoldingResponse{Holding: holdingToProto(*existing)}), nil
 }
 
 func (s *Server) DeleteHolding(ctx context.Context, req *connect.Request[portv1.DeleteHoldingRequest]) (*connect.Response[portv1.DeleteHoldingResponse], error) {
-	if err := s.store.DeleteHolding(ctx, req.Msg.Id); err != nil {
+	if err := s.store.DeleteHolding(ctx, req.Msg.Id, auth.UserIDOrEmpty(ctx)); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	return connect.NewResponse(&portv1.DeleteHoldingResponse{}), nil

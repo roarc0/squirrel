@@ -8,6 +8,7 @@ import (
 
 	"connectrpc.com/connect"
 
+	"loot/backend/internal/auth"
 	"loot/backend/internal/portfolio"
 	portv1 "loot/proto/gen/go/v1"
 )
@@ -30,7 +31,7 @@ func (s *Server) GetSummary(ctx context.Context, req *connect.Request[portv1.Get
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	holdings, err := s.store.ListHoldings(ctx)
+	holdings, err := s.store.ListHoldings(ctx, auth.UserIDOrEmpty(ctx))
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

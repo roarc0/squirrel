@@ -48,6 +48,15 @@ const (
 	// SystemServiceStreamChatProcedure is the fully-qualified name of the SystemService's StreamChat
 	// RPC.
 	SystemServiceStreamChatProcedure = "/v1.SystemService/StreamChat"
+	// SystemServiceListOllamaModelsProcedure is the fully-qualified name of the SystemService's
+	// ListOllamaModels RPC.
+	SystemServiceListOllamaModelsProcedure = "/v1.SystemService/ListOllamaModels"
+	// SystemServiceLoadOllamaModelProcedure is the fully-qualified name of the SystemService's
+	// LoadOllamaModel RPC.
+	SystemServiceLoadOllamaModelProcedure = "/v1.SystemService/LoadOllamaModel"
+	// SystemServiceRestartLocalServerProcedure is the fully-qualified name of the SystemService's
+	// RestartLocalServer RPC.
+	SystemServiceRestartLocalServerProcedure = "/v1.SystemService/RestartLocalServer"
 )
 
 // SystemServiceClient is a client for the v1.SystemService service.
@@ -62,6 +71,12 @@ type SystemServiceClient interface {
 	DownloadAIModel(context.Context, *connect.Request[v1.DownloadAIModelRequest]) (*connect.Response[v1.DownloadAIModelResponse], error)
 	// Stream AI assistant chat tokens and MCP tool calls over Connect Protobuf server-streaming.
 	StreamChat(context.Context, *connect.Request[v1.StreamChatRequest]) (*connect.ServerStreamForClient[v1.StreamChatResponse], error)
+	// List models available in a running Ollama instance.
+	ListOllamaModels(context.Context, *connect.Request[v1.ListOllamaModelsRequest]) (*connect.Response[v1.ListOllamaModelsResponse], error)
+	// Load an Ollama model into memory with the specified context size.
+	LoadOllamaModel(context.Context, *connect.Request[v1.LoadOllamaModelRequest]) (*connect.Response[v1.LoadOllamaModelResponse], error)
+	// Kill and restart the local llama-server process with a new model and context size.
+	RestartLocalServer(context.Context, *connect.Request[v1.RestartLocalServerRequest]) (*connect.Response[v1.RestartLocalServerResponse], error)
 }
 
 // NewSystemServiceClient constructs a client for the v1.SystemService service. By default, it uses
@@ -105,16 +120,37 @@ func NewSystemServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(systemServiceMethods.ByName("StreamChat")),
 			connect.WithClientOptions(opts...),
 		),
+		listOllamaModels: connect.NewClient[v1.ListOllamaModelsRequest, v1.ListOllamaModelsResponse](
+			httpClient,
+			baseURL+SystemServiceListOllamaModelsProcedure,
+			connect.WithSchema(systemServiceMethods.ByName("ListOllamaModels")),
+			connect.WithClientOptions(opts...),
+		),
+		loadOllamaModel: connect.NewClient[v1.LoadOllamaModelRequest, v1.LoadOllamaModelResponse](
+			httpClient,
+			baseURL+SystemServiceLoadOllamaModelProcedure,
+			connect.WithSchema(systemServiceMethods.ByName("LoadOllamaModel")),
+			connect.WithClientOptions(opts...),
+		),
+		restartLocalServer: connect.NewClient[v1.RestartLocalServerRequest, v1.RestartLocalServerResponse](
+			httpClient,
+			baseURL+SystemServiceRestartLocalServerProcedure,
+			connect.WithSchema(systemServiceMethods.ByName("RestartLocalServer")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // systemServiceClient implements SystemServiceClient.
 type systemServiceClient struct {
-	exportBackup    *connect.Client[v1.ExportBackupRequest, v1.ExportBackupResponse]
-	restoreBackup   *connect.Client[v1.RestoreBackupRequest, v1.RestoreBackupResponse]
-	listAIModels    *connect.Client[v1.ListAIModelsRequest, v1.ListAIModelsResponse]
-	downloadAIModel *connect.Client[v1.DownloadAIModelRequest, v1.DownloadAIModelResponse]
-	streamChat      *connect.Client[v1.StreamChatRequest, v1.StreamChatResponse]
+	exportBackup       *connect.Client[v1.ExportBackupRequest, v1.ExportBackupResponse]
+	restoreBackup      *connect.Client[v1.RestoreBackupRequest, v1.RestoreBackupResponse]
+	listAIModels       *connect.Client[v1.ListAIModelsRequest, v1.ListAIModelsResponse]
+	downloadAIModel    *connect.Client[v1.DownloadAIModelRequest, v1.DownloadAIModelResponse]
+	streamChat         *connect.Client[v1.StreamChatRequest, v1.StreamChatResponse]
+	listOllamaModels   *connect.Client[v1.ListOllamaModelsRequest, v1.ListOllamaModelsResponse]
+	loadOllamaModel    *connect.Client[v1.LoadOllamaModelRequest, v1.LoadOllamaModelResponse]
+	restartLocalServer *connect.Client[v1.RestartLocalServerRequest, v1.RestartLocalServerResponse]
 }
 
 // ExportBackup calls v1.SystemService.ExportBackup.
@@ -142,6 +178,21 @@ func (c *systemServiceClient) StreamChat(ctx context.Context, req *connect.Reque
 	return c.streamChat.CallServerStream(ctx, req)
 }
 
+// ListOllamaModels calls v1.SystemService.ListOllamaModels.
+func (c *systemServiceClient) ListOllamaModels(ctx context.Context, req *connect.Request[v1.ListOllamaModelsRequest]) (*connect.Response[v1.ListOllamaModelsResponse], error) {
+	return c.listOllamaModels.CallUnary(ctx, req)
+}
+
+// LoadOllamaModel calls v1.SystemService.LoadOllamaModel.
+func (c *systemServiceClient) LoadOllamaModel(ctx context.Context, req *connect.Request[v1.LoadOllamaModelRequest]) (*connect.Response[v1.LoadOllamaModelResponse], error) {
+	return c.loadOllamaModel.CallUnary(ctx, req)
+}
+
+// RestartLocalServer calls v1.SystemService.RestartLocalServer.
+func (c *systemServiceClient) RestartLocalServer(ctx context.Context, req *connect.Request[v1.RestartLocalServerRequest]) (*connect.Response[v1.RestartLocalServerResponse], error) {
+	return c.restartLocalServer.CallUnary(ctx, req)
+}
+
 // SystemServiceHandler is an implementation of the v1.SystemService service.
 type SystemServiceHandler interface {
 	// Export a complete encrypted backup archive of the SQLite database.
@@ -154,6 +205,12 @@ type SystemServiceHandler interface {
 	DownloadAIModel(context.Context, *connect.Request[v1.DownloadAIModelRequest]) (*connect.Response[v1.DownloadAIModelResponse], error)
 	// Stream AI assistant chat tokens and MCP tool calls over Connect Protobuf server-streaming.
 	StreamChat(context.Context, *connect.Request[v1.StreamChatRequest], *connect.ServerStream[v1.StreamChatResponse]) error
+	// List models available in a running Ollama instance.
+	ListOllamaModels(context.Context, *connect.Request[v1.ListOllamaModelsRequest]) (*connect.Response[v1.ListOllamaModelsResponse], error)
+	// Load an Ollama model into memory with the specified context size.
+	LoadOllamaModel(context.Context, *connect.Request[v1.LoadOllamaModelRequest]) (*connect.Response[v1.LoadOllamaModelResponse], error)
+	// Kill and restart the local llama-server process with a new model and context size.
+	RestartLocalServer(context.Context, *connect.Request[v1.RestartLocalServerRequest]) (*connect.Response[v1.RestartLocalServerResponse], error)
 }
 
 // NewSystemServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -193,6 +250,24 @@ func NewSystemServiceHandler(svc SystemServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(systemServiceMethods.ByName("StreamChat")),
 		connect.WithHandlerOptions(opts...),
 	)
+	systemServiceListOllamaModelsHandler := connect.NewUnaryHandler(
+		SystemServiceListOllamaModelsProcedure,
+		svc.ListOllamaModels,
+		connect.WithSchema(systemServiceMethods.ByName("ListOllamaModels")),
+		connect.WithHandlerOptions(opts...),
+	)
+	systemServiceLoadOllamaModelHandler := connect.NewUnaryHandler(
+		SystemServiceLoadOllamaModelProcedure,
+		svc.LoadOllamaModel,
+		connect.WithSchema(systemServiceMethods.ByName("LoadOllamaModel")),
+		connect.WithHandlerOptions(opts...),
+	)
+	systemServiceRestartLocalServerHandler := connect.NewUnaryHandler(
+		SystemServiceRestartLocalServerProcedure,
+		svc.RestartLocalServer,
+		connect.WithSchema(systemServiceMethods.ByName("RestartLocalServer")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/v1.SystemService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SystemServiceExportBackupProcedure:
@@ -205,6 +280,12 @@ func NewSystemServiceHandler(svc SystemServiceHandler, opts ...connect.HandlerOp
 			systemServiceDownloadAIModelHandler.ServeHTTP(w, r)
 		case SystemServiceStreamChatProcedure:
 			systemServiceStreamChatHandler.ServeHTTP(w, r)
+		case SystemServiceListOllamaModelsProcedure:
+			systemServiceListOllamaModelsHandler.ServeHTTP(w, r)
+		case SystemServiceLoadOllamaModelProcedure:
+			systemServiceLoadOllamaModelHandler.ServeHTTP(w, r)
+		case SystemServiceRestartLocalServerProcedure:
+			systemServiceRestartLocalServerHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -232,4 +313,16 @@ func (UnimplementedSystemServiceHandler) DownloadAIModel(context.Context, *conne
 
 func (UnimplementedSystemServiceHandler) StreamChat(context.Context, *connect.Request[v1.StreamChatRequest], *connect.ServerStream[v1.StreamChatResponse]) error {
 	return connect.NewError(connect.CodeUnimplemented, errors.New("v1.SystemService.StreamChat is not implemented"))
+}
+
+func (UnimplementedSystemServiceHandler) ListOllamaModels(context.Context, *connect.Request[v1.ListOllamaModelsRequest]) (*connect.Response[v1.ListOllamaModelsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.SystemService.ListOllamaModels is not implemented"))
+}
+
+func (UnimplementedSystemServiceHandler) LoadOllamaModel(context.Context, *connect.Request[v1.LoadOllamaModelRequest]) (*connect.Response[v1.LoadOllamaModelResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.SystemService.LoadOllamaModel is not implemented"))
+}
+
+func (UnimplementedSystemServiceHandler) RestartLocalServer(context.Context, *connect.Request[v1.RestartLocalServerRequest]) (*connect.Response[v1.RestartLocalServerResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.SystemService.RestartLocalServer is not implemented"))
 }

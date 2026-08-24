@@ -2,4 +2,5 @@ default: generate
 
 generate:
 	rm -rf gen
+	buf build -o ../backend/internal/mcp/proto_image.binpb
 	buf generate

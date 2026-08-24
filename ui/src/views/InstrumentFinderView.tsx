@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { notifications } from '@mantine/notifications';
 import {
   Alert,
   Badge,
@@ -47,6 +48,8 @@ import { DataTable, TableAction, TableActions, type DataColumn, type SortDirecti
 import { confirmDelete as legacyConfirmDelete, instrumentLabels, label, percent } from '../utils/format';
 import { matchesExactFilters, pageBounds } from '../visual';
 import { useConfirmDelete } from '../components/ConfirmDeleteModal';
+import { useProfile, getProfile } from '../hooks/useProfile';
+import { useQueryParam, useQueryParamObject } from '../hooks/useQueryParam';
 
 type Numeric = string | number;
 const n = (value: Numeric | undefined) => (value === '' || value === undefined ? 0 : Number(value));
@@ -68,12 +71,14 @@ const instrumentColumns: { value: InstrumentColumn; label: string }[] = [
 const defaultInstrumentColumns: InstrumentColumn[] = ['ticker', 'isin', 'type', 'issuer', 'exposure', 'policy', 'replication', 'ter', 'size'];
 
 function savedInstrumentColumns(): InstrumentColumn[] {
+  // Read from profile cache first, fall back to legacy localStorage
+  const profileJson = getProfile().instrument_columns_json;
+  const raw = profileJson || localStorage.getItem('loot.instrumentColumns.v2') || localStorage.getItem('port.instrumentColumns.v2');
   try {
-    const raw = localStorage.getItem('loot.instrumentColumns.v2') ?? localStorage.getItem('port.instrumentColumns.v2');
-    if (raw === null) return defaultInstrumentColumns;
+    if (!raw) return defaultInstrumentColumns;
     const saved = JSON.parse(raw) as string[];
     const valid = saved.filter((value): value is InstrumentColumn => instrumentColumns.some(column => column.value === value));
-    return valid;
+    return valid.length ? valid : defaultInstrumentColumns;
   } catch { return defaultInstrumentColumns; }
 }
 
@@ -87,10 +92,11 @@ export function InstrumentFinderView({ instruments, reload }: { instruments: Ins
   const { confirmDelete, modal: confirmDeleteModal } = useConfirmDelete();
   const [lookupQuery, setLookupQuery] = useState(''); const [lookingUp, setLookingUp] = useState(false);
   const [searchResults, setSearchResults] = useState<Instrument[]>([]); const [selected, setSelected] = useState<string[]>([]); const [searching, setSearching] = useState(false); const [importing, setImporting] = useState(false);
-  const [syncing, setSyncing] = useState(false); const [enriching, setEnriching] = useState(false); const [notice, setNotice] = useState(''); const [localQuery, setLocalQuery] = useState('');
+  const [syncing, setSyncing] = useState(false); const [enriching, setEnriching] = useState(false); const [notice, setNotice] = useState(''); const [localQuery, setLocalQuery] = useQueryParam('q');
   const [streamController, setStreamController] = useState<AbortController>(); const [streamProgress, setStreamProgress] = useState<EnrichmentProgress>();
-  const [visibleColumns, setVisibleColumns] = useState<InstrumentColumn[]>(savedInstrumentColumns); const [columnsOpen, setColumnsOpen] = useState(false); const [filtersOpen, setFiltersOpen] = useState(false);
-  const [filters, setFilters] = useState<InstrumentFilters>({ issuer: '', type: '', assetClass: '', policy: '', replication: '', domicile: '', currency: '', ucits: '' });
+  const [visibleColumns, setVisibleColumns] = useState<InstrumentColumn[]>(savedInstrumentColumns); const [columnsOpen, setColumnsOpen] = useState(false); const [filtersOpenRaw, setFiltersOpen] = useQueryParam('filters');
+  const filtersOpen = filtersOpenRaw === '1';
+  const [filters, setFilters] = useQueryParamObject('f', { issuer: '', type: '', assetClass: '', policy: '', replication: '', domicile: '', currency: '', ucits: '' } as InstrumentFilters);
   const [similarity, setSimilarity] = useState(() => (new URLSearchParams(window.location.search).get('similarity') ?? '').toUpperCase()); const [alternatives, setAlternatives] = useState<InstrumentAlternative[]>([]); const [loadingAlternatives, setLoadingAlternatives] = useState(false); const [page, setPage] = useState(1); const [pageSize, setPageSize] = useState(50);
   const [indexQuery, setIndexQuery] = useState('');
   const [distribution, setDistribution] = useState(''); const [replication, setReplication] = useState(''); const [domicile, setDomicile] = useState('');
@@ -103,7 +109,7 @@ export function InstrumentFinderView({ instruments, reload }: { instruments: Ins
     setSimilarity(isin); setRanked([]); setPage(1);
   };
   const rank = async () => { try { const result = await api<RankedInstrument[]>('/api/instruments/rank', { method: 'POST', body: JSON.stringify({ index_query: indexQuery, distribution, replications: replication ? [replication] : [], domiciles: domicile ? domicile.split(',').map(value => value.trim().toUpperCase()).filter(Boolean) : [], max_ter_bps: maxTER === '' ? null : bps(maxTER), min_fund_size_million: n(minSize), min_age_years: n(minAge), weights: { cost: 35, tracking_difference: 30, tracking_error: 15, size: 15, age: 5 } }) }); setSimilarityFilter(); setRanked(result ?? []); setError(''); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } };
-  const lookup = async (query = lookupQuery) => { if (!query.trim()) return; setLookingUp(true); try { await api<Instrument>('/api/instruments/lookup', { method: 'POST', body: JSON.stringify({ query }) }); setLookupQuery(''); setRanked([]); setError(''); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } finally { setLookingUp(false); } };
+  const lookup = async (query = lookupQuery) => { if (!query.trim()) return; setLookingUp(true); try { const inst = await api<Instrument>('/api/instruments/lookup', { method: 'POST', body: JSON.stringify({ query }) }); setLookupQuery(''); setRanked([]); setError(''); await reload(); notifications.show({ color: 'teal', title: 'Profile refreshed', message: inst?.name ?? query }); } catch (cause) { notifications.show({ color: 'red', title: 'Refresh failed', message: cause instanceof Error ? cause.message : String(cause) }); setError(''); } finally { setLookingUp(false); } };
   const search = async () => { if (!lookupQuery.trim()) return; setSearching(true); try { const result = await api<Instrument[]>(`/api/instruments/search?q=${encodeURIComponent(lookupQuery)}`); setSearchResults(result ?? []); setSelected((result ?? []).map(item => item.isin)); setError(''); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } finally { setSearching(false); } };
   const importSelected = async () => { if (selected.length === 0) return; setImporting(true); try { await api<Instrument[]>('/api/instruments/import', { method: 'POST', body: JSON.stringify({ isins: selected }) }); setSearchResults([]); setSelected([]); setLookupQuery(''); setRanked([]); setError(''); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } finally { setImporting(false); } };
   const syncCatalog = async () => { setSyncing(true); try { const result = await api<{ saved: number; available: number }>('/api/instruments/catalog/sync', { method: 'POST', body: JSON.stringify({ limit: 4000 }) }); setNotice(`Saved ${result.saved.toLocaleString()} UCITS ETFs from ${result.available.toLocaleString()} screener results.`); setError(''); setRanked([]); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } finally { setSyncing(false); } };
@@ -275,7 +281,10 @@ export function InstrumentFinderView({ instruments, reload }: { instruments: Ins
     ...(show('enriched') ? [{ key: 'enriched', label: 'Last refreshed', sortable: true, render: (item: RankedInstrument) => <Text size="sm" c={item.instrument.enriched_at ? undefined : 'dimmed'}>{item.instrument.enriched_at ? new Date(item.instrument.enriched_at).toLocaleString() : '—'}</Text> }] : []),
     { key: 'actions', render: item => <TableActions><TableAction label={`Open ${item.instrument.isin} on justETF`} href={item.instrument.source_url} disabled={!item.instrument.source_url}><IconExternalLink size={14} /></TableAction><TableAction label={item.instrument.ucits && item.instrument.instrument_type === 'etf' ? `Find alternatives for ${item.instrument.isin}` : 'Alternatives are limited to comparable UCITS ETFs'} disabled={item.instrument.instrument_type !== 'etf' || item.instrument.data_status !== 'enriched' || !item.instrument.ucits || item.instrument.asset_class === 'other'} onClick={() => showAlternatives(item.instrument)}><IconArrowsExchange size={14} /></TableAction><TableAction label={`Refresh ${item.instrument.isin}`} disabled={lookingUp} onClick={() => void lookup(item.instrument.isin)}><IconRefresh size={14} /></TableAction><TableAction label={`Edit ${item.instrument.isin}`} onClick={() => open(item.instrument)}><IconPencil size={14} /></TableAction><TableAction label={`Delete ${item.instrument.isin}`} color="red" onClick={() => void remove(item.instrument)}><IconTrash size={14} /></TableAction></TableActions> },
   ];
-  useEffect(() => { try { localStorage.setItem('loot.instrumentColumns.v2', JSON.stringify(visibleColumns)); } catch { /* preference persistence is optional */ } }, [visibleColumns]);
+  const [, setProfileField] = useProfile();
+  useEffect(() => {
+    setProfileField({ instrument_columns_json: JSON.stringify(visibleColumns) });
+  }, [visibleColumns]);
   useEffect(() => () => streamController?.abort(), [streamController]);
   useEffect(() => { setPage(1); }, [localQuery, filters, similarity, ranked, catalog.sort, catalog.direction, pageSize]);
   useEffect(() => {
@@ -357,7 +366,7 @@ export function InstrumentFinderView({ instruments, reload }: { instruments: Ins
                 ? ` · Avg TER ${(matchingRows.filter(r => r.instrument.ter_bps > 0).reduce((sum, r) => sum + r.instrument.ter_bps, 0) / Math.max(1, matchingRows.filter(r => r.instrument.ter_bps > 0).length) / 100).toFixed(2)}%`
                 : ''}
             </Text>
-            <Button size="xs" variant="light" onClick={() => setFiltersOpen(current => !current)}>Filters{activeFilterCount ? ` (${activeFilterCount})` : ''}</Button>
+            <Button size="xs" variant="light" onClick={() => setFiltersOpen(filtersOpen ? '' : '1')}>Filters{activeFilterCount ? ` (${activeFilterCount})` : ''}</Button>
             <Button size="xs" variant="light" onClick={() => setColumnsOpen(current => !current)}>Columns</Button>
           </Group>
         </Group>
@@ -399,7 +408,7 @@ function InstrumentModal({ opened, close, instrument, saved }: { opened: boolean
     <TextInput label="Issuer" value={form.provider} onChange={e => set('provider', e.currentTarget.value)} />
     <TextInput label="Tracked index" value={form.index_name} onChange={e => set('index_name', e.currentTarget.value)} />
     <TextInput label="Investment focus" placeholder="Equity, World" value={form.investment_focus} onChange={e => set('investment_focus', e.currentTarget.value)} />
-    <Select label="Asset class" value={form.asset_class} data={[{ value: '', label: 'Unknown' }, { value: 'equity', label: 'Equity' }, { value: 'bond', label: 'Bond' }, { value: 'commodity', label: 'Commodity' }, { value: 'money_market', label: 'Money market' }, { value: 'real_estate', label: 'Real estate' }, { value: 'crypto', label: 'Crypto' }, { value: 'mixed', label: 'Mixed' }, { value: 'other', label: 'Other' }]} onChange={value => set('asset_class', value ?? '')} />
+    <Select label="Asset class" value={form.asset_class} data={[{ value: '', label: 'Unknown' }, { value: 'equity', label: 'Equity' }, { value: 'bond', label: 'Bond' }, { value: 'commodity', label: 'Commodity' }, { value: 'monetary', label: 'Monetary' }, { value: 'real_estate', label: 'Real estate' }, { value: 'crypto', label: 'Crypto' }, { value: 'mixed', label: 'Mixed' }, { value: 'other', label: 'Other' }]} onChange={value => set('asset_class', value ?? '')} />
     <Select label="Strategy" value={form.strategy} data={[{ value: 'broad', label: 'Broad' }, { value: 'esg', label: 'ESG / screened' }, { value: 'dividend', label: 'Dividend' }, { value: 'factor', label: 'Factor' }]} onChange={value => set('strategy', value ?? 'broad')} />
     <TextInput label="Domicile" maxLength={2} value={form.domicile} onChange={e => set('domicile', e.currentTarget.value.toUpperCase())} />
     <Select label="Distribution" value={form.distribution} data={[{ value: 'accumulating', label: 'Accumulating' }, { value: 'distributing', label: 'Distributing' }]} onChange={value => set('distribution', (value ?? 'accumulating') as InstrumentDraft['distribution'])} />

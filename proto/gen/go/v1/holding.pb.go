@@ -416,9 +416,12 @@ func (x *CreateHoldingResponse) GetHolding() *Holding {
 }
 
 type UpdateHoldingRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Holding       *Holding               `protobuf:"bytes,2,opt,name=holding,proto3" json:"holding,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// ID of the holding to update. If zero, holding.id is used instead.
+	Id int64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Fields to update — only set what you want to change (e.g. pac_bps=0, is_pac=false).
+	// All percentage/monetary values are in basis points: 10000=100%, 5000=50%, 0=0%.
+	Holding       *Holding `protobuf:"bytes,2,opt,name=holding,proto3" json:"holding,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
