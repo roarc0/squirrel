@@ -1,27 +1,53 @@
 import { useState } from 'react';
 import {
+  ActionIcon,
+  Alert,
+  Badge,
+  Box,
   Button,
+  Card,
   Divider,
   FileInput,
   Group,
   NumberInput,
   Paper,
+  SegmentedControl,
   Select,
   SimpleGrid,
   Stack,
   Switch,
   Text,
-  Alert,
   Title,
-  Badge,
+  Tooltip,
 } from '@mantine/core';
+import {
+  IconAdjustments,
+  IconBuildingBank,
+  IconCoins,
+  IconDatabase,
+  IconDownload,
+  IconEyeOff,
+  IconFileCertificate,
+  IconFlame,
+  IconPlug,
+  IconShieldCheck,
+  IconSparkles,
+  IconUpload,
+} from '@tabler/icons-react';
+
 import { exportBackup, restoreBackup } from './api';
 import { useConfirmDelete } from './components/ConfirmDeleteModal';
 import { useProfile, isProfileLoaded } from './hooks/useProfile';
 import { money } from './utils/format';
-
 import { ViewShell } from './components/ViewShell';
 import { SectionHeader } from './components/SectionHeader';
+
+const CURRENCY_OPTIONS = [
+  { value: 'EUR', label: 'EUR (€) — Euro' },
+  { value: 'USD', label: 'USD ($) — US Dollar' },
+  { value: 'GBP', label: 'GBP (£) — British Pound' },
+  { value: 'CHF', label: 'CHF (Fr) — Swiss Franc' },
+];
 
 export function SettingsView({ reload }: { reload: () => Promise<void> }) {
   const [profile, setProfile] = useProfile();
@@ -40,55 +66,187 @@ export function SettingsView({ reload }: { reload: () => Promise<void> }) {
   const fireExpenses = Math.round(profile.fire_expenses_minor / 100);
 
   const handleExport = async () => {
-    setExporting(true); setError(''); setNotice('');
+    setExporting(true);
+    setError('');
+    setNotice('');
     try {
       const { data, filename } = await exportBackup();
       const blob = new Blob([new Uint8Array(data)], { type: 'application/gzip' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = url; link.download = filename;
-      document.body.appendChild(link); link.click();
-      document.body.removeChild(link); URL.revokeObjectURL(url);
-      setNotice(`Backup ${filename} downloaded.`);
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setNotice(`Backup ${filename} downloaded successfully.`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
-    } finally { setExporting(false); }
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleRestore = () => {
     if (!file) return;
     confirmDelete('database backup restoration', file.name, async () => {
-      setRestoring(true); setError(''); setNotice('');
+      setRestoring(true);
+      setError('');
+      setNotice('');
       try {
         const buffer = await file.arrayBuffer();
         const res = await restoreBackup(new Uint8Array(buffer));
-        setNotice(res.message); setFile(null);
+        setNotice(res.message);
+        setFile(null);
         await reload();
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
-      } finally { setRestoring(false); }
+      } finally {
+        setRestoring(false);
+      }
     }, 'Your existing data will be replaced. If the restore fails, nothing changes.');
   };
 
   return (
     <ViewShell error={error} onCloseError={() => setError('')}>
       <SectionHeader
-        title="Settings"
-        badge={loaded ? <Badge variant="dot" color="teal" size="sm">Synced to your account</Badge> : undefined}
+        title="Settings & Preferences"
+        subtitle="Manage display currency, optional feature plugins, financial goals, and database backups."
+        badge={
+          loaded ? (
+            <Badge variant="dot" color="teal" size="sm">
+              Synced to your profile
+            </Badge>
+          ) : undefined
+        }
       />
-      {notice && <Alert color="teal" withCloseButton onClose={() => setNotice('')}>{notice}</Alert>}
+      {notice && (
+        <Alert color="teal" withCloseButton onClose={() => setNotice('')} mb="md">
+          {notice}
+        </Alert>
+      )}
 
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-        {/* Left column — Financial preferences */}
+        {/* Left Column: General & Plugins */}
         <Stack gap="lg">
+          {/* Section 1: Regional & Display Preferences */}
           <Paper withBorder p="lg" radius="md">
-            <Text fw={600} mb={4}>Monthly Budget</Text>
+            <Group gap="xs" mb="xs">
+              <IconCoins size={20} color="var(--mantine-color-teal-6)" />
+              <Text fw={700} size="md">
+                Regional & Display Preferences
+              </Text>
+            </Group>
             <Text size="xs" c="dimmed" mb="lg">
-              Your estimated monthly living expenses. Used to calculate the emergency cash reserve target shown in the Overview.
+              Set default display currency and privacy options across all accounts and dashboards.
+            </Text>
+            <Stack gap="md">
+              <Select
+                label="Preferred Display Currency"
+                description="Default currency symbol used for portfolio totals"
+                value={profile.preferred_currency || 'EUR'}
+                onChange={val => setProfile({ preferred_currency: val || 'EUR' })}
+                data={CURRENCY_OPTIONS}
+              />
+              <Switch
+                label="Privacy Mode (Hide Balances)"
+                description="Mask all balance amounts with asterisks across the application"
+                checked={profile.hide_balances}
+                onChange={event => setProfile({ hide_balances: event.currentTarget.checked })}
+              />
+            </Stack>
+          </Paper>
+
+          {/* Section 2: Plugins & Feature Modules */}
+          <Paper withBorder p="lg" radius="md">
+            <Group justify="space-between" align="center" mb="xs">
+              <Group gap="xs">
+                <IconPlug size={20} color="var(--mantine-color-blue-6)" />
+                <Text fw={700} size="md">
+                  Plugins & Optional Modules
+                </Text>
+              </Group>
+              <Badge color="blue" variant="light">
+                Feature Toggles
+              </Badge>
+            </Group>
+            <Text size="xs" c="dimmed" mb="lg">
+              Enable or disable specialized analytical modules and tools.
+            </Text>
+            <Stack gap="md">
+              <Card withBorder p="md" radius="sm">
+                <Group justify="space-between" align="start" mb="xs">
+                  <Box style={{ flex: 1 }}>
+                    <Group gap="xs" mb={4}>
+                      <IconFileCertificate size={16} color="var(--mantine-color-blue-6)" />
+                      <Text fw={650} size="sm">
+                        Italian BTP Ranks Plugin
+                      </Text>
+                    </Group>
+                    <Text size="xs" c="dimmed">
+                      Enables the BTP Rank tab with yield curve analytics, Macaulay/Modified duration, and 6-factor composite bond rankings.
+                    </Text>
+                  </Box>
+                  <Switch
+                    checked={profile.enable_btp_ranks}
+                    onChange={event => setProfile({ enable_btp_ranks: event.currentTarget.checked })}
+                  />
+                </Group>
+                {profile.enable_btp_ranks && (
+                  <Group justify="flex-end" mt="xs">
+                    <Button
+                      size="xs"
+                      variant="light"
+                      color="blue"
+                      component="a"
+                      href="?tab=btp"
+                    >
+                      Open BTP Rank Tab →
+                    </Button>
+                  </Group>
+                )}
+              </Card>
+
+              <Card withBorder p="md" radius="sm">
+                <Group justify="space-between" align="start">
+                  <Box style={{ flex: 1 }}>
+                    <Group gap="xs" mb={4}>
+                      <IconFlame size={16} color="var(--mantine-color-orange-6)" />
+                      <Text fw={650} size="sm">
+                        FIRE Freedom Calculator
+                      </Text>
+                    </Group>
+                    <Text size="xs" c="dimmed">
+                      Displays the 4% Safe Withdrawal Rate (SWR) financial independence calculator on the Overview dashboard.
+                    </Text>
+                  </Box>
+                  <Switch
+                    checked={profile.show_fire_calculator}
+                    onChange={event => setProfile({ show_fire_calculator: event.currentTarget.checked })}
+                  />
+                </Group>
+              </Card>
+            </Stack>
+          </Paper>
+        </Stack>
+
+        {/* Right Column: Financial Goals & Data Backup */}
+        <Stack gap="lg">
+          {/* Section 3: Financial Goals */}
+          <Paper withBorder p="lg" radius="md">
+            <Group gap="xs" mb="xs">
+              <IconShieldCheck size={20} color="var(--mantine-color-teal-6)" />
+              <Text fw={700} size="md">
+                Financial Goals & Emergency Buffer
+              </Text>
+            </Group>
+            <Text size="xs" c="dimmed" mb="lg">
+              Set targets for your emergency liquid reserve and long-term retirement calculations.
             </Text>
             <Stack gap="md">
               <NumberInput
-                label="Monthly Expenses"
+                label="Monthly Living Expenses"
                 prefix="€ "
                 placeholder="e.g. 2,000"
                 min={0}
@@ -108,31 +266,13 @@ export function SettingsView({ reload }: { reload: () => Promise<void> }) {
               />
               {reserveTarget > 0 && (
                 <Group justify="space-between" pt="xs">
-                  <Text size="sm" c="dimmed">Reserve Target</Text>
-                  <Text fw={700} c="teal" size="lg">{money(reserveTarget * 100, 'EUR')}</Text>
+                  <Text size="xs" c="dimmed">Calculated Buffer Target</Text>
+                  <Text fw={700} c="teal" size="md">
+                    {money(reserveTarget * 100, profile.preferred_currency || 'EUR')}
+                  </Text>
                 </Group>
               )}
-            </Stack>
-          </Paper>
-
-          <Paper withBorder p="lg" radius="md">
-            <Text fw={600} mb={4}>Portfolio Goals</Text>
-            <Text size="xs" c="dimmed" mb="lg">
-              Goals used in the Overview dashboard widgets. The emergency goal is the cash balance target; the FIRE number drives the financial freedom calculator.
-            </Text>
-            <Stack gap="md">
-              <Switch
-                label="Show FIRE Target Calculator"
-                description="Display financial independence & 4% rule calculator in Overview"
-                checked={profile.show_fire_calculator}
-                onChange={event => setProfile({ show_fire_calculator: event.currentTarget.checked })}
-              />
-              <Switch
-                label="Enable Italian BTP Ranks Plugin"
-                description="Show BTP yield curve analytics, duration metrics, and 6-factor composite rankings tab"
-                checked={profile.enable_btp_ranks}
-                onChange={event => setProfile({ enable_btp_ranks: event.currentTarget.checked })}
-              />
+              <Divider my="xs" />
               <NumberInput
                 label="Emergency Cash Goal"
                 prefix="€ "
@@ -142,9 +282,9 @@ export function SettingsView({ reload }: { reload: () => Promise<void> }) {
                 onChange={val => setProfile({ emergency_goal_minor: Number(val || 0) * 100 })}
               />
               <NumberInput
-                label="Annual Expenses (FIRE)"
+                label="Annual Expenses (FIRE 4% Target)"
                 prefix="€ "
-                description="Your target annual spending for the 4% rule calculator"
+                description="Your target annual spending for the financial freedom calculator"
                 placeholder="e.g. 24,000"
                 min={0}
                 value={fireExpenses || ''}
@@ -152,44 +292,75 @@ export function SettingsView({ reload }: { reload: () => Promise<void> }) {
               />
             </Stack>
           </Paper>
-        </Stack>
 
-        {/* Right column — Data management */}
-        <Stack gap="lg">
+          {/* Section 4: Data Backup & Management */}
           <Paper withBorder p="lg" radius="md">
-            <Text fw={600} mb={4}>Export Data Backup</Text>
+            <Group gap="xs" mb="xs">
+              <IconDatabase size={20} color="var(--mantine-color-violet-6)" />
+              <Text fw={700} size="md">
+                Data Management & Backups
+              </Text>
+            </Group>
             <Text size="xs" c="dimmed" mb="lg">
-              Download a complete timestamped archive (.json) of your portfolio data.
+              Safeguard your data with portable JSON export archives or restore existing backups.
             </Text>
-            <Button color="teal" variant="light" onClick={handleExport} loading={exporting}>
-              Export Backup (.json)
-            </Button>
-          </Paper>
-
-          <Paper withBorder p="lg" radius="md">
-            <Text fw={600} mb={4}>Restore Database</Text>
-            <Text size="xs" c="dimmed" mb="lg">
-              Upload a previously exported .json backup. Your existing data will be replaced within a transaction — if anything fails, nothing changes.
-            </Text>
-            <Stack gap="sm">
-              <FileInput
-                placeholder="Select .json backup file"
-                accept=".json"
-                value={file}
-                onChange={setFile}
-                size="sm"
-              />
-              <Group justify="flex-end">
-                <Button color="red" variant="filled" onClick={handleRestore} disabled={!file} loading={restoring}>
-                  Restore Backup
+            <Stack gap="md">
+              <Group justify="space-between" align="center">
+                <Box style={{ flex: 1 }}>
+                  <Text fw={600} size="sm">
+                    Export Backup Archive
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    Download a full timestamped JSON backup of all accounts, holdings, and snapshots.
+                  </Text>
+                </Box>
+                <Button
+                  color="teal"
+                  variant="light"
+                  leftSection={<IconDownload size={16} />}
+                  onClick={() => void handleExport()}
+                  loading={exporting}
+                >
+                  Export (.json)
                 </Button>
               </Group>
+
+              <Divider />
+
+              <Stack gap="xs">
+                <Text fw={600} size="sm">
+                  Restore Database
+                </Text>
+                <Text size="xs" c="dimmed">
+                  Upload a previously exported .json backup file. Your existing database will be safely updated in a single transaction.
+                </Text>
+                <Group gap="sm" mt="xs">
+                  <FileInput
+                    placeholder="Select .json backup file"
+                    accept=".json"
+                    value={file}
+                    onChange={setFile}
+                    size="sm"
+                    style={{ flex: 1 }}
+                  />
+                  <Button
+                    color="red"
+                    variant="filled"
+                    leftSection={<IconUpload size={16} />}
+                    onClick={handleRestore}
+                    disabled={!file}
+                    loading={restoring}
+                  >
+                    Restore
+                  </Button>
+                </Group>
+              </Stack>
             </Stack>
           </Paper>
         </Stack>
       </SimpleGrid>
 
-      <Divider />
+      <Divider my="xl" />
       {confirmDeleteModal}
     </ViewShell>
   );
