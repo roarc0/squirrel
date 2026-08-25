@@ -334,7 +334,7 @@ func ComputeAdvancedScores(btps []BTP, cfg ScoringConfig) []BTP {
 
 		var total float64
 		if hasTarget {
-			total = r*4.0 + v*2.5 + d*1.0 + l*1.0 + f*0.5 + m*1.0
+			total = r*2.5 + v*1.5 + d*1.5 + l*1.0 + f*0.5 + m*3.0
 		} else {
 			total = (r*4.0 + v*2.5 + d*1.0 + l*1.0 + f*0.5) * (100.0 / 90.0)
 		}

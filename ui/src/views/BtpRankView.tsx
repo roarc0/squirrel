@@ -90,7 +90,7 @@ export function BtpRankView() {
     setLoading(true);
     setError('');
     try {
-      const yearNum = typeof targetYear === 'number' ? targetYear : 0;
+      const yearNum = Number(targetYear) || 0;
       let res = await listBtps({
         query: search,
         bondType: bondType || undefined,
@@ -122,7 +122,7 @@ export function BtpRankView() {
     setRefreshing(true);
     setError('');
     try {
-      const yearNum = typeof targetYear === 'number' ? targetYear : 0;
+      const yearNum = Number(targetYear) || 0;
       console.log('[BtpRankView] Triggering manual refreshBtps (yearNum:', yearNum, ')');
       const result = await refreshBtps(yearNum);
       console.log('[BtpRankView] refreshBtps complete:', result);
