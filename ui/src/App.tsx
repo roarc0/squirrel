@@ -22,6 +22,9 @@ import {
   IconTrendingUp,
   IconTrendingDown,
   IconFileCertificate,
+  IconBell,
+  IconBellRinging,
+  IconCheck,
 } from '@tabler/icons-react';
 import {
   ActionIcon,
@@ -44,6 +47,7 @@ import {
   Paper,
   Popover,
   Progress,
+  ScrollArea,
   SegmentedControl,
   Select,
   SimpleGrid,
@@ -275,6 +279,96 @@ export default function App() {
             onClick={() => setHideBalances(v => !v)}
           />
           <ThemePickerButton />
+          <Popover width={380} position="bottom-end" shadow="md" radius="lg" withArrow>
+            <Popover.Target>
+              <Box style={{ position: 'relative', display: 'inline-block' }}>
+                <HeaderIconButton
+                  icon={diagnosticsCount > 0 ? <IconBellRinging size={16} color="var(--mantine-color-orange-6)" /> : <IconBell size={16} />}
+                  label="Alerts"
+                />
+                {diagnosticsCount > 0 && (
+                  <Badge
+                    size="xs"
+                    color="orange"
+                    circle
+                    style={{
+                      position: 'absolute',
+                      top: -4,
+                      right: -4,
+                      pointerEvents: 'none',
+                      fontSize: 10,
+                      height: 16,
+                      minWidth: 16,
+                    }}
+                  >
+                    {diagnosticsCount}
+                  </Badge>
+                )}
+              </Box>
+            </Popover.Target>
+            <Popover.Dropdown p="sm">
+              <Group justify="space-between" align="center" pb="xs" mb="xs" style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}>
+                <Group gap="xs">
+                  <IconBellRinging size={18} color="var(--mantine-color-teal-6)" />
+                  <Text fw={750} size="sm">
+                    Diagnostics & Warnings
+                  </Text>
+                </Group>
+                <Badge color={diagnosticsCount > 0 ? 'orange' : 'teal'} variant="light" size="sm">
+                  {diagnosticsCount} {diagnosticsCount === 1 ? 'issue' : 'issues'}
+                </Badge>
+              </Group>
+
+              {diagnosticsCount === 0 ? (
+                <Stack align="center" gap="xs" py="md">
+                  <IconCheck size={28} color="var(--mantine-color-teal-6)" />
+                  <Text size="sm" fw={600} c="teal">
+                    All systems optimal!
+                  </Text>
+                  <Text size="xs" c="dimmed" ta="center">
+                    No diagnostic warnings or allocation issues detected across your portfolio.
+                  </Text>
+                </Stack>
+              ) : (
+                <ScrollArea.Autosize mah={360} offsetScrollbars>
+                  <Stack gap="xs">
+                    {data.summary.diagnostics?.map(diag => (
+                      <Card key={diag.id} withBorder radius="md" p="xs" style={{ background: 'var(--mantine-color-body)' }}>
+                        <Group justify="space-between" align="center" mb={4}>
+                          <Badge
+                            color={diag.severity === 'warning' ? 'orange' : diag.severity === 'alert' ? 'red' : 'blue'}
+                            variant="light"
+                            size="xs"
+                          >
+                            {diag.category.toUpperCase()}
+                          </Badge>
+                          <Text size="10px" c="dimmed" tt="uppercase" fw={700}>
+                            {diag.severity}
+                          </Text>
+                        </Group>
+                        <Text fw={700} size="xs" mb={2}>
+                          {diag.title}
+                        </Text>
+                        <Text size="xs" c="dimmed" lh={1.35} mb="xs">
+                          {diag.message}
+                        </Text>
+                        {diag.category === 'cash' && (
+                          <Button size="compact-xs" variant="light" color="teal" onClick={() => handleTabChange('settings')}>
+                            Configure Reserve →
+                          </Button>
+                        )}
+                        {diag.category === 'drift' && (
+                          <Button size="compact-xs" variant="light" color="teal" onClick={() => handleTabChange('investments')}>
+                            Rebalance Portfolio →
+                          </Button>
+                        )}
+                      </Card>
+                    ))}
+                  </Stack>
+                </ScrollArea.Autosize>
+              )}
+            </Popover.Dropdown>
+          </Popover>
           {currentUser ? (
             <Menu shadow="md" width={240} position="bottom-end">
               <Menu.Target>
@@ -336,13 +430,6 @@ export default function App() {
           </Tabs.Tab>
           <Tabs.Tab value="instruments" leftSection={<IconSearch size={16} />}>
             Instruments
-          </Tabs.Tab>
-          <Tabs.Tab
-            value="diagnostics"
-            leftSection={<IconActivity size={16} />}
-            rightSection={diagnosticsCount > 0 ? <Badge size="xs" color="orange" circle>{diagnosticsCount}</Badge> : undefined}
-          >
-            Diagnostics
           </Tabs.Tab>
           <Tabs.Tab value="consultant" leftSection={<IconRobot size={16} />}>
             AI Consultant
