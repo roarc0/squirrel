@@ -26,6 +26,7 @@ import {
   IconTrendingUp,
   IconShieldCheck,
   IconBuildingBank,
+  IconEye,
 } from '@tabler/icons-react';
 
 import { listBtps, refreshBtps, toggleStarBtp, type BtpBond } from '../api';
@@ -33,6 +34,7 @@ import { DataTable, type DataColumn } from '../DataTable';
 import { SectionHeader } from '../components/SectionHeader';
 import { ViewShell } from '../components/ViewShell';
 import { Chip } from '../Chip';
+import { BtpDetailModal } from './BtpDetailModal';
 
 const BOND_TYPE_OPTIONS = [
   { value: '', label: 'All Bond Types' },
@@ -68,6 +70,8 @@ export function BtpRankView() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState('');
+
+  const [selectedBtp, setSelectedBtp] = useState<BtpBond | null>(null);
 
   // Filters & Sorting
   const [search, setSearch] = useState('');
@@ -238,8 +242,8 @@ export function BtpRankView() {
       label: 'Bond & ISIN',
       sortable: true,
       render: btp => (
-        <Stack gap={2}>
-          <Text fw={700} size="sm">
+        <Stack gap={2} style={{ cursor: 'pointer' }} onClick={() => setSelectedBtp(btp)}>
+          <Text fw={700} size="sm" c="blue" style={{ textDecoration: 'underline' }}>
             {btp.name}
           </Text>
           <Group gap={6} align="center">
@@ -358,6 +362,18 @@ export function BtpRankView() {
             {btp.score.toFixed(1)}
           </Text>
         </Group>
+      ),
+    },
+    {
+      key: 'action',
+      label: '',
+      align: 'right',
+      render: btp => (
+        <Tooltip label="Inspect Cedole & Cashflow Simulation" withArrow>
+          <ActionIcon color="blue" variant="light" onClick={() => setSelectedBtp(btp)}>
+            <IconEye size={16} />
+          </ActionIcon>
+        </Tooltip>
       ),
     },
   ];
@@ -503,6 +519,12 @@ export function BtpRankView() {
           )}
         </Group>
       </Box>
+
+      <BtpDetailModal
+        btp={selectedBtp}
+        opened={Boolean(selectedBtp)}
+        onClose={() => setSelectedBtp(null)}
+      />
     </ViewShell>
   );
 }
