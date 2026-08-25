@@ -264,59 +264,58 @@ export function DraftPortfoliosView({
         subtitle="Select a classic model portfolio or create custom draft allocations to experiment with target weights."
         badge={<Badge color="violet" variant="light">Model Allocation Sandbox</Badge>}
         actions={
-          <Group gap="sm" align="center">
+          <Group gap="xs" align="center" wrap="nowrap">
             <Combobox
               store={combobox}
               onOptionSubmit={val => { setSelectedId(val); combobox.closeDropdown(); }}
-              width={420}
+              width={360}
               position="bottom-end"
             >
-            <Combobox.Target>
-              <InputBase
-                component="button"
-                type="button"
-                pointer
-                rightSection={<Combobox.Chevron />}
-                rightSectionPointerEvents="none"
-                onClick={() => combobox.toggleDropdown()}
-                w={420}
-                label="Portfolio Model"
-              >
-                <Text size="sm" truncate style={{ maxWidth: 360 }}>
-                  {activeDraft?.name ?? 'Pick a portfolio...'}
-                </Text>
-              </InputBase>
-            </Combobox.Target>
-            <Combobox.Dropdown>
-              <ScrollArea.Autosize mah={420} type="scroll">
-                <Combobox.Options>
-                  <Combobox.Group label="Standard Classic Portfolios">
-                    {DEFAULT_PRESETS.map(d => (
-                      <Combobox.Option value={d.id} key={d.id} active={d.id === selectedId}>
-                        <PortfolioOptionContent draft={d} />
-                      </Combobox.Option>
-                    ))}
-                  </Combobox.Group>
-                  {drafts.some(d => !d.id.startsWith('preset-')) && (
-                    <Combobox.Group label="Custom Saved Drafts">
-                      {drafts.filter(d => !d.id.startsWith('preset-')).map(d => (
+              <Combobox.Target>
+                <InputBase
+                  component="button"
+                  type="button"
+                  pointer
+                  rightSection={<Combobox.Chevron />}
+                  rightSectionPointerEvents="none"
+                  onClick={() => combobox.toggleDropdown()}
+                  w={280}
+                >
+                  <Text size="sm" truncate>
+                    {activeDraft?.name ?? 'Pick a portfolio...'}
+                  </Text>
+                </InputBase>
+              </Combobox.Target>
+              <Combobox.Dropdown>
+                <ScrollArea.Autosize mah={420} type="scroll">
+                  <Combobox.Options>
+                    <Combobox.Group label="Standard Classic Portfolios">
+                      {DEFAULT_PRESETS.map(d => (
                         <Combobox.Option value={d.id} key={d.id} active={d.id === selectedId}>
                           <PortfolioOptionContent draft={d} />
                         </Combobox.Option>
                       ))}
                     </Combobox.Group>
-                  )}
-                </Combobox.Options>
-              </ScrollArea.Autosize>
-            </Combobox.Dropdown>
-          </Combobox>
-          <Button variant="light" color="teal" leftSection={<IconCamera size={14} />} onClick={handleSnapshotCurrentHoldings}>
-            Snapshot Real Holdings
-          </Button>
-          <Button color="violet" leftSection={<IconPlus size={14} />} onClick={handleCreateNew}>
-            Create Custom Draft
-          </Button>
-        </Group>
+                    {drafts.some(d => !d.id.startsWith('preset-')) && (
+                      <Combobox.Group label="Custom Saved Drafts">
+                        {drafts.filter(d => !d.id.startsWith('preset-')).map(d => (
+                          <Combobox.Option value={d.id} key={d.id} active={d.id === selectedId}>
+                            <PortfolioOptionContent draft={d} />
+                          </Combobox.Option>
+                        ))}
+                      </Combobox.Group>
+                    )}
+                  </Combobox.Options>
+                </ScrollArea.Autosize>
+              </Combobox.Dropdown>
+            </Combobox>
+            <Button variant="light" color="teal" leftSection={<IconCamera size={14} />} onClick={handleSnapshotCurrentHoldings}>
+              Snapshot Real Holdings
+            </Button>
+            <Button color="violet" leftSection={<IconPlus size={14} />} onClick={handleCreateNew}>
+              Create Custom Draft
+            </Button>
+          </Group>
         }
       />
 
