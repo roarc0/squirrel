@@ -236,6 +236,32 @@ export function LootChestIcon({ size = 26, className }: { size?: number; classNa
   );
 }
 
+export function LootBrandLogo({ size = 26 }: { size?: number }) {
+  return (
+    <Group gap={8} align="center" style={{ userSelect: 'none' }}>
+      <LootChestIcon size={size} />
+      <Text
+        component="span"
+        style={{
+          fontSize: '1.65rem',
+          fontWeight: 850,
+          fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif',
+          letterSpacing: '-0.045em',
+          background: 'linear-gradient(135deg, var(--mantine-color-teal-4, #20c997) 0%, var(--mantine-color-teal-6, #0ca678) 65%, var(--mantine-color-teal-8, #099268) 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          lineHeight: 1,
+          display: 'inline-flex',
+          alignItems: 'center',
+          filter: 'drop-shadow(0 2px 10px rgba(32, 201, 151, 0.18))',
+        }}
+      >
+        LOOT
+      </Text>
+    </Group>
+  );
+}
+
 export function formatUserName(user?: AuthUser | null): string {
   if (!user || !user.email) return 'Account';
   const namePart = user.email.split('@')[0];
@@ -353,10 +379,7 @@ export default function App() {
   <>
     <main className="shell">
       <Group justify="space-between" align="center" mb="md">
-        <Group gap="xs" align="center">
-          <LootChestIcon size={26} />
-          <Title order={1} size="1.75rem" className="brand" c="teal">LOOT</Title>
-        </Group>
+        <LootBrandLogo size={26} />
         <Group gap={10}>
           <HeaderIconButton icon={<IconArrowsExchange size={16} />} label="Update" onClick={() => setUpdateModalOpened(true)} />
           <ThemePickerButton />
