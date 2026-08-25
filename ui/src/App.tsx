@@ -357,22 +357,16 @@ export function PerformanceResult({ value, invested, currency, mood = false }: {
   return <Group gap={6} wrap="nowrap" align="center">{mood && <Text title={state.label} size="lg" lh={1}>{state.emoji}</Text>}<Text size="sm" fw={700} c={change >= 0 ? 'teal' : 'red'}>{change >= 0 ? '+' : ''}{money(change, currency)} · {change >= 0 ? '+' : ''}{changePercent.toFixed(1)}%</Text></Group>;
 }
 
-function HeaderIconButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick?: () => void }) {
-  return (
-    <Stack
-      gap={2}
-      align="center"
-      className="header-icon-btn"
-      onClick={onClick}
-      role={onClick ? 'button' : undefined}
-      tabIndex={onClick ? 0 : undefined}
-      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); } : undefined}
-    >
-      <Box className="header-icon-btn__icon">{icon}</Box>
+const HeaderIconButton = React.forwardRef<HTMLButtonElement, { icon: React.ReactNode; label: string; onClick?: () => void }>(
+  ({ icon, label, onClick }, ref) => (
+    <Stack gap={3} align="center">
+      <ActionIcon ref={ref} variant="default" size="lg" onClick={onClick} aria-label={label}>
+        {icon}
+      </ActionIcon>
       <Text size="10px" c="dimmed" lh={1}>{label}</Text>
     </Stack>
-  );
-}
+  )
+);
 
 function ThemeToggleIcon() {
   const scheme = useComputedColorScheme('light');
