@@ -315,11 +315,19 @@ export function BtpRankView() {
       label: 'Total Net Return',
       sortable: true,
       align: 'right',
-      render: btp => (
-        <Text size="sm" fw={600}>
-          {btp.total_return_net.toFixed(1)}%
-        </Text>
-      ),
+      render: btp => {
+        const ann = btp.maturity_years > 0 ? (btp.total_return_net / btp.maturity_years).toFixed(1) : '0.0';
+        return (
+          <Stack gap={1} align="flex-end">
+            <Text size="sm" fw={600}>
+              {btp.total_return_net.toFixed(1)}%
+            </Text>
+            <Text size="xs" c="dimmed">
+              ~{ann}%/yr
+            </Text>
+          </Stack>
+        );
+      },
     },
     {
       key: 'score',
@@ -387,15 +395,15 @@ export function BtpRankView() {
         </Card>
 
         <Card className="metric" p="md" radius="lg">
-          <Group justify="space-between" align="start">
-            <Box>
+          <Group justify="space-between" align="start" wrap="nowrap">
+            <Box style={{ flex: 1, minWidth: 0 }}>
               <Text size="xs" c="dimmed">Top Rated BTP</Text>
-              <Text size="md" fw={750} truncate style={{ maxWidth: 180 }}>
+              <Text size="md" fw={750} truncate>
                 {topScored ? topScored.name : '—'}
               </Text>
             </Box>
             {topScored && (
-              <Badge color={tierColor(topScored.tier_rank)} size="lg" variant="filled">
+              <Badge color={tierColor(topScored.tier_rank)} size="lg" variant="filled" style={{ flexShrink: 0 }}>
                 {topScored.tier_rank} · {topScored.score.toFixed(1)}
               </Badge>
             )}
