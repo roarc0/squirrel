@@ -20,17 +20,26 @@ export const setHideBalancesState = (hidden: boolean) => {
 
 export const getHideBalancesState = (): boolean => hideBalancesGlobal;
 
-export const money = (value: number | undefined, currency: string) =>
-  hideBalancesGlobal
-    ? '••••••'
-    : value === undefined || !Number.isFinite(value)
-      ? '—'
-      : new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 }).format(value / 100);
+export const money = (value: number | undefined, currency: string) => {
+  if (hideBalancesGlobal) return '••••••';
+  if (value === undefined || !Number.isFinite(value)) return '—';
+  const curr = currency || 'EUR';
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: curr, maximumFractionDigits: 2 }).format(value / 100);
+  } catch {
+    return `${curr} ${(value / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+};
 
-export const compactMoney = (value: number, currency: string) =>
-  hideBalancesGlobal
-    ? '••••••'
-    : new Intl.NumberFormat(undefined, { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 }).format(value / 100);
+export const compactMoney = (value: number, currency: string) => {
+  if (hideBalancesGlobal) return '••••••';
+  const curr = currency || 'EUR';
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: curr, notation: 'compact', maximumFractionDigits: 1 }).format(value / 100);
+  } catch {
+    return `${curr} ${(value / 100).toLocaleString(undefined, { notation: 'compact', maximumFractionDigits: 1 })}`;
+  }
+};
 
 export const investedMoney = (invested: number, current: number, currency: string) =>
   invested > 0 || current === 0 ? money(invested, currency) : '—';

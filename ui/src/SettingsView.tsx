@@ -17,6 +17,7 @@ import {
   Stack,
   Switch,
   Text,
+  TextInput,
   Title,
   Tooltip,
 } from '@mantine/core';
@@ -45,13 +46,24 @@ import { SectionHeader } from './components/SectionHeader';
 const CURRENCY_OPTIONS = [
   { value: 'EUR', label: 'EUR (€) — Euro' },
   { value: 'USD', label: 'USD ($) — US Dollar' },
+  { value: 'ILS', label: 'ILS (₪) — Israeli New Shekel' },
   { value: 'GBP', label: 'GBP (£) — British Pound' },
   { value: 'CHF', label: 'CHF (Fr) — Swiss Franc' },
+  { value: 'CAD', label: 'CAD ($) — Canadian Dollar' },
+  { value: 'AUD', label: 'AUD ($) — Australian Dollar' },
+  { value: 'JPY', label: 'JPY (¥) — Japanese Yen' },
+  { value: 'CUSTOM', label: '✍️ Custom Currency (Code / Symbol)' },
 ];
 
 export function SettingsView({ reload }: { reload: () => Promise<void> }) {
   const [profile, setProfile] = useProfile();
   const loaded = isProfileLoaded();
+
+  const isKnownCurrency = CURRENCY_OPTIONS.some(c => c.value === profile.preferred_currency && c.value !== 'CUSTOM');
+  const selectedCurrencyValue = isKnownCurrency ? profile.preferred_currency : 'CUSTOM';
+  const [customCurrencyInput, setCustomCurrencyInput] = useState(
+    isKnownCurrency ? '' : profile.preferred_currency
+  );
 
   const [exporting, setExporting] = useState(false);
   const [restoring, setRestoring] = useState(false);
@@ -144,11 +156,31 @@ export function SettingsView({ reload }: { reload: () => Promise<void> }) {
             <Stack gap="md">
               <Select
                 label="Preferred Display Currency"
-                description="Default currency symbol used for portfolio totals"
-                value={profile.preferred_currency || 'EUR'}
-                onChange={val => setProfile({ preferred_currency: val || 'EUR' })}
+                description="Default currency symbol used for portfolio totals & reports"
+                value={selectedCurrencyValue || 'EUR'}
+                onChange={val => {
+                  if (val === 'CUSTOM') {
+                    const next = customCurrencyInput || 'BTC';
+                    setProfile({ preferred_currency: next });
+                  } else {
+                    setProfile({ preferred_currency: val || 'EUR' });
+                  }
+                }}
                 data={CURRENCY_OPTIONS}
               />
+              {(selectedCurrencyValue === 'CUSTOM' || !isKnownCurrency) && (
+                <TextInput
+                  label="Custom Currency Code / Symbol"
+                  description="Enter any custom currency code or symbol (e.g. BTC, SEK, NOK, AED, ₿)"
+                  placeholder="e.g. BTC, SEK, or ₿"
+                  value={customCurrencyInput}
+                  onChange={e => {
+                    const val = e.currentTarget.value.trim().toUpperCase();
+                    setCustomCurrencyInput(val);
+                    setProfile({ preferred_currency: val || 'EUR' });
+                  }}
+                />
+              )}
               <Switch
                 label="Privacy Mode (Hide Balances)"
                 description="Mask all balance amounts with asterisks across the application"
