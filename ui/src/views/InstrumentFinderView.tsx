@@ -32,6 +32,8 @@ import {
   IconStarFilled,
   IconTrash,
 } from '@tabler/icons-react';
+import { exportToCSV } from '../utils/exportCsv';
+import { copyToClipboard } from '../utils/copyToClipboard';
 import {
   api,
   instrumentClient,
@@ -267,7 +269,22 @@ export function InstrumentFinderView({ instruments, reload }: { instruments: Ins
     }] : []),
     { key: 'name', label: 'Instrument', sortable: true, render: item => <><Text fw={650}>{item.instrument.name}</Text><Chip size="xs" mt={3}>{productLabel(item.instrument)}</Chip></> },
     ...(show('ticker') ? [{ key: 'ticker', label: 'Ticker', sortable: true, render: (item: RankedInstrument) => <Text fw={650}>{item.instrument.ticker || '—'}</Text> }] : []),
-    ...(show('isin') ? [{ key: 'isin', label: 'ISIN', sortable: true, render: (item: RankedInstrument) => <Text size="sm" ff="monospace">{item.instrument.isin}</Text> }] : []),
+    ...(show('isin') ? [{ key: 'isin', label: 'ISIN', sortable: true, render: (item: CatalogRow) => (
+      <Tooltip label="Click to copy ISIN" withArrow>
+        <Badge
+          size="xs"
+          variant="outline"
+          color="gray"
+          style={{ cursor: 'pointer', fontFamily: 'monospace' }}
+          onClick={(e) => {
+            e.stopPropagation();
+            copyToClipboard(item.instrument.isin, 'ISIN');
+          }}
+        >
+          {item.instrument.isin}
+        </Badge>
+      </Tooltip>
+    ) }] : []),
     ...(show('type') ? [{ key: 'type', label: 'Type', sortable: true, render: (item: RankedInstrument) => <Chip>{instrumentLabels[item.instrument.instrument_type]}</Chip> }] : []),
     ...(show('issuer') ? [{ key: 'issuer', label: 'Issuer', sortable: true, render: (item: RankedInstrument) => item.instrument.provider || '—' }] : []),
     ...(show('assetClass') ? [{ key: 'asset_class', label: 'Asset class', sortable: true, render: (item: RankedInstrument) => item.instrument.asset_class ? <Chip>{label(item.instrument.asset_class)}</Chip> : '—' }] : []),

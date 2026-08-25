@@ -27,6 +27,8 @@ import {
   IconShieldCheck,
   IconBuildingBank,
   IconEye,
+  IconDownload,
+  IconCopy,
 } from '@tabler/icons-react';
 
 import { listBtps, refreshBtps, toggleStarBtp, type BtpBond } from '../api';
@@ -35,6 +37,8 @@ import { SectionHeader } from '../components/SectionHeader';
 import { ViewShell } from '../components/ViewShell';
 import { Chip } from '../Chip';
 import { BtpDetailModal } from './BtpDetailModal';
+import { exportToCSV } from '../utils/exportCsv';
+import { copyToClipboard } from '../utils/copyToClipboard';
 
 const BOND_TYPE_OPTIONS = [
   { value: '', label: 'All Bond Types' },
@@ -247,9 +251,20 @@ export function BtpRankView() {
             {btp.name}
           </Text>
           <Group gap={6} align="center">
-            <Text size="xs" c="dimmed" ff="monospace">
-              {btp.isin}
-            </Text>
+            <Tooltip label="Click to copy ISIN" withArrow>
+              <Badge
+                size="xs"
+                variant="outline"
+                color="gray"
+                style={{ cursor: 'pointer', fontFamily: 'monospace' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  copyToClipboard(btp.isin, 'ISIN');
+                }}
+              >
+                {btp.isin}
+              </Badge>
+            </Tooltip>
             {btp.is_starred && (
               <Badge size="xs" color="yellow" variant="light">
                 Starred
@@ -389,14 +404,39 @@ export function BtpRankView() {
           </Badge>
         }
         actions={
-          <Button
-            leftSection={<IconRefresh size={16} />}
-            color="blue"
-            loading={refreshing}
-            onClick={() => void handleRefresh()}
-          >
-            Refresh BTPs
-          </Button>
+          <Group gap="xs">
+            <Button
+              leftSection={<IconDownload size={16} />}
+              variant="light"
+              color="gray"
+              onClick={() =>
+                exportToCSV('btp_rank_catalog', sortedBtps, [
+                  { key: 'isin', label: 'ISIN' },
+                  { key: 'name', label: 'Bond Name' },
+                  { key: 'bond_type', label: 'Type' },
+                  { key: 'price', label: 'Price (€)' },
+                  { key: 'coupon', label: 'Coupon %' },
+                  { key: 'expiry_date', label: 'Maturity Date' },
+                  { key: 'maturity_years', label: 'Maturity (Years)' },
+                  { key: 'duration_mod', label: 'Mod Duration' },
+                  { key: 'ytm_net', label: 'Net YTM %' },
+                  { key: 'total_return_net', label: 'Total Net Return %' },
+                  { key: 'score', label: 'Score' },
+                  { key: 'tier_rank', label: 'Tier' },
+                ])
+              }
+            >
+              Export CSV
+            </Button>
+            <Button
+              leftSection={<IconRefresh size={16} />}
+              color="blue"
+              loading={refreshing}
+              onClick={() => void handleRefresh()}
+            >
+              Refresh BTPs
+            </Button>
+          </Group>
         }
       />
 

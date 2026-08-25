@@ -63,6 +63,7 @@ import {
   UnstyledButton,
   useMantineColorScheme,
 } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import { api, instrumentClient, type Account, type Diagnostic, type Instrument, type InstrumentAlternative, type InstrumentType, type Holding, type RankedInstrument, type ReferenceRate, type Snapshot, type Summary, type TaxRate } from './api';
 import { Chip, chipColor } from './Chip';
 import { DataTable, TableAction, TableActions, type DataColumn, type SortDirection } from './DataTable';
@@ -364,6 +365,36 @@ export default function App() {
   useEffect(() => {
     setHideBalancesState(hideBalances);
   }, [hideBalances]);
+
+  // Global Keyboard Shortcuts (⌘H / Ctrl+H for hide balances, ⌘K / / for search focus)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+      const target = e.target as HTMLElement;
+      const isEditable = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+
+      if (isCmdOrCtrl && e.key.toLowerCase() === 'h') {
+        e.preventDefault();
+        setHideBalances(v => !v);
+        notifications.show({
+          color: 'teal',
+          title: 'Shortcut: Balances Toggled',
+          message: profile.hide_balances ? 'Showing balances' : 'Hiding balances',
+          autoClose: 1800,
+        });
+      } else if (!isEditable && (e.key === '/' || (isCmdOrCtrl && e.key.toLowerCase() === 'k'))) {
+        e.preventDefault();
+        const searchInput = document.querySelector<HTMLInputElement>('input[placeholder*="Search"], input[placeholder*="Filter"], input[type="search"], input[type="text"]');
+        if (searchInput) {
+          searchInput.focus();
+          searchInput.select();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [profile.hide_balances]);
 
   if (needsLogin) return <LoginView />;
   if (!data) {
