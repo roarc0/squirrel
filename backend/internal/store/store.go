@@ -22,6 +22,7 @@ type Store struct {
 }
 
 func (s *Store) DBPath() string { return s.dbPath }
+func (s *Store) DB() *sql.DB     { return s.db }
 
 func Open(path string) (*Store, error) {
 	if path != ":memory:" {

@@ -127,6 +127,12 @@ export function SettingsView({ reload }: { reload: () => Promise<void> }) {
                 checked={profile.show_fire_calculator}
                 onChange={event => setProfile({ show_fire_calculator: event.currentTarget.checked })}
               />
+              <Switch
+                label="Enable Italian BTP Ranks Plugin"
+                description="Show BTP yield curve analytics, duration metrics, and 6-factor composite rankings tab"
+                checked={profile.enable_btp_ranks}
+                onChange={event => setProfile({ enable_btp_ranks: event.currentTarget.checked })}
+              />
               <NumberInput
                 label="Emergency Cash Goal"
                 prefix="€ "

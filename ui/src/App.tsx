@@ -21,6 +21,7 @@ import {
   IconSettings,
   IconTrendingUp,
   IconTrendingDown,
+  IconFileCertificate,
 } from '@tabler/icons-react';
 import {
   ActionIcon,
@@ -71,6 +72,7 @@ import { InstrumentFinderView } from './views/InstrumentFinderView';
 import { DiagnosticsView } from './views/DiagnosticsView';
 import { AIConsultantView } from './views/AIConsultantView';
 import { DraftPortfoliosView } from './views/DraftPortfoliosView';
+import { BtpRankView } from './views/BtpRankView';
 import { chartGeometry, matchesExactFilters, pageBounds, performanceMood } from './visual';
 
 type Data = { summary: Summary; accounts: Account[]; rates: ReferenceRate[]; taxRates: TaxRate[]; instruments: Instrument[]; holdings: Holding[]; snapshots: Snapshot[] };
@@ -190,7 +192,7 @@ export default function App() {
 
   const [updateModalOpened, setUpdateModalOpened] = useState(false);
 
-  const VALID_TABS = ['overview', 'accounts', 'investments', 'holdings', 'drafts', 'instruments', 'diagnostics', 'consultant', 'advisor', 'settings'];
+  const VALID_TABS = ['overview', 'accounts', 'investments', 'holdings', 'drafts', 'instruments', 'diagnostics', 'consultant', 'advisor', 'btp', 'settings'];
 
   const [activeTab, setActiveTab] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -345,6 +347,11 @@ export default function App() {
           <Tabs.Tab value="consultant" leftSection={<IconRobot size={16} />}>
             AI Consultant
           </Tabs.Tab>
+          {profile.enable_btp_ranks && (
+            <Tabs.Tab value="btp" leftSection={<IconFileCertificate size={16} />}>
+              BTP Rank
+            </Tabs.Tab>
+          )}
           <Tabs.Tab value="settings" leftSection={<IconSettings size={16} />}>
             Settings
           </Tabs.Tab>
@@ -384,6 +391,9 @@ export default function App() {
             holdings={data.holdings}
             instruments={data.instruments}
           />
+        </Tabs.Panel>
+        <Tabs.Panel value="btp" className="tab-content">
+          <BtpRankView />
         </Tabs.Panel>
         <Tabs.Panel value="settings" className="tab-content">
           <SettingsView reload={load} />

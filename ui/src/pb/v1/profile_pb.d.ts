@@ -75,6 +75,13 @@ export declare class UserProfile extends Message<UserProfile> {
    */
   showFireCalculator: boolean;
 
+  /**
+   * Whether to enable the BTP Rank plugin section.
+   *
+   * @generated from field: bool enable_btp_ranks = 10;
+   */
+  enableBtpRanks: boolean;
+
   constructor(data?: PartialMessage<UserProfile>);
 
   static readonly runtime: typeof proto3;

@@ -24,6 +24,8 @@ message UserProfile {
   string instrument_columns_json = 8;
   // Whether to show the FIRE / financial independence calculator on the Overview.
   bool show_fire_calculator = 9;
+  // Whether to enable the BTP Rank plugin section.
+  bool enable_btp_ranks = 10;
 }
 
 message GetProfileRequest {}

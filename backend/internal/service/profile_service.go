@@ -27,6 +27,7 @@ func (s *Server) GetProfile(ctx context.Context, _ *connect.Request[portv1.GetPr
 			FireExpensesMinor:     p.FireExpensesMinor,
 			InstrumentColumnsJson: p.InstrumentColumnsJSON,
 			ShowFireCalculator:    p.ShowFireCalculator,
+			EnableBtpRanks:        p.EnableBtpRanks,
 		},
 	}), nil
 }
@@ -47,6 +48,7 @@ func (s *Server) UpdateProfile(ctx context.Context, req *connect.Request[portv1.
 		p.FireExpensesMinor = req.Msg.Profile.FireExpensesMinor
 		p.InstrumentColumnsJSON = req.Msg.Profile.InstrumentColumnsJson
 		p.ShowFireCalculator = req.Msg.Profile.ShowFireCalculator
+		p.EnableBtpRanks = req.Msg.Profile.EnableBtpRanks
 	}
 	if err := s.store.SaveProfile(ctx, userID, p); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -62,6 +64,7 @@ func (s *Server) UpdateProfile(ctx context.Context, req *connect.Request[portv1.
 			FireExpensesMinor:     p.FireExpensesMinor,
 			InstrumentColumnsJson: p.InstrumentColumnsJSON,
 			ShowFireCalculator:    p.ShowFireCalculator,
+			EnableBtpRanks:        p.EnableBtpRanks,
 		},
 	}), nil
 }

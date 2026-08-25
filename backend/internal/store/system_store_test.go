@@ -18,13 +18,13 @@ func TestExportAndRestoreBackup(t *testing.T) {
 		t.Fatalf("Open src: %v", err)
 	}
 
-	// Insert reference rate
-	if _, err := s1.db.Exec(`INSERT INTO reference_rates (code, label, rate_bps, observed_on, updated_at) VALUES ('EURIBOR', 'Euribor 3M', 350, '2026-08-22', '2026-08-22')`); err != nil {
-		t.Fatalf("Insert rate: %v", err)
+	// Insert account
+	if _, err := s1.db.Exec(`INSERT INTO accounts (user_id, name, currency, balance_minor, created_at, updated_at) VALUES ('testuser', 'Test Account', 'EUR', 10000, '2026-08-22', '2026-08-22')`); err != nil {
+		t.Fatalf("Insert account: %v", err)
 	}
 
 	// Export backup
-	tarGzBytes, filename, err := s1.ExportBackup(ctx, srcPath)
+	tarGzBytes, filename, err := s1.ExportBackup(ctx, "testuser")
 	if err != nil {
 		t.Fatalf("ExportBackup: %v", err)
 	}
@@ -44,17 +44,17 @@ func TestExportAndRestoreBackup(t *testing.T) {
 	}
 	defer s2.Close()
 
-	if err := s2.RestoreBackup(ctx, dstPath, tarGzBytes); err != nil {
+	if err := s2.RestoreBackup(ctx, "testuser", tarGzBytes); err != nil {
 		t.Fatalf("RestoreBackup: %v", err)
 	}
 
 	// 3. Verify data in restored database
-	rates, err := s2.ListReferenceRates(ctx)
+	accounts, err := s2.ListAccounts(ctx, "testuser")
 	if err != nil {
-		t.Fatalf("ListReferenceRates in restored db: %v", err)
+		t.Fatalf("ListAccounts in restored db: %v", err)
 	}
 
-	if len(rates) != 1 || rates[0].Code != "EURIBOR" || rates[0].RateBPS != 350 {
-		t.Fatalf("Unexpected rates in restored db: %+v", rates)
+	if len(accounts) != 1 || accounts[0].Name != "Test Account" {
+		t.Fatalf("Unexpected accounts in restored db: %+v", accounts)
 	}
 }

@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package v1;
+
+option go_package = "loot/proto/gen/go/v1;portv1";
+
+// BtpBond defines the metrics and scoring data for an Italian government bond (BTP).
+message BtpBond {
+  string isin = 1;
+  string name = 2;
+  string bond_type = 3;
+  double price = 4;
+  double coupon = 5;
+  string expiry_date = 6;
+  double maturity_years = 7;
+  double duration_mac = 8;
+  double duration_mod = 9;
+  double rate_hike_impact = 10;
+  double simple_yield_net = 11;
+  double simple_yield_gross = 12;
+  double ytm_gross = 13;
+  double ytm_net = 14;
+  double total_return_net = 15;
+  double total_return_gross = 16;
+  double score = 17;
+  string tier_rank = 18;
+  bool is_traded = 19;
+  string scraped_at = 20;
+  bool is_starred = 21;
+}
+
+message ListBtpsRequest {
+  string query = 1;
+  string bond_type = 2;
+  bool starred_only = 3;
+  int32 target_maturity_year = 4;
+}
+
+message ListBtpsResponse {
+  repeated BtpBond btps = 1;
+  string last_updated = 2;
+  int32 total_count = 3;
+}
+
+message RefreshBtpsRequest {
+  int32 target_maturity_year = 1;
+}
+
+message RefreshBtpsResponse {
+  int32 count = 1;
+  string last_updated = 2;
+}
+
+message ToggleStarBtpRequest {
+  string isin = 1;
+  bool starred = 2;
+}
+
+message ToggleStarBtpResponse {
+  bool starred = 1;
+}
+
+// BtpService manages Italian government bond rankings and analytics.
+service BtpService {
+  // List BTP bonds with optional search, type filtering, and starred status.
+  rpc ListBtps(ListBtpsRequest) returns (ListBtpsResponse);
+  // Re-scrape and recalculate all BTP bond metrics and scores.
+  rpc RefreshBtps(RefreshBtpsRequest) returns (RefreshBtpsResponse);
+  // Toggle the starred status of a specific BTP bond.
+  rpc ToggleStarBtp(ToggleStarBtpRequest) returns (ToggleStarBtpResponse);
+}

@@ -10,6 +10,7 @@ import { SnapshotService } from './pb/v1/snapshot_connect.js';
 import { SummaryService } from './pb/v1/summary_connect.js';
 import { SystemService } from './pb/v1/system_connect.js';
 import { ProfileService } from './pb/v1/profile_connect.js';
+import { BtpService } from './pb/v1/btp_connect.js';
 import { getToken } from './auth';
 
 const authInterceptor: Interceptor = (next) => async (req) => {
@@ -33,6 +34,7 @@ export const snapshotClient: any = createPromiseClient(SnapshotService as any, t
 export const summaryClient: any = createPromiseClient(SummaryService as any, transport);
 export const systemClient: any = createPromiseClient(SystemService as any, transport);
 export const profileClient: any = createPromiseClient(ProfileService as any, transport);
+export const btpClient: any = createPromiseClient(BtpService as any, transport);
 
 export type ReferenceRate = {
   code: string;
@@ -806,4 +808,74 @@ export async function* streamChat(
       actualNCtx: Number(chunk.actualNCtx ?? 0),
     };
   }
+}
+
+export type BtpBond = {
+  isin: string;
+  name: string;
+  bond_type: string;
+  price: number;
+  coupon: number;
+  expiry_date: string;
+  maturity_years: number;
+  duration_mac: number;
+  duration_mod: number;
+  rate_hike_impact: number;
+  simple_yield_net: number;
+  simple_yield_gross: number;
+  ytm_gross: number;
+  ytm_net: number;
+  total_return_net: number;
+  total_return_gross: number;
+  score: number;
+  tier_rank: string;
+  is_traded: boolean;
+  scraped_at: string;
+  is_starred: boolean;
+};
+
+export async function listBtps(params?: { query?: string; bondType?: string; starredOnly?: boolean; targetMaturityYear?: number }): Promise<{ btps: BtpBond[]; lastUpdated: string; totalCount: number }> {
+  const res = await btpClient.listBtps({
+    query: params?.query ?? '',
+    bondType: params?.bondType ?? '',
+    starredOnly: Boolean(params?.starredOnly),
+    targetMaturityYear: params?.targetMaturityYear ?? 0,
+  });
+  return {
+    btps: (res.btps ?? []).map((b: any) => ({
+      isin: b.isin ?? '',
+      name: b.name ?? '',
+      bond_type: b.bondType ?? '',
+      price: num(b.price),
+      coupon: num(b.coupon),
+      expiry_date: b.expiryDate ?? '',
+      maturity_years: num(b.maturityYears),
+      duration_mac: num(b.durationMac),
+      duration_mod: num(b.durationMod),
+      rate_hike_impact: num(b.rateHikeImpact),
+      simple_yield_net: num(b.simpleYieldNet),
+      simple_yield_gross: num(b.simpleYieldGross),
+      ytm_gross: num(b.ytmGross),
+      ytm_net: num(b.ytmNet),
+      total_return_net: num(b.totalReturnNet),
+      total_return_gross: num(b.totalReturnGross),
+      score: num(b.score),
+      tier_rank: b.tierRank ?? 'F',
+      is_traded: Boolean(b.isTraded),
+      scraped_at: b.scrapedAt ?? '',
+      is_starred: Boolean(b.isStarred),
+    })),
+    lastUpdated: res.lastUpdated ?? '',
+    totalCount: num(res.totalCount),
+  };
+}
+
+export async function refreshBtps(targetMaturityYear?: number): Promise<{ count: number; lastUpdated: string }> {
+  const res = await btpClient.refreshBtps({ targetMaturityYear: targetMaturityYear ?? 0 });
+  return { count: num(res.count), lastUpdated: res.lastUpdated ?? '' };
+}
+
+export async function toggleStarBtp(isin: string, starred: boolean): Promise<boolean> {
+  const res = await btpClient.toggleStarBtp({ isin, starred });
+  return Boolean(res.starred);
 }

@@ -18,6 +18,7 @@ import (
 	"golang.org/x/net/http2/h2c"
 
 	"loot/backend/internal/auth"
+	"loot/backend/internal/btp"
 	"loot/backend/internal/config"
 	"loot/backend/internal/justetf"
 	"loot/backend/internal/mcp"
@@ -83,6 +84,8 @@ func NewWithConfig(data *store.Store, cfg config.Config, profileInterval ...time
 	}
 
 	// Register Connect RPC Handlers
+	btpService := btp.NewService(data.DB())
+	mux.Handle(portv1connect.NewBtpServiceHandler(btpService, connectOpts...))
 	mux.Handle(portv1connect.NewRateServiceHandler(s, connectOpts...))
 	mux.Handle(portv1connect.NewAccountServiceHandler(s, connectOpts...))
 	mux.Handle(portv1connect.NewSummaryServiceHandler(s, connectOpts...))

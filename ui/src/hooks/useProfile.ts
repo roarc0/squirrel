@@ -11,6 +11,7 @@ export type UserProfile = {
   fire_expenses_minor: number;
   instrument_columns_json: string;
   show_fire_calculator: boolean;
+  enable_btp_ranks: boolean;
 };
 
 const DEFAULTS: UserProfile = {
@@ -23,6 +24,7 @@ const DEFAULTS: UserProfile = {
   fire_expenses_minor: 2_400_000,   // €24,000/yr
   instrument_columns_json: '',
   show_fire_calculator: false,
+  enable_btp_ranks: false,
 };
 
 let _profile: UserProfile = { ...DEFAULTS };
@@ -47,6 +49,7 @@ export async function loadProfile(): Promise<void> {
       fire_expenses_minor: Number(p.fireExpensesMinor ?? 0) || 2_400_000,
       instrument_columns_json: p.instrumentColumnsJson ?? '',
       show_fire_calculator: Boolean(p.showFireCalculator),
+      enable_btp_ranks: Boolean(p.enableBtpRanks),
     };
   } catch {
     // Fall back to localStorage values already set before auth
@@ -56,6 +59,7 @@ export async function loadProfile(): Promise<void> {
       emergency_goal_minor: Number(localStorage.getItem('loot.emergencyGoal.EUR') || 0) * 100 || 1_000_000,
       fire_expenses_minor: Number(localStorage.getItem('loot.fireExpenses.EUR') || 0) * 100 || 2_400_000,
       show_fire_calculator: localStorage.getItem('loot.showFireCalculator') === 'true',
+      enable_btp_ranks: localStorage.getItem('loot.enableBtpRanks') === 'true',
     };
   }
   _loaded = true;
@@ -68,6 +72,9 @@ export function updateProfile(patch: Partial<UserProfile>): void {
   _profile = { ..._profile, ...patch };
   if (patch.show_fire_calculator !== undefined) {
     localStorage.setItem('loot.showFireCalculator', String(_profile.show_fire_calculator));
+  }
+  if (patch.enable_btp_ranks !== undefined) {
+    localStorage.setItem('loot.enableBtpRanks', String(_profile.enable_btp_ranks));
   }
   notify();
   clearTimeout(_saveTimer);
@@ -83,6 +90,7 @@ export function updateProfile(patch: Partial<UserProfile>): void {
         fireExpensesMinor: BigInt(Math.round(_profile.fire_expenses_minor)),
         instrumentColumnsJson: _profile.instrument_columns_json,
         showFireCalculator: _profile.show_fire_calculator,
+        enableBtpRanks: _profile.enable_btp_ranks,
       },
     }).catch(() => { /* best-effort */ });
   }, 600);
