@@ -5,6 +5,7 @@ import {
   Box,
   Button,
   Card,
+  Divider,
   Group,
   Modal,
   NumberInput,
@@ -239,7 +240,13 @@ export function OverviewView({ data, reload, onSwitchTab }: { data: Data; reload
       const allocations = (item.allocations ?? []).filter(allocation => allocation.value_minor > 0);
       return (
       <Box key={item.currency}>
-        <Group justify="space-between" mb="sm"><Title order={3}>{item.currency} assets</Title><Text c="dimmed">Current rough situation</Text></Group>
+        <Group justify="space-between" mb="sm">
+          <Group gap="xs">
+            <Title order={3}>Assets</Title>
+            <Badge color="teal" variant="light" size="sm">{item.currency}</Badge>
+          </Group>
+          <Text c="dimmed">Current rough situation</Text>
+        </Group>
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 5 }}>
           <Metric label="Cash balance" value={money(item.balance_minor, item.currency)} />
           <InvestmentMetric value={item.portfolio_minor} invested={item.invested_minor} currency={item.currency} />
@@ -247,7 +254,8 @@ export function OverviewView({ data, reload, onSwitchTab }: { data: Data; reload
           <TERMetric holdings={data.holdings} instruments={data.instruments} currency={item.currency} />
           <Metric label="Total wealth" value={money(item.total_minor, item.currency)} positive />
         </SimpleGrid>
-        <SimpleGrid cols={{ base: 1, sm: 2 }} mt="md">
+        <Divider my="md" />
+        <SimpleGrid cols={{ base: 1, sm: 2 }}>
           <NetPassiveCashflowCard
             netInterestMinor={item.net_revenue_minor}
             holdings={data.holdings}
@@ -265,7 +273,8 @@ export function OverviewView({ data, reload, onSwitchTab }: { data: Data; reload
             currency={item.currency}
           />
         )}
-        <Paper className="metric" p="lg" radius="lg" mt="md">
+        <Divider my="md" />
+        <Paper className="metric" p="lg" radius="lg">
           <Group justify="space-between" mb="sm"><Text fw={700}>Asset allocation</Text><Text size="sm" c="dimmed">Cash interest/year: Gross {money(item.gross_revenue_minor, item.currency)} · Net {money(item.net_revenue_minor, item.currency)}</Text></Group>
           <AllocationBar total={item.total_minor} segments={[{ label: 'Cash', value: item.balance_minor }, ...allocations.map(allocation => ({ label: label(allocation.asset_class), value: allocation.value_minor }))]} />
         </Paper>

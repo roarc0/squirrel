@@ -17,8 +17,7 @@ import {
   IconUser,
   IconEye,
   IconEyeOff,
-  IconSun,
-  IconMoon,
+  IconPalette,
   IconSettings,
 } from '@tabler/icons-react';
 import {
@@ -50,7 +49,6 @@ import {
   TextInput,
   Title,
   Tooltip,
-  useComputedColorScheme,
   useMantineColorScheme,
 } from '@mantine/core';
 import { api, instrumentClient, type Account, type Diagnostic, type Instrument, type InstrumentAlternative, type InstrumentType, type Holding, type RankedInstrument, type ReferenceRate, type Snapshot, type Summary, type TaxRate } from './api';
@@ -75,6 +73,11 @@ import { money, investedMoney, setHideBalancesState } from './utils/format';
 import { captureTokenFromURL, clearToken, fetchMe, isUnauthenticatedError, type AuthUser } from './auth';
 import { LoginView } from './LoginView';
 import { loadProfile, useProfile } from './hooks/useProfile';
+
+type AppTheme = 'light' | 'dark' | 'midnight' | 'warm' | 'forest';
+const THEMES: AppTheme[] = ['light', 'dark', 'midnight', 'warm', 'forest'];
+const THEME_LABELS: Record<AppTheme, string> = { light: 'Light', dark: 'Dark', midnight: 'Midnight', warm: 'Warm', forest: 'Forest' };
+const themeScheme = (t: AppTheme): 'light' | 'dark' => (t === 'light' || t === 'warm' ? 'light' : 'dark');
 
 export function useBackendRows<T>(endpoint: string, source: T[], initialSort = '', initialDirection: SortDirection = 'asc') {
   const [rows, setRows] = useState(source);
@@ -199,7 +202,7 @@ export default function App() {
             label={hideBalances ? 'Show' : 'Hide'}
             onClick={() => setHideBalances(v => !v)}
           />
-          <ThemeToggleIcon />
+          <ThemeCycleButton />
           {currentUser ? (
             <Menu shadow="md" width={240} position="bottom-end">
               <Menu.Target>
@@ -368,23 +371,36 @@ const HeaderIconButton = React.forwardRef<HTMLButtonElement, { icon: React.React
   )
 );
 
-function ThemeToggleIcon() {
-  const scheme = useComputedColorScheme('light');
+function ThemeCycleButton() {
   const { setColorScheme } = useMantineColorScheme();
-  const isDark = scheme === 'dark';
-  const toggle = () => {
-    const next = isDark ? 'light' : 'dark';
+  const [theme, setTheme] = useState<AppTheme>(() => {
+    const saved = localStorage.getItem('loot.theme') as AppTheme | null;
+    return saved && THEMES.includes(saved) ? saved : 'dark';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    setColorScheme(themeScheme(theme));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const cycle = () => {
+    const next = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+    localStorage.setItem('loot.theme', next);
+    setTheme(next);
+    document.documentElement.setAttribute('data-theme', next);
     if ('startViewTransition' in document) {
-      (document as any).startViewTransition(() => setColorScheme(next));
+      (document as any).startViewTransition(() => setColorScheme(themeScheme(next)));
     } else {
-      setColorScheme(next);
+      setColorScheme(themeScheme(next));
     }
   };
+
   return (
     <HeaderIconButton
-      icon={isDark ? <IconSun size={16} /> : <IconMoon size={16} />}
-      label={isDark ? 'Light' : 'Dark'}
-      onClick={toggle}
+      icon={<IconPalette size={16} />}
+      label={THEME_LABELS[theme]}
+      onClick={cycle}
     />
   );
 }

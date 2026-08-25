@@ -6,15 +6,14 @@ import {
   Box,
   Button,
   Card,
+  Combobox,
   Divider,
-  Grid,
   Group,
+  InputBase,
   Modal,
-  MultiSelect,
   NumberInput,
   Paper,
-  Progress,
-  Select,
+  ScrollArea,
   SimpleGrid,
   Stack,
   Table,
@@ -22,16 +21,14 @@ import {
   TextInput,
   Textarea,
   Title,
-  Tooltip,
+  useCombobox,
 } from '@mantine/core';
-import { IconPencil, IconPlus, IconTrash, IconCheck, IconCopy } from '@tabler/icons-react';
+import { IconPencil, IconTrash, IconCopy } from '@tabler/icons-react';
 import type { Account, Holding, Instrument } from '../api';
-import { api } from '../api';
 import { AllocationBar } from '../App';
 import { Chip } from '../Chip';
 import { Empty } from '../components/Empty';
 import { money, percent } from '../utils/format';
-
 import { useConfirmDelete } from '../components/ConfirmDeleteModal';
 
 export type DraftAllocation = {
@@ -40,8 +37,8 @@ export type DraftAllocation = {
   name: string;
   asset_class?: string;
   ter_bps?: number;
-  target_pct: number; // e.g. 70 for 70.00%
-  pac_share_pct?: number; // e.g. 60 for 60.00%
+  target_pct: number;
+  pac_share_pct?: number;
 };
 
 export type DraftPortfolio = {
@@ -108,11 +105,35 @@ function saveCustomDrafts(drafts: DraftPortfolio[]) {
   }
 }
 
+function PortfolioOptionContent({ draft }: { draft: DraftPortfolio }) {
+  const isPreset = draft.id.startsWith('preset-');
+  const targetSum = draft.allocations.reduce((a, b) => a + (b.target_pct || 0), 0);
+  return (
+    <Stack gap={2} py={2}>
+      <Group justify="space-between" wrap="nowrap">
+        <Text fw={700} size="sm" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>
+          {draft.name}
+        </Text>
+        <Badge size="xs" color={isPreset ? 'gray' : 'violet'} variant={isPreset ? 'subtle' : 'light'} style={{ flexShrink: 0 }}>
+          {isPreset ? 'Preset' : 'Custom'}
+        </Badge>
+      </Group>
+      <Text size="xs" c="dimmed" lineClamp={1}>{draft.description}</Text>
+      <Group gap="xs">
+        <Text size="xs" c="dimmed">{draft.allocations.length} instruments</Text>
+        <Badge size="xs" color={Math.abs(targetSum - 100) < 0.1 ? 'teal' : 'orange'} variant="dot">
+          {targetSum}%
+        </Badge>
+      </Group>
+    </Stack>
+  );
+}
+
 export function DraftPortfoliosView({
   holdings,
   instruments,
-  accounts,
-  reload,
+  accounts: _accounts,
+  reload: _reload,
 }: {
   holdings: Holding[];
   instruments: Instrument[];
@@ -124,8 +145,9 @@ export function DraftPortfoliosView({
   const [editModalOpened, setEditModalOpened] = useState(false);
   const [editingDraft, setEditingDraft] = useState<DraftPortfolio | null>(null);
   const [simulatedPacMonthly, setSimulatedPacMonthly] = useState<number>(300);
-  const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  const combobox = useCombobox({ onDropdownClose: () => combobox.resetSelectedOption() });
 
   const activeDraft = drafts.find(d => d.id === selectedId) || drafts[0];
 
@@ -222,50 +244,9 @@ export function DraftPortfoliosView({
     setTimeout(() => setSuccess(''), 3000);
   };
 
-  const handleApplyToRealHoldings = async (draft: DraftPortfolio) => {
-    setError('');
-    setSuccess('');
-    try {
-      let count = 0;
-      for (const holding of holdings) {
-        const match = draft.allocations.find(
-          a =>
-            (a.isin && a.isin === holding.instrument_isin) ||
-            (a.name && holding.instrument_name && holding.instrument_name.toLowerCase().includes(a.name.toLowerCase()))
-        );
-
-        if (match) {
-          const plannedBps = Math.round(match.target_pct * 100);
-          const pacBps = Math.round((match.pac_share_pct ?? 0) * 100);
-          await api(`/api/holdings/${holding.id}`, {
-            method: 'PUT',
-            body: JSON.stringify({
-              ...holding,
-              planned_bps: plannedBps,
-              pac_bps: pacBps,
-              is_pac: pacBps > 0,
-            }),
-          });
-          count++;
-        }
-      }
-
-      await reload();
-      setSuccess(`Applied model target weights to ${count} matching real holdings!`);
-      setTimeout(() => setSuccess(''), 4000);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    }
-  };
-
-  // Draft analytics calculation
   const totalTargetPct = (activeDraft?.allocations ?? []).reduce((a, b) => a + (b.target_pct || 0), 0);
   const totalPacSharePct = (activeDraft?.allocations ?? []).reduce((a, b) => a + (b.pac_share_pct || 0), 0);
-
-  const weightedTerNum = (activeDraft?.allocations ?? []).reduce(
-    (acc, a) => acc + (a.target_pct || 0) * (a.ter_bps || 0),
-    0
-  );
+  const weightedTerNum = (activeDraft?.allocations ?? []).reduce((acc, a) => acc + (a.target_pct || 0) * (a.ter_bps || 0), 0);
   const weightedTerPct = totalTargetPct > 0 ? weightedTerNum / totalTargetPct / 100 : 0;
 
   const classMap = new Map<string, number>();
@@ -276,7 +257,7 @@ export function DraftPortfoliosView({
 
   return (
     <Stack gap="lg">
-      <Group justify="space-between" align="end">
+      <Group justify="space-between" align="end" wrap="wrap">
         <Box>
           <Group gap="xs">
             <Title order={2}>Portfolio Sandbox</Title>
@@ -289,28 +270,51 @@ export function DraftPortfoliosView({
           </Text>
         </Box>
         <Group gap="sm" align="end">
-          <Select
-            searchable
-            w={320}
-            label="Select Portfolio Model"
-            placeholder="Pick a classic portfolio or draft..."
-            value={selectedId}
-            onChange={val => val && setSelectedId(val)}
-            data={[
-              {
-                group: 'Standard Classic Portfolios',
-                items: DEFAULT_PRESETS.map(p => ({ value: p.id, label: p.name })),
-              },
-              ...(drafts.some(d => !d.id.startsWith('preset-'))
-                ? [
-                    {
-                      group: 'Custom Saved Drafts',
-                      items: drafts.filter(d => !d.id.startsWith('preset-')).map(d => ({ value: d.id, label: d.name })),
-                    },
-                  ]
-                : []),
-            ]}
-          />
+          <Combobox
+            store={combobox}
+            onOptionSubmit={val => { setSelectedId(val); combobox.closeDropdown(); }}
+            width={420}
+            position="bottom-end"
+          >
+            <Combobox.Target>
+              <InputBase
+                component="button"
+                type="button"
+                pointer
+                rightSection={<Combobox.Chevron />}
+                rightSectionPointerEvents="none"
+                onClick={() => combobox.toggleDropdown()}
+                w={420}
+                label="Portfolio Model"
+              >
+                <Text size="sm" truncate style={{ maxWidth: 360 }}>
+                  {activeDraft?.name ?? 'Pick a portfolio...'}
+                </Text>
+              </InputBase>
+            </Combobox.Target>
+            <Combobox.Dropdown>
+              <ScrollArea.Autosize mah={420} type="scroll">
+                <Combobox.Options>
+                  <Combobox.Group label="Standard Classic Portfolios">
+                    {DEFAULT_PRESETS.map(d => (
+                      <Combobox.Option value={d.id} key={d.id} active={d.id === selectedId}>
+                        <PortfolioOptionContent draft={d} />
+                      </Combobox.Option>
+                    ))}
+                  </Combobox.Group>
+                  {drafts.some(d => !d.id.startsWith('preset-')) && (
+                    <Combobox.Group label="Custom Saved Drafts">
+                      {drafts.filter(d => !d.id.startsWith('preset-')).map(d => (
+                        <Combobox.Option value={d.id} key={d.id} active={d.id === selectedId}>
+                          <PortfolioOptionContent draft={d} />
+                        </Combobox.Option>
+                      ))}
+                    </Combobox.Group>
+                  )}
+                </Combobox.Options>
+              </ScrollArea.Autosize>
+            </Combobox.Dropdown>
+          </Combobox>
           <Button variant="light" color="teal" onClick={handleSnapshotCurrentHoldings}>
             📸 Snapshot Real Holdings
           </Button>
@@ -320,307 +324,172 @@ export function DraftPortfoliosView({
         </Group>
       </Group>
 
-      {error && <Alert color="red">{error}</Alert>}
       {success && <Alert color="teal">{success}</Alert>}
 
-      <Grid>
-        {/* Left column: List of Draft Portfolios */}
-        <Grid.Col span={{ base: 12, md: 4 }}>
-          <Paper className="metric" p="md" radius="lg">
-            <Group justify="space-between" mb="xs">
-              <Text fw={700} size="sm">
-                Saved Draft Models ({drafts.length})
-              </Text>
-            </Group>
+      {activeDraft ? (
+        <Stack gap="md">
+          <Card className="metric" p="lg" radius="lg">
+            <Group justify="space-between" align="start" mb="xs">
+              <Box>
+                <Group gap="xs" mb={2}>
+                  <Text size="xl" fw={800}>
+                    {activeDraft.name}
+                  </Text>
+                  {activeDraft.id.startsWith('preset-') ? (
+                    <Badge color="gray">Preset Model</Badge>
+                  ) : (
+                    <Badge color="violet">Custom Model</Badge>
+                  )}
+                </Group>
+                <Text size="sm" c="dimmed">
+                  {activeDraft.description}
+                </Text>
+              </Box>
 
-            <Stack gap="xs">
-              {drafts.map(d => {
-                const isSelected = d.id === selectedId;
-                const isPreset = d.id.startsWith('preset-');
-                const targetSum = d.allocations.reduce((a, b) => a + (b.target_pct || 0), 0);
-
-                return (
-                  <Paper
-                    key={d.id}
-                    p="sm"
-                    radius="md"
-                    withBorder
-                    style={{
-                      cursor: 'pointer',
-                      borderColor: isSelected ? 'var(--mantine-color-violet-5)' : undefined,
-                      backgroundColor: isSelected ? 'rgba(132, 94, 247, 0.08)' : undefined,
-                      transition: 'all 0.15s ease',
-                    }}
-                    onClick={() => setSelectedId(d.id)}
-                  >
-                    <Group justify="space-between" mb={4}>
-                      <Text size="sm" fw={700} truncate maw={200}>
-                        {d.name}
-                      </Text>
-                      {isPreset ? (
-                        <Badge size="xs" color="gray" variant="subtle">
-                          Standard
-                        </Badge>
-                      ) : (
-                        <Badge size="xs" color="violet" variant="light">
-                          Custom
-                        </Badge>
-                      )}
-                    </Group>
-                    <Text size="xs" c="dimmed" lineClamp={2} mb={6}>
-                      {d.description}
-                    </Text>
-                    <Group justify="space-between">
-                      <Text size="xs" c="dimmed">
-                        {d.allocations.length} items
-                      </Text>
-                      <Badge
-                        size="xs"
-                        color={Math.abs(targetSum - 100) < 0.1 ? 'teal' : 'orange'}
-                        variant="dot"
-                      >
-                        Target: {targetSum}%
-                      </Badge>
-                    </Group>
-                  </Paper>
-                );
-              })}
-            </Stack>
-          </Paper>
-        </Grid.Col>
-
-        {/* Right column: Selected Draft Detail & Workspace */}
-        <Grid.Col span={{ base: 12, md: 8 }}>
-          {activeDraft ? (
-            <Stack gap="md">
-              <Card className="metric" p="lg" radius="lg">
-                <Group justify="space-between" align="start" mb="xs">
-                  <Box>
-                    <Group gap="xs" mb={2}>
-                      <Text size="xl" fw={800}>
-                        {activeDraft.name}
-                      </Text>
-                      {activeDraft.id.startsWith('preset-') ? (
-                        <Badge color="gray">Preset Model</Badge>
-                      ) : (
-                        <Badge color="violet">Custom Model</Badge>
-                      )}
-                    </Group>
-                    <Text size="sm" c="dimmed">
-                      {activeDraft.description}
-                    </Text>
-                  </Box>
-
-                  <Group gap="xs">
+              <Group gap="xs">
+                <Button
+                  size="xs"
+                  variant="default"
+                  leftSection={<IconCopy size={14} />}
+                  onClick={() => handleClone(activeDraft)}
+                >
+                  Clone
+                </Button>
+                {!activeDraft.id.startsWith('preset-') && (
+                  <>
                     <Button
                       size="xs"
                       variant="default"
-                      leftSection={<IconCopy size={14} />}
-                      onClick={() => handleClone(activeDraft)}
+                      leftSection={<IconPencil size={14} />}
+                      onClick={() => handleEdit(activeDraft)}
                     >
-                      Clone
+                      Edit
                     </Button>
-                    {!activeDraft.id.startsWith('preset-') && (
-                      <>
-                        <Button
-                          size="xs"
-                          variant="default"
-                          leftSection={<IconPencil size={14} />}
-                          onClick={() => handleEdit(activeDraft)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="subtle"
-                          color="red"
-                          leftSection={<IconTrash size={14} />}
-                          onClick={() => handleDelete(activeDraft)}
-                        >
-                          Delete
-                        </Button>
-                      </>
-                    )}
                     <Button
                       size="xs"
-                      color="teal"
-                      leftSection={<IconCheck size={14} />}
-                      onClick={() => void handleApplyToRealHoldings(activeDraft)}
+                      variant="subtle"
+                      color="red"
+                      leftSection={<IconTrash size={14} />}
+                      onClick={() => handleDelete(activeDraft)}
                     >
-                      ⚡ Apply Weights to Holdings
+                      Delete
                     </Button>
-                  </Group>
-                </Group>
+                  </>
+                )}
+              </Group>
+            </Group>
 
-                <Divider my="sm" />
+            <Divider my="sm" />
 
-                {/* Metrics row */}
-                <SimpleGrid cols={{ base: 2, sm: 4 }} mb="md">
-                  <Box>
-                    <Text size="xs" c="dimmed">
-                      Target Allocation
-                    </Text>
-                    <Text size="lg" fw={750} c={Math.abs(totalTargetPct - 100) < 0.1 ? 'teal' : 'orange'}>
-                      {totalTargetPct}%
-                    </Text>
-                  </Box>
-                  <Box>
-                    <Text size="xs" c="dimmed">
-                      PAC Share Total
-                    </Text>
-                    <Text size="lg" fw={750} c="teal">
-                      {totalPacSharePct}%
-                    </Text>
-                  </Box>
-                  <Box>
-                    <Text size="xs" c="dimmed">
-                      Weighted TER
-                    </Text>
-                    <Text size="lg" fw={750}>
-                      {weightedTerPct.toFixed(2)}%
-                    </Text>
-                  </Box>
-                  <Box>
-                    <Text size="xs" c="dimmed">
-                      Annual Fee Drag
-                    </Text>
-                    <Text size="lg" fw={750} c="orange">
-                      -{money(Math.round(simulatedPacMonthly * 12 * (weightedTerPct / 100)), 'EUR')}/yr
-                    </Text>
-                  </Box>
-                </SimpleGrid>
-
-                <Text size="xs" fw={700} c="dimmed" mb={4}>
-                  Asset Allocation Mix
+            <SimpleGrid cols={{ base: 2, sm: 4 }} mb="md">
+              <Box>
+                <Text size="xs" c="dimmed">Target Allocation</Text>
+                <Text size="lg" fw={750} c={Math.abs(totalTargetPct - 100) < 0.1 ? 'teal' : 'orange'}>
+                  {totalTargetPct}%
                 </Text>
-                <AllocationBar
-                  total={totalTargetPct}
-                  segments={[...classMap].map(([ac, val]) => ({ label: ac, value: val }))}
+              </Box>
+              <Box>
+                <Text size="xs" c="dimmed">PAC Share Total</Text>
+                <Text size="lg" fw={750} c="teal">{totalPacSharePct}%</Text>
+              </Box>
+              <Box>
+                <Text size="xs" c="dimmed">Weighted TER</Text>
+                <Text size="lg" fw={750}>{weightedTerPct.toFixed(2)}%</Text>
+              </Box>
+              <Box>
+                <Text size="xs" c="dimmed">Annual Fee Drag</Text>
+                <Text size="lg" fw={750} c="orange">
+                  -{money(Math.round(simulatedPacMonthly * 12 * (weightedTerPct / 100)), 'EUR')}/yr
+                </Text>
+              </Box>
+            </SimpleGrid>
+
+            <Text size="xs" fw={700} c="dimmed" mb={4}>Asset Allocation Mix</Text>
+            <AllocationBar
+              total={totalTargetPct}
+              segments={[...classMap].map(([ac, val]) => ({ label: ac, value: val }))}
+            />
+          </Card>
+
+          <Paper className="metric" p="md" radius="lg">
+            <Group justify="space-between" mb="xs">
+              <Text fw={700} size="sm">Model Holdings & Target Percentage Shares</Text>
+              <Text size="xs" c="dimmed">{activeDraft.allocations.length} Allocation Targets</Text>
+            </Group>
+
+            <Table verticalSpacing="xs">
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Instrument / Index</Table.Th>
+                  <Table.Th>Asset Class</Table.Th>
+                  <Table.Th>TER Fee</Table.Th>
+                  <Table.Th>Target Weight (%)</Table.Th>
+                  <Table.Th>PAC Share (%)</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {activeDraft.allocations.map((item, idx) => (
+                  <Table.Tr key={idx}>
+                    <Table.Td>
+                      <Text size="sm" fw={600}>{item.name}</Text>
+                      {item.isin && <Text size="xs" c="dimmed">ISIN: {item.isin}</Text>}
+                    </Table.Td>
+                    <Table.Td><Chip>{item.asset_class || 'equity'}</Chip></Table.Td>
+                    <Table.Td>{item.ter_bps ? percent(item.ter_bps) : '—'}</Table.Td>
+                    <Table.Td>
+                      <Badge color="blue" variant="filled">{item.target_pct}%</Badge>
+                    </Table.Td>
+                    <Table.Td>
+                      {item.pac_share_pct !== undefined ? (
+                        <Badge color="teal" variant="filled">🔄 {item.pac_share_pct}%</Badge>
+                      ) : '—'}
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Paper>
+
+          <Card className="metric" p="lg" radius="lg">
+            <Group justify="space-between" align="center" mb="xs">
+              <Text fw={750} size="md">📈 DCA PAC Projection Simulator</Text>
+              <Group gap="xs">
+                <Text size="xs" c="dimmed">Simulated Monthly Deposit:</Text>
+                <NumberInput
+                  w={120}
+                  size="xs"
+                  prefix="€"
+                  min={0}
+                  value={simulatedPacMonthly}
+                  onChange={v => setSimulatedPacMonthly(Number(v || 0))}
                 />
-              </Card>
+              </Group>
+            </Group>
 
-              {/* Allocation items table */}
-              <Paper className="metric" p="md" radius="lg">
-                <Group justify="space-between" mb="xs">
-                  <Text fw={700} size="sm">
-                    Model Holdings & Target Percentage Shares
-                  </Text>
-                  <Text size="xs" c="dimmed">
-                    {activeDraft.allocations.length} Allocation Targets
-                  </Text>
-                </Group>
-
-                <Table verticalSpacing="xs">
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>Instrument / Index</Table.Th>
-                      <Table.Th>Asset Class</Table.Th>
-                      <Table.Th>TER Fee</Table.Th>
-                      <Table.Th>Target Weight (%)</Table.Th>
-                      <Table.Th>PAC Share (%)</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {activeDraft.allocations.map((item, idx) => (
-                      <Table.Tr key={idx}>
-                        <Table.Td>
-                          <Text size="sm" fw={600}>
-                            {item.name}
-                          </Text>
-                          {item.isin && (
-                            <Text size="xs" c="dimmed">
-                              ISIN: {item.isin}
-                            </Text>
-                          )}
-                        </Table.Td>
-                        <Table.Td>
-                          <Chip>{item.asset_class || 'equity'}</Chip>
-                        </Table.Td>
-                        <Table.Td>{item.ter_bps ? percent(item.ter_bps) : '—'}</Table.Td>
-                        <Table.Td>
-                          <Badge color="blue" variant="filled">
-                            {item.target_pct}%
-                          </Badge>
-                        </Table.Td>
-                        <Table.Td>
-                          {item.pac_share_pct !== undefined ? (
-                            <Badge color="teal" variant="filled">
-                              🔄 {item.pac_share_pct}%
-                            </Badge>
-                          ) : (
-                            '—'
-                          )}
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
+            <SimpleGrid cols={{ base: 1, sm: 4 }} mt="xs">
+              <Paper p="xs" radius="md" withBorder>
+                <Text size="xs" c="dimmed">Monthly Deposit</Text>
+                <Text size="md" fw={800} color="teal">{money(simulatedPacMonthly * 100, 'EUR')}/mo</Text>
               </Paper>
+              <Paper p="xs" radius="md" withBorder>
+                <Text size="xs" c="dimmed">Yearly PAC Capital</Text>
+                <Text size="md" fw={800} color="teal">{money(simulatedPacMonthly * 12 * 100, 'EUR')}/yr</Text>
+              </Paper>
+              <Paper p="xs" radius="md" withBorder>
+                <Text size="xs" c="dimmed">5-Year Total PAC</Text>
+                <Text size="md" fw={800}>{money(simulatedPacMonthly * 60 * 100, 'EUR')}</Text>
+              </Paper>
+              <Paper p="xs" radius="md" withBorder>
+                <Text size="xs" c="dimmed">10-Year Total PAC</Text>
+                <Text size="md" fw={800}>{money(simulatedPacMonthly * 120 * 100, 'EUR')}</Text>
+              </Paper>
+            </SimpleGrid>
+          </Card>
+        </Stack>
+      ) : (
+        <Empty title="No Draft Selected" text="Choose a portfolio from the selector above or create a new one." />
+      )}
 
-              {/* Simulated DCA PAC Projection */}
-              <Card className="metric" p="lg" radius="lg">
-                <Group justify="space-between" align="center" mb="xs">
-                  <Text fw={750} size="md">
-                    📈 DCA PAC Projection Simulator
-                  </Text>
-                  <Group gap="xs">
-                    <Text size="xs" c="dimmed">
-                      Simulated Monthly Deposit:
-                    </Text>
-                    <NumberInput
-                      w={120}
-                      size="xs"
-                      prefix="€"
-                      min={0}
-                      value={simulatedPacMonthly}
-                      onChange={v => setSimulatedPacMonthly(Number(v || 0))}
-                    />
-                  </Group>
-                </Group>
-
-                <SimpleGrid cols={{ base: 1, sm: 4 }} mt="xs">
-                  <Paper p="xs" radius="md" withBorder>
-                    <Text size="xs" c="dimmed">
-                      Monthly Deposit
-                    </Text>
-                    <Text size="md" fw={800} color="teal">
-                      {money(simulatedPacMonthly * 100, 'EUR')}/mo
-                    </Text>
-                  </Paper>
-                  <Paper p="xs" radius="md" withBorder>
-                    <Text size="xs" c="dimmed">
-                      Yearly PAC Capital
-                    </Text>
-                    <Text size="md" fw={800} color="teal">
-                      {money(simulatedPacMonthly * 12 * 100, 'EUR')}/yr
-                    </Text>
-                  </Paper>
-                  <Paper p="xs" radius="md" withBorder>
-                    <Text size="xs" c="dimmed">
-                      5-Year Total PAC
-                    </Text>
-                    <Text size="md" fw={800}>
-                      {money(simulatedPacMonthly * 60 * 100, 'EUR')}
-                    </Text>
-                  </Paper>
-                  <Paper p="xs" radius="md" withBorder>
-                    <Text size="xs" c="dimmed">
-                      10-Year Total PAC
-                    </Text>
-                    <Text size="md" fw={800}>
-                      {money(simulatedPacMonthly * 120 * 100, 'EUR')}
-                    </Text>
-                  </Paper>
-                </SimpleGrid>
-              </Card>
-            </Stack>
-          ) : (
-            <Empty title="No Draft Selected" text="Choose a draft model from the left list or create a new one." />
-          )}
-        </Grid.Col>
-      </Grid>
-
-      {/* Create / Edit Draft Modal */}
       {editModalOpened && editingDraft && (
         <Modal
           opened={editModalOpened}
@@ -633,106 +502,72 @@ export function DraftPortfoliosView({
               label="Draft Name"
               required
               value={editingDraft.name}
-              onChange={e =>
-                setEditingDraft(curr => (curr ? { ...curr, name: e.currentTarget.value } : null))
-              }
+              onChange={e => setEditingDraft(curr => curr ? { ...curr, name: e.currentTarget.value } : null)}
             />
             <Textarea
               label="Description"
               rows={2}
               value={editingDraft.description}
-              onChange={e =>
-                setEditingDraft(curr => (curr ? { ...curr, description: e.currentTarget.value } : null))
-              }
+              onChange={e => setEditingDraft(curr => curr ? { ...curr, description: e.currentTarget.value } : null)}
             />
 
             <Divider label="Allocations & Target Percentage Shares" my="xs" />
 
             {editingDraft.allocations.map((alloc, idx) => (
               <Card key={idx} p="xs" withBorder>
-                <Grid align="end">
-                  <Grid.Col span={{ base: 12, sm: 5 }}>
-                    <TextInput
-                      label="Instrument / Ticker"
-                      value={alloc.name}
-                      onChange={e => {
-                        const val = e.currentTarget.value;
-                        setEditingDraft(curr =>
-                          curr
-                            ? {
-                                ...curr,
-                                allocations: curr.allocations.map((a, i) =>
-                                  i === idx ? { ...a, name: val } : a
-                                ),
-                              }
-                            : null
-                        );
-                      }}
-                    />
-                  </Grid.Col>
-                  <Grid.Col span={{ base: 6, sm: 3 }}>
-                    <NumberInput
-                      label="Target Weight (%)"
-                      min={0}
-                      max={100}
-                      decimalScale={2}
-                      value={alloc.target_pct}
-                      onChange={val => {
-                        const numVal = Number(val || 0);
-                        setEditingDraft(curr =>
-                          curr
-                            ? {
-                                ...curr,
-                                allocations: curr.allocations.map((a, i) =>
-                                  i === idx ? { ...a, target_pct: numVal } : a
-                                ),
-                              }
-                            : null
-                        );
-                      }}
-                    />
-                  </Grid.Col>
-                  <Grid.Col span={{ base: 5, sm: 3 }}>
-                    <NumberInput
-                      label="PAC Share (%)"
-                      min={0}
-                      max={100}
-                      decimalScale={2}
-                      value={alloc.pac_share_pct ?? 0}
-                      onChange={val => {
-                        const numVal = Number(val || 0);
-                        setEditingDraft(curr =>
-                          curr
-                            ? {
-                                ...curr,
-                                allocations: curr.allocations.map((a, i) =>
-                                  i === idx ? { ...a, pac_share_pct: numVal } : a
-                                ),
-                              }
-                            : null
-                        );
-                      }}
-                    />
-                  </Grid.Col>
-                  <Grid.Col span={{ base: 1, sm: 1 }}>
-                    <ActionIcon
-                      color="red"
-                      variant="subtle"
-                      onClick={() =>
-                        setEditingDraft(curr =>
-                          curr
-                            ? {
-                                ...curr,
-                                allocations: curr.allocations.filter((_, i) => i !== idx),
-                              }
-                            : null
-                        )
-                      }
-                    >
-                      ×
-                    </ActionIcon>
-                  </Grid.Col>
-                </Grid>
+                <Group align="end" gap="xs">
+                  <TextInput
+                    label="Instrument / Ticker"
+                    style={{ flex: 1 }}
+                    value={alloc.name}
+                    onChange={e => {
+                      const val = e.currentTarget.value;
+                      setEditingDraft(curr =>
+                        curr ? { ...curr, allocations: curr.allocations.map((a, i) => i === idx ? { ...a, name: val } : a) } : null
+                      );
+                    }}
+                  />
+                  <NumberInput
+                    label="Target (%)"
+                    w={110}
+                    min={0}
+                    max={100}
+                    decimalScale={2}
+                    value={alloc.target_pct}
+                    onChange={val => {
+                      const numVal = Number(val || 0);
+                      setEditingDraft(curr =>
+                        curr ? { ...curr, allocations: curr.allocations.map((a, i) => i === idx ? { ...a, target_pct: numVal } : a) } : null
+                      );
+                    }}
+                  />
+                  <NumberInput
+                    label="PAC (%)"
+                    w={100}
+                    min={0}
+                    max={100}
+                    decimalScale={2}
+                    value={alloc.pac_share_pct ?? 0}
+                    onChange={val => {
+                      const numVal = Number(val || 0);
+                      setEditingDraft(curr =>
+                        curr ? { ...curr, allocations: curr.allocations.map((a, i) => i === idx ? { ...a, pac_share_pct: numVal } : a) } : null
+                      );
+                    }}
+                  />
+                  <ActionIcon
+                    color="red"
+                    variant="subtle"
+                    mb={2}
+                    onClick={() =>
+                      setEditingDraft(curr =>
+                        curr ? { ...curr, allocations: curr.allocations.filter((_, i) => i !== idx) } : null
+                      )
+                    }
+                  >
+                    ×
+                  </ActionIcon>
+                </Group>
               </Card>
             ))}
 
@@ -742,27 +577,15 @@ export function DraftPortfoliosView({
                 size="xs"
                 onClick={() =>
                   setEditingDraft(curr =>
-                    curr
-                      ? {
-                          ...curr,
-                          allocations: [
-                            ...curr.allocations,
-                            { name: 'New Asset', target_pct: 10, pac_share_pct: 10 },
-                          ],
-                        }
-                      : null
+                    curr ? { ...curr, allocations: [...curr.allocations, { name: 'New Asset', target_pct: 10, pac_share_pct: 10 }] } : null
                   )
                 }
               >
                 + Add Asset Row
               </Button>
               <Group gap="xs">
-                <Button variant="default" size="xs" onClick={() => setEditModalOpened(false)}>
-                  Cancel
-                </Button>
-                <Button color="violet" size="xs" onClick={handleSaveDraftModal}>
-                  Save Draft
-                </Button>
+                <Button variant="default" size="xs" onClick={() => setEditModalOpened(false)}>Cancel</Button>
+                <Button color="violet" size="xs" onClick={handleSaveDraftModal}>Save Draft</Button>
               </Group>
             </Group>
           </Stack>

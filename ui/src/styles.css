@@ -73,3 +73,22 @@ body,
 @media (max-width: 600px) {
   .shell { width: calc(100% - 20px); padding-top: 18px; }
 }
+
+/* Theme variants — background gradient accent per theme */
+[data-theme="midnight"] body {
+  background:
+    radial-gradient(circle at 12% -10%, color-mix(in srgb, var(--mantine-color-violet-7) 22%, transparent), transparent 34rem),
+    var(--mantine-color-body);
+}
+
+[data-theme="warm"] body {
+  background:
+    radial-gradient(circle at 12% -10%, color-mix(in srgb, var(--mantine-color-orange-5) 20%, transparent), transparent 34rem),
+    var(--mantine-color-body);
+}
+
+[data-theme="forest"] body {
+  background:
+    radial-gradient(circle at 12% -10%, color-mix(in srgb, var(--mantine-color-green-7) 22%, transparent), transparent 34rem),
+    var(--mantine-color-body);
+}
