@@ -12,7 +12,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// DataClaimer backfills unclaimed accounts to a specific user on first admin login.
+// DataClaimer assigns unclaimed data (user_id='') to the admin on first login.
 type DataClaimer interface {
 	ClaimAdminData(ctx context.Context, googleID string) error
 }
