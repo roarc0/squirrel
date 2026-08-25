@@ -19,7 +19,7 @@ export const ExportBackupRequest = /*@__PURE__*/ proto3.makeMessageType(
 export const ExportBackupResponse = /*@__PURE__*/ proto3.makeMessageType(
   "v1.ExportBackupResponse",
   () => [
-    { no: 1, name: "backup_tar_gz", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
+    { no: 1, name: "backup_data", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
     { no: 2, name: "filename", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ],
 );
@@ -30,7 +30,7 @@ export const ExportBackupResponse = /*@__PURE__*/ proto3.makeMessageType(
 export const RestoreBackupRequest = /*@__PURE__*/ proto3.makeMessageType(
   "v1.RestoreBackupRequest",
   () => [
-    { no: 1, name: "backup_tar_gz", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
+    { no: 1, name: "backup_data", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
   ],
 );
 

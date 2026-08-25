@@ -7,15 +7,15 @@ option go_package = "loot/proto/gen/go/v1;portv1";
 message ExportBackupRequest {}
 
 message ExportBackupResponse {
-  // Gzipped tar archive containing database files.
-  bytes backup_tar_gz = 1;
-  // Suggested backup filename.
+  // JSON backup of the authenticated user's data.
+  bytes backup_data = 1;
+  // Suggested backup filename (e.g. loot-backup-2024-01-01.json).
   string filename = 2;
 }
 
 message RestoreBackupRequest {
-  // Gzipped tar archive payload.
-  bytes backup_tar_gz = 1;
+  // JSON backup payload as produced by ExportBackup.
+  bytes backup_data = 1;
 }
 
 message RestoreBackupResponse {

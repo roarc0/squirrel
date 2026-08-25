@@ -91,7 +91,7 @@ export function SettingsModal({ opened, onClose, reload }: Props) {
           setRestoring(false);
         }
       },
-      'An automatic rollback copy will be saved before replacing your existing data.'
+      'Your existing data will be replaced. If the restore fails, nothing changes.'
     );
   };
 
@@ -154,22 +154,22 @@ export function SettingsModal({ opened, onClose, reload }: Props) {
         <Paper withBorder p="md" radius="md">
           <Text fw={600} size="sm" mb={4}>Export Data Backup</Text>
           <Text size="xs" c="dimmed" mb="md">
-            Download a complete timestamped archive (.tar.gz) of your SQLite database and application state.
+            Download a complete timestamped archive (.json) of your portfolio data.
           </Text>
           <Button color="teal" variant="light" onClick={handleExport} loading={exporting}>
-            Export Backup (.tar.gz)
+            Export Backup (.json)
           </Button>
         </Paper>
 
         <Paper withBorder p="md" radius="md">
           <Text fw={600} size="sm" mb={4}>Restore Database</Text>
           <Text size="xs" c="dimmed" mb="md">
-            Upload a previously exported backup archive. The archive will be validated for integrity before restoring, and an automatic rollback copy will be saved first.
+            Upload a previously exported .json backup. Your existing data will be replaced within a transaction — if anything fails, nothing changes.
           </Text>
           <Stack gap="sm">
             <FileInput
-              placeholder="Select .tar.gz backup file"
-              accept=".tar.gz,.gz"
+              placeholder="Select .json backup file"
+              accept=".json"
               value={file}
               onChange={setFile}
               size="xs"

@@ -684,11 +684,11 @@ export async function updateSituation(params: {
 
 export async function exportBackup(): Promise<{ data: Uint8Array; filename: string }> {
   const res = await systemClient.exportBackup({});
-  return { data: res.backupTarGz, filename: res.filename || 'loot-backup.tar.gz' };
+  return { data: res.backupData, filename: res.filename || 'loot-backup.json' };
 }
 
 export async function restoreBackup(fileBytes: Uint8Array): Promise<{ success: boolean; message: string }> {
-  const res = await systemClient.restoreBackup({ backupTarGz: fileBytes });
+  const res = await systemClient.restoreBackup({ backupData: fileBytes });
   return { success: Boolean(res.success), message: res.message || 'Restored successfully' };
 }
 

@@ -64,7 +64,7 @@ export function SettingsView({ reload }: { reload: () => Promise<void> }) {
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
       } finally { setRestoring(false); }
-    }, 'An automatic rollback copy will be saved before replacing your existing data.');
+    }, 'Your existing data will be replaced. If the restore fails, nothing changes.');
   };
 
   return (
@@ -152,22 +152,22 @@ export function SettingsView({ reload }: { reload: () => Promise<void> }) {
           <Paper withBorder p="lg" radius="md">
             <Text fw={600} mb={4}>Export Data Backup</Text>
             <Text size="xs" c="dimmed" mb="lg">
-              Download a complete timestamped archive (.tar.gz) of your SQLite database and all application state.
+              Download a complete timestamped archive (.json) of your portfolio data.
             </Text>
             <Button color="teal" variant="light" onClick={handleExport} loading={exporting}>
-              Export Backup (.tar.gz)
+              Export Backup (.json)
             </Button>
           </Paper>
 
           <Paper withBorder p="lg" radius="md">
             <Text fw={600} mb={4}>Restore Database</Text>
             <Text size="xs" c="dimmed" mb="lg">
-              Upload a previously exported backup archive. The archive will be validated for integrity, and an automatic rollback copy will be saved first.
+              Upload a previously exported .json backup. Your existing data will be replaced within a transaction — if anything fails, nothing changes.
             </Text>
             <Stack gap="sm">
               <FileInput
-                placeholder="Select .tar.gz backup file"
-                accept=".tar.gz,.gz"
+                placeholder="Select .json backup file"
+                accept=".json"
                 value={file}
                 onChange={setFile}
                 size="sm"

@@ -30,14 +30,14 @@ export declare class ExportBackupRequest extends Message<ExportBackupRequest> {
  */
 export declare class ExportBackupResponse extends Message<ExportBackupResponse> {
   /**
-   * Gzipped tar archive containing database files.
+   * JSON backup of the authenticated user's data.
    *
-   * @generated from field: bytes backup_tar_gz = 1;
+   * @generated from field: bytes backup_data = 1;
    */
-  backupTarGz: Uint8Array;
+  backupData: Uint8Array;
 
   /**
-   * Suggested backup filename.
+   * Suggested backup filename (e.g. loot-backup-2024-01-01.json).
    *
    * @generated from field: string filename = 2;
    */
@@ -63,11 +63,11 @@ export declare class ExportBackupResponse extends Message<ExportBackupResponse> 
  */
 export declare class RestoreBackupRequest extends Message<RestoreBackupRequest> {
   /**
-   * Gzipped tar archive payload.
+   * JSON backup payload as produced by ExportBackup.
    *
-   * @generated from field: bytes backup_tar_gz = 1;
+   * @generated from field: bytes backup_data = 1;
    */
-  backupTarGz: Uint8Array;
+  backupData: Uint8Array;
 
   constructor(data?: PartialMessage<RestoreBackupRequest>);
 
