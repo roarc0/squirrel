@@ -86,13 +86,16 @@ type BackupProfile struct {
 	FireExpensesMinor     int64  `json:"fire_expenses_minor"`
 	InstrumentColumnsJSON string `json:"instrument_columns_json"`
 	ShowFireCalculator    bool   `json:"show_fire_calculator"`
+	ActiveTab             string `json:"active_tab,omitempty"`
+	AISettingsJSON        string `json:"ai_settings_json,omitempty"`
+	DraftPortfoliosJSON   string `json:"draft_portfolios_json,omitempty"`
 }
 
 // ExportBackup exports only the authenticated user's data as JSON.
 func (s *Store) ExportBackup(ctx context.Context, userID string) ([]byte, string, error) {
 	backup := UserBackup{
 		Version:    backupVersion,
-		App:        "loot",
+		App:        "squirrel",
 		ExportedAt: time.Now().UTC().Format(time.RFC3339),
 	}
 
@@ -234,7 +237,7 @@ func (s *Store) ExportBackup(ctx context.Context, userID string) ([]byte, string
 		return nil, "", fmt.Errorf("marshal backup: %w", err)
 	}
 
-	filename := fmt.Sprintf("loot-backup-%s.json", time.Now().UTC().Format("2006-01-02"))
+	filename := fmt.Sprintf("squirrel-backup-%s.json", time.Now().UTC().Format("2006-01-02"))
 	return data, filename, nil
 }
 
@@ -252,7 +255,7 @@ func (s *Store) RestoreBackup(ctx context.Context, userID string, backupData []b
 	if err := json.Unmarshal(backupData, &backup); err != nil {
 		return errors.New("invalid backup: not valid JSON")
 	}
-	if backup.App != "" && backup.App != "loot" {
+	if backup.App != "" && backup.App != "squirrel" {
 		return fmt.Errorf("backup belongs to unknown application %q", backup.App)
 	}
 	if backup.Version > backupVersion {

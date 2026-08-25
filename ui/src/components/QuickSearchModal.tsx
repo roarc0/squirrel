@@ -413,7 +413,7 @@ export function QuickSearchModal({
             </Group>
           </Group>
           <Text size="xs" c="teal" fw={700}>
-            LOOT Command Palette
+            Squirrel Command Palette
           </Text>
         </Group>
       </Paper>

@@ -82,6 +82,27 @@ export declare class UserProfile extends Message<UserProfile> {
    */
   enableBtpRanks: boolean;
 
+  /**
+   * Currently active navigation tab e.g. "overview", "investments", "btp".
+   *
+   * @generated from field: string active_tab = 11;
+   */
+  activeTab: string;
+
+  /**
+   * JSON string of AI Assistant configuration settings.
+   *
+   * @generated from field: string ai_settings_json = 12;
+   */
+  aiSettingsJson: string;
+
+  /**
+   * JSON string of custom draft portfolios.
+   *
+   * @generated from field: string draft_portfolios_json = 13;
+   */
+  draftPortfoliosJson: string;
+
   constructor(data?: PartialMessage<UserProfile>);
 
   static readonly runtime: typeof proto3;

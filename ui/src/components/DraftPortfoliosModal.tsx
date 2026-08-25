@@ -75,9 +75,8 @@ const DEFAULT_PRESETS: DraftPortfolio[] = [
 
 function getStoredDrafts(): DraftPortfolio[] {
   try {
-    const raw = localStorage.getItem('loot.draftPortfolios');
-    if (!raw) return DEFAULT_PRESETS;
-    const custom = JSON.parse(raw);
+    const raw = localStorage.getItem('squirrel.draftPortfolios');
+    const custom = raw ? (JSON.parse(raw) as DraftPortfolio[]) : [];
     return [...DEFAULT_PRESETS, ...custom];
   } catch {
     return DEFAULT_PRESETS;
@@ -87,7 +86,7 @@ function getStoredDrafts(): DraftPortfolio[] {
 function saveCustomDrafts(drafts: DraftPortfolio[]) {
   try {
     const customOnly = drafts.filter(d => !d.id.startsWith('preset-'));
-    localStorage.setItem('loot.draftPortfolios', JSON.stringify(customOnly));
+    localStorage.setItem('squirrel.draftPortfolios', JSON.stringify(customOnly));
   } catch {
     /* optional */
   }

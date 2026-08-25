@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	"loot/backend/internal/config"
-	"loot/backend/internal/service"
-	"loot/backend/internal/store"
+	"squirrel/backend/internal/config"
+	"squirrel/backend/internal/service"
+	"squirrel/backend/internal/store"
 )
 
 var version = "dev"
@@ -53,7 +53,7 @@ func main() {
 		IdleTimeout:       60 * time.Second,
 	}
 	go func() {
-		slog.Info("LOOT is ready", "url", "http://"+cfg.Listen, "database", cfg.Database)
+		slog.Info("Squirrel is ready", "url", "http://"+cfg.Listen, "database", cfg.Database)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("serve", "error", err)
 			os.Exit(1)

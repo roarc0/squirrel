@@ -34,7 +34,7 @@ import {
 import { api, type Account, type Holding, type Instrument, type TaxRate } from '../api';
 import { AllocationBar, PerformanceResult, useBackendRows } from '../App';
 import { copyToClipboard } from '../utils/copyToClipboard';
-import { Chip } from '../Chip';
+import { Chip, ISINBadge, TickerBadge } from '../Chip';
 import { Empty } from '../components/Empty';
 import { DataTable, TableAction, TableActions, type DataColumn } from '../DataTable';
 import { InvestModal } from '../InvestModal';
@@ -233,27 +233,8 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
         <Stack gap={2}>
           <Text fw={650}>{holding.instrument_name}</Text>
           <Group gap={6} align="center" mt={2}>
-            {holding.instrument_ticker && (
-              <Text size="xs" c="dimmed" fw={600}>
-                {holding.instrument_ticker}
-              </Text>
-            )}
-            {holding.instrument_isin && (
-              <Tooltip label="Click to copy ISIN" withArrow>
-                <Badge
-                  size="xs"
-                  variant="outline"
-                  color="gray"
-                  style={{ cursor: 'pointer', fontFamily: 'monospace' }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    copyToClipboard(holding.instrument_isin || '', 'ISIN');
-                  }}
-                >
-                  {holding.instrument_isin}
-                </Badge>
-              </Tooltip>
-            )}
+            {holding.instrument_ticker && <TickerBadge ticker={holding.instrument_ticker} />}
+            {holding.instrument_isin && <ISINBadge isin={holding.instrument_isin} />}
           </Group>
           {holding.notes && (
             <Group gap={4} align="center" wrap="nowrap">

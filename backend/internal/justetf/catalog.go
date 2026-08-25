@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"loot/backend/internal/portfolio"
+	"squirrel/backend/internal/portfolio"
 )
 
 func (c *Client) Catalog(ctx context.Context, limit int) ([]portfolio.Instrument, int, error) {

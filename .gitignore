@@ -10,4 +10,4 @@
 /tmp/
 build-errors.log
 backend/internal/mcp/proto_image.binpb
-loot.yaml
+squirrel.yaml

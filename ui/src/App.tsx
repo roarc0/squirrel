@@ -94,10 +94,10 @@ type ThemeAccent = 'teal' | 'amber' | 'ocean' | 'violet' | 'rose';
 type ThemeScheme = 'light' | 'dark';
 
 const ACCENT_HEX: Record<ThemeAccent, string> = {
-  teal: '#12b886', amber: '#fab005', ocean: '#228be6', violet: '#7950f2', rose: '#e64980',
+  teal: '#12b886', amber: '#f97316', ocean: '#228be6', violet: '#7950f2', rose: '#e64980',
 };
 const ACCENT_LABELS: Record<ThemeAccent, string> = {
-  teal: 'Teal', amber: 'Amber', ocean: 'Ocean', violet: 'Violet', rose: 'Rose',
+  teal: 'Teal', amber: 'Orange', ocean: 'Ocean', violet: 'Violet', rose: 'Rose',
 };
 const ACCENTS = Object.keys(ACCENT_HEX) as ThemeAccent[];
 
@@ -113,12 +113,12 @@ const TEAL_VAR_KEYS = [
 const ACCENT_VARS: Record<ThemeAccent, Record<string, string>> = {
   teal: {},
   amber: {
-    '--mantine-color-teal-0': '#fff9db', '--mantine-color-teal-1': '#fff3bf', '--mantine-color-teal-2': '#ffec99',
-    '--mantine-color-teal-3': '#ffe066', '--mantine-color-teal-4': '#ffd43b', '--mantine-color-teal-5': '#fcc419',
-    '--mantine-color-teal-6': '#fab005', '--mantine-color-teal-7': '#f59f00', '--mantine-color-teal-8': '#e67700', '--mantine-color-teal-9': '#d9480f',
-    '--mantine-color-teal-filled': '#fab005', '--mantine-color-teal-filled-hover': '#f59f00',
-    '--mantine-color-teal-light': 'rgba(250,176,5,0.12)', '--mantine-color-teal-light-hover': 'rgba(250,176,5,0.15)',
-    '--mantine-color-teal-light-color': '#e67700', '--mantine-color-teal-outline': '#fab005', '--mantine-color-teal-outline-hover': 'rgba(250,176,5,0.05)',
+    '--mantine-color-teal-0': '#fff7ed', '--mantine-color-teal-1': '#ffedd5', '--mantine-color-teal-2': '#fed7aa',
+    '--mantine-color-teal-3': '#fdba74', '--mantine-color-teal-4': '#fb923c', '--mantine-color-teal-5': '#f97316',
+    '--mantine-color-teal-6': '#ea580c', '--mantine-color-teal-7': '#c2410c', '--mantine-color-teal-8': '#9a3412', '--mantine-color-teal-9': '#7c2d12',
+    '--mantine-color-teal-filled': '#f97316', '--mantine-color-teal-filled-hover': '#ea580c',
+    '--mantine-color-teal-light': 'rgba(249,115,22,0.15)', '--mantine-color-teal-light-hover': 'rgba(249,115,22,0.20)',
+    '--mantine-color-teal-light-color': '#ea580c', '--mantine-color-teal-outline': '#f97316', '--mantine-color-teal-outline-hover': 'rgba(249,115,22,0.08)',
   },
   ocean: {
     '--mantine-color-teal-0': '#e7f5ff', '--mantine-color-teal-1': '#d0ebff', '--mantine-color-teal-2': '#a5d8ff',
@@ -166,82 +166,79 @@ export function useBackendRows<T>(endpoint: string, source: T[], initialSort = '
   return { rows, sort, direction, sortError, sortRows };
 }
 
-export function LootChestIcon({ size = 26, className }: { size?: number; className?: string }) {
+export function SquirrelIcon({ size = 26, className }: { size?: number; className?: string }) {
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 24 24"
+      viewBox="0 0 32 32"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
       style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }}
     >
       <defs>
-        <linearGradient id="lootChestGrad" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="var(--mantine-color-teal-4, #20c997)" />
-          <stop offset="100%" stopColor="var(--mantine-color-teal-7, #0ca678)" />
+        <linearGradient id="sqFur" x1="2" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#fb923c" />
+          <stop offset="100%" stopColor="#ea580c" />
         </linearGradient>
-        <linearGradient id="lootGoldGrad" x1="10" y1="8" x2="14" y2="16" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#ffd43b" />
-          <stop offset="100%" stopColor="#f59f00" />
+        <linearGradient id="sqTail" x1="14" y1="2" x2="32" y2="28" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#f97316" />
+          <stop offset="100%" stopColor="#c2410c" />
         </linearGradient>
       </defs>
 
-      {/* Chest Base Body */}
-      <rect
-        x="3"
-        y="11"
-        width="18"
-        height="9"
-        rx="2"
-        fill="url(#lootChestGrad)"
-        fillOpacity="0.18"
-        stroke="url(#lootChestGrad)"
-        strokeWidth="1.75"
-        strokeLinejoin="round"
-      />
-
-      {/* Chest Domed Lid */}
+      {/* Bushy Fluffy Tail (sweeping upward on right) */}
       <path
-        d="M3.5 11C3.5 6.5 7 4 12 4C17 4 20.5 6.5 20.5 11H3.5Z"
-        fill="url(#lootChestGrad)"
-        fillOpacity="0.3"
-        stroke="url(#lootChestGrad)"
-        strokeWidth="1.75"
-        strokeLinejoin="round"
+        d="M 16.5 25 C 22 25 28.5 21.5 29.5 15.5 C 30.5 10 28.5 5.5 25 2.5 C 22 0 18.5 0 16 0 C 17.5 2.5 19 5 19.5 8.5 C 20.2 12.5 19 16 16 19 C 14 21 12.5 21.5 11 22 C 12.5 24 14.5 25 16.5 25 Z"
+        fill="url(#sqTail)"
       />
 
-      {/* Center Lock / Keyhole Clasp */}
-      <rect
-        x="9.5"
-        y="9.5"
-        width="5"
-        height="5"
-        rx="1"
-        fill="url(#lootGoldGrad)"
-        stroke="rgba(0,0,0,0.3)"
-        strokeWidth="0.5"
-      />
-      <circle cx="12" cy="11.5" r="0.8" fill="#121212" />
+      {/* Back Ear (tufted, standing tall) */}
+      <path d="M 14.5 7.5 L 14.2 0.8 C 13.6 -0.2 12.4 0.6 12 2 L 12 7 Z" fill="#9a3412" />
 
-      {/* Metallic Straps */}
-      <line x1="7" y1="4.5" x2="7" y2="19.5" stroke="url(#lootChestGrad)" strokeWidth="1.2" opacity="0.6" />
-      <line x1="17" y1="4.5" x2="17" y2="19.5" stroke="url(#lootChestGrad)" strokeWidth="1.2" opacity="0.6" />
+      {/* Front Ear (tufted, standing tall) */}
+      <path d="M 11.5 8 L 10.5 0.5 C 9.8 -0.5 8.8 0.5 8.8 2 L 9.2 8.5 Z" fill="url(#sqFur)" />
 
-      {/* Golden Sparkle */}
+      {/* Big Round Head (Snout pointing left) */}
+      <circle cx="10" cy="10" r="5.5" fill="url(#sqFur)" />
+      <path d="M 10 4.5 C 7 4.5 4.5 7 4 9.5 C 3.5 11.2 4.2 12.8 5.5 13.8 L 10 15.5 Z" fill="url(#sqFur)" />
+
+      {/* Cream Chest / Belly Bib */}
       <path
-        d="M19.5 2.5L20 4L21.5 4.5L20 5L19.5 6.5L19 5L17.5 4.5L19 4L19.5 2.5Z"
-        fill="#ffd43b"
+        d="M 5.8 12.5 C 6.2 15 7.2 18.5 8.8 22 C 9.8 24.2 11.2 26 12.5 26 C 10.8 25 9.5 22.8 8.2 20 C 7.2 17.2 6.5 14.5 5.8 12.5 Z"
+        fill="#fef3c7"
       />
+
+      {/* Torso & Back */}
+      <path
+        d="M 6.8 13.5 C 6 15.5 5.5 18 5.5 21 C 5.5 24.5 7 27 9 28 C 11 29 13.5 28 15 27 C 18 26 20 22.5 20 18 C 20 14.5 17.5 12 14.5 11.5 C 11 11 8.5 11.8 6.8 13.5 Z"
+        fill="url(#sqFur)"
+      />
+
+      {/* Round Sitting Hind Thigh */}
+      <circle cx="13.5" cy="20.5" r="4.8" fill="url(#sqFur)" stroke="#ea580c" strokeWidth="0.8" />
+
+      {/* Sitting Feet */}
+      <path d="M 8 27 C 6.8 27 5.8 27.5 5.2 28 C 6.8 28.8 9 28.8 10.5 28 Z" fill="#c2410c" />
+      <path d="M 12 26.8 C 10.8 27.5 10.2 28.2 10.8 28.8 C 12.5 29.2 14.8 28.8 15.8 27.8 Z" fill="#c2410c" />
+
+      {/* Cute Front Paws */}
+      <path d="M 7.2 15 C 6.2 16.2 6 17.8 6.5 18.5 C 7 18.8 8 17.8 8.4 16.5 Z" fill="#c2410c" />
+      <path d="M 9.5 15.2 C 8.5 16.5 8.2 18.1 8.7 18.8 C 9.2 19 10.2 18 10.6 16.8 Z" fill="#c2410c" />
+
+      {/* Large Expressive Eye & Nose */}
+      <circle cx="8" cy="9.2" r="1.5" fill="#0f172a" />
+      <circle cx="7.5" cy="8.6" r="0.55" fill="#ffffff" />
+      <ellipse cx="4.2" cy="10" rx="0.85" ry="0.65" fill="#0f172a" />
     </svg>
   );
 }
 
-export function LootBrandLogo({ size = 26 }: { size?: number }) {
+export function SquirrelBrandLogo({ size = 26 }: { size?: number }) {
   return (
     <Group gap={8} align="center" style={{ userSelect: 'none' }}>
-      <LootChestIcon size={size} />
+      <SquirrelIcon size={size} />
       <Text
         component="span"
         style={{
@@ -249,16 +246,16 @@ export function LootBrandLogo({ size = 26 }: { size?: number }) {
           fontWeight: 850,
           fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif',
           letterSpacing: '-0.045em',
-          background: 'linear-gradient(135deg, var(--mantine-color-teal-4, #20c997) 0%, var(--mantine-color-teal-6, #0ca678) 65%, var(--mantine-color-teal-8, #099268) 100%)',
+          background: 'linear-gradient(135deg, var(--mantine-color-teal-4, #fb923c) 0%, var(--mantine-color-teal-6, #ea580c) 65%, var(--mantine-color-teal-8, #c2410c) 100%)',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
           lineHeight: 1,
           display: 'inline-flex',
           alignItems: 'center',
-          filter: 'drop-shadow(0 2px 10px rgba(32, 201, 151, 0.18))',
+          filter: 'drop-shadow(0 2px 10px rgba(249, 115, 22, 0.2))',
         }}
       >
-        LOOT
+        squirrel
       </Text>
     </Group>
   );
@@ -321,7 +318,7 @@ export default function App() {
       return 'instruments';
     }
     try {
-      const saved = localStorage.getItem('loot.activeTab');
+      const saved = localStorage.getItem('squirrel.activeTab');
       const normSaved = saved === 'holdings' ? 'investments' : saved === 'advisor' ? 'consultant' : saved;
       if (normSaved && VALID_TABS.includes(normSaved)) {
         return normSaved;
@@ -336,7 +333,7 @@ export default function App() {
     const next = val || 'overview';
     setActiveTab(next);
     try {
-      localStorage.setItem('loot.activeTab', next);
+      localStorage.setItem('squirrel.activeTab', next);
       const url = new URL(window.location.href);
       url.searchParams.set('tab', next);
       window.history.pushState({}, '', url.toString());
@@ -408,7 +405,7 @@ export default function App() {
   <>
     <main className="shell">
       <Group justify="space-between" align="center" mb="md">
-        <LootBrandLogo size={26} />
+        <SquirrelBrandLogo size={26} />
         <Group gap={10}>
           <HeaderIconButton icon={<IconSearch size={16} />} label="Search (⌘K)" onClick={() => setQuickSearchOpened(true)} />
           <HeaderIconButton icon={<IconArrowsExchange size={16} />} label="Update" onClick={() => setUpdateModalOpened(true)} />
@@ -642,7 +639,7 @@ export default function App() {
       />
     </main>
     <footer className="app-footer">
-      <Text size="xs" c="dimmed">LOOT · Know what you own</Text>
+      <Text size="xs" c="dimmed">Squirrel · Stash, track & grow your wealth</Text>
     </footer>
   </>
   );
@@ -709,12 +706,12 @@ function ThemePickerButton() {
   const { setColorScheme } = useMantineColorScheme();
   const [, setProfileField] = useProfile();
   const [scheme, setScheme] = useState<ThemeScheme>(() => {
-    const s = localStorage.getItem('loot.scheme');
+    const s = localStorage.getItem('squirrel.scheme');
     return s === 'light' ? 'light' : 'dark';
   });
   const [accent, setAccent] = useState<ThemeAccent>(() => {
-    const a = localStorage.getItem('loot.accent') as ThemeAccent | null;
-    return a && a in ACCENT_HEX ? a : 'teal';
+    const a = localStorage.getItem('squirrel.accent') as ThemeAccent | null;
+    return a && a in ACCENT_HEX ? a : 'amber';
   });
 
   useEffect(() => {
@@ -725,8 +722,8 @@ function ThemePickerButton() {
   }, []);
 
   const apply = (s: ThemeScheme, a: ThemeAccent) => {
-    localStorage.setItem('loot.scheme', s);
-    localStorage.setItem('loot.accent', a);
+    localStorage.setItem('squirrel.scheme', s);
+    localStorage.setItem('squirrel.accent', a);
     applyAccentVars(a);
     document.documentElement.setAttribute('data-accent', a);
     setProfileField({ theme: `${s}:${a}` });
@@ -738,7 +735,7 @@ function ThemePickerButton() {
   };
 
   return (
-    <Popover position="bottom-end" withArrow shadow="md" width={184}>
+    <Popover position="bottom-end" withArrow shadow="lg" radius="md" width={224}>
       <Popover.Target>
         <HeaderIconButton
           icon={
@@ -765,8 +762,8 @@ function ThemePickerButton() {
           label="Theme"
         />
       </Popover.Target>
-      <Popover.Dropdown p={12}>
-        <Stack gap={8}>
+      <Popover.Dropdown p="md">
+        <Stack gap="xs">
           <Text size="11px" fw={700} c="dimmed" style={{ letterSpacing: '0.06em', textTransform: 'uppercase' }}>Mode</Text>
           <SegmentedControl
             size="xs"
@@ -775,14 +772,14 @@ function ThemePickerButton() {
             onChange={v => { const s = v as ThemeScheme; setScheme(s); apply(s, accent); }}
             data={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]}
           />
-          <Divider my={2} />
+          <Divider my={4} />
           <Text size="11px" fw={700} c="dimmed" style={{ letterSpacing: '0.06em', textTransform: 'uppercase' }}>Accent</Text>
-          <Group gap={8} wrap="nowrap">
+          <Group gap={10} justify="space-between" wrap="nowrap" px={2} py={2}>
             {ACCENTS.map(a => (
               <Tooltip key={a} label={ACCENT_LABELS[a]} position="bottom" withArrow>
                 <Box
                   component="button"
-                  w={26} h={26}
+                  w={24} h={24}
                   onClick={() => { setAccent(a); apply(scheme, a); }}
                   aria-label={ACCENT_LABELS[a]}
                   style={{
@@ -792,10 +789,11 @@ function ThemePickerButton() {
                     border: 'none',
                     padding: 0,
                     flexShrink: 0,
-                    outline: a === accent ? `2px solid ${ACCENT_HEX[a]}` : '2px solid transparent',
-                    outlineOffset: 3,
-                    transform: a === accent ? 'scale(1.18)' : 'scale(1)',
-                    transition: 'transform 0.12s ease, outline-color 0.12s ease',
+                    boxShadow: a === accent
+                      ? `0 0 0 2px var(--mantine-color-body), 0 0 0 4px ${ACCENT_HEX[a]}`
+                      : '0 1px 3px rgba(0,0,0,0.12)',
+                    transform: a === accent ? 'scale(1.08)' : 'scale(1)',
+                    transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                   }}
                 />
               </Tooltip>

@@ -10,11 +10,11 @@ ui: generate
 	cd ui && npm run build
 
 run *args: ui
-	CGO_ENABLED=0 go run github.com/air-verse/air@latest -- -config loot.yaml {{args}}
+	CGO_ENABLED=0 go run github.com/air-verse/air@latest -- -config squirrel.yaml {{args}}
 
 build: ui
 	mkdir -p bin
-	CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version={{version}}" -o bin/loot ./backend/cmd/loot
+	CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version={{version}}" -o bin/squirrel ./backend/cmd/squirrel
 
 test: ui
 	CGO_ENABLED=0 go test ./backend/...
@@ -23,9 +23,9 @@ test: ui
 
 db *args:
 	#!/usr/bin/env bash
-	DB_PATH="data/loot.db"
-	if [ -f loot.yaml ]; then
-		CONF_DB=$(grep -E '^\s*database:' loot.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
+	DB_PATH="data/squirrel.db"
+	if [ -f squirrel.yaml ]; then
+		CONF_DB=$(grep -E '^\s*database:' squirrel.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
 		if [ -n "$CONF_DB" ]; then
 			DB_PATH="$CONF_DB"
 		fi

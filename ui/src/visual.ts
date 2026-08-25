@@ -5,6 +5,8 @@ const knownColors: Record<string, string> = {
   fund: 'violet', stock: 'blue', bank: 'cyan', broker: 'violet', acc: 'teal', dist: 'orange',
   refreshed: 'teal', 'awaiting refresh': 'gray', archived: 'gray', hedged: 'cyan', default: 'teal', rate: 'green', tax: 'red',
   'strictly better': 'green', 'same index': 'blue', 'same exposure': 'violet', score: 'teal',
+  'phy / full': 'blue', 'phy / sampled': 'cyan', 'swap / syn': 'grape', synthetic: 'grape',
+  'physical_full': 'blue', 'physical_sampling': 'cyan',
 };
 const fallbackColors = ['blue', 'cyan', 'teal', 'green', 'lime', 'yellow', 'orange', 'red', 'pink', 'grape', 'violet', 'indigo'];
 

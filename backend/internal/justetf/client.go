@@ -115,5 +115,5 @@ func do(client *http.Client, req *http.Request) ([]byte, error) {
 func requestHeaders(req *http.Request) {
 	req.Header.Set("Accept", "text/html,application/json;q=0.9")
 	req.Header.Set("Accept-Language", "en")
-	req.Header.Set("User-Agent", "LOOT/0.1 (local personal portfolio)")
+	req.Header.Set("User-Agent", "Squirrel/0.1 (local personal portfolio)")
 }

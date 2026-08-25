@@ -1,4 +1,4 @@
-module loot/backend
+module squirrel/backend
 
 go 1.25.7
 
@@ -12,8 +12,8 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5
 	golang.org/x/net v0.57.0
 	google.golang.org/protobuf v1.36.11
-	loot/proto v0.0.0
-	loot/ui v0.0.0
+	squirrel/proto v0.0.0
+	squirrel/ui v0.0.0
 	modernc.org/sqlite v1.54.0
 )
 
@@ -36,6 +36,6 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 )
 
-replace loot/proto => ../proto
+replace squirrel/proto => ../proto
 
-replace loot/ui => ../ui
+replace squirrel/ui => ../ui

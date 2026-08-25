@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -17,15 +18,15 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
-	"loot/backend/internal/auth"
-	"loot/backend/internal/btp"
-	"loot/backend/internal/config"
-	"loot/backend/internal/justetf"
-	"loot/backend/internal/mcp"
-	"loot/backend/internal/portfolio"
-	"loot/backend/internal/store"
-	"loot/proto/gen/go/v1/portv1connect"
-	"loot/ui"
+	"squirrel/backend/internal/auth"
+	"squirrel/backend/internal/btp"
+	"squirrel/backend/internal/config"
+	"squirrel/backend/internal/justetf"
+	"squirrel/backend/internal/mcp"
+	"squirrel/backend/internal/portfolio"
+	"squirrel/backend/internal/store"
+	"squirrel/proto/gen/go/v1/portv1connect"
+	"squirrel/ui"
 )
 
 type Server struct {
@@ -112,16 +113,32 @@ func NewWithConfig(data *store.Store, cfg config.Config, profileInterval ...time
 
 func withCORS(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", strings.Join(cors.AllowedMethods(), ", "))
-		w.Header().Set("Access-Control-Allow-Headers", strings.Join(cors.AllowedHeaders(), ", "))
-		w.Header().Set("Access-Control-Expose-Headers", strings.Join(cors.ExposedHeaders(), ", "))
+		origin := r.Header.Get("Origin")
+		if isAllowedOrigin(origin) {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Vary", "Origin")
+			w.Header().Set("Access-Control-Allow-Methods", strings.Join(cors.AllowedMethods(), ", "))
+			w.Header().Set("Access-Control-Allow-Headers", strings.Join(cors.AllowedHeaders(), ", "))
+			w.Header().Set("Access-Control-Expose-Headers", strings.Join(cors.ExposedHeaders(), ", "))
+		}
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 		h.ServeHTTP(w, r)
 	})
+}
+
+func isAllowedOrigin(origin string) bool {
+	if origin == "" {
+		return false
+	}
+	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	host := u.Hostname()
+	return host == "localhost" || host == "127.0.0.1" || host == "::1" || u.Scheme == "app" || u.Scheme == "tauri" || u.Scheme == "vscode-webview"
 }
 
 func securityHeaders(next http.Handler) http.Handler {

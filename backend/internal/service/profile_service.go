@@ -5,9 +5,9 @@ import (
 
 	"connectrpc.com/connect"
 
-	"loot/backend/internal/auth"
-	"loot/backend/internal/store"
-	portv1 "loot/proto/gen/go/v1"
+	"squirrel/backend/internal/auth"
+	"squirrel/backend/internal/store"
+	portv1 "squirrel/proto/gen/go/v1"
 )
 
 func (s *Server) GetProfile(ctx context.Context, _ *connect.Request[portv1.GetProfileRequest]) (*connect.Response[portv1.GetProfileResponse], error) {
@@ -28,6 +28,9 @@ func (s *Server) GetProfile(ctx context.Context, _ *connect.Request[portv1.GetPr
 			InstrumentColumnsJson: p.InstrumentColumnsJSON,
 			ShowFireCalculator:    p.ShowFireCalculator,
 			EnableBtpRanks:        p.EnableBtpRanks,
+			ActiveTab:             p.ActiveTab,
+			AiSettingsJson:        p.AISettingsJSON,
+			DraftPortfoliosJson:   p.DraftPortfoliosJSON,
 		},
 	}), nil
 }
@@ -49,6 +52,9 @@ func (s *Server) UpdateProfile(ctx context.Context, req *connect.Request[portv1.
 		p.InstrumentColumnsJSON = req.Msg.Profile.InstrumentColumnsJson
 		p.ShowFireCalculator = req.Msg.Profile.ShowFireCalculator
 		p.EnableBtpRanks = req.Msg.Profile.EnableBtpRanks
+		p.ActiveTab = req.Msg.Profile.ActiveTab
+		p.AISettingsJSON = req.Msg.Profile.AiSettingsJson
+		p.DraftPortfoliosJSON = req.Msg.Profile.DraftPortfoliosJson
 	}
 	if err := s.store.SaveProfile(ctx, userID, p); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -65,6 +71,9 @@ func (s *Server) UpdateProfile(ctx context.Context, req *connect.Request[portv1.
 			InstrumentColumnsJson: p.InstrumentColumnsJSON,
 			ShowFireCalculator:    p.ShowFireCalculator,
 			EnableBtpRanks:        p.EnableBtpRanks,
+			ActiveTab:             p.ActiveTab,
+			AiSettingsJson:        p.AISettingsJSON,
+			DraftPortfoliosJson:   p.DraftPortfoliosJSON,
 		},
 	}), nil
 }

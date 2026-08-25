@@ -1,8 +1,8 @@
 package service
 
 import (
-	"loot/backend/internal/portfolio"
-	portv1 "loot/proto/gen/go/v1"
+	"squirrel/backend/internal/portfolio"
+	portv1 "squirrel/proto/gen/go/v1"
 )
 
 func instrumentToProto(inst portfolio.Instrument) *portv1.Instrument {

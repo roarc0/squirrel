@@ -58,7 +58,14 @@ export function DataTable<T>({ rows, columns, rowKey, minWidth = 800, toolbar, s
             {rows.map(row => (
               <Table.Tr key={rowKey(row)} style={rowStyle?.(row)}>
                 {columns.map(column => (
-                  <Table.Td key={column.key} style={{ textAlign: column.align ?? 'left' }}>
+                  <Table.Td
+                    key={column.key}
+                    style={{
+                      textAlign: column.align ?? 'left',
+                      width: column.key === 'actions' ? '1%' : undefined,
+                      whiteSpace: column.key === 'actions' ? 'nowrap' : undefined,
+                    }}
+                  >
                     {column.render(row)}
                   </Table.Td>
                 ))}
@@ -73,7 +80,7 @@ export function DataTable<T>({ rows, columns, rowKey, minWidth = 800, toolbar, s
 
 export function TableActions({ children }: { children: ReactNode }) {
   return (
-    <Group gap={3} justify="end" wrap="nowrap" className="table-actions" style={{ width: 56, minWidth: 56, marginLeft: 'auto' }}>
+    <Group gap={3} justify="end" wrap="nowrap" className="table-actions" style={{ width: 'max-content', minWidth: 'max-content', marginLeft: 'auto' }}>
       {children}
     </Group>
   );

@@ -10,9 +10,9 @@ import (
 
 	"connectrpc.com/connect"
 
-	"loot/backend/internal/auth"
-	"loot/backend/internal/portfolio"
-	portv1 "loot/proto/gen/go/v1"
+	"squirrel/backend/internal/auth"
+	"squirrel/backend/internal/portfolio"
+	portv1 "squirrel/proto/gen/go/v1"
 )
 
 func (s *Server) accountsWithRevenue(ctx context.Context) ([]portfolio.Account, error) {

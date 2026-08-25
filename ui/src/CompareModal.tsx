@@ -10,7 +10,7 @@ import {
   Divider,
 } from '@mantine/core';
 import { type Instrument } from './api';
-import { Chip } from './Chip';
+import { Chip, ISINBadge, ReplicationChip, TickerBadge } from './Chip';
 
 type Props = {
   opened: boolean;
@@ -56,7 +56,10 @@ export function CompareModal({ opened, onClose, instruments, onShowAlternatives 
                   <Table.Th key={inst.id} style={{ minWidth: 240 }}>
                     <Stack gap={2}>
                       <Text fw={700} size="sm">{inst.name}</Text>
-                      <Text size="xs" c="dimmed">{[inst.ticker, inst.isin].filter(Boolean).join(' · ')}</Text>
+                      <Group gap={4} align="center">
+                        {inst.ticker && <TickerBadge ticker={inst.ticker} />}
+                        <ISINBadge isin={inst.isin} />
+                      </Group>
                     </Stack>
                   </Table.Th>
                 ))}
@@ -152,7 +155,7 @@ export function CompareModal({ opened, onClose, instruments, onShowAlternatives 
                 <Table.Td fw={600}>Replication Method</Table.Td>
                 {instruments.map(inst => (
                   <Table.Td key={inst.id}>
-                    <Text size="sm">{inst.replication?.replace('_', ' ') || '—'}</Text>
+                    <ReplicationChip value={inst.replication} />
                   </Table.Td>
                 ))}
               </Table.Tr>

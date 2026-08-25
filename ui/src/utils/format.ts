@@ -9,12 +9,12 @@ export const bps = (value: Numeric | undefined) => Math.round(n(value) * 100);
 export const percent = (value: number | undefined) =>
   value === undefined || !Number.isFinite(value) ? '—' : `${(value / 100).toFixed(2)}%`;
 
-let hideBalancesGlobal = typeof localStorage !== 'undefined' && localStorage.getItem('loot.hideBalances') === 'true';
+let hideBalancesGlobal = typeof localStorage !== 'undefined' && localStorage.getItem('squirrel.hideBalances') === 'true';
 
 export const setHideBalancesState = (hidden: boolean) => {
   hideBalancesGlobal = hidden;
   if (typeof localStorage !== 'undefined') {
-    localStorage.setItem('loot.hideBalances', String(hidden));
+    localStorage.setItem('squirrel.hideBalances', String(hidden));
   }
 };
 

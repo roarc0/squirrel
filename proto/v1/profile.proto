@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package v1;
 
-option go_package = "loot/proto/gen/go/v1;portv1";
+option go_package = "squirrel/proto/gen/go/v1;portv1";
 
 // UserProfile stores per-user application preferences.
 message UserProfile {
@@ -26,6 +26,12 @@ message UserProfile {
   bool show_fire_calculator = 9;
   // Whether to enable the BTP Rank plugin section.
   bool enable_btp_ranks = 10;
+  // Currently active navigation tab e.g. "overview", "investments", "btp".
+  string active_tab = 11;
+  // JSON string of AI Assistant configuration settings.
+  string ai_settings_json = 12;
+  // JSON string of custom draft portfolios.
+  string draft_portfolios_json = 13;
 }
 
 message GetProfileRequest {}

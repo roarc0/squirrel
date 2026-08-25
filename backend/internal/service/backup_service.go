@@ -6,8 +6,8 @@ import (
 
 	"connectrpc.com/connect"
 
-	"loot/backend/internal/auth"
-	portv1 "loot/proto/gen/go/v1"
+	"squirrel/backend/internal/auth"
+	portv1 "squirrel/proto/gen/go/v1"
 )
 
 type progressWriter struct {

@@ -1,4 +1,4 @@
-# LOOT — Know what you own
+# Squirrel — Stash, track & grow your wealth
 
 Local portfolio and cash-yield dashboard. The React/TypeScript UI is embedded in a single CGo-free Go binary.
 
@@ -14,7 +14,7 @@ On macOS with Homebrew, or Linux with APT, DNF, Pacman, APK, or Zypper, install 
 ./scripts/install-tools.sh
 ```
 
-`just` is a Rust program, so it cannot be installed with `go install`; the script uses a [supported native package](https://github.com/casey/just#packages). LOOT currently needs no extra Go-installed development tools.
+`just` is a Rust program, so it cannot be installed with `go install`; the script uses a [supported native package](https://github.com/casey/just#packages). Squirrel currently needs no extra Go-installed development tools.
 
 ## Run
 
@@ -22,23 +22,23 @@ On macOS with Homebrew, or Linux with APT, DNF, Pacman, APK, or Zypper, install 
 just run
 ```
 
-This installs the locked UI dependencies, builds the embedded assets, and starts LOOT at <http://127.0.0.1:7340>. `go run` uses Go's temporary build cache and does not leave a binary in the repository. To use an explicit configuration:
+This installs the locked UI dependencies, builds the embedded assets, and starts Squirrel at <http://127.0.0.1:7340>. `go run` uses Go's temporary build cache and does not leave a binary in the repository. To use an explicit configuration:
 
 ```sh
-cp loot.example.yaml loot.yaml
-just run -config loot.yaml
+cp squirrel.example.yaml squirrel.yaml
+just run -config squirrel.yaml
 ```
 
 ## Build
 
 ```sh
 just build
-./bin/loot -config loot.yaml
+./bin/squirrel -config squirrel.yaml
 ```
 
-Only `just build` creates a persistent binary, at `bin/loot`. Open <http://127.0.0.1:7340>. Financial amounts are stored as integer minor units; rates are stored in basis points.
+Only `just build` creates a persistent binary, at `bin/squirrel`. Open <http://127.0.0.1:7340>. Financial amounts are stored as integer minor units; rates are stored in basis points.
 
-The default database is `data/loot.db` inside the project. The entire `data/` directory is ignored by Git; back it up separately.
+The default database is `data/squirrel.db` inside the project. The entire `data/` directory is ignored by Git; back it up separately.
 
 ## Test
 
@@ -48,7 +48,7 @@ just test
 
 ## Architecture
 
-- `cmd/loot`: application entrypoint and process lifecycle.
+- `cmd/squirrel`: application entrypoint and process lifecycle.
 - `internal/portfolio`: dependency-free financial calculations, instrument validation, and ETF ranking.
 - `internal/justetf`: user-triggered screener catalog sync, ticker/ISIN lookup, and profile parsing.
 - `internal/store`: SQLite schema and queries. It is the only package that knows SQL.
@@ -67,4 +67,4 @@ The alternatives view uses two conservative peer groups: the same normalized ind
 
 The catalog is stored as `instruments`; owned account entries are stored as `holdings`. Each holding has an instrument type, current value, optional amount invested, target allocation, actual allocation within its currency, and an asset-specific tax rate. Saving a dated snapshot copies the current cash and holding breakdown, preserving history even when accounts and holdings are updated later.
 
-Italian tax presets live in `loot.example.yaml`: 26% for ordinary financial income and 12.5% for Italian/white-list government bonds. They are editable estimates, not tax advice; actual ETF taxation can depend on the fund's underlying assets and the investor's regime.
+Italian tax presets live in `squirrel.example.yaml`: 26% for ordinary financial income and 12.5% for Italian/white-list government bonds. They are editable estimates, not tax advice; actual ETF taxation can depend on the fund's underlying assets and the investor's regime.

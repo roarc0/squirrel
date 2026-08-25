@@ -56,15 +56,15 @@ export async function loadProfile(): Promise<void> {
     // Fall back to localStorage values already set before auth
     _profile = {
       ..._profile,
-      hide_balances: localStorage.getItem('loot.hideBalances') === 'true',
-      emergency_goal_minor: Number(localStorage.getItem('loot.emergencyGoal.EUR') || 0) * 100 || 1_000_000,
-      fire_expenses_minor: Number(localStorage.getItem('loot.fireExpenses.EUR') || 0) * 100 || 2_400_000,
-      show_fire_calculator: localStorage.getItem('loot.showFireCalculator') === 'true',
-      enable_btp_ranks: localStorage.getItem('loot.enableBtpRanks') === 'true',
+      hide_balances: localStorage.getItem('squirrel.hideBalances') === 'true',
+      emergency_goal_minor: Number(localStorage.getItem('squirrel.emergencyGoal.EUR') || 0) * 100 || 1_000_000,
+      fire_expenses_minor: Number(localStorage.getItem('squirrel.fireExpenses.EUR') || 0) * 100 || 2_400_000,
+      show_fire_calculator: localStorage.getItem('squirrel.showFireCalculator') === 'true',
+      enable_btp_ranks: localStorage.getItem('squirrel.enableBtpRanks') === 'true',
     };
   }
   _loaded = true;
-  localStorage.setItem('loot.hideBalances', String(_profile.hide_balances));
+  localStorage.setItem('squirrel.hideBalances', String(_profile.hide_balances));
   setHideBalancesState(_profile.hide_balances);
   notify();
 }
@@ -74,13 +74,13 @@ let _saveTimer: ReturnType<typeof setTimeout> | undefined;
 export function updateProfile(patch: Partial<UserProfile>): void {
   _profile = { ..._profile, ...patch };
   if (patch.show_fire_calculator !== undefined) {
-    localStorage.setItem('loot.showFireCalculator', String(_profile.show_fire_calculator));
+    localStorage.setItem('squirrel.showFireCalculator', String(_profile.show_fire_calculator));
   }
   if (patch.enable_btp_ranks !== undefined) {
-    localStorage.setItem('loot.enableBtpRanks', String(_profile.enable_btp_ranks));
+    localStorage.setItem('squirrel.enableBtpRanks', String(_profile.enable_btp_ranks));
   }
   if (patch.hide_balances !== undefined) {
-    localStorage.setItem('loot.hideBalances', String(_profile.hide_balances));
+    localStorage.setItem('squirrel.hideBalances', String(_profile.hide_balances));
     setHideBalancesState(_profile.hide_balances);
   }
   notify();

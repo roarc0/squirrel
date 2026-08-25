@@ -44,6 +44,9 @@ func (i *Interceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) co
 }
 
 func (i *Interceptor) authenticate(ctx context.Context, h http.Header) (context.Context, error) {
+	if _, ok := UserFromContext(ctx); ok {
+		return ctx, nil
+	}
 	authHeader := h.Get("Authorization")
 	if authHeader == "" {
 		return ctx, connect.NewError(connect.CodeUnauthenticated, ErrUnauthenticated)

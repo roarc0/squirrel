@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package v1;
 
-option go_package = "loot/proto/gen/go/v1;portv1";
+option go_package = "squirrel/proto/gen/go/v1;portv1";
 
 // ReferenceRate defines central bank benchmark rates (e.g., €STR, ECB Deposit Facility Rate).
 message ReferenceRate {

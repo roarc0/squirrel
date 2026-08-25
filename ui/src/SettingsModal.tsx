@@ -23,10 +23,10 @@ type Props = {
 
 export function SettingsModal({ opened, onClose, reload }: Props) {
   const [monthlyExpenses, setMonthlyExpenses] = useState<number>(() => {
-    try { return Number(localStorage.getItem('loot.monthlyExpenses') || 0); } catch { return 0; }
+    try { return Number(localStorage.getItem('squirrel.monthlyExpenses') || 0); } catch { return 0; }
   });
   const [reserveMonths, setReserveMonths] = useState<string>(() => {
-    try { return localStorage.getItem('loot.reserveMonths') || '6'; } catch { return '6'; }
+    try { return localStorage.getItem('squirrel.reserveMonths') || '6'; } catch { return '6'; }
   });
 
   const [exporting, setExporting] = useState(false);
@@ -40,8 +40,8 @@ export function SettingsModal({ opened, onClose, reload }: Props) {
 
   const saveReserveSettings = (exp: number, months: string) => {
     try {
-      localStorage.setItem('loot.monthlyExpenses', String(exp || 0));
-      localStorage.setItem('loot.reserveMonths', months);
+      localStorage.setItem('squirrel.monthlyExpenses', String(exp || 0));
+      localStorage.setItem('squirrel.reserveMonths', months);
       void reload();
     } catch { /* preference persistence is optional */ }
   };

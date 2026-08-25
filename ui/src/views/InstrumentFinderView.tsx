@@ -43,7 +43,7 @@ import {
   type RankedInstrument,
 } from '../api';
 import { useBackendRows } from '../App';
-import { Chip } from '../Chip';
+import { Chip, ISINBadge, ReplicationChip, TickerBadge } from '../Chip';
 import { CompareModal } from '../CompareModal';
 import { Empty } from '../components/Empty';
 import { DataTable, TableAction, TableActions, type DataColumn, type SortDirection } from '../DataTable';
@@ -77,7 +77,7 @@ const defaultInstrumentColumns: InstrumentColumn[] = ['ticker', 'isin', 'type', 
 function savedInstrumentColumns(): InstrumentColumn[] {
   // Read from profile cache first, fall back to legacy localStorage
   const profileJson = getProfile().instrument_columns_json;
-  const raw = profileJson || localStorage.getItem('loot.instrumentColumns.v2') || localStorage.getItem('port.instrumentColumns.v2');
+  const raw = profileJson || localStorage.getItem('squirrel.instrumentColumns.v2');
   try {
     if (!raw) return defaultInstrumentColumns;
     const saved = JSON.parse(raw) as string[];
@@ -220,9 +220,23 @@ export function InstrumentFinderView({ instruments, reload }: { instruments: Ins
   const toggleColumn = (column: InstrumentColumn) => setVisibleColumns(current => current.includes(column) ? current.filter(item => item !== column) : [...current, column]);
   const searchColumns: DataColumn<Instrument>[] = [
     { key: 'select', render: item => <Checkbox aria-label={`Select ${item.name}`} checked={selected.includes(item.isin)} onChange={event => setSelected(current => event.currentTarget.checked ? [...current, item.isin] : current.filter(isin => isin !== item.isin))} /> },
-    { key: 'instrument', label: 'Product', render: item => <><Text fw={650}>{item.name}</Text><Group gap={5} mt={3}><Chip size="xs">{productLabel(item)}</Chip><Text size="xs" c="dimmed">{[item.ticker, item.isin, item.domicile].filter(Boolean).join(' · ')}</Text></Group></> },
+    {
+      key: 'instrument',
+      label: 'Product',
+      render: item => (
+        <>
+          <Text fw={650}>{item.name}</Text>
+          <Group gap={5} mt={3}>
+            <Chip size="xs">{productLabel(item)}</Chip>
+            {item.ticker ? <TickerBadge ticker={item.ticker} /> : null}
+            <ISINBadge isin={item.isin} />
+            {item.domicile ? <Text size="xs" c="dimmed">{item.domicile}</Text> : null}
+          </Group>
+        </>
+      ),
+    },
     { key: 'policy', label: 'Policy', render: item => policyChip(item) },
-    { key: 'replication', label: 'Replication', render: item => replicationLabel(item.replication) },
+    { key: 'replication', label: 'Replication', render: item => <ReplicationChip value={item.replication} size="xs" /> },
     { key: 'ter', label: 'TER', render: item => percent(item.ter_bps) },
     { key: 'size', label: 'Size', render: item => `${item.fund_size_million.toLocaleString()}m` },
     { key: 'actions', render: item => <TableActions><TableAction label={`Open ${item.isin} on justETF`} href={item.source_url} disabled={!item.source_url}><IconExternalLink size={14} /></TableAction></TableActions> },
@@ -267,30 +281,15 @@ export function InstrumentFinderView({ instruments, reload }: { instruments: Ins
         </Stack>
       ) : '—',
     }] : []),
-    { key: 'name', label: 'Instrument', sortable: true, render: item => <><Text fw={650}>{item.instrument.name}</Text><Chip size="xs" mt={3}>{productLabel(item.instrument)}</Chip></> },
-    ...(show('ticker') ? [{ key: 'ticker', label: 'Ticker', sortable: true, render: (item: RankedInstrument) => <Text fw={650}>{item.instrument.ticker || '—'}</Text> }] : []),
-    ...(show('isin') ? [{ key: 'isin', label: 'ISIN', sortable: true, render: (item: CatalogRow) => (
-      <Tooltip label="Click to copy ISIN" withArrow>
-        <Badge
-          size="xs"
-          variant="outline"
-          color="gray"
-          style={{ cursor: 'pointer', fontFamily: 'monospace' }}
-          onClick={(e) => {
-            e.stopPropagation();
-            copyToClipboard(item.instrument.isin, 'ISIN');
-          }}
-        >
-          {item.instrument.isin}
-        </Badge>
-      </Tooltip>
-    ) }] : []),
+    { key: 'name', label: 'Instrument', sortable: true, render: item => <><Text fw={650}>{item.instrument.name}</Text><Group gap={5} mt={3}><Chip size="xs">{productLabel(item.instrument)}</Chip>{item.instrument.ticker && <TickerBadge ticker={item.instrument.ticker} />}</Group></> },
+    ...(show('ticker') ? [{ key: 'ticker', label: 'Ticker', sortable: true, render: (item: CatalogRow) => <TickerBadge ticker={item.instrument.ticker} /> }] : []),
+    ...(show('isin') ? [{ key: 'isin', label: 'ISIN', sortable: true, render: (item: CatalogRow) => <ISINBadge isin={item.instrument.isin} /> }] : []),
     ...(show('type') ? [{ key: 'type', label: 'Type', sortable: true, render: (item: RankedInstrument) => <Chip>{instrumentLabels[item.instrument.instrument_type]}</Chip> }] : []),
     ...(show('issuer') ? [{ key: 'issuer', label: 'Issuer', sortable: true, render: (item: RankedInstrument) => item.instrument.provider || '—' }] : []),
     ...(show('assetClass') ? [{ key: 'asset_class', label: 'Asset class', sortable: true, render: (item: RankedInstrument) => item.instrument.asset_class ? <Chip>{label(item.instrument.asset_class)}</Chip> : '—' }] : []),
     ...(show('exposure') ? [{ key: 'exposure', label: 'Exposure', sortable: true, render: (item: RankedInstrument) => <><Text size="sm">{item.instrument.index_name || item.instrument.investment_focus || 'Profile not refreshed'}</Text><Group gap={4} mt={4}><Chip size="xs">{item.instrument.data_status === 'enriched' ? 'Refreshed' : 'Awaiting refresh'}</Chip>{item.instrument.asset_class && <Chip size="xs">{label(item.instrument.asset_class)}</Chip>}{item.instrument.currency_hedged && <Chip size="xs">Hedged</Chip>}</Group></> }] : []),
     ...(show('policy') ? [{ key: 'policy', label: 'Policy', sortable: true, render: (item: RankedInstrument) => policyChip(item.instrument) }] : []),
-    ...(show('replication') ? [{ key: 'replication', label: 'Replication', sortable: true, render: (item: RankedInstrument) => <Text size="sm">{replicationLabel(item.instrument.replication)}</Text> }] : []),
+    ...(show('replication') ? [{ key: 'replication', label: 'Replication', sortable: true, render: (item: CatalogRow) => <ReplicationChip value={item.instrument.replication} size="xs" /> }] : []),
     ...(show('ter') ? [{ key: 'ter', label: 'TER', sortable: true, render: (item: RankedInstrument) => percent(item.instrument.ter_bps) }] : []),
     ...(show('size') ? [{ key: 'size', label: 'Size', sortable: true, render: (item: RankedInstrument) => `${item.instrument.fund_size_million.toLocaleString()}m` }] : []),
     ...(show('domicile') ? [{ key: 'domicile', label: 'Domicile', sortable: true, render: (item: RankedInstrument) => item.instrument.domicile || '—' }] : []),

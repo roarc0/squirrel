@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package v1;
 
-option go_package = "loot/proto/gen/go/v1;portv1";
+option go_package = "squirrel/proto/gen/go/v1;portv1";
 
 // Instrument represents a tradeable security (ETF, ETC, ETN, stock, bond) from the 4,000+ ETF catalog.
 message Instrument {

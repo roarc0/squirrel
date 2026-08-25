@@ -23,6 +23,9 @@ export const UserProfile = /*@__PURE__*/ proto3.makeMessageType(
     { no: 8, name: "instrument_columns_json", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 9, name: "show_fire_calculator", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 10, name: "enable_btp_ranks", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 11, name: "active_tab", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 12, name: "ai_settings_json", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 13, name: "draft_portfolios_json", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ],
 );
 

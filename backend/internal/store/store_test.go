@@ -8,7 +8,7 @@ import (
 
 	"github.com/pressly/goose/v3"
 
-	"loot/backend/internal/portfolio"
+	"squirrel/backend/internal/portfolio"
 )
 
 func TestStoreRoundTrip(t *testing.T) {
@@ -106,14 +106,14 @@ func TestStoreRoundTrip(t *testing.T) {
 	}
 	corrected := snapshots[0]
 	corrected.ObservedOn, corrected.CashMinor, corrected.InvestedMinor, corrected.PortfolioMinor = "2026-08-22", 6_900_000, 1_100_000, 2_100_000
-	if err := s.UpdateSnapshot(ctx, &corrected); err != nil {
+	if err := s.UpdateSnapshot(ctx, &corrected, "testuser"); err != nil {
 		t.Fatal(err)
 	}
 	snapshots, err = s.ListSnapshots(ctx, "testuser")
 	if err != nil || len(snapshots) != 1 || snapshots[0].ObservedOn != "2026-08-22" || snapshots[0].CashMinor != 6_900_000 || snapshots[0].InvestedMinor != 1_100_000 || snapshots[0].PortfolioMinor != 2_100_000 || snapshots[0].TotalMinor != 9_000_000 {
 		t.Fatalf("unexpected corrected snapshot: err=%v snapshots=%+v", err, snapshots)
 	}
-	if err := s.DeleteSnapshot(ctx, corrected.ID); err != nil {
+	if err := s.DeleteSnapshot(ctx, corrected.ID, "testuser"); err != nil {
 		t.Fatal(err)
 	}
 	if snapshots, err = s.ListSnapshots(ctx, "testuser"); err != nil || len(snapshots) != 0 {
@@ -122,7 +122,7 @@ func TestStoreRoundTrip(t *testing.T) {
 }
 
 func TestMigratesLegacyDatabase(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "loot.db")
+	path := filepath.Join(t.TempDir(), "squirrel.db")
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		t.Fatal(err)
@@ -138,7 +138,7 @@ func TestMigratesLegacyDatabase(t *testing.T) {
 	defer s.Close()
 	var version int64
 	var errVersion error
-	if version, errVersion = goose.GetDBVersion(s.db); errVersion != nil || version != 2 {
+	if version, errVersion = goose.GetDBVersion(s.db); errVersion != nil || version != 3 {
 		t.Fatalf("migration version=%d err=%v", version, errVersion)
 	}
 }

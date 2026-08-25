@@ -8,9 +8,9 @@ import (
 
 	"connectrpc.com/connect"
 
-	"loot/backend/internal/auth"
-	"loot/backend/internal/portfolio"
-	portv1 "loot/proto/gen/go/v1"
+	"squirrel/backend/internal/auth"
+	"squirrel/backend/internal/portfolio"
+	portv1 "squirrel/proto/gen/go/v1"
 )
 
 func (s *Server) ListSnapshots(ctx context.Context, req *connect.Request[portv1.ListSnapshotsRequest]) (*connect.Response[portv1.ListSnapshotsResponse], error) {
@@ -70,14 +70,14 @@ func (s *Server) UpdateSnapshot(ctx context.Context, req *connect.Request[portv1
 		InvestedMinor:  req.Msg.InvestedMinor,
 		PortfolioMinor: req.Msg.PortfolioMinor,
 	}
-	if err := s.store.UpdateSnapshot(ctx, &snapshot); err != nil {
+	if err := s.store.UpdateSnapshot(ctx, &snapshot, auth.UserIDOrEmpty(ctx)); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	return connect.NewResponse(&portv1.UpdateSnapshotResponse{Snapshot: snapshotToProto(snapshot)}), nil
 }
 
 func (s *Server) DeleteSnapshot(ctx context.Context, req *connect.Request[portv1.DeleteSnapshotRequest]) (*connect.Response[portv1.DeleteSnapshotResponse], error) {
-	if err := s.store.DeleteSnapshot(ctx, req.Msg.Id); err != nil {
+	if err := s.store.DeleteSnapshot(ctx, req.Msg.Id, auth.UserIDOrEmpty(ctx)); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	return connect.NewResponse(&portv1.DeleteSnapshotResponse{}), nil

@@ -1,13 +1,14 @@
-import { Button, Center, Paper, Stack, Text, Title } from '@mantine/core';
+import { Button, Center, Paper, Stack, Text } from '@mantine/core';
+import { SquirrelBrandLogo } from './App';
 
 export function LoginView() {
   return (
     <Center h="100vh">
       <Paper p="xl" radius="md" withBorder w={360}>
         <Stack align="center" gap="md">
-          <Title order={2}>LOOT</Title>
+          <SquirrelBrandLogo size={32} />
           <Text c="dimmed" size="sm" ta="center">
-            Sign in to access your portfolio
+            Sign in to access your Squirrel portfolio
           </Text>
           <Button
             component="a"

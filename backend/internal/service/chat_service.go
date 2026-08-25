@@ -14,7 +14,7 @@ import (
 
 	"connectrpc.com/connect"
 
-	portv1 "loot/proto/gen/go/v1"
+	portv1 "squirrel/proto/gen/go/v1"
 )
 
 // probeServerContext tries to read the actual n_ctx from a running llama-server /props endpoint.

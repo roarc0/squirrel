@@ -8,8 +8,8 @@ import (
 	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
-	v1 "loot/proto/gen/go/v1"
 	http "net/http"
+	v1 "squirrel/proto/gen/go/v1"
 	strings "strings"
 )
 

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"loot/backend/internal/portfolio"
+	"squirrel/backend/internal/portfolio"
 )
 
 func (s *Store) ListHoldings(ctx context.Context, userID string) ([]portfolio.Holding, error) {

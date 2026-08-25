@@ -6,7 +6,7 @@ import (
 
 	"connectrpc.com/connect"
 
-	portv1 "loot/proto/gen/go/v1"
+	portv1 "squirrel/proto/gen/go/v1"
 )
 
 func (s *Server) ListReferenceRates(ctx context.Context, req *connect.Request[portv1.ListReferenceRatesRequest]) (*connect.Response[portv1.ListReferenceRatesResponse], error) {

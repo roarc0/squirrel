@@ -5,7 +5,7 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-cmd = "go build -trimpath -o ./tmp/main ./backend/cmd/loot"
+cmd = "go build -trimpath -o ./tmp/main ./backend/cmd/squirrel"
 bin = "tmp/main"
 pre_cmd = ["npm --prefix ui run build"]
 include_ext = ["go", "ts", "tsx", "css", "html"]

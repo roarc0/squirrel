@@ -322,8 +322,8 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (path === '/api/summary' && method === 'GET') {
     let targetCashMinor: bigint | undefined = undefined;
     try {
-      const exp = Number(localStorage.getItem('loot.monthlyExpenses') || 0);
-      const months = Number(localStorage.getItem('loot.reserveMonths') || 6);
+      const exp = Number(localStorage.getItem('squirrel.monthlyExpenses') || 0);
+      const months = Number(localStorage.getItem('squirrel.reserveMonths') || 6);
       if (exp > 0) {
         targetCashMinor = BigInt(Math.round(exp * months * 100));
       }
@@ -686,7 +686,7 @@ export async function updateSituation(params: {
 
 export async function exportBackup(): Promise<{ data: Uint8Array; filename: string }> {
   const res = await systemClient.exportBackup({});
-  return { data: res.backupData, filename: res.filename || 'loot-backup.json' };
+  return { data: res.backupData, filename: res.filename || 'squirrel-backup.json' };
 }
 
 export async function restoreBackup(fileBytes: Uint8Array): Promise<{ success: boolean; message: string }> {

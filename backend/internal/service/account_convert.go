@@ -1,8 +1,8 @@
 package service
 
 import (
-	"loot/backend/internal/portfolio"
-	portv1 "loot/proto/gen/go/v1"
+	"squirrel/backend/internal/portfolio"
+	portv1 "squirrel/proto/gen/go/v1"
 )
 
 func interestTierToProto(t portfolio.InterestTier) *portv1.InterestTier {

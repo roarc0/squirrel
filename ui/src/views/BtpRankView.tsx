@@ -32,6 +32,7 @@ import {
 } from '@tabler/icons-react';
 
 import { listBtps, refreshBtps, toggleStarBtp, type BtpBond } from '../api';
+import { ISINBadge } from '../Chip';
 import { DataTable, type DataColumn } from '../DataTable';
 import { SectionHeader } from '../components/SectionHeader';
 import { ViewShell } from '../components/ViewShell';
@@ -251,20 +252,7 @@ export function BtpRankView() {
             {btp.name}
           </Text>
           <Group gap={6} align="center">
-            <Tooltip label="Click to copy ISIN" withArrow>
-              <Badge
-                size="xs"
-                variant="outline"
-                color="gray"
-                style={{ cursor: 'pointer', fontFamily: 'monospace' }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  copyToClipboard(btp.isin, 'ISIN');
-                }}
-              >
-                {btp.isin}
-              </Badge>
-            </Tooltip>
+            <ISINBadge isin={btp.isin} />
             {btp.is_starred && (
               <Badge size="xs" color="yellow" variant="light">
                 Starred

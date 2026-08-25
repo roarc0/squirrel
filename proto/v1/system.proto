@@ -2,14 +2,14 @@ syntax = "proto3";
 
 package v1;
 
-option go_package = "loot/proto/gen/go/v1;portv1";
+option go_package = "squirrel/proto/gen/go/v1;portv1";
 
 message ExportBackupRequest {}
 
 message ExportBackupResponse {
   // JSON backup of the authenticated user's data.
   bytes backup_data = 1;
-  // Suggested backup filename (e.g. loot-backup-2024-01-01.json).
+  // Suggested backup filename (e.g. squirrel-backup-2024-01-01.json).
   string filename = 2;
 }
 

@@ -11,7 +11,7 @@ func TestExportAndRestoreBackup(t *testing.T) {
 
 	// 1. Create source database with sample data
 	srcDir := t.TempDir()
-	srcPath := filepath.Join(srcDir, "loot.db")
+	srcPath := filepath.Join(srcDir, "squirrel.db")
 
 	s1, err := Open(srcPath)
 	if err != nil {
@@ -36,7 +36,7 @@ func TestExportAndRestoreBackup(t *testing.T) {
 
 	// 2. Restore backup into a new target database
 	dstDir := t.TempDir()
-	dstPath := filepath.Join(dstDir, "loot.db")
+	dstPath := filepath.Join(dstDir, "squirrel.db")
 
 	s2, err := Open(dstPath)
 	if err != nil {

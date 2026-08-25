@@ -16,7 +16,7 @@
 #   admin_google_id: ""  # fill in after first login — see /auth/me
 
 listen: 127.0.0.1:7340
-database: data/loot.db
+database: data/squirrel.db
 base_currency: EUR
 log_level: info
 justetf_enrich_interval: 2s

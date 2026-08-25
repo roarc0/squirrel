@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"loot/backend/internal/mcp"
+	"squirrel/backend/internal/mcp"
 )
 
 type dummyHandler struct{}
@@ -37,8 +37,8 @@ func TestMCPHandlerGET(t *testing.T) {
 		t.Fatalf("unmarshal error: %v", err)
 	}
 
-	if resp["name"] != "loot-mcp" {
-		t.Errorf("expected server name loot-mcp, got %v", resp["name"])
+	if resp["name"] != "squirrel-mcp" {
+		t.Errorf("expected server name squirrel-mcp, got %v", resp["name"])
 	}
 }
 

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"loot/backend/internal/portfolio"
+	"squirrel/backend/internal/portfolio"
 )
 
 var ErrNotFound = errors.New("record not found")

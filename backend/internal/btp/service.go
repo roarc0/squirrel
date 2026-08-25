@@ -8,8 +8,9 @@ import (
 
 	"connectrpc.com/connect"
 
-	portv1 "loot/proto/gen/go/v1"
-	"loot/proto/gen/go/v1/portv1connect"
+	"squirrel/backend/internal/auth"
+	portv1 "squirrel/proto/gen/go/v1"
+	"squirrel/proto/gen/go/v1/portv1connect"
 )
 
 type Service struct {
@@ -26,7 +27,7 @@ func NewService(db *sql.DB) *Service {
 }
 
 func (s *Service) ListBtps(ctx context.Context, req *connect.Request[portv1.ListBtpsRequest]) (*connect.Response[portv1.ListBtpsResponse], error) {
-	btps, lastUpdated, err := s.store.GetBtps(ctx, "")
+	btps, lastUpdated, err := s.store.GetBtps(ctx, auth.UserIDOrEmpty(ctx))
 	if err != nil {
 		log.Printf("[btp.service] GetBtps error: %v", err)
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -125,7 +126,7 @@ func (s *Service) ToggleStarBtp(ctx context.Context, req *connect.Request[portv1
 		return nil, connect.NewError(connect.CodeInvalidArgument, nil)
 	}
 
-	starred, err := s.store.ToggleStar(ctx, "", isin, req.Msg.GetStarred())
+	starred, err := s.store.ToggleStar(ctx, auth.UserIDOrEmpty(ctx), isin, req.Msg.GetStarred())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

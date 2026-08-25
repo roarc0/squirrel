@@ -150,6 +150,8 @@ body,
 .table-actions {
   opacity: 0;
   transition: opacity 0.15s ease;
+  width: max-content;
+  min-width: max-content;
 }
 
 .mantine-Table-tr:hover .table-actions {
@@ -160,6 +162,37 @@ body,
   .table-actions {
     opacity: 1;
   }
+}
+
+/* Muted, subtle styling for ISIN and Ticker badges */
+.isin-badge, .ticker-badge {
+  cursor: pointer;
+  font-family: var(--mantine-font-family-monospace);
+  font-weight: 550;
+  letter-spacing: -0.01em;
+  opacity: 0.85;
+  width: max-content !important;
+  min-width: max-content !important;
+  max-width: none !important;
+  flex: 0 0 auto;
+  overflow: visible !important;
+  white-space: nowrap !important;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+.isin-badge .mantine-Badge-label,
+.ticker-badge .mantine-Badge-label {
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: nowrap !important;
+}
+
+.isin-badge:hover, .ticker-badge:hover {
+  opacity: 1;
+}
+
+.isin-badge:active, .ticker-badge:active {
+  transform: scale(0.96);
 }
 
 /* Subtle tab switch fade animation */

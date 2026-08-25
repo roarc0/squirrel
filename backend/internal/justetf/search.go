@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"loot/backend/internal/portfolio"
+	"squirrel/backend/internal/portfolio"
 )
 
 var (

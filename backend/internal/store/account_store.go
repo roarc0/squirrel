@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"loot/backend/internal/portfolio"
+	"squirrel/backend/internal/portfolio"
 )
 
 func (s *Store) ListReferenceRates(ctx context.Context) ([]portfolio.ReferenceRate, error) {

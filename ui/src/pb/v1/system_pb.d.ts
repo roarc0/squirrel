@@ -37,7 +37,7 @@ export declare class ExportBackupResponse extends Message<ExportBackupResponse> 
   backupData: Uint8Array;
 
   /**
-   * Suggested backup filename (e.g. loot-backup-2024-01-01.json).
+   * Suggested backup filename (e.g. squirrel-backup-2024-01-01.json).
    *
    * @generated from field: string filename = 2;
    */

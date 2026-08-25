@@ -95,7 +95,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			toolList = append(toolList, tool)
 		}
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"name":        "loot-mcp",
+			"name":        "squirrel-mcp",
 			"version":     "1.0.0",
 			"status":      "running",
 			"endpoint":    "/mcp",
@@ -130,7 +130,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				"tools": map[string]interface{}{},
 			},
 			"serverInfo": map[string]interface{}{
-				"name":    "loot-mcp",
+				"name":    "squirrel-mcp",
 				"version": "1.0.0",
 			},
 		})
@@ -165,7 +165,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Dispatch tool call to underlying Connect RPC handler
-		resultJSON, err := h.dispatchRPCCall(r.Context(), tool.RPCPath, callParams.Arguments)
+		resultJSON, err := h.dispatchRPCCall(r.Context(), tool.RPCPath, callParams.Arguments, r.Header.Get("Authorization"))
 		if err != nil {
 			slog.Warn("MCP tool call error", "tool", tool.Name, "error", err)
 			h.writeResult(w, req.ID, map[string]interface{}{
@@ -194,7 +194,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) dispatchRPCCall(ctx context.Context, rpcPath string, args map[string]interface{}) (string, error) {
+func (h *Handler) dispatchRPCCall(ctx context.Context, rpcPath string, args map[string]interface{}, authHeader ...string) (string, error) {
 	if args == nil {
 		args = make(map[string]interface{})
 	}
@@ -208,6 +208,9 @@ func (h *Handler) dispatchRPCCall(ctx context.Context, rpcPath string, args map[
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if len(authHeader) > 0 && authHeader[0] != "" {
+		req.Header.Set("Authorization", authHeader[0])
+	}
 
 	rec := httptest.NewRecorder()
 	h.rpcHandler.ServeHTTP(rec, req)

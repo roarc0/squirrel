@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package v1;
 
-option go_package = "loot/proto/gen/go/v1;portv1";
+option go_package = "squirrel/proto/gen/go/v1;portv1";
 
 // BtpBond defines the metrics and scoring data for an Italian government bond (BTP).
 message BtpBond {

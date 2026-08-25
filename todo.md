@@ -1,6 +1,6 @@
-# LOOT backlog
+# Squirrel backlog
 
-LOOT is local-first and optimized for occasional rough updates. Prefer explainable calculations over transaction-level tracking, automatic trading, or features that require constant maintenance.
+Squirrel is local-first and optimized for occasional rough updates. Prefer explainable calculations over transaction-level tracking, automatic trading, or features that require constant maintenance.
 
 ## Now — protect data and simplify updates
 
@@ -42,7 +42,7 @@ LOOT is local-first and optimized for occasional rough updates. Prefer explainab
   2. Add reproducible code generation and compatibility checks.
   3. Migrate endpoints incrementally.
   4. Remove handwritten API types only after the last endpoint moves.
-- [x] Review the workspace/console project for useful patterns, then write a LOOT-specific adoption plan before copying any architecture.
+- [x] Review the workspace/console project for useful patterns, then write a Squirrel-specific adoption plan before copying any architecture.
 - [ ] Expand focused tests around backup/restore, snapshots, money, taxes, ranking cohorts, and destructive operations.
 
 ## Later — optional intelligence

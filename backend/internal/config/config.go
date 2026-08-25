@@ -10,7 +10,7 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
-	"loot/backend/internal/portfolio"
+	"squirrel/backend/internal/portfolio"
 )
 
 type AIModelConfig struct {
@@ -46,7 +46,7 @@ type Config struct {
 }
 
 func DefaultSystemPrompt() string {
-	return `You are an expert local-first financial portfolio AI assistant for LOOT. You have MCP tools available and MUST use them to answer questions and take actions.
+	return `You are an expert local-first financial portfolio AI assistant for Squirrel. You have MCP tools available and MUST use them to answer questions and take actions.
 
 CRITICAL RULE: Always call tools using the tool_calls mechanism. NEVER write Python, pseudocode, shell commands, or code blocks to simulate a tool call. NEVER describe what you would do — always do it by invoking the real tool directly.
 
@@ -150,7 +150,7 @@ func DefaultAIModels() []AIModelConfig {
 func Load(path string) (Config, error) {
 	cfg := Config{
 		Listen:                "127.0.0.1:7340",
-		Database:              "data/loot.db",
+		Database:              "data/squirrel.db",
 		BaseCurrency:          "EUR",
 		LogLevel:              "info",
 		JustETFEnrichInterval: 2 * time.Second,

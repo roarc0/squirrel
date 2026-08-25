@@ -47,7 +47,7 @@ const defaultSettings: AISettings = {
 
 function getSavedSettings(): AISettings {
   try {
-    const raw = localStorage.getItem('loot.aiSettings');
+    const raw = localStorage.getItem('squirrel.aiSettings');
     if (!raw) return defaultSettings;
     const parsed = JSON.parse(raw);
     return {
@@ -96,7 +96,7 @@ export function AIConsultantView({
   // Persist chat messages temporarily in sessionStorage until refresh
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
-      const raw = sessionStorage.getItem('loot.aiChatHistory');
+      const raw = sessionStorage.getItem('squirrel.aiChatHistory');
       return raw ? JSON.parse(raw) : [];
     } catch {
       return [];
@@ -106,7 +106,7 @@ export function AIConsultantView({
   const saveMessages = (nextMessages: ChatMessage[]) => {
     setMessages(nextMessages);
     try {
-      sessionStorage.setItem('loot.aiChatHistory', JSON.stringify(nextMessages));
+      sessionStorage.setItem('squirrel.aiChatHistory', JSON.stringify(nextMessages));
     } catch {
       /* optional */
     }
@@ -116,7 +116,7 @@ export function AIConsultantView({
     saveMessages([]);
     setError('');
     try {
-      sessionStorage.removeItem('loot.aiChatHistory');
+      sessionStorage.removeItem('squirrel.aiChatHistory');
     } catch {
       /* optional */
     }
@@ -125,7 +125,7 @@ export function AIConsultantView({
   const saveSettings = (newSettings: AISettings) => {
     setSettings(newSettings);
     try {
-      localStorage.setItem('loot.aiSettings', JSON.stringify(newSettings));
+      localStorage.setItem('squirrel.aiSettings', JSON.stringify(newSettings));
     } catch {
       /* optional */
     }

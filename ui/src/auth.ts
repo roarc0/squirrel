@@ -1,4 +1,4 @@
-const TOKEN_KEY = 'loot.auth.token';
+const TOKEN_KEY = 'squirrel.auth.token';
 
 export function getToken(): string | null {
   try {

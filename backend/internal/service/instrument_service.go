@@ -12,10 +12,10 @@ import (
 
 	"connectrpc.com/connect"
 
-	"loot/backend/internal/auth"
-	"loot/backend/internal/portfolio"
-	"loot/backend/internal/store"
-	portv1 "loot/proto/gen/go/v1"
+	"squirrel/backend/internal/auth"
+	"squirrel/backend/internal/portfolio"
+	"squirrel/backend/internal/store"
+	portv1 "squirrel/proto/gen/go/v1"
 )
 
 func (s *Server) ListInstruments(ctx context.Context, req *connect.Request[portv1.ListInstrumentsRequest]) (*connect.Response[portv1.ListInstrumentsResponse], error) {

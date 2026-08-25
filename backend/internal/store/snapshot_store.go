@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"loot/backend/internal/portfolio"
+	"squirrel/backend/internal/portfolio"
 )
 
 
@@ -96,7 +96,7 @@ func (s *Store) ListSnapshots(ctx context.Context, userID string) ([]portfolio.S
 	return snapshots, rows.Err()
 }
 
-func (s *Store) UpdateSnapshot(ctx context.Context, snapshot *portfolio.Snapshot) error {
+func (s *Store) UpdateSnapshot(ctx context.Context, snapshot *portfolio.Snapshot, userID string) error {
 	snapshot.Currency = strings.ToUpper(strings.TrimSpace(snapshot.Currency))
 	if snapshot.ID <= 0 {
 		return errors.New("snapshot is required")
@@ -109,8 +109,18 @@ func (s *Store) UpdateSnapshot(ctx context.Context, snapshot *portfolio.Snapshot
 		return err
 	}
 	defer tx.Rollback()
+
+	ownerClause := ""
+	var ownerArgs []any
+	if userID != "" {
+		ownerClause = ` AND (user_id=? OR user_id='')`
+		ownerArgs = []any{userID}
+	}
+
 	var conflicts, entries int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM snapshots WHERE observed_on=? AND id<>?`, snapshot.ObservedOn, snapshot.ID).Scan(&conflicts); err != nil {
+	queryConflict := `SELECT COUNT(*) FROM snapshots WHERE observed_on=? AND id<>?` + ownerClause
+	argsConflict := append([]any{snapshot.ObservedOn, snapshot.ID}, ownerArgs...)
+	if err := tx.QueryRowContext(ctx, queryConflict, argsConflict...).Scan(&conflicts); err != nil {
 		return err
 	}
 	if conflicts > 0 {
@@ -122,8 +132,12 @@ func (s *Store) UpdateSnapshot(ctx context.Context, snapshot *portfolio.Snapshot
 	if entries == 0 {
 		return errors.New("snapshot currency not found")
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE snapshots SET observed_on=? WHERE id=?`, snapshot.ObservedOn, snapshot.ID); err != nil {
+	result, err := tx.ExecContext(ctx, `UPDATE snapshots SET observed_on=? WHERE id=?`+ownerClause, append([]any{snapshot.ObservedOn, snapshot.ID}, ownerArgs...)...)
+	if err != nil {
 		return err
+	}
+	if changed, _ := result.RowsAffected(); changed == 0 {
+		return errors.New("snapshot not found")
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM snapshot_entries WHERE snapshot_id=? AND currency=?`, snapshot.ID, snapshot.Currency); err != nil {
 		return err
@@ -137,8 +151,14 @@ func (s *Store) UpdateSnapshot(ctx context.Context, snapshot *portfolio.Snapshot
 	return tx.Commit()
 }
 
-func (s *Store) DeleteSnapshot(ctx context.Context, id int64) error {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM snapshots WHERE id=?`, id)
+func (s *Store) DeleteSnapshot(ctx context.Context, id int64, userID string) error {
+	query := `DELETE FROM snapshots WHERE id=?`
+	args := []any{id}
+	if userID != "" {
+		query += ` AND (user_id=? OR user_id='')`
+		args = append(args, userID)
+	}
+	result, err := s.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		return err
 	}

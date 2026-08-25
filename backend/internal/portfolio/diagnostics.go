@@ -141,12 +141,16 @@ func EvaluateDiagnostics(accounts []Account, holdings []Holding, instruments []I
 			for i, h := range hGroup {
 				names[i] = h.InstrumentName
 			}
+			indexLabel := hGroup[0].InstrumentName
+			if inst, ok := instByISIN[strings.ToUpper(hGroup[0].InstrumentISIN)]; ok && inst.IndexName != "" {
+				indexLabel = inst.IndexName
+			}
 			results = append(results, Diagnostic{
 				ID:       fmt.Sprintf("overlap_%s", idxKey),
 				Category: "overlap",
 				Severity: SeverityInfo,
 				Title:    "Overlapping Exposure Detected",
-				Message:  fmt.Sprintf("Multiple holdings (%s) track the same index exposure (%q). Consider consolidating to simplify management.", strings.Join(names, ", "), hGroup[0].InstrumentName),
+				Message:  fmt.Sprintf("Multiple holdings (%s) track the same index exposure (%q). Consider consolidating to simplify management.", strings.Join(names, ", "), indexLabel),
 			})
 		}
 	}

@@ -8,7 +8,7 @@ import (
 )
 
 func TestLoadJustETFInterval(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "loot.yaml")
+	path := filepath.Join(t.TempDir(), "squirrel.yaml")
 	if err := os.WriteFile(path, []byte("justetf_enrich_interval: 15s\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +26,7 @@ func TestDefaultDatabaseUsesProjectDataDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Database != "data/loot.db" {
+	if cfg.Database != "data/squirrel.db" {
 		t.Fatalf("database=%q", cfg.Database)
 	}
 }

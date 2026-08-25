@@ -12,7 +12,7 @@ import (
 	descriptorpb "google.golang.org/protobuf/types/descriptorpb"
 
 	// Import proto packages so their file descriptors register with the global registry.
-	_ "loot/proto/gen/go/v1"
+	_ "squirrel/proto/gen/go/v1"
 )
 
 //go:embed proto_image.binpb

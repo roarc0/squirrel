@@ -18,8 +18,8 @@ import (
 
 	"connectrpc.com/connect"
 
-	"loot/backend/internal/config"
-	portv1 "loot/proto/gen/go/v1"
+	"squirrel/backend/internal/config"
+	portv1 "squirrel/proto/gen/go/v1"
 )
 
 var activeDownloads sync.Map // map[string]int32
@@ -138,7 +138,7 @@ func (s *Server) DownloadAIModel(ctx context.Context, req *connect.Request[portv
 			downloadURL = modelQuery
 			parts := strings.Split(modelQuery, "/")
 			filename = parts[len(parts)-1]
-			if !strings.HasSuffix(filename, ".gguf") {
+			if !strings.HasSuffix(strings.ToLower(filename), ".gguf") {
 				filename += ".gguf"
 			}
 			modelID = strings.TrimSuffix(filename, ".gguf")
@@ -152,6 +152,12 @@ func (s *Server) DownloadAIModel(ctx context.Context, req *connect.Request[portv
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unknown model preset or invalid Hugging Face format %q. Use 'owner/repo' or direct GGUF URL", modelQuery))
 		}
 	}
+
+	filename = filepath.Base(filename)
+	if filename == "." || filename == "/" || !strings.HasSuffix(strings.ToLower(filename), ".gguf") {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid GGUF model filename %q", filename))
+	}
+	modelID = strings.TrimSuffix(filename, ".gguf")
 
 	targetPath := filepath.Join(modelsDir, filename)
 	tempPath := targetPath + ".tmp"
@@ -301,9 +307,9 @@ func (s *Server) LoadOllamaModel(ctx context.Context, req *connect.Request[portv
 }
 
 func (s *Server) RestartLocalServer(ctx context.Context, req *connect.Request[portv1.RestartLocalServerRequest]) (*connect.Response[portv1.RestartLocalServerResponse], error) {
-	filename := strings.TrimSpace(req.Msg.ModelFilename)
-	if filename == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("model_filename is required"))
+	filename := filepath.Base(strings.TrimSpace(req.Msg.ModelFilename))
+	if filename == "" || filename == "." || filename == "/" || !strings.HasSuffix(strings.ToLower(filename), ".gguf") {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid GGUF model filename"))
 	}
 	contextSize := req.Msg.ContextSize
 	if contextSize <= 0 {

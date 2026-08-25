@@ -1,4 +1,4 @@
-module loot/proto
+module squirrel/proto
 
 go 1.23.0
 
