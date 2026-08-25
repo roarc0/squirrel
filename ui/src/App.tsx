@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   IconChartPie,
   IconBuildingBank,
@@ -190,31 +190,20 @@ export default function App() {
   return (
   <>
     <main className="shell">
-      <Group justify="space-between" align="end" mb="xl">
-        <Box>
-          <Text size="xs" fw={700} c="teal" tt="uppercase" lts={2}>Know what you own</Text>
-          <Title order={1} size="3rem" className="brand">LOOT</Title>
-        </Box>
-        <Group gap="xs">
-          <Tooltip label="Update situation" position="bottom">
-            <ActionIcon variant="default" size="lg" onClick={() => setUpdateModalOpened(true)} aria-label="Update situation">
-              <IconArrowsExchange size={18} />
-            </ActionIcon>
-          </Tooltip>
-          <Tooltip label={hideBalances ? 'Show balances' : 'Hide balances'} position="bottom">
-            <ActionIcon variant="default" size="lg" onClick={() => setHideBalances(v => !v)} aria-label={hideBalances ? 'Show balances' : 'Hide balances'}>
-              {hideBalances ? <IconEyeOff size={18} /> : <IconEye size={18} />}
-            </ActionIcon>
-          </Tooltip>
+      <Group justify="space-between" align="center" mb="md">
+        <Title order={1} size="1.75rem" className="brand" c="teal">LOOT</Title>
+        <Group gap={4}>
+          <HeaderIconButton icon={<IconArrowsExchange size={16} />} label="Update" onClick={() => setUpdateModalOpened(true)} />
+          <HeaderIconButton
+            icon={hideBalances ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+            label={hideBalances ? 'Show' : 'Hide'}
+            onClick={() => setHideBalances(v => !v)}
+          />
           <ThemeToggleIcon />
           {currentUser ? (
             <Menu shadow="md" width={240} position="bottom-end">
               <Menu.Target>
-                <Tooltip label={currentUser.email} position="bottom">
-                  <ActionIcon variant="default" size="lg" aria-label="User menu">
-                    <IconUser size={18} />
-                  </ActionIcon>
-                </Tooltip>
+                <HeaderIconButton icon={<IconUser size={16} />} label="Account" />
               </Menu.Target>
               <Menu.Dropdown>
                 <Menu.Label>
@@ -368,21 +357,41 @@ export function PerformanceResult({ value, invested, currency, mood = false }: {
   return <Group gap={6} wrap="nowrap" align="center">{mood && <Text title={state.label} size="lg" lh={1}>{state.emoji}</Text>}<Text size="sm" fw={700} c={change >= 0 ? 'teal' : 'red'}>{change >= 0 ? '+' : ''}{money(change, currency)} · {change >= 0 ? '+' : ''}{changePercent.toFixed(1)}%</Text></Group>;
 }
 
+function HeaderIconButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick?: () => void }) {
+  return (
+    <Stack
+      gap={2}
+      align="center"
+      className="header-icon-btn"
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); } : undefined}
+    >
+      <Box className="header-icon-btn__icon">{icon}</Box>
+      <Text size="10px" c="dimmed" lh={1}>{label}</Text>
+    </Stack>
+  );
+}
+
 function ThemeToggleIcon() {
   const scheme = useComputedColorScheme('light');
   const { setColorScheme } = useMantineColorScheme();
   const isDark = scheme === 'dark';
+  const toggle = () => {
+    const next = isDark ? 'light' : 'dark';
+    if ('startViewTransition' in document) {
+      (document as any).startViewTransition(() => setColorScheme(next));
+    } else {
+      setColorScheme(next);
+    }
+  };
   return (
-    <Tooltip label={isDark ? 'Light mode' : 'Dark mode'} position="bottom">
-      <ActionIcon
-        variant="default"
-        size="lg"
-        aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-        onClick={() => setColorScheme(isDark ? 'light' : 'dark')}
-      >
-        {isDark ? <IconSun size={18} /> : <IconMoon size={18} />}
-      </ActionIcon>
-    </Tooltip>
+    <HeaderIconButton
+      icon={isDark ? <IconSun size={16} /> : <IconMoon size={16} />}
+      label={isDark ? 'Light' : 'Dark'}
+      onClick={toggle}
+    />
   );
 }
 

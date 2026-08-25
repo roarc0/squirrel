@@ -39,6 +39,42 @@ body {
   letter-spacing: -0.045em;
 }
 
+/* Header icon buttons (icon + label stacked) */
+.header-icon-btn {
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  min-width: 44px;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+.header-icon-btn:hover {
+  background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6));
+}
+.header-icon-btn__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-1));
+}
+
+/* Smooth theme transition via View Transitions API */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.25s;
+  animation-timing-function: ease;
+}
+
+/* Fallback: CSS transition on key surface colors */
+body,
+.mantine-Paper-root,
+.mantine-Card-root,
+.mantine-AppShell-root,
+.mantine-Tabs-list,
+.metric {
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
 .metric {
   border: 1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5));
   background: light-dark(rgba(255, 255, 255, 0.84), rgba(24, 31, 39, 0.84));
