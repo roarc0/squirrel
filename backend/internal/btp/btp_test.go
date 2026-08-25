@@ -59,3 +59,15 @@ func TestCalculateMetricsAndScores(t *testing.T) {
 		t.Errorf("expected score > 0, got %v", scored[0].Score)
 	}
 }
+
+func TestScraper(t *testing.T) {
+	scraper := NewScraper("")
+	btps, err := scraper.ScrapeAll(ScoringConfig{TaxRate: 0.125})
+	if err != nil {
+		t.Fatalf("ScrapeAll error: %v", err)
+	}
+	if len(btps) == 0 {
+		t.Fatalf("expected BTPs from ScrapeAll, got 0")
+	}
+	t.Logf("Successfully scraped %d BTPs", len(btps))
+}

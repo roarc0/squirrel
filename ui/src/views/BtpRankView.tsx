@@ -79,15 +79,23 @@ export function BtpRankView() {
     setError('');
     try {
       const yearNum = typeof targetYear === 'number' ? targetYear : 0;
-      const res = await listBtps({
+      let res = await listBtps({
         query: search,
         bondType: bondType || undefined,
         starredOnly: viewTab === 'starred',
         targetMaturityYear: yearNum,
       });
+
+      if (res.btps.length === 0 && !search && !bondType && viewTab === 'all' && !yearNum) {
+        console.log('[BtpRankView] Initial BTP cache empty; triggering auto-refresh...');
+        await refreshBtps(0);
+        res = await listBtps({});
+      }
+
       setBtps(res.btps);
       setLastUpdated(res.lastUpdated);
     } catch (cause) {
+      console.error('[BtpRankView] Error fetching BTPs:', cause);
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setLoading(false);
@@ -103,9 +111,23 @@ export function BtpRankView() {
     setError('');
     try {
       const yearNum = typeof targetYear === 'number' ? targetYear : 0;
-      await refreshBtps(yearNum);
-      await fetchBtps();
+      console.log('[BtpRankView] Triggering manual refreshBtps (yearNum:', yearNum, ')');
+      const result = await refreshBtps(yearNum);
+      console.log('[BtpRankView] refreshBtps complete:', result);
+
+      const res = await listBtps({
+        query: search,
+        bondType: bondType || undefined,
+        starredOnly: viewTab === 'starred',
+        targetMaturityYear: yearNum,
+      });
+      setBtps(res.btps);
+      setLastUpdated(res.lastUpdated);
+      if (res.btps.length === 0) {
+        setError('No BTPs loaded. Server returned 0 items.');
+      }
     } catch (cause) {
+      console.error('[BtpRankView] Refresh error:', cause);
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setRefreshing(false);
