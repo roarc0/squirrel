@@ -290,7 +290,6 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
     } },
     { key: 'value', label: 'Current value', sortable: true, align: 'right', render: holding => <Text fw={650}>{money(holding.value_minor, holding.currency ?? 'EUR')}</Text> },
     { key: 'actual', label: 'Actual', sortable: true, align: 'right', render: holding => percent(actualBPS(holding)) },
-    { key: 'planned', label: 'Planned', sortable: true, align: 'right', render: holding => holding.planned_bps > 0 ? percent(holding.planned_bps) : '—' },
     { key: 'invested', label: 'Amount invested', sortable: true, align: 'right', render: holding => investedMoney(holding.invested_minor, holding.value_minor, holding.currency ?? 'EUR') },
     { key: 'change', label: 'Gain / loss', sortable: true, align: 'right', render: holding => { if (holding.invested_minor === 0) return <Text c="dimmed">—</Text>; const change = holding.value_minor - holding.invested_minor; return <Stack gap={1} align="flex-end"><Text fw={650} c={change >= 0 ? 'teal' : 'red'}>{money(change, holding.currency ?? 'EUR')}</Text><Text size="xs" c="dimmed">{change >= 0 ? '+' : ''}{(change / holding.invested_minor * 100).toFixed(1)}%</Text></Stack>; } },
     { key: 'tax', label: 'Tax', sortable: true, align: 'right', render: holding => percent(holding.tax_bps) },
