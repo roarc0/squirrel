@@ -7,6 +7,7 @@ import {
   Card,
   Group,
   NumberInput,
+  Pagination,
   Paper,
   SegmentedControl,
   Select,
@@ -76,6 +77,14 @@ export function BtpRankView() {
 
   const [sortKey, setSortKey] = useState<string>('score');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  // Reset pagination on filter or sort change
+  useEffect(() => {
+    setPage(1);
+  }, [search, bondType, viewTab, targetYear, sortKey, sortDir]);
 
   const fetchBtps = useCallback(async () => {
     setLoading(true);
@@ -179,6 +188,12 @@ export function BtpRankView() {
       return sortDir === 'asc' ? numA - numB : numB - numA;
     });
   }, [btps, sortKey, sortDir]);
+
+  const totalPages = Math.ceil(sortedBtps.length / pageSize) || 1;
+  const startIndex = (page - 1) * pageSize;
+  const paginatedBtps = useMemo(() => {
+    return sortedBtps.slice(startIndex, startIndex + pageSize);
+  }, [sortedBtps, startIndex, pageSize]);
 
   const starredCount = useMemo(
     () => btps.filter(b => b.is_starred).length,
@@ -454,7 +469,7 @@ export function BtpRankView() {
 
       <Box mt="md">
         <DataTable
-          rows={sortedBtps}
+          rows={paginatedBtps}
           columns={columns}
           rowKey={b => b.isin}
           minWidth={1100}
@@ -465,6 +480,28 @@ export function BtpRankView() {
             setSortDir(dir);
           }}
         />
+        <Group justify="space-between" mt="md" align="center">
+          <Group gap="xs">
+            <Text size="sm" c="dimmed">Rows per page</Text>
+            <Select
+              size="xs"
+              w={82}
+              aria-label="Rows per page"
+              value={String(pageSize)}
+              data={['10', '20', '50', '100']}
+              onChange={val => {
+                setPageSize(Number(val ?? 20));
+                setPage(1);
+              }}
+            />
+            <Text size="sm" c="dimmed">
+              Showing {sortedBtps.length > 0 ? startIndex + 1 : 0}–{Math.min(startIndex + pageSize, sortedBtps.length)} of {sortedBtps.length} BTPs
+            </Text>
+          </Group>
+          {totalPages > 1 && (
+            <Pagination size="sm" total={totalPages} value={page} onChange={setPage} />
+          )}
+        </Group>
       </Box>
     </ViewShell>
   );
