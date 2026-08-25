@@ -88,11 +88,15 @@ function PacAmountEditor({ account, currency, onSaved }: { account: Account; cur
 
   if (!editing) {
     return (
-      <Group gap={6} align="center" wrap="nowrap" justify="flex-end">
-        <Text size="xl" fw={800} c="teal">{money(account.pac_amount_minor ?? 0, currency)}/mo</Text>
+      <Group gap={4} align="center" wrap="nowrap">
+        <Badge color="teal" variant="light" size="sm" style={{ height: 'auto', padding: '2px 6px' }}>
+          <Text fw={750} size="xs" c="teal">
+            {money(account.pac_amount_minor ?? 0, currency)}/mo
+          </Text>
+        </Badge>
         <Tooltip label="Edit monthly deposit" position="top" withArrow>
-          <ActionIcon size={20} variant="subtle" color="teal" onClick={start}>
-            <IconPencil size={13} />
+          <ActionIcon size={18} variant="subtle" color="teal" onClick={start}>
+            <IconPencil size={12} />
           </ActionIcon>
         </Tooltip>
       </Group>
@@ -100,14 +104,14 @@ function PacAmountEditor({ account, currency, onSaved }: { account: Account; cur
   }
 
   return (
-    <Group gap={4} wrap="nowrap" align="center" justify="flex-end">
-      <NumberInput size="sm" w={110} min={0} decimalScale={2} value={value} onChange={setValue} onKeyDown={onKey} autoFocus
-        leftSection={<Text size="xs" c="dimmed">{currency}</Text>} leftSectionWidth={36} />
-      <ActionIcon size={26} variant="filled" color="teal" loading={saving} onClick={() => void save()}>
-        <IconCheck size={14} />
+    <Group gap={4} wrap="nowrap" align="center">
+      <NumberInput size="xs" w={96} min={0} decimalScale={2} value={value} onChange={setValue} onKeyDown={onKey} autoFocus
+        leftSection={<Text size="xs" c="dimmed">{currency}</Text>} leftSectionWidth={30} />
+      <ActionIcon size={22} variant="filled" color="teal" loading={saving} onClick={() => void save()}>
+        <IconCheck size={12} />
       </ActionIcon>
-      <ActionIcon size={26} variant="subtle" color="gray" onClick={cancel}>
-        <IconX size={14} />
+      <ActionIcon size={22} variant="subtle" color="gray" onClick={cancel}>
+        <IconX size={12} />
       </ActionIcon>
     </Group>
   );
@@ -297,13 +301,14 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
   ];
   const [investOpened, setInvestOpened] = useState(false);
 
-  // Compute PAC accumulation metrics & TER drag, ordered from highest % to lowest %
+  // Compute PAC accumulation metrics & TER drag for visible holdings & visible accounts
+  const visibleAccounts = activeAccounts.filter(account => accountIDs.length === 0 || accountIDs.includes(String(account.id)));
   const activePacHoldings = visibleHoldings
     .filter(h => h.is_pac && (h.pac_bps ?? 0) > 0)
     .sort((a, b) => (b.pac_bps ?? 0) - (a.pac_bps ?? 0));
 
-  const totalMonthlyPacMinor = activeAccounts.reduce((acc, a) => acc + (a.pac_amount_minor ?? 0), 0);
-  const currency = visibleHoldings[0]?.currency ?? 'EUR';
+  const totalMonthlyPacMinor = visibleAccounts.reduce((acc, a) => acc + (a.pac_amount_minor ?? 0), 0);
+  const currency = visibleHoldings[0]?.currency ?? visibleAccounts[0]?.currency ?? 'EUR';
 
   let totalPacWeightedTERNum = 0;
   let totalPacMonthlyInvestedMinor = 0;
@@ -338,10 +343,8 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
 
   const pacWeightedTERBps = totalPacMonthlyInvestedMinor > 0 ? totalPacWeightedTERNum / totalPacMonthlyInvestedMinor : 0;
 
-  // PAC accounts (accounts that have active PAC holdings, ordered by preference)
-  const pacAccountsList = [...new Set(pacItems.map(i => i.holding.account_id))]
-    .map(id => activeAccounts.find(a => a.id === id))
-    .filter(Boolean) as Account[];
+  // Visible accounts that have a PAC budget or active PAC holdings
+  const pacAccountsList = visibleAccounts.filter(a => (a.pac_amount_minor ?? 0) > 0 || activePacHoldings.some(h => h.account_id === a.id));
 
   // Per-account PAC allocation totals
   const pacByAccount = new Map<number, { name: string; allocatedBps: number }>();
@@ -392,15 +395,7 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
           <Group gap="xl">
             <Box ta="right">
               <Text size="xs" c="dimmed">Monthly Deposit</Text>
-              {pacAccountsList.length === 1 ? (
-                <PacAmountEditor account={pacAccountsList[0]} currency={currency} onSaved={reload} />
-              ) : (
-                <Stack gap={2} align="flex-end">
-                  {pacAccountsList.map(a => (
-                    <PacAmountEditor key={a.id} account={a} currency={currency} onSaved={reload} />
-                  ))}
-                </Stack>
-              )}
+              <Text size="xl" fw={800} c="teal">{money(totalMonthlyPacMinor, currency)}/mo</Text>
             </Box>
             <Box ta="right">
               <Text size="xs" c="dimmed">Yearly Investment</Text>
@@ -421,34 +416,41 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
           </Group>
         </Group>
 
-        {[...pacByAccount.entries()].map(([accountId, { name, allocatedBps }]) => {
-          const pct = Math.min(allocatedBps / 100, 100);
-          const over = allocatedBps > 10000;
-          const full = allocatedBps === 10000;
-          return (
-            <Box key={accountId} mb="xs">
-              <Group justify="space-between" mb={4}>
-                <Text size="xs" c="dimmed">{name} · PAC allocation</Text>
-                <Group gap={4} align="center">
-                  <Text size="xs" fw={700} c={over ? 'red' : full ? 'teal' : 'dimmed'}>
-                    {(allocatedBps / 100).toFixed(2)}% / 100%
-                  </Text>
-                  {full && <IconCheck size={12} color="var(--mantine-color-teal-6)" />}
-                  {over && <IconAlertTriangle size={12} color="var(--mantine-color-red-6)" />}
+        <Stack gap="xs">
+          {pacAccountsList.map(acc => {
+            const allocatedBps = pacByAccount.get(acc.id)?.allocatedBps ?? 0;
+            const pct = Math.min(allocatedBps / 100, 100);
+            const over = allocatedBps > 10000;
+            const full = allocatedBps === 10000;
+
+            return (
+              <Paper key={acc.id} p="xs" radius="md" withBorder style={{ backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))' }}>
+                <Group justify="space-between" align="center" mb={6}>
+                  <Group gap="xs" align="center">
+                    <Text size="xs" fw={750}>{acc.name}</Text>
+                    <PacAmountEditor account={acc} currency={acc.currency ?? currency} onSaved={reload} />
+                  </Group>
+                  <Group gap={4} align="center">
+                    <Text size="xs" fw={700} c={over ? 'red' : full ? 'teal' : 'dimmed'}>
+                      {(allocatedBps / 100).toFixed(2)}% / 100%
+                    </Text>
+                    {full && <IconCheck size={12} color="var(--mantine-color-teal-6)" />}
+                    {over && <IconAlertTriangle size={12} color="var(--mantine-color-red-6)" />}
+                  </Group>
                 </Group>
-              </Group>
-              <Box h={14} bg="light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))" style={{ display: 'flex', overflow: 'hidden', borderRadius: 999 }}>
-                <Box
-                  bg={over ? 'red.5' : full ? 'teal.5' : 'yellow.5'}
-                  style={{ width: `${pct}%`, borderRadius: 999, transition: 'width 0.3s ease' }}
-                />
-              </Box>
-              {!full && !over && (
-                <Text size="xs" c="dimmed" mt={2}>{((10000 - allocatedBps) / 100).toFixed(2)}% unallocated</Text>
-              )}
-            </Box>
-          );
-        })}
+                <Box h={12} bg="light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))" style={{ display: 'flex', overflow: 'hidden', borderRadius: 999 }}>
+                  <Box
+                    bg={over ? 'red.5' : full ? 'teal.5' : 'yellow.5'}
+                    style={{ width: `${pct}%`, borderRadius: 999, transition: 'width 0.3s ease' }}
+                  />
+                </Box>
+                {!full && !over && (
+                  <Text size="xs" c="dimmed" mt={2}>{((10000 - allocatedBps) / 100).toFixed(2)}% unallocated</Text>
+                )}
+              </Paper>
+            );
+          })}
+        </Stack>
       </Card>
     )}
 
