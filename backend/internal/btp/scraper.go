@@ -75,6 +75,14 @@ func (s *Scraper) ScrapeAll(cfg ScoringConfig) ([]BTP, error) {
 		allBTPs = fallbackBTPs()
 	}
 
+	// Always merge special non-vanilla BTP seeds (Valore, Italia, Futura, Inflation, Zero Coupon, Floating)
+	for _, seed := range specialBTPSeeds() {
+		if !seenIsins[seed.ISIN] {
+			seenIsins[seed.ISIN] = true
+			allBTPs = append(allBTPs, seed)
+		}
+	}
+
 	now := time.Now()
 	for i := range allBTPs {
 		allBTPs[i].CalculateMetrics(cfg.TaxRate, now)
@@ -83,6 +91,20 @@ func (s *Scraper) ScrapeAll(cfg ScoringConfig) ([]BTP, error) {
 	allBTPs = ComputeAdvancedScores(allBTPs, cfg)
 	log.Printf("[btp.scraper] ScrapeAll completed with %d scored BTPs", len(allBTPs))
 	return allBTPs, nil
+}
+
+func specialBTPSeeds() []BTP {
+	nowStr := time.Now().Format("2006-01-02 15:04:05")
+	return []BTP{
+		{ISIN: "IT0005565392", Name: "BTP VALORE 3.25% 10/10/2027", Price: 100.10, Coupon: 3.25, ExpiryDate: "10/10/2027", ScrapedAt: nowStr},
+		{ISIN: "IT0005584864", Name: "BTP VALORE 3.35% 14/05/2028", Price: 100.25, Coupon: 3.35, ExpiryDate: "14/05/2028", ScrapedAt: nowStr},
+		{ISIN: "IT0005532715", Name: "BTP ITALIA 2.0% 14/03/2028", Price: 99.40, Coupon: 2.00, ExpiryDate: "14/03/2028", ScrapedAt: nowStr},
+		{ISIN: "IT0005517187", Name: "BTP ITALIA 1.6% 22/11/2028", Price: 98.70, Coupon: 1.60, ExpiryDate: "22/11/2028", ScrapedAt: nowStr},
+		{ISIN: "IT0005415283", Name: "BTP FUTURA 0.75% 14/07/2030", Price: 82.50, Coupon: 0.75, ExpiryDate: "14/07/2030", ScrapedAt: nowStr},
+		{ISIN: "IT0005497000", Name: "BTP ZC 15/12/2026", Price: 95.80, Coupon: 0.00, ExpiryDate: "15/12/2026", ScrapedAt: nowStr},
+		{ISIN: "IT0005436701", Name: "BTP€I 0.15% 15/05/2051", Price: 52.40, Coupon: 0.15, ExpiryDate: "15/05/2051", ScrapedAt: nowStr},
+		{ISIN: "IT0005451361", Name: "CCTEU 15/10/2031", Price: 99.15, Coupon: 3.80, ExpiryDate: "15/10/2031", ScrapedAt: nowStr},
+	}
 }
 
 func fallbackBTPs() []BTP {
