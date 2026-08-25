@@ -543,9 +543,82 @@ function ThemePickerButton() {
   );
 }
 
-export function AllocationBar({ segments, total }: { segments: { label: string; value: number }[]; total: number }) {
+export function AllocationBar({
+  segments,
+  total,
+  selectedKey,
+  onSelectKey,
+}: {
+  segments: { label: string; value: number; key?: string }[];
+  total: number;
+  selectedKey?: string | null;
+  onSelectKey?: (key: string | null) => void;
+}) {
   const visible = segments.filter(segment => segment.value > 0);
-  return <><Box h={14} bg="gray.1" mt="sm" style={{ display: 'flex', overflow: 'hidden', borderRadius: 999 }}>{visible.map(segment => <Box key={segment.label} bg={`${chipColor(segment.label)}.5`} style={{ width: `${total > 0 ? segment.value / total * 100 : 0}%` }} />)}</Box><Group gap="xs" mt="sm">{visible.map(segment => <Chip key={segment.label} colorKey={segment.label}>{`${segment.label} ${total > 0 ? (segment.value / total * 100).toFixed(1) : '0.0'}%`}</Chip>)}</Group></>;
+
+  return (
+    <Stack gap="xs" mt="sm">
+      <Box
+        h={14}
+        bg="light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))"
+        style={{ display: 'flex', overflow: 'hidden', borderRadius: 999 }}
+      >
+        {visible.map(segment => {
+          const itemKey = segment.key ?? segment.label.toLowerCase();
+          const isSelected = selectedKey === itemKey;
+          const isDimmed = Boolean(selectedKey && !isSelected);
+          const pct = total > 0 ? (segment.value / total) * 100 : 0;
+
+          return (
+            <Tooltip
+              key={segment.label}
+              label={`${segment.label}: ${pct.toFixed(1)}% (${money(segment.value, 'EUR')})${onSelectKey ? ' · Click to filter' : ''}`}
+              withArrow
+            >
+              <Box
+                bg={`${chipColor(segment.label)}.5`}
+                onClick={() => onSelectKey?.(isSelected ? null : itemKey)}
+                style={{
+                  width: `${pct}%`,
+                  cursor: onSelectKey ? 'pointer' : 'default',
+                  opacity: isDimmed ? 0.35 : 1,
+                  transition: 'opacity 0.2s ease, transform 0.15s ease',
+                  transform: isSelected ? 'scaleY(1.2)' : 'scaleY(1)',
+                }}
+              />
+            </Tooltip>
+          );
+        })}
+      </Box>
+      <Group gap="xs">
+        {visible.map(segment => {
+          const itemKey = segment.key ?? segment.label.toLowerCase();
+          const isSelected = selectedKey === itemKey;
+          const pct = total > 0 ? (segment.value / total) * 100 : 0;
+          return (
+            <UnstyledButton
+              key={segment.label}
+              disabled={!onSelectKey}
+              onClick={() => onSelectKey?.(isSelected ? null : itemKey)}
+            >
+              <Chip
+                colorKey={segment.label}
+                variant={isSelected ? 'filled' : 'light'}
+                style={{
+                  cursor: onSelectKey ? 'pointer' : 'default',
+                  transition: 'all 0.15s ease',
+                  transform: isSelected ? 'scale(1.05)' : 'scale(1)',
+                  boxShadow: isSelected ? '0 2px 8px rgba(0,0,0,0.15)' : undefined,
+                }}
+              >
+                {`${segment.label} ${pct.toFixed(1)}%`}
+              </Chip>
+            </UnstyledButton>
+          );
+        })}
+      </Group>
+    </Stack>
+  );
 }
 
 type TierDraft = { upTo: Numeric; kind: 'fixed' | 'reference'; rate: Numeric; reference: string; spread: Numeric };

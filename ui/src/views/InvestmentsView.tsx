@@ -185,6 +185,7 @@ function PacBpsEditor({ holding, onSaved }: { holding: Holding; onSaved: () => P
 export function InvestmentsView({ holdings, accounts, instruments, taxRates, reload, onOpenDrafts }: { holdings: Holding[]; accounts: Account[]; instruments: Instrument[]; taxRates: TaxRate[]; reload: () => Promise<void>; onOpenDrafts?: () => void }) {
   const [opened, setOpened] = useState(false); const [editing, setEditing] = useState<Holding>(); const [error, setError] = useState('');
   const [accountIDs, setAccountIDs] = useQueryParamArray('accounts');
+  const [selectedAssetClass, setSelectedAssetClass] = useState<string | null>(null);
   const { confirmDelete, modal: confirmDeleteModal } = useConfirmDelete();
   const table = useBackendRows('/api/holdings', holdings, 'value', 'desc');
   const activeAccounts = accounts.filter(account => !account.archived); const activeAccountIDs = new Set(activeAccounts.map(account => account.id));
@@ -198,6 +199,7 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
   const ready = activeAccounts.length > 0 && instruments.length > 0;
   const activeHoldings = table.rows.filter(holding => activeAccountIDs.has(holding.account_id));
   const visibleHoldings = activeHoldings.filter(holding => accountIDs.length === 0 || accountIDs.includes(String(holding.account_id)));
+  const displayedHoldings = visibleHoldings.filter(holding => !selectedAssetClass || holding.asset_class === selectedAssetClass);
   const instMap = new Map<number, Instrument>(instruments.map(i => [i.id, i]));
   const totals = new Map<string, { value: number; invested: number; count: number; weightedTERNum: number; annualFeeDrag: number; classes: Map<string, number> }>();
   for (const holding of visibleHoldings) {
@@ -436,12 +438,12 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
                   {over && <IconAlertTriangle size={12} color="var(--mantine-color-red-6)" />}
                 </Group>
               </Group>
-              <Progress
-                value={pct}
-                color={over ? 'red' : full ? 'teal' : 'yellow'}
-                size="sm"
-                radius="xl"
-              />
+              <Box h={14} bg="light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))" style={{ display: 'flex', overflow: 'hidden', borderRadius: 999 }}>
+                <Box
+                  bg={over ? 'red.5' : full ? 'teal.5' : 'yellow.5'}
+                  style={{ width: `${pct}%`, borderRadius: 999, transition: 'width 0.3s ease' }}
+                />
+              </Box>
               {!full && !over && (
                 <Text size="xs" c="dimmed" mt={2}>{((10000 - allocatedBps) / 100).toFixed(2)}% unallocated</Text>
               )}
@@ -470,10 +472,25 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
               <Text size="xs" c="dimmed">Weighted TER: <Text span fw={700} c="dimmed">{summary.value > 0 ? `${(summary.weightedTERNum / summary.value / 100).toFixed(2)}%` : '0.00%'}</Text></Text>
               <Text size="xs" c="dimmed">Fee drag: <Text span fw={700} c="orange">-{money(summary.annualFeeDrag, currency)}/yr</Text></Text>
             </Group>
-            <AllocationBar total={summary.value} segments={[...summary.classes].map(([assetClass, value]) => ({ label: label(assetClass), value }))} />
+            <AllocationBar
+              total={summary.value}
+              segments={[...summary.classes].map(([assetClass, value]) => ({ label: label(assetClass), value, key: assetClass }))}
+              selectedKey={selectedAssetClass}
+              onSelectKey={setSelectedAssetClass}
+            />
           </Card>
         ))}
       </SimpleGrid>
+    )}
+
+    {selectedAssetClass && (
+      <Group gap="xs" align="center" mt="xs">
+        <Text size="xs" c="dimmed">Filtered by asset class:</Text>
+        <Chip colorKey={selectedAssetClass || ''} variant="filled">{label(selectedAssetClass)}</Chip>
+        <Button size="xs" variant="subtle" color="gray" onClick={() => setSelectedAssetClass(null)}>
+          Clear filter ✕
+        </Button>
+      </Group>
     )}
 
     {!ready ? (
@@ -482,9 +499,11 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
       <Empty title="No active investments" text="Add an investment or restore an archived account." />
     ) : visibleHoldings.length === 0 ? (
       <Empty title="No matching investments" text="Choose another account or clear the filter." />
+    ) : displayedHoldings.length === 0 ? (
+      <Empty title="No matching asset class investments" text={`No investments found under ${label(selectedAssetClass || '')}. Clear filter to show all.`} />
     ) : (
       <DataTable
-        rows={visibleHoldings}
+        rows={displayedHoldings}
         columns={columns}
         rowKey={holding => holding.id}
         minWidth={1080}
