@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { profileClient } from '../api';
+import { setHideBalancesState } from '../utils/format';
 
 export type UserProfile = {
   theme: string;
@@ -63,6 +64,8 @@ export async function loadProfile(): Promise<void> {
     };
   }
   _loaded = true;
+  localStorage.setItem('loot.hideBalances', String(_profile.hide_balances));
+  setHideBalancesState(_profile.hide_balances);
   notify();
 }
 
@@ -75,6 +78,10 @@ export function updateProfile(patch: Partial<UserProfile>): void {
   }
   if (patch.enable_btp_ranks !== undefined) {
     localStorage.setItem('loot.enableBtpRanks', String(_profile.enable_btp_ranks));
+  }
+  if (patch.hide_balances !== undefined) {
+    localStorage.setItem('loot.hideBalances', String(_profile.hide_balances));
+    setHideBalancesState(_profile.hide_balances);
   }
   notify();
   clearTimeout(_saveTimer);

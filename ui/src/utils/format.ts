@@ -9,11 +9,16 @@ export const bps = (value: Numeric | undefined) => Math.round(n(value) * 100);
 export const percent = (value: number | undefined) =>
   value === undefined || !Number.isFinite(value) ? '—' : `${(value / 100).toFixed(2)}%`;
 
-let hideBalancesGlobal = false;
+let hideBalancesGlobal = typeof localStorage !== 'undefined' && localStorage.getItem('loot.hideBalances') === 'true';
 
 export const setHideBalancesState = (hidden: boolean) => {
   hideBalancesGlobal = hidden;
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('loot.hideBalances', String(hidden));
+  }
 };
+
+export const getHideBalancesState = (): boolean => hideBalancesGlobal;
 
 export const money = (value: number | undefined, currency: string) =>
   hideBalancesGlobal
