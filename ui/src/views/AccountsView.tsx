@@ -28,6 +28,9 @@ import { DataTable, TableAction, TableActions, type DataColumn } from '../DataTa
 import { confirmDelete as legacyConfirmDelete, money, percent } from '../utils/format';
 import { useConfirmDelete } from '../components/ConfirmDeleteModal';
 import { notifications } from '@mantine/notifications';
+import { IconNotes, IconPencil, IconPlayerPause, IconRefresh, IconRepeat, IconTrash } from '@tabler/icons-react';
+import { ViewShell } from '../components/ViewShell';
+import { SectionHeader } from '../components/SectionHeader';
 
 type Numeric = string | number;
 const n = (value: Numeric | undefined) => (value === '' || value === undefined ? 0 : Number(value));
@@ -69,9 +72,12 @@ export function AccountsView({ accounts, rates, taxRates, reload }: { accounts: 
             {account.institution && <Text size="xs" c="dimmed">{account.institution}</Text>}
           </Group>
           {account.notes && (
-            <Text size="xs" c="dimmed" fs="italic" lineClamp={2}>
-              💬 {account.notes}
-            </Text>
+            <Group gap={4} align="center" wrap="nowrap">
+              <IconNotes size={13} color="var(--mantine-color-dimmed)" style={{ flexShrink: 0 }} />
+              <Text size="xs" c="dimmed" fs="italic" lineClamp={2}>
+                {account.notes}
+              </Text>
+            </Group>
           )}
         </Stack>
       ),
@@ -80,27 +86,37 @@ export function AccountsView({ accounts, rates, taxRates, reload }: { accounts: 
       key: 'pac',
       label: 'PAC Deposit',
       sortable: true,
+      align: 'right',
       render: account => (
         account.pac_amount_minor && account.pac_amount_minor > 0 ? (
           <Badge color="teal" variant="filled" size="sm" style={{ height: 'auto', padding: '4px 8px', textTransform: 'none' }}>
-            🔄 {money(account.pac_amount_minor, account.currency)}/mo
+            <Group gap={3} align="center" justify="end">
+              <IconRepeat size={11} />
+              <span>{money(account.pac_amount_minor, account.currency)}/mo</span>
+            </Group>
           </Badge>
         ) : (
           <Text c="dimmed">—</Text>
         )
       ),
     },
-    { key: 'total', label: 'Assets', sortable: true, render: account => <AccountAssets account={account} /> },
-    { key: 'per_year', label: 'Projected interest', sortable: true, render: account => <Group gap="lg" wrap="nowrap">{[['Day', 365], ['Month', 12], ['Year', 1]].map(([label, divisor]) => <Box key={label} miw={94}><Text size="xs" c="dimmed" fw={650} mb={3}>{label}</Text><RevenuePeriod account={account} divisor={Number(divisor)} /></Box>)}</Group> },
-    { key: 'rates', label: 'Rates', render: account => <Stack gap={5}><Group gap={5}>{(account.tiers ?? []).map((tier, index) => <Chip key={index} colorKey="Rate">{percent(tier.resolved_rate_bps ?? 0)}</Chip>)}</Group><Group><Chip colorKey="Tax">{`Tax ${percent(account.tax_bps)}`}</Chip></Group></Stack> },
-    { key: 'actions', render: account => <TableActions><TableAction label={account.archived ? `Restore ${account.name}` : `Archive ${account.name}`} onClick={() => void toggleArchived(account)}>{account.archived ? '↺' : '⏸'}</TableAction><TableAction label={`Edit ${account.name}`} onClick={() => open(account)}>✎</TableAction><TableAction label={`Delete ${account.name}`} color="red" onClick={() => void remove(account)}>×</TableAction></TableActions> },
+    { key: 'total', label: 'Assets', sortable: true, align: 'right', render: account => <AccountAssets account={account} /> },
+    { key: 'per_year', label: 'Projected interest', sortable: true, align: 'right', render: account => <Group gap="lg" wrap="nowrap" justify="end">{[['Day', 365], ['Month', 12], ['Year', 1]].map(([label, divisor]) => <Box key={label} miw={94}><Text size="xs" c="dimmed" fw={650} mb={3}>{label}</Text><RevenuePeriod account={account} divisor={Number(divisor)} /></Box>)}</Group> },
+    { key: 'rates', label: 'Rates', render: account => <Stack gap={5}><Group gap={5}>{(account.tiers ?? []).map((tier, index) => <Chip key={index} colorKey="Rate">{percent(tier.resolved_rate_bps ?? tier.fixed_rate_bps ?? 0)}</Chip>)}</Group><Group><Chip colorKey="Tax">{`Tax ${percent(account.tax_bps)}`}</Chip></Group></Stack> },
+    { key: 'actions', align: 'right', render: account => <TableActions><TableAction label={account.archived ? `Restore ${account.name}` : `Archive ${account.name}`} onClick={() => void toggleArchived(account)}>{account.archived ? <IconRefresh size={14} /> : <IconPlayerPause size={14} />}</TableAction><TableAction label={`Edit ${account.name}`} onClick={() => open(account)}><IconPencil size={14} /></TableAction><TableAction label={`Delete ${account.name}`} color="red" onClick={() => void remove(account)}><IconTrash size={14} /></TableAction></TableActions> },
   ];
-  return <Stack gap="lg">
-    <Group justify="space-between"><Box><Title order={2}>Accounts</Title><Text c="dimmed">Marginal rate tiers, taxes, and recurring annual fees.</Text></Box><Button onClick={() => open()}>Add account</Button></Group>
-    {accounts.length === 0 ? <Empty title="No accounts" text="Add the places where you hold cash." /> : <DataTable rows={table.rows} columns={columns} rowKey={account => account.id} minWidth={960} sort={table.sort} direction={table.direction} onSort={(key, direction) => void table.sortRows(key, direction)} rowStyle={account => account.archived ? { opacity: 0.48 } : undefined} />}
-    <AccountModal key={editing?.id ?? 'new'} opened={opened} close={() => setOpened(false)} account={editing} rates={rates} taxRates={taxRates} saved={async () => { setOpened(false); await reload(); }} />
-    {confirmDeleteModal}
-  </Stack>;
+  return (
+    <ViewShell>
+      <SectionHeader
+        title="Accounts"
+        subtitle="Marginal rate tiers, taxes, and recurring annual fees."
+        actions={<Button onClick={() => open()}>Add account</Button>}
+      />
+      {accounts.length === 0 ? <Empty title="No accounts" text="Add the places where you hold cash." /> : <DataTable rows={table.rows} columns={columns} rowKey={account => account.id} minWidth={960} sort={table.sort} direction={table.direction} onSort={(key, direction) => void table.sortRows(key, direction)} rowStyle={account => account.archived ? { opacity: 0.48 } : undefined} />}
+      <AccountModal key={editing?.id ?? 'new'} opened={opened} close={() => setOpened(false)} account={editing} rates={rates} taxRates={taxRates} saved={async () => { setOpened(false); await reload(); }} />
+      {confirmDeleteModal}
+    </ViewShell>
+  );
 }
 
 function AccountAssets({ account }: { account: Account }) {

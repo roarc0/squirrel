@@ -14,7 +14,7 @@ body {
   display: flex;
   flex-direction: column;
   background:
-    radial-gradient(circle at 12% -10%, color-mix(in srgb, var(--mantine-color-teal-7) 22%, transparent), transparent 34rem),
+    radial-gradient(circle at 12% -10%, color-mix(in srgb, var(--mantine-color-teal-7) 21%, transparent), transparent 56rem),
     var(--mantine-color-body);
   background-attachment: fixed;
 }
@@ -74,21 +74,106 @@ body,
   .shell { width: calc(100% - 20px); padding-top: 18px; }
 }
 
-/* Theme variants — background gradient accent per theme */
-[data-theme="midnight"] body {
-  background:
-    radial-gradient(circle at 12% -10%, color-mix(in srgb, var(--mantine-color-violet-7) 22%, transparent), transparent 34rem),
-    var(--mantine-color-body);
+.header-btn {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--mantine-color-gray-3);
+  background: var(--mantine-color-white);
+  color: var(--mantine-color-dark-9);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  cursor: pointer;
+  font-family: inherit;
+  outline: none;
+  transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, transform 0.1s ease;
 }
 
-[data-theme="warm"] body {
-  background:
-    radial-gradient(circle at 12% -10%, color-mix(in srgb, var(--mantine-color-orange-5) 20%, transparent), transparent 34rem),
-    var(--mantine-color-body);
+[data-mantine-color-scheme="dark"] .header-btn {
+  border-color: var(--mantine-color-dark-4);
+  background: var(--mantine-color-dark-6);
+  color: var(--mantine-color-dark-0);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
-[data-theme="forest"] body {
+.header-btn:hover {
+  background: var(--mantine-color-gray-0);
+  border-color: var(--mantine-color-gray-4);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.10);
+}
+
+[data-mantine-color-scheme="dark"] .header-btn:hover {
+  background: var(--mantine-color-dark-5);
+  border-color: var(--mantine-color-dark-3);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+.header-btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+/* Accent backgrounds — unique gradient position per accent; color auto-inherits from JS-overridden --mantine-color-teal-* vars */
+[data-accent="amber"] body {
   background:
-    radial-gradient(circle at 12% -10%, color-mix(in srgb, var(--mantine-color-green-7) 22%, transparent), transparent 34rem),
+    radial-gradient(circle at 5% 92%, color-mix(in srgb, var(--mantine-color-teal-6) 27%, transparent), transparent 62rem),
     var(--mantine-color-body);
+  background-attachment: fixed;
+}
+
+[data-accent="ocean"] body {
+  background:
+    radial-gradient(circle at 90% -8%, color-mix(in srgb, var(--mantine-color-teal-5) 24%, transparent), transparent 58rem),
+    var(--mantine-color-body);
+  background-attachment: fixed;
+}
+
+[data-accent="violet"] body {
+  background:
+    radial-gradient(circle at 18% -8%, color-mix(in srgb, var(--mantine-color-teal-6) 38%, transparent), transparent 70rem),
+    var(--mantine-color-body);
+  background-attachment: fixed;
+}
+
+[data-accent="rose"] body {
+  background:
+    radial-gradient(circle at 82% 12%, color-mix(in srgb, var(--mantine-color-teal-6) 32%, transparent), transparent 62rem),
+    var(--mantine-color-body);
+  background-attachment: fixed;
+}
+
+/* Table actions row hover reveal */
+.table-actions {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.mantine-Table-tr:hover .table-actions {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .table-actions {
+    opacity: 1;
+  }
+}
+
+/* Subtle tab switch fade animation */
+.tab-content {
+  animation: fadeInTab 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeInTab {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

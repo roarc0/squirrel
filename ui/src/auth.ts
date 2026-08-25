@@ -28,6 +28,7 @@ export type AuthUser = {
   google_id: string;
   email: string;
   is_admin: boolean;
+  picture?: string;
 };
 
 export async function fetchMe(): Promise<AuthUser | null> {

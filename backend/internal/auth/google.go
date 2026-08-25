@@ -12,8 +12,9 @@ import (
 
 // GoogleUserInfo holds the fields we extract from Google's userinfo endpoint.
 type GoogleUserInfo struct {
-	Sub   string `json:"sub"`
-	Email string `json:"email"`
+	Sub     string `json:"sub"`
+	Email   string `json:"email"`
+	Picture string `json:"picture"`
 }
 
 func newGoogleOAuthConfig(clientID, clientSecret, redirectURL string) *oauth2.Config {
@@ -21,7 +22,7 @@ func newGoogleOAuthConfig(clientID, clientSecret, redirectURL string) *oauth2.Co
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		RedirectURL:  redirectURL,
-		Scopes:       []string{"openid", "email"},
+		Scopes:       []string{"openid", "email", "profile"},
 		Endpoint:     google.Endpoint,
 	}
 }

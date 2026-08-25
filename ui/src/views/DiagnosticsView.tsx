@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { Badge, Box, Button, Card, Group, SimpleGrid, Stack, Text, Title } from '@mantine/core';
+import { Badge, Button, Card, Group, SimpleGrid, Text } from '@mantine/core';
 import type { Diagnostic } from '../api';
 import { Empty } from '../components/Empty';
 import { label } from '../utils/format';
+import { ViewShell } from '../components/ViewShell';
+import { SectionHeader } from '../components/SectionHeader';
 
 export function DiagnosticsView({
   diagnostics,
@@ -21,30 +23,30 @@ export function DiagnosticsView({
     : diagnostics.filter(d => d.category === selectedCategory);
 
   return (
-    <Stack gap="lg">
-      <Group justify="space-between" align="start">
-        <Box>
-          <Title order={2}>Portfolio Diagnostics</Title>
-          <Text c="dimmed">Deterministic rule-based observations to keep your portfolio optimized.</Text>
-        </Box>
-        <Group gap="xs">
-          {categories.map(cat => {
-            const count = cat === 'all' ? diagnostics.length : diagnostics.filter(d => d.category === cat).length;
-            if (cat !== 'all' && count === 0) return null;
-            return (
-              <Button
-                key={cat}
-                size="xs"
-                variant={selectedCategory === cat ? 'filled' : 'light'}
-                color={selectedCategory === cat ? 'teal' : 'gray'}
-                onClick={() => setSelectedCategory(cat)}
-              >
-                {label(cat)} ({count})
-              </Button>
-            );
-          })}
-        </Group>
-      </Group>
+    <ViewShell>
+      <SectionHeader
+        title="Portfolio Diagnostics"
+        subtitle="Deterministic rule-based observations to keep your portfolio optimized."
+        actions={
+          <Group gap="xs">
+            {categories.map(cat => {
+              const count = cat === 'all' ? diagnostics.length : diagnostics.filter(d => d.category === cat).length;
+              if (cat !== 'all' && count === 0) return null;
+              return (
+                <Button
+                  key={cat}
+                  size="xs"
+                  variant={selectedCategory === cat ? 'filled' : 'light'}
+                  color={selectedCategory === cat ? 'teal' : 'gray'}
+                  onClick={() => setSelectedCategory(cat)}
+                >
+                  {label(cat)} ({count})
+                </Button>
+              );
+            })}
+          </Group>
+        }
+      />
 
       {diagnostics.length === 0 ? (
         <Empty
@@ -82,6 +84,6 @@ export function DiagnosticsView({
           ))}
         </SimpleGrid>
       )}
-    </Stack>
+    </ViewShell>
   );
 }

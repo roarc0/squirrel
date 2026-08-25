@@ -17,12 +17,12 @@ function CodeBlock({ code, language }: { code: string; language?: string }) {
       radius="md"
       my="xs"
       style={{
-        backgroundColor: '#141517',
-        borderColor: '#2c2e33',
+        backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))',
+        borderColor: 'light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-5))',
         overflow: 'hidden',
       }}
     >
-      <Group justify="space-between" px="sm" py={4} style={{ backgroundColor: '#1a1b1e', borderBottom: '1px solid #2c2e33' }}>
+      <Group justify="space-between" px="sm" py={4} style={{ backgroundColor: 'light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-7))', borderBottom: '1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-5))' }}>
         <Badge size="xs" color="teal" variant="light" tt="lowercase" ff="monospace">
           {language || 'code'}
         </Badge>
@@ -33,7 +33,7 @@ function CodeBlock({ code, language }: { code: string; language?: string }) {
         </Tooltip>
       </Group>
       <Box p="sm" style={{ overflowX: 'auto' }}>
-        <Code block style={{ backgroundColor: 'transparent', padding: 0, margin: 0, fontFamily: 'monospace', fontSize: 13, color: '#e0e0e0', lineHeight: 1.5 }}>
+        <Code block style={{ backgroundColor: 'transparent', padding: 0, margin: 0, fontFamily: 'monospace', fontSize: 13, color: 'inherit', lineHeight: 1.5 }}>
           {code}
         </Code>
       </Box>

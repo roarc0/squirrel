@@ -15,6 +15,7 @@ const sessionDuration = 30 * 24 * time.Hour
 type sessionClaims struct {
 	Sub   string `json:"sub"`
 	Email string `json:"email"`
+	Pic   string `json:"pic,omitempty"`
 	Exp   int64  `json:"exp"`
 	Iat   int64  `json:"iat"`
 }
@@ -22,10 +23,11 @@ type sessionClaims struct {
 var jwtHeader = base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256","typ":"JWT"}`))
 
 // SignSession creates a signed HS256 JWT for the given Google identity.
-func SignSession(secret, googleID, email string) (string, error) {
+func SignSession(secret, googleID, email, picture string) (string, error) {
 	claims := sessionClaims{
 		Sub:   googleID,
 		Email: email,
+		Pic:   picture,
 		Exp:   time.Now().Add(sessionDuration).Unix(),
 		Iat:   time.Now().Unix(),
 	}
@@ -59,7 +61,7 @@ func VerifySession(secret, token string) (User, error) {
 	if time.Now().Unix() > claims.Exp {
 		return User{}, errors.New("token expired")
 	}
-	return User{GoogleID: claims.Sub, Email: claims.Email}, nil
+	return User{GoogleID: claims.Sub, Email: claims.Email, Picture: claims.Pic}, nil
 }
 
 func hmacSHA256(secret, data string) string {

@@ -6,6 +6,7 @@ import "errors"
 type User struct {
 	GoogleID string
 	Email    string
+	Picture  string
 }
 
 var ErrUnauthenticated = errors.New("unauthenticated")

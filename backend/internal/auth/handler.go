@@ -71,7 +71,7 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	token, err := SignSession(h.secret, info.Sub, info.Email)
+	token, err := SignSession(h.secret, info.Sub, info.Email, info.Picture)
 	if err != nil {
 		http.Error(w, "session creation failed", http.StatusInternalServerError)
 		return
@@ -99,6 +99,7 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 		"google_id": user.GoogleID,
 		"email":     user.Email,
 		"is_admin":  isAdmin,
+		"picture":   user.Picture,
 	})
 }
 

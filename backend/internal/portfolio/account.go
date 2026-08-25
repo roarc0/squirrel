@@ -55,28 +55,30 @@ func CalculateRevenue(account Account, references map[string]int64) (Revenue, []
 		return Revenue{}, nil, err
 	}
 	resolved := append([]InterestTier(nil), account.Tiers...)
-	var numerator, lower int64
+
+	// First pass: resolve every tier's effective rate regardless of balance coverage.
 	for i := range resolved {
 		tier := &resolved[i]
-		rate := tier.SpreadBPS
 		if tier.FixedRateBPS != nil {
-			rate += *tier.FixedRateBPS
+			tier.ResolvedRateBPS = *tier.FixedRateBPS + tier.SpreadBPS
 		} else {
-			var ok bool
-			rate, ok = references[strings.ToUpper(tier.ReferenceCode)]
+			refRate, ok := references[strings.ToUpper(tier.ReferenceCode)]
 			if !ok {
 				return Revenue{}, nil, fmt.Errorf("reference rate %q is not configured", tier.ReferenceCode)
 			}
-			rate += tier.SpreadBPS
+			tier.ResolvedRateBPS = refRate + tier.SpreadBPS
 		}
-		tier.ResolvedRateBPS = rate
+	}
 
+	// Second pass: calculate revenue using the balance covered by each tier.
+	var numerator, lower int64
+	for i := range resolved {
 		upper := account.BalanceMinor
-		if tier.UpToMinor != nil && *tier.UpToMinor < upper {
-			upper = *tier.UpToMinor
+		if resolved[i].UpToMinor != nil && *resolved[i].UpToMinor < upper {
+			upper = *resolved[i].UpToMinor
 		}
 		if upper > lower {
-			numerator += (upper - lower) * rate
+			numerator += (upper - lower) * resolved[i].ResolvedRateBPS
 		}
 		lower = upper
 		if lower >= account.BalanceMinor {

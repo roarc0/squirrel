@@ -22,10 +22,13 @@ import { api, type Holding, type Instrument, type Snapshot, type Summary } from 
 import { AllocationBar, PerformanceResult, useBackendRows } from '../App';
 import { Empty } from '../components/Empty';
 import { DataTable, TableAction, TableActions, type DataColumn } from '../DataTable';
+import { IconPencil, IconTrash } from '@tabler/icons-react';
 import { compactMoney, investedMoney, label, money } from '../utils/format';
 import { chartGeometry, filterChartRange, nearestChartIndex, type ChartRange } from '../visual';
 import { useConfirmDelete } from '../components/ConfirmDeleteModal';
 import { useProfile } from '../hooks/useProfile';
+import { ViewShell } from '../components/ViewShell';
+import { SectionHeader } from '../components/SectionHeader';
 
 type Data = { summary: Summary; accounts: any[]; rates: any[]; taxRates: any[]; instruments: Instrument[]; holdings: Holding[]; snapshots: Snapshot[] };
 type Numeric = string | number;
@@ -128,8 +131,8 @@ function EmergencyReserveCard({ cashMinor, currency }: { cashMinor: number; curr
       <Group justify="space-between" mb="xs">
         <Group gap="xs">
           <Text fw={700} size="sm">Emergency Reserve</Text>
-          <Button size="xs" variant="subtle" color="gray" onClick={() => { setDraftGoal(goal); setEditing(true); }}>
-            ✎ Goal
+          <Button size="xs" variant="subtle" color="gray" leftSection={<IconPencil size={12} />} onClick={() => { setDraftGoal(goal); setEditing(true); }}>
+            Goal
           </Button>
         </Group>
         <Badge color={pct >= 100 ? 'teal' : pct >= 50 ? 'blue' : 'orange'} variant="filled">
@@ -178,8 +181,8 @@ function FreedomCalculatorCard({ totalWealthMinor, currency }: { totalWealthMino
       <Group justify="space-between" mb="xs">
         <Group gap="xs">
           <Text fw={700} size="sm">Financial Independence (FIRE) & SWR</Text>
-          <Button size="xs" variant="subtle" color="gray" onClick={() => { setDraftExpenses(annualExpenses); setEditing(true); }}>
-            ✎ Expenses Goal
+          <Button size="xs" variant="subtle" color="gray" leftSection={<IconPencil size={12} />} onClick={() => { setDraftExpenses(annualExpenses); setEditing(true); }}>
+            Expenses Goal
           </Button>
         </Group>
         <Badge color={fireProgressPct >= 100 ? 'teal' : 'blue'} variant="filled">
@@ -219,34 +222,34 @@ export function OverviewView({ data, reload, onSwitchTab }: { data: Data; reload
   const [profile] = useProfile();
   const currencies = data.summary.currencies ?? [];
   const diagnostics = data.summary.diagnostics ?? [];
-  return <Stack gap="xl">
-    {diagnostics.length > 0 && (
-      <Paper withBorder p="md" radius="lg">
-        <Group justify="space-between" align="center">
-          <Group gap="sm">
-            <Badge color="orange" size="lg" variant="light">{diagnostics.length}</Badge>
-            <Box>
-              <Text fw={700} size="sm">Portfolio Diagnostics Detected</Text>
-              <Text size="xs" c="dimmed">{diagnostics[0].title}: {diagnostics[0].message.slice(0, 110)}...</Text>
-            </Box>
+  return (
+    <ViewShell>
+      {diagnostics.length > 0 && (
+        <Paper withBorder p="md" radius="lg">
+          <Group justify="space-between" align="center">
+            <Group gap="sm">
+              <Badge color="orange" size="lg" variant="light">{diagnostics.length}</Badge>
+              <Box>
+                <Text fw={700} size="sm">Portfolio Diagnostics Detected</Text>
+                <Text size="xs" c="dimmed">{diagnostics[0].title}: {diagnostics[0].message.slice(0, 110)}...</Text>
+              </Box>
+            </Group>
+            <Button size="xs" variant="light" color="orange" onClick={() => onSwitchTab('diagnostics')}>
+              View Diagnostics tab →
+            </Button>
           </Group>
-          <Button size="xs" variant="light" color="orange" onClick={() => onSwitchTab('diagnostics')}>
-            View Diagnostics tab →
-          </Button>
-        </Group>
-      </Paper>
-    )}
-    {currencies.length === 0 ? <Empty title="No accounts yet" text="Add a bank or brokerage account to see your allocation." /> : currencies.map(item => {
-      const allocations = (item.allocations ?? []).filter(allocation => allocation.value_minor > 0);
-      return (
-      <Box key={item.currency}>
-        <Group justify="space-between" mb="sm">
-          <Group gap="xs">
-            <Title order={3}>Assets</Title>
-            <Badge color="teal" variant="light" size="sm">{item.currency}</Badge>
-          </Group>
-          <Text c="dimmed">Current rough situation</Text>
-        </Group>
+        </Paper>
+      )}
+      {currencies.length === 0 ? <Empty title="No accounts yet" text="Add a bank or brokerage account to see your allocation." /> : currencies.map(item => {
+        const allocations = (item.allocations ?? []).filter(allocation => allocation.value_minor > 0);
+        return (
+        <Box key={item.currency}>
+          <SectionHeader
+            title="Assets"
+            subtitle="Current rough situation"
+            badge={<Badge color="teal" variant="light" size="sm">{item.currency}</Badge>}
+            order={3}
+          />
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 5 }}>
           <Metric label="Cash balance" value={money(item.balance_minor, item.currency)} />
           <InvestmentMetric value={item.portfolio_minor} invested={item.invested_minor} currency={item.currency} />
@@ -281,7 +284,8 @@ export function OverviewView({ data, reload, onSwitchTab }: { data: Data; reload
       </Box>
     )})}
     <SnapshotHistory snapshots={data.snapshots} currency={data.summary.base_currency} reload={reload} />
-  </Stack>;
+  </ViewShell>
+  );
 }
 
 function SnapshotHistory({ snapshots, currency, reload }: { snapshots: Snapshot[]; currency: string; reload: () => Promise<void> }) {
@@ -299,10 +303,10 @@ function SnapshotHistory({ snapshots, currency, reload }: { snapshots: Snapshot[
   const columns: DataColumn<Snapshot>[] = [
     { key: 'date', label: 'Date', sortable: true, render: item => new Date(`${item.observed_on}T00:00:00`).toLocaleDateString() },
     { key: 'currency', label: 'Currency', sortable: true, render: item => item.currency },
-    { key: 'cash', label: 'Cash', sortable: true, render: item => money(item.cash_minor, item.currency) },
-    { key: 'portfolio', label: 'Investments', sortable: true, render: item => money(item.portfolio_minor, item.currency) },
-    { key: 'total', label: 'Total', sortable: true, render: item => money(item.total_minor, item.currency) },
-    { key: 'actions', render: item => <TableActions><TableAction label="Edit snapshot" onClick={() => setEditing(item)}>✎</TableAction><TableAction label="Delete snapshot" color="red" onClick={() => removeSnapshot(item)}>×</TableAction></TableActions> },
+    { key: 'cash', label: 'Cash', sortable: true, align: 'right', render: item => money(item.cash_minor, item.currency) },
+    { key: 'portfolio', label: 'Investments', sortable: true, align: 'right', render: item => money(item.portfolio_minor, item.currency) },
+    { key: 'total', label: 'Total', sortable: true, align: 'right', render: item => money(item.total_minor, item.currency) },
+    { key: 'actions', align: 'right', render: item => <TableActions><TableAction label="Edit snapshot" onClick={() => setEditing(item)}><IconPencil size={14} /></TableAction><TableAction label="Delete snapshot" color="red" onClick={() => removeSnapshot(item)}><IconTrash size={14} /></TableAction></TableActions> },
   ];
   const save = async () => { setSaving(true); try { await api('/api/snapshots', { method: 'POST', body: JSON.stringify({ observed_on: observedOn }) }); setError(''); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } finally { setSaving(false); } };
   return <Stack gap="md"><Group justify="space-between" align="end"><Box><Title order={3}>Wealth history</Title><Text c="dimmed">A snapshot copies every account's cash and investment holdings for that date.</Text></Box><Group align="end"><TextInput type="date" label="Snapshot date" value={observedOn} onChange={event => setObservedOn(event.currentTarget.value)} /><Button loading={saving} onClick={() => void save()}>Save snapshot</Button></Group></Group>
@@ -342,8 +346,10 @@ function WealthChart({ snapshots, currency }: { snapshots: Snapshot[]; currency:
   const dates = [0, Math.floor((shown.length - 1) / 2), shown.length - 1].filter((index, position, all) => all.indexOf(index) === position);
 
   return <Card className="metric" p="lg" radius="lg"><Stack gap="sm">
-    <Text fw={700}>Wealth over time</Text>
-    <SegmentedControl fullWidth size="xs" value={range} onChange={value => setRange(value as ChartRange)} data={['1w', '2w', '1m', '3m', '6m', '1y', '3y', '5y', 'max']} />
+    <Group justify="space-between" align="center" wrap="nowrap">
+      <Text fw={700}>Wealth over time</Text>
+      <SegmentedControl size="xs" value={range} onChange={value => setRange(value as ChartRange)} data={['1w', '2w', '1m', '3m', '6m', '1y', '3y', '5y', 'max']} />
+    </Group>
     <Group gap="xs" role="group" aria-label="Chart series">
       {metricKeys.map(key => <Button key={key} size="compact-xs" variant={visible.includes(key) ? 'light' : 'subtle'} color={metrics[key].color} aria-pressed={visible.includes(key)} style={{ opacity: visible.includes(key) ? 1 : 0.45 }} leftSection={<Box w={14} h={2} bg={`${metrics[key].color}.5`} />} onClick={() => setVisible(current => current.includes(key) ? current.filter(item => item !== key) : [...current, key])}>{metrics[key].label}</Button>)}
     </Group>

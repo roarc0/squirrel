@@ -50,6 +50,8 @@ import { matchesExactFilters, pageBounds } from '../visual';
 import { useConfirmDelete } from '../components/ConfirmDeleteModal';
 import { useProfile, getProfile } from '../hooks/useProfile';
 import { useQueryParam, useQueryParamObject } from '../hooks/useQueryParam';
+import { ViewShell } from '../components/ViewShell';
+import { SectionHeader } from '../components/SectionHeader';
 
 type Numeric = string | number;
 const n = (value: Numeric | undefined) => (value === '' || value === undefined ? 0 : Number(value));
@@ -221,7 +223,7 @@ export function InstrumentFinderView({ instruments, reload }: { instruments: Ins
     { key: 'replication', label: 'Replication', render: item => replicationLabel(item.replication) },
     { key: 'ter', label: 'TER', render: item => percent(item.ter_bps) },
     { key: 'size', label: 'Size', render: item => `${item.fund_size_million.toLocaleString()}m` },
-    { key: 'actions', render: item => <TableActions><TableAction label={`Open ${item.isin} on justETF`} href={item.source_url} disabled={!item.source_url}>↗</TableAction></TableActions> },
+    { key: 'actions', render: item => <TableActions><TableAction label={`Open ${item.isin} on justETF`} href={item.source_url} disabled={!item.source_url}><IconExternalLink size={14} /></TableAction></TableActions> },
   ];
   const catalogColumns: DataColumn<CatalogRow>[] = [
     {
@@ -304,8 +306,19 @@ export function InstrumentFinderView({ instruments, reload }: { instruments: Ins
 
   const [catalogToolsOpen, setCatalogToolsOpen] = useState(false);
 
-  return <Stack gap="lg"><Group justify="space-between"><Box><Title order={2}>Instrument finder</Title><Text c="dimmed">Store investments of any type locally. justETF lookup and comparison remain focused on exchange-traded products.</Text></Box><Group gap="sm"><Button variant="light" color="gray" onClick={() => setCatalogToolsOpen(v => !v)}>{catalogToolsOpen ? 'Hide Catalog Tools ▲' : 'Catalog Tools & Search ▼'}</Button><Button onClick={() => open()}>Add instrument</Button></Group></Group>
-    {(error || catalog.sortError) && <Alert color="red">{error || catalog.sortError}</Alert>}{notice && <Alert color="teal" withCloseButton onClose={() => setNotice('')}>{notice}</Alert>}
+  return (
+    <ViewShell error={error || catalog.sortError}>
+      <SectionHeader
+        title="Instrument finder"
+        subtitle="Store investments of any type locally. justETF lookup and comparison remain focused on exchange-traded products."
+        actions={
+          <Group gap="sm">
+            <Button variant="light" color="gray" onClick={() => setCatalogToolsOpen(v => !v)}>{catalogToolsOpen ? 'Hide Catalog Tools ▲' : 'Catalog Tools & Search ▼'}</Button>
+            <Button onClick={() => open()}>Add instrument</Button>
+          </Group>
+        }
+      />
+      {notice && <Alert color="teal" withCloseButton onClose={() => setNotice('')}>{notice}</Alert>}
     <Collapse expanded={catalogToolsOpen}>
       <Stack gap="md">
         <Paper className="metric" p="lg" radius="lg"><Group justify="space-between" align="end" wrap="wrap"><Box><Text fw={700}>Local catalog health</Text><Text size="sm" c="dimmed">{instruments.length.toLocaleString()} total · {refreshedCount.toLocaleString()} refreshed · {staleCount.toLocaleString()} stale (&gt;30d) · {nonUCITSCount.toLocaleString()} non-UCITS · Oldest refresh: {oldestRefreshDate}</Text></Box><Group wrap="wrap"><Button variant="light" loading={syncing} disabled={Boolean(streamController)} onClick={() => void syncCatalog()}>Sync catalog</Button><Button variant="light" disabled={Boolean(streamController)} onClick={() => void streamEnrichment('discover')}>Discover remaining UCITS</Button><Button variant="light" loading={enriching} disabled={Boolean(streamController) || refreshedCount === instruments.length} onClick={() => void enrichCatalog()}>Refresh next 20</Button><Button disabled={Boolean(streamController) || instruments.length === 0} onClick={() => void streamEnrichment(refreshedCount < instruments.length ? 'missing' : 'oldest')}>Refresh all</Button>{streamController && <Button color="red" variant="light" onClick={() => streamController.abort()}>Stop</Button>}</Group></Group><Text size="xs" c="dimmed" mt="xs">Bulk sync and discovery stay UCITS-only; exact ticker/ISIN loads may add non-UCITS instruments. Refresh is rate-limited; after missing profiles are complete, the next run starts from the oldest.</Text>
@@ -392,7 +405,8 @@ export function InstrumentFinderView({ instruments, reload }: { instruments: Ins
       onShowAlternatives={showAlternatives}
     />
     {confirmDeleteModal}
-  </Stack>;
+  </ViewShell>
+  );
 }
 
 function InstrumentModal({ opened, close, instrument, saved }: { opened: boolean; close: () => void; instrument?: Instrument; saved: () => Promise<void> }) {

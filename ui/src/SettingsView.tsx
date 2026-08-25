@@ -20,6 +20,9 @@ import { useConfirmDelete } from './components/ConfirmDeleteModal';
 import { useProfile, isProfileLoaded } from './hooks/useProfile';
 import { money } from './utils/format';
 
+import { ViewShell } from './components/ViewShell';
+import { SectionHeader } from './components/SectionHeader';
+
 export function SettingsView({ reload }: { reload: () => Promise<void> }) {
   const [profile, setProfile] = useProfile();
   const loaded = isProfileLoaded();
@@ -68,13 +71,11 @@ export function SettingsView({ reload }: { reload: () => Promise<void> }) {
   };
 
   return (
-    <Stack gap="xl">
-      <Group justify="space-between" align="center">
-        <Title order={2}>Settings</Title>
-        {loaded && <Badge variant="dot" color="teal" size="sm">Synced to your account</Badge>}
-      </Group>
-
-      {error && <Alert color="red" withCloseButton onClose={() => setError('')}>{error}</Alert>}
+    <ViewShell error={error} onCloseError={() => setError('')}>
+      <SectionHeader
+        title="Settings"
+        badge={loaded ? <Badge variant="dot" color="teal" size="sm">Synced to your account</Badge> : undefined}
+      />
       {notice && <Alert color="teal" withCloseButton onClose={() => setNotice('')}>{notice}</Alert>}
 
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
@@ -184,6 +185,6 @@ export function SettingsView({ reload }: { reload: () => Promise<void> }) {
 
       <Divider />
       {confirmDeleteModal}
-    </Stack>
+    </ViewShell>
   );
 }

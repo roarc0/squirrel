@@ -19,10 +19,13 @@ import {
   IconEyeOff,
   IconPalette,
   IconSettings,
+  IconTrendingUp,
+  IconTrendingDown,
 } from '@tabler/icons-react';
 import {
   ActionIcon,
   Alert,
+  Avatar,
   Badge,
   Box,
   Button,
@@ -38,6 +41,7 @@ import {
   NumberInput,
   Pagination,
   Paper,
+  Popover,
   Progress,
   SegmentedControl,
   Select,
@@ -49,21 +53,23 @@ import {
   TextInput,
   Title,
   Tooltip,
+  UnstyledButton,
   useMantineColorScheme,
 } from '@mantine/core';
 import { api, instrumentClient, type Account, type Diagnostic, type Instrument, type InstrumentAlternative, type InstrumentType, type Holding, type RankedInstrument, type ReferenceRate, type Snapshot, type Summary, type TaxRate } from './api';
 import { Chip, chipColor } from './Chip';
 import { DataTable, TableAction, TableActions, type DataColumn, type SortDirection } from './DataTable';
 import { CompareModal } from './CompareModal';
+import { AppSkeleton } from './components/AppSkeleton';
 import { InvestModal } from './InvestModal';
 import { SettingsView } from './SettingsView';
 import { UpdateSituationModal } from './UpdateSituationModal';
 import { OverviewView } from './views/OverviewView';
 import { AccountsView } from './views/AccountsView';
-import { HoldingsView } from './views/HoldingsView';
+import { InvestmentsView } from './views/InvestmentsView';
 import { InstrumentFinderView } from './views/InstrumentFinderView';
 import { DiagnosticsView } from './views/DiagnosticsView';
-import { AIAdvisorView } from './views/AIAdvisorView';
+import { AIConsultantView } from './views/AIConsultantView';
 import { DraftPortfoliosView } from './views/DraftPortfoliosView';
 import { chartGeometry, matchesExactFilters, pageBounds, performanceMood } from './visual';
 
@@ -74,10 +80,66 @@ import { captureTokenFromURL, clearToken, fetchMe, isUnauthenticatedError, type 
 import { LoginView } from './LoginView';
 import { loadProfile, useProfile } from './hooks/useProfile';
 
-type AppTheme = 'light' | 'dark' | 'midnight' | 'warm' | 'forest';
-const THEMES: AppTheme[] = ['light', 'dark', 'midnight', 'warm', 'forest'];
-const THEME_LABELS: Record<AppTheme, string> = { light: 'Light', dark: 'Dark', midnight: 'Midnight', warm: 'Warm', forest: 'Forest' };
-const themeScheme = (t: AppTheme): 'light' | 'dark' => (t === 'light' || t === 'warm' ? 'light' : 'dark');
+type ThemeAccent = 'teal' | 'amber' | 'ocean' | 'violet' | 'rose';
+type ThemeScheme = 'light' | 'dark';
+
+const ACCENT_HEX: Record<ThemeAccent, string> = {
+  teal: '#12b886', amber: '#fab005', ocean: '#228be6', violet: '#7950f2', rose: '#e64980',
+};
+const ACCENT_LABELS: Record<ThemeAccent, string> = {
+  teal: 'Teal', amber: 'Amber', ocean: 'Ocean', violet: 'Violet', rose: 'Rose',
+};
+const ACCENTS = Object.keys(ACCENT_HEX) as ThemeAccent[];
+
+const TEAL_VAR_KEYS = [
+  '--mantine-color-teal-0', '--mantine-color-teal-1', '--mantine-color-teal-2',
+  '--mantine-color-teal-3', '--mantine-color-teal-4', '--mantine-color-teal-5',
+  '--mantine-color-teal-6', '--mantine-color-teal-7', '--mantine-color-teal-8', '--mantine-color-teal-9',
+  '--mantine-color-teal-filled', '--mantine-color-teal-filled-hover',
+  '--mantine-color-teal-light', '--mantine-color-teal-light-hover', '--mantine-color-teal-light-color',
+  '--mantine-color-teal-outline', '--mantine-color-teal-outline-hover',
+];
+
+const ACCENT_VARS: Record<ThemeAccent, Record<string, string>> = {
+  teal: {},
+  amber: {
+    '--mantine-color-teal-0': '#fff9db', '--mantine-color-teal-1': '#fff3bf', '--mantine-color-teal-2': '#ffec99',
+    '--mantine-color-teal-3': '#ffe066', '--mantine-color-teal-4': '#ffd43b', '--mantine-color-teal-5': '#fcc419',
+    '--mantine-color-teal-6': '#fab005', '--mantine-color-teal-7': '#f59f00', '--mantine-color-teal-8': '#e67700', '--mantine-color-teal-9': '#d9480f',
+    '--mantine-color-teal-filled': '#fab005', '--mantine-color-teal-filled-hover': '#f59f00',
+    '--mantine-color-teal-light': 'rgba(250,176,5,0.12)', '--mantine-color-teal-light-hover': 'rgba(250,176,5,0.15)',
+    '--mantine-color-teal-light-color': '#e67700', '--mantine-color-teal-outline': '#fab005', '--mantine-color-teal-outline-hover': 'rgba(250,176,5,0.05)',
+  },
+  ocean: {
+    '--mantine-color-teal-0': '#e7f5ff', '--mantine-color-teal-1': '#d0ebff', '--mantine-color-teal-2': '#a5d8ff',
+    '--mantine-color-teal-3': '#74c0fc', '--mantine-color-teal-4': '#4dabf7', '--mantine-color-teal-5': '#339af0',
+    '--mantine-color-teal-6': '#228be6', '--mantine-color-teal-7': '#1c7ed6', '--mantine-color-teal-8': '#1971c2', '--mantine-color-teal-9': '#1864ab',
+    '--mantine-color-teal-filled': '#228be6', '--mantine-color-teal-filled-hover': '#1c7ed6',
+    '--mantine-color-teal-light': 'rgba(34,139,230,0.12)', '--mantine-color-teal-light-hover': 'rgba(34,139,230,0.15)',
+    '--mantine-color-teal-light-color': '#1c7ed6', '--mantine-color-teal-outline': '#228be6', '--mantine-color-teal-outline-hover': 'rgba(34,139,230,0.05)',
+  },
+  violet: {
+    '--mantine-color-teal-0': '#f3f0ff', '--mantine-color-teal-1': '#e5dbff', '--mantine-color-teal-2': '#d0bfff',
+    '--mantine-color-teal-3': '#b197fc', '--mantine-color-teal-4': '#9775fa', '--mantine-color-teal-5': '#845ef7',
+    '--mantine-color-teal-6': '#7950f2', '--mantine-color-teal-7': '#6741d9', '--mantine-color-teal-8': '#5f3dc4', '--mantine-color-teal-9': '#5c37b8',
+    '--mantine-color-teal-filled': '#7950f2', '--mantine-color-teal-filled-hover': '#6741d9',
+    '--mantine-color-teal-light': 'rgba(121,80,242,0.15)', '--mantine-color-teal-light-hover': 'rgba(121,80,242,0.18)',
+    '--mantine-color-teal-light-color': '#9775fa', '--mantine-color-teal-outline': '#7950f2', '--mantine-color-teal-outline-hover': 'rgba(121,80,242,0.07)',
+  },
+  rose: {
+    '--mantine-color-teal-0': '#fff0f6', '--mantine-color-teal-1': '#ffdeeb', '--mantine-color-teal-2': '#fcc2d7',
+    '--mantine-color-teal-3': '#faa2c1', '--mantine-color-teal-4': '#f783ac', '--mantine-color-teal-5': '#f06595',
+    '--mantine-color-teal-6': '#e64980', '--mantine-color-teal-7': '#d6336c', '--mantine-color-teal-8': '#c2255c', '--mantine-color-teal-9': '#a61e4d',
+    '--mantine-color-teal-filled': '#e64980', '--mantine-color-teal-filled-hover': '#d6336c',
+    '--mantine-color-teal-light': 'rgba(230,73,128,0.15)', '--mantine-color-teal-light-hover': 'rgba(230,73,128,0.18)',
+    '--mantine-color-teal-light-color': '#f06595', '--mantine-color-teal-outline': '#e64980', '--mantine-color-teal-outline-hover': 'rgba(230,73,128,0.07)',
+  },
+};
+
+function applyAccentVars(a: ThemeAccent) {
+  TEAL_VAR_KEYS.forEach(k => document.documentElement.style.removeProperty(k));
+  Object.entries(ACCENT_VARS[a]).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
+}
 
 export function useBackendRows<T>(endpoint: string, source: T[], initialSort = '', initialDirection: SortDirection = 'asc') {
   const [rows, setRows] = useState(source);
@@ -128,11 +190,12 @@ export default function App() {
 
   const [updateModalOpened, setUpdateModalOpened] = useState(false);
 
-  const VALID_TABS = ['overview', 'accounts', 'holdings', 'drafts', 'instruments', 'diagnostics', 'advisor', 'settings'];
+  const VALID_TABS = ['overview', 'accounts', 'investments', 'holdings', 'drafts', 'instruments', 'diagnostics', 'consultant', 'advisor', 'settings'];
 
   const [activeTab, setActiveTab] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
-    const urlTab = params.get('tab');
+    const rawTab = params.get('tab');
+    const urlTab = rawTab === 'holdings' ? 'investments' : rawTab === 'advisor' ? 'consultant' : rawTab;
     if (urlTab && VALID_TABS.includes(urlTab)) {
       return urlTab;
     }
@@ -141,8 +204,9 @@ export default function App() {
     }
     try {
       const saved = localStorage.getItem('loot.activeTab');
-      if (saved && VALID_TABS.includes(saved)) {
-        return saved;
+      const normSaved = saved === 'holdings' ? 'investments' : saved === 'advisor' ? 'consultant' : saved;
+      if (normSaved && VALID_TABS.includes(normSaved)) {
+        return normSaved;
       }
     } catch {
       /* optional */
@@ -187,7 +251,13 @@ export default function App() {
   }, [hideBalances]);
 
   if (needsLogin) return <LoginView />;
-  if (!data) return <Group justify="center" h="100vh">{error ? <Alert color="red">{error}</Alert> : <Loader />}</Group>;
+  if (!data) {
+    return (
+      <main className="shell">
+        {error ? <Alert color="red">{error}</Alert> : <AppSkeleton />}
+      </main>
+    );
+  }
   setHideBalancesState(hideBalances);
   const diagnosticsCount = data.summary.diagnostics?.length ?? 0;
   return (
@@ -202,11 +272,16 @@ export default function App() {
             label={hideBalances ? 'Show' : 'Hide'}
             onClick={() => setHideBalances(v => !v)}
           />
-          <ThemeCycleButton />
+          <ThemePickerButton />
           {currentUser ? (
             <Menu shadow="md" width={240} position="bottom-end">
               <Menu.Target>
-                <HeaderIconButton icon={<IconUser size={16} />} label="Account" />
+                <HeaderIconButton
+                  icon={currentUser.picture
+                    ? <Avatar src={currentUser.picture} size={20} radius="xl" />
+                    : <IconUser size={16} />}
+                  label="Account"
+                />
               </Menu.Target>
               <Menu.Dropdown>
                 <Menu.Label>
@@ -251,8 +326,8 @@ export default function App() {
           <Tabs.Tab value="accounts" leftSection={<IconBuildingBank size={16} />}>
             Accounts
           </Tabs.Tab>
-          <Tabs.Tab value="holdings" leftSection={<IconBriefcase size={16} />}>
-            Holdings
+          <Tabs.Tab value="investments" leftSection={<IconBriefcase size={16} />}>
+            Investments
           </Tabs.Tab>
           <Tabs.Tab value="drafts" leftSection={<IconFlask size={16} />}>
             Portfolio Sandbox
@@ -267,17 +342,18 @@ export default function App() {
           >
             Diagnostics
           </Tabs.Tab>
-          <Tabs.Tab value="advisor" leftSection={<IconRobot size={16} />}>
-            AI Assistant
+          <Tabs.Tab value="consultant" leftSection={<IconRobot size={16} />}>
+            AI Consultant
           </Tabs.Tab>
           <Tabs.Tab value="settings" leftSection={<IconSettings size={16} />}>
             Settings
           </Tabs.Tab>
         </Tabs.List>
-        <Tabs.Panel value="overview"><Overview data={data} reload={load} onSwitchTab={handleTabChange} /></Tabs.Panel>
-        <Tabs.Panel value="accounts"><Accounts accounts={data.accounts} rates={data.rates} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
-        <Tabs.Panel value="holdings"><Holdings holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
-        <Tabs.Panel value="drafts">
+        <Tabs.Panel value="overview" className="tab-content"><Overview data={data} reload={load} onSwitchTab={handleTabChange} /></Tabs.Panel>
+        <Tabs.Panel value="accounts" className="tab-content"><Accounts accounts={data.accounts} rates={data.rates} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
+        <Tabs.Panel value="investments" className="tab-content"><Investments holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
+        <Tabs.Panel value="holdings" className="tab-content"><Investments holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
+        <Tabs.Panel value="drafts" className="tab-content">
           <DraftPortfoliosView
             holdings={data.holdings}
             instruments={data.instruments}
@@ -285,23 +361,31 @@ export default function App() {
             reload={load}
           />
         </Tabs.Panel>
-        <Tabs.Panel value="instruments"><InstrumentFinder instruments={data.instruments} reload={load} /></Tabs.Panel>
-        <Tabs.Panel value="diagnostics">
+        <Tabs.Panel value="instruments" className="tab-content"><InstrumentFinder instruments={data.instruments} reload={load} /></Tabs.Panel>
+        <Tabs.Panel value="diagnostics" className="tab-content">
           <DiagnosticsTab
             diagnostics={data.summary.diagnostics ?? []}
             onOpenSettings={() => handleTabChange('settings')}
-            onOpenInvest={() => handleTabChange('holdings')}
+            onOpenInvest={() => handleTabChange('investments')}
           />
         </Tabs.Panel>
-        <Tabs.Panel value="advisor">
-          <AIAdvisorView
+        <Tabs.Panel value="consultant" className="tab-content">
+          <AIConsultantView
             summary={data.summary}
             accounts={data.accounts}
             holdings={data.holdings}
             instruments={data.instruments}
           />
         </Tabs.Panel>
-        <Tabs.Panel value="settings">
+        <Tabs.Panel value="advisor" className="tab-content">
+          <AIConsultantView
+            summary={data.summary}
+            accounts={data.accounts}
+            holdings={data.holdings}
+            instruments={data.instruments}
+          />
+        </Tabs.Panel>
+        <Tabs.Panel value="settings" className="tab-content">
           <SettingsView reload={load} />
         </Tabs.Panel>
       </Tabs>
@@ -357,51 +441,105 @@ function PerformanceMetric({ value, invested, currency }: { value: number; inves
 export function PerformanceResult({ value, invested, currency, mood = false }: { value: number; invested: number; currency: string; mood?: boolean }) {
   if (invested <= 0) return <Text size="sm" c="dimmed">—</Text>;
   const change = value - invested; const changePercent = change / invested * 100; const state = performanceMood(changePercent);
-  return <Group gap={6} wrap="nowrap" align="center">{mood && <Text title={state.label} size="lg" lh={1}>{state.emoji}</Text>}<Text size="sm" fw={700} c={change >= 0 ? 'teal' : 'red'}>{change >= 0 ? '+' : ''}{money(change, currency)} · {change >= 0 ? '+' : ''}{changePercent.toFixed(1)}%</Text></Group>;
+  return (
+    <Group gap={4} wrap="nowrap" align="center">
+      {mood && <Text title={state.label} size="lg" lh={1}>{state.emoji}</Text>}
+      {change >= 0 ? <IconTrendingUp size={14} color="var(--mantine-color-teal-6)" /> : <IconTrendingDown size={14} color="var(--mantine-color-red-6)" />}
+      <Text size="sm" fw={700} c={change >= 0 ? 'teal' : 'red'}>
+        {change >= 0 ? '+' : ''}{money(change, currency)} · {change >= 0 ? '+' : ''}{changePercent.toFixed(1)}%
+      </Text>
+    </Group>
+  );
 }
 
 const HeaderIconButton = React.forwardRef<HTMLButtonElement, { icon: React.ReactNode; label: string; onClick?: () => void }>(
   ({ icon, label, onClick }, ref) => (
-    <Stack gap={3} align="center">
-      <ActionIcon ref={ref} variant="default" size="lg" onClick={onClick} aria-label={label}>
-        {icon}
-      </ActionIcon>
-      <Text size="10px" c="dimmed" lh={1}>{label}</Text>
-    </Stack>
+    <button ref={ref} type="button" onClick={onClick} aria-label={label} className="header-btn">
+      {icon}
+      <Text size="xs" fw={500} lh={1}>{label}</Text>
+    </button>
   )
 );
 
-function ThemeCycleButton() {
+function ThemePickerButton() {
   const { setColorScheme } = useMantineColorScheme();
-  const [theme, setTheme] = useState<AppTheme>(() => {
-    const saved = localStorage.getItem('loot.theme') as AppTheme | null;
-    return saved && THEMES.includes(saved) ? saved : 'dark';
+  const [, setProfileField] = useProfile();
+  const [scheme, setScheme] = useState<ThemeScheme>(() => {
+    const s = localStorage.getItem('loot.scheme');
+    return s === 'light' ? 'light' : 'dark';
+  });
+  const [accent, setAccent] = useState<ThemeAccent>(() => {
+    const a = localStorage.getItem('loot.accent') as ThemeAccent | null;
+    return a && a in ACCENT_HEX ? a : 'teal';
   });
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    setColorScheme(themeScheme(theme));
+    applyAccentVars(accent);
+    document.documentElement.setAttribute('data-accent', accent);
+    setColorScheme(scheme);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const cycle = () => {
-    const next = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
-    localStorage.setItem('loot.theme', next);
-    setTheme(next);
-    document.documentElement.setAttribute('data-theme', next);
+  const apply = (s: ThemeScheme, a: ThemeAccent) => {
+    localStorage.setItem('loot.scheme', s);
+    localStorage.setItem('loot.accent', a);
+    applyAccentVars(a);
+    document.documentElement.setAttribute('data-accent', a);
+    setProfileField({ theme: `${s}:${a}` });
     if ('startViewTransition' in document) {
-      (document as any).startViewTransition(() => setColorScheme(themeScheme(next)));
+      (document as any).startViewTransition(() => setColorScheme(s));
     } else {
-      setColorScheme(themeScheme(next));
+      setColorScheme(s);
     }
   };
 
   return (
-    <HeaderIconButton
-      icon={<IconPalette size={16} />}
-      label={THEME_LABELS[theme]}
-      onClick={cycle}
-    />
+    <Popover position="bottom-end" withArrow shadow="md" width={184}>
+      <Popover.Target>
+        <HeaderIconButton
+          icon={<Box w={13} h={13} style={{ borderRadius: '50%', background: ACCENT_HEX[accent], flexShrink: 0 }} />}
+          label={scheme === 'light' ? 'Light' : 'Dark'}
+        />
+      </Popover.Target>
+      <Popover.Dropdown p={12}>
+        <Stack gap={8}>
+          <Text size="11px" fw={700} c="dimmed" style={{ letterSpacing: '0.06em', textTransform: 'uppercase' }}>Mode</Text>
+          <SegmentedControl
+            size="xs"
+            fullWidth
+            value={scheme}
+            onChange={v => { const s = v as ThemeScheme; setScheme(s); apply(s, accent); }}
+            data={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]}
+          />
+          <Divider my={2} />
+          <Text size="11px" fw={700} c="dimmed" style={{ letterSpacing: '0.06em', textTransform: 'uppercase' }}>Accent</Text>
+          <Group gap={8} wrap="nowrap">
+            {ACCENTS.map(a => (
+              <Tooltip key={a} label={ACCENT_LABELS[a]} position="bottom" withArrow>
+                <Box
+                  component="button"
+                  w={26} h={26}
+                  onClick={() => { setAccent(a); apply(scheme, a); }}
+                  aria-label={ACCENT_LABELS[a]}
+                  style={{
+                    borderRadius: '50%',
+                    background: ACCENT_HEX[a],
+                    cursor: 'pointer',
+                    border: 'none',
+                    padding: 0,
+                    flexShrink: 0,
+                    outline: a === accent ? `2px solid ${ACCENT_HEX[a]}` : '2px solid transparent',
+                    outlineOffset: 3,
+                    transform: a === accent ? 'scale(1.18)' : 'scale(1)',
+                    transition: 'transform 0.12s ease, outline-color 0.12s ease',
+                  }}
+                />
+              </Tooltip>
+            ))}
+          </Group>
+        </Stack>
+      </Popover.Dropdown>
+    </Popover>
   );
 }
 
@@ -421,8 +559,8 @@ function Accounts({ accounts, rates, taxRates, reload }: { accounts: Account[]; 
 
 type HoldingDraft = { accountID: string; instrumentID: string; value: Numeric; sinceBuy: Numeric; planned: Numeric; tax: Numeric };
 
-function Holdings({ holdings, accounts, instruments, taxRates, reload, onOpenDrafts }: { holdings: Holding[]; accounts: Account[]; instruments: Instrument[]; taxRates: TaxRate[]; reload: () => Promise<void>; onOpenDrafts?: () => void }) {
-  return <HoldingsView holdings={holdings} accounts={accounts} instruments={instruments} taxRates={taxRates} reload={reload} onOpenDrafts={onOpenDrafts} />;
+function Investments({ holdings, accounts, instruments, taxRates, reload, onOpenDrafts }: { holdings: Holding[]; accounts: Account[]; instruments: Instrument[]; taxRates: TaxRate[]; reload: () => Promise<void>; onOpenDrafts?: () => void }) {
+  return <InvestmentsView holdings={holdings} accounts={accounts} instruments={instruments} taxRates={taxRates} reload={reload} onOpenDrafts={onOpenDrafts} />;
 }
 
 function InstrumentFinder({ instruments, reload }: { instruments: Instrument[]; reload: () => Promise<void> }) {

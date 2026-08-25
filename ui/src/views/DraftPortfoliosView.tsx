@@ -23,13 +23,15 @@ import {
   Title,
   useCombobox,
 } from '@mantine/core';
-import { IconPencil, IconTrash, IconCopy } from '@tabler/icons-react';
+import { IconPencil, IconTrash, IconCopy, IconCamera, IconRepeat, IconPlus } from '@tabler/icons-react';
 import type { Account, Holding, Instrument } from '../api';
 import { AllocationBar } from '../App';
 import { Chip } from '../Chip';
 import { Empty } from '../components/Empty';
 import { money, percent } from '../utils/format';
 import { useConfirmDelete } from '../components/ConfirmDeleteModal';
+import { ViewShell } from '../components/ViewShell';
+import { SectionHeader } from '../components/SectionHeader';
 
 export type DraftAllocation = {
   instrument_id?: number;
@@ -256,26 +258,19 @@ export function DraftPortfoliosView({
   }
 
   return (
-    <Stack gap="lg">
-      <Group justify="space-between" align="end" wrap="wrap">
-        <Box>
-          <Group gap="xs">
-            <Title order={2}>Portfolio Sandbox</Title>
-            <Badge color="violet" variant="light">
-              Model Allocation Sandbox
-            </Badge>
-          </Group>
-          <Text c="dimmed">
-            Select a classic model portfolio or create custom draft allocations to experiment with target weights.
-          </Text>
-        </Box>
-        <Group gap="sm" align="end">
-          <Combobox
-            store={combobox}
-            onOptionSubmit={val => { setSelectedId(val); combobox.closeDropdown(); }}
-            width={420}
-            position="bottom-end"
-          >
+    <ViewShell>
+      <SectionHeader
+        title="Portfolio Sandbox"
+        subtitle="Select a classic model portfolio or create custom draft allocations to experiment with target weights."
+        badge={<Badge color="violet" variant="light">Model Allocation Sandbox</Badge>}
+        actions={
+          <Group gap="sm" align="center">
+            <Combobox
+              store={combobox}
+              onOptionSubmit={val => { setSelectedId(val); combobox.closeDropdown(); }}
+              width={420}
+              position="bottom-end"
+            >
             <Combobox.Target>
               <InputBase
                 component="button"
@@ -315,14 +310,15 @@ export function DraftPortfoliosView({
               </ScrollArea.Autosize>
             </Combobox.Dropdown>
           </Combobox>
-          <Button variant="light" color="teal" onClick={handleSnapshotCurrentHoldings}>
-            📸 Snapshot Real Holdings
+          <Button variant="light" color="teal" leftSection={<IconCamera size={14} />} onClick={handleSnapshotCurrentHoldings}>
+            Snapshot Real Holdings
           </Button>
-          <Button color="violet" onClick={handleCreateNew}>
-            + Create Custom Draft
+          <Button color="violet" leftSection={<IconPlus size={14} />} onClick={handleCreateNew}>
+            Create Custom Draft
           </Button>
         </Group>
-      </Group>
+        }
+      />
 
       {success && <Alert color="teal">{success}</Alert>}
 
@@ -592,6 +588,6 @@ export function DraftPortfoliosView({
         </Modal>
       )}
       {confirmDeleteModal}
-    </Stack>
+    </ViewShell>
   );
 }
