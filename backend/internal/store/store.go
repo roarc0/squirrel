@@ -54,151 +54,18 @@ func Open(path string) (*Store, error) {
 func (s *Store) Close() error { return s.db.Close() }
 
 func migrate(db *sql.DB) error {
-	// Handle backward compatibility for databases migrated with legacy PRAGMA user_version
-	var userVersion int
-	if err := db.QueryRow(`PRAGMA user_version`).Scan(&userVersion); err == nil && userVersion > 0 {
-		var hasGooseTable int
-		err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='goose_db_version'`).Scan(&hasGooseTable)
-		if err == nil && hasGooseTable == 0 {
-			// Pre-initialize goose version tracking for legacy DBs already at schema version 1..9
-			if _, err := db.Exec(`
-				CREATE TABLE goose_db_version (
-					id INTEGER PRIMARY KEY AUTOINCREMENT,
-					version_id INTEGER NOT NULL,
-					is_applied INTEGER NOT NULL,
-					tstamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-				);
-				INSERT INTO goose_db_version (version_id, is_applied) VALUES (1, 1);
-			`); err != nil {
-				return fmt.Errorf("initialize goose version table for legacy database: %w", err)
-			}
-		}
-	}
-
 	goose.SetBaseFS(embedMigrations)
 	goose.SetLogger(goose.NopLogger())
 	if err := goose.SetDialect("sqlite3"); err != nil {
 		return fmt.Errorf("set goose dialect: %w", err)
 	}
-
 	if err := goose.Up(db, "migrations"); err != nil {
 		return fmt.Errorf("run goose migrations: %w", err)
 	}
-
-	if err := ensurePACHoldingsColumns(db); err != nil {
-		return fmt.Errorf("ensure pac columns: %w", err)
-	}
-
-	if err := ensureNotesColumns(db); err != nil {
-		return fmt.Errorf("ensure notes columns: %w", err)
-	}
-
-	if err := ensureUserIDColumns(db); err != nil {
-		return fmt.Errorf("ensure user_id columns: %w", err)
-	}
-
-	if err := ensureSnapshotUserIDColumn(db); err != nil {
-		return fmt.Errorf("ensure snapshot user_id column: %w", err)
-	}
-
-	if err := ensureUserProfilesTable(db); err != nil {
-		return fmt.Errorf("ensure user_profiles table: %w", err)
-	}
-
-	return backfillInstrumentTypes(db)
-}
-
-func ensureNotesColumns(db *sql.DB) error {
-	var hasAccountNotes int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('accounts') WHERE name='notes'`).Scan(&hasAccountNotes); err == nil && hasAccountNotes == 0 {
-		_, _ = db.Exec(`ALTER TABLE accounts ADD COLUMN notes TEXT NOT NULL DEFAULT '';`)
-	}
-
-	var hasHoldings int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='holdings'`).Scan(&hasHoldings); err != nil || hasHoldings == 0 {
-		return nil
-	}
-	var hasHoldingNotes int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('holdings') WHERE name='notes'`).Scan(&hasHoldingNotes); err == nil && hasHoldingNotes == 0 {
-		_, _ = db.Exec(`ALTER TABLE holdings ADD COLUMN notes TEXT NOT NULL DEFAULT '';`)
-	}
 	return nil
-}
-
-func ensurePACHoldingsColumns(db *sql.DB) error {
-	var hasAccountPac int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('accounts') WHERE name='pac_amount_minor'`).Scan(&hasAccountPac); err == nil && hasAccountPac == 0 {
-		_, _ = db.Exec(`ALTER TABLE accounts ADD COLUMN pac_amount_minor INTEGER NOT NULL DEFAULT 0;`)
-	}
-
-	var hasHoldings int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='holdings'`).Scan(&hasHoldings); err != nil || hasHoldings == 0 {
-		return nil
-	}
-	var hasPacBps int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('holdings') WHERE name='pac_bps'`).Scan(&hasPacBps); err == nil && hasPacBps == 0 {
-		_, _ = db.Exec(`ALTER TABLE holdings ADD COLUMN pac_bps INTEGER NOT NULL DEFAULT 0;`)
-	}
-	var hasIsPac int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('holdings') WHERE name='is_pac'`).Scan(&hasIsPac); err == nil && hasIsPac == 0 {
-		_, _ = db.Exec(`
-			ALTER TABLE holdings ADD COLUMN is_pac INTEGER NOT NULL DEFAULT 0;
-			ALTER TABLE holdings ADD COLUMN pac_frequency TEXT NOT NULL DEFAULT 'monthly';
-		`)
-	}
-	return nil
-}
-
-func ensureUserIDColumns(db *sql.DB) error {
-	var hasUserID int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('accounts') WHERE name='user_id'`).Scan(&hasUserID); err == nil && hasUserID == 0 {
-		_, _ = db.Exec(`ALTER TABLE accounts ADD COLUMN user_id TEXT NOT NULL DEFAULT '';`)
-	}
-	return nil
-}
-
-func ensureSnapshotUserIDColumn(db *sql.DB) error {
-	var hasSnapshotsTable int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='snapshots'`).Scan(&hasSnapshotsTable); err != nil || hasSnapshotsTable == 0 {
-		return nil
-	}
-	var hasUserID int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('snapshots') WHERE name='user_id'`).Scan(&hasUserID); err != nil {
-		return err
-	}
-	if hasUserID > 0 {
-		return nil
-	}
-	if _, err := db.Exec(`PRAGMA foreign_keys = OFF`); err != nil {
-		return err
-	}
-	steps := []string{
-		`PRAGMA legacy_alter_table = ON`,
-		`ALTER TABLE snapshots RENAME TO snapshots_legacy`,
-		`CREATE TABLE snapshots (
-			id INTEGER PRIMARY KEY,
-			user_id TEXT NOT NULL DEFAULT '',
-			observed_on TEXT NOT NULL,
-			created_at TEXT NOT NULL,
-			UNIQUE(observed_on, user_id)
-		)`,
-		`INSERT INTO snapshots (id, user_id, observed_on, created_at)
-			SELECT id, '', observed_on, created_at FROM snapshots_legacy`,
-		`DROP TABLE snapshots_legacy`,
-		`PRAGMA legacy_alter_table = OFF`,
-	}
-	for _, step := range steps {
-		if _, err := db.Exec(step); err != nil {
-			db.Exec(`PRAGMA foreign_keys = ON`)
-			return err
-		}
-	}
-	_, err := db.Exec(`PRAGMA foreign_keys = ON`)
-	return err
 }
 
 // ClaimAdminData assigns all unclaimed accounts and snapshots (user_id='') to the given Google ID.
-// Called on first admin login so existing data becomes owned by the admin.
 func (s *Store) ClaimAdminData(ctx context.Context, googleID string) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -212,28 +79,4 @@ func (s *Store) ClaimAdminData(ctx context.Context, googleID string) error {
 		return err
 	}
 	return tx.Commit()
-}
-
-func backfillInstrumentTypes(db *sql.DB) error {
-	var hasName int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('instruments') WHERE name='name'`).Scan(&hasName); err != nil || hasName == 0 {
-		return err
-	}
-	_, err := db.Exec(`
-		UPDATE instruments SET instrument_type='etc' WHERE instrument_type='etf' AND upper(name) LIKE '% ETC%';
-		UPDATE instruments SET instrument_type='etn' WHERE instrument_type='etf' AND upper(name) LIKE '% ETN%';
-		UPDATE instruments SET asset_class='bond' WHERE asset_class IN ('', 'other') AND
-			(lower(investment_focus) LIKE 'bond%' OR lower(name) LIKE '% bond%' OR lower(index_name) LIKE '% treasury%');
-		UPDATE instruments SET asset_class='commodity' WHERE asset_class IN ('', 'other') AND
-			(lower(investment_focus) LIKE 'commodit%' OR lower(investment_focus) LIKE 'precious metal%' OR lower(name) LIKE '% gold%' OR lower(name) LIKE '% silver%');
-		UPDATE instruments SET asset_class='monetary' WHERE asset_class='money_market';
-		UPDATE instruments SET asset_class='monetary' WHERE asset_class IN ('', 'other') AND
-			(lower(investment_focus) LIKE 'money market%'
-			 OR lower(name) LIKE '%money market%'
-			 OR lower(index_name) LIKE '%money market%'
-			 OR lower(index_name) LIKE '%eonia%'
-			 OR lower(index_name) LIKE '%euribor%'
-			 OR lower(index_name) LIKE '%%str%'
-			 OR (lower(name) LIKE '%cash%' AND (lower(name) LIKE '%month%' OR lower(name) LIKE '%overnight%' OR lower(name) LIKE '%liquidity%')));`)
-	return err
 }

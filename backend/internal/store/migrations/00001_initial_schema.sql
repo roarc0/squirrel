@@ -9,6 +9,7 @@ CREATE TABLE reference_rates (
 
 CREATE TABLE accounts (
     id INTEGER PRIMARY KEY,
+    user_id TEXT NOT NULL DEFAULT '',
     name TEXT NOT NULL,
     institution TEXT NOT NULL DEFAULT '',
     account_type TEXT NOT NULL DEFAULT 'other' CHECK (account_type IN ('bank', 'broker', 'other')),
@@ -19,6 +20,7 @@ CREATE TABLE accounts (
     tax_bps INTEGER NOT NULL DEFAULT 0 CHECK (tax_bps BETWEEN 0 AND 10000),
     annual_fee_minor INTEGER NOT NULL DEFAULT 0 CHECK (annual_fee_minor >= 0),
     pac_amount_minor INTEGER NOT NULL DEFAULT 0 CHECK (pac_amount_minor >= 0),
+    notes TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -85,14 +87,17 @@ CREATE TABLE holdings (
     is_pac INTEGER NOT NULL DEFAULT 0,
     pac_bps INTEGER NOT NULL DEFAULT 0 CHECK (pac_bps BETWEEN 0 AND 10000),
     pac_frequency TEXT NOT NULL DEFAULT 'monthly',
+    notes TEXT NOT NULL DEFAULT '',
     updated_at TEXT NOT NULL,
     UNIQUE (account_id, instrument_id)
 );
 
 CREATE TABLE snapshots (
     id INTEGER PRIMARY KEY,
-    observed_on TEXT NOT NULL UNIQUE,
-    created_at TEXT NOT NULL
+    user_id TEXT NOT NULL DEFAULT '',
+    observed_on TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE(observed_on, user_id)
 );
 
 CREATE TABLE snapshot_entries (
@@ -108,7 +113,21 @@ CREATE TABLE snapshot_entries (
     tax_bps INTEGER NOT NULL CHECK (tax_bps BETWEEN 0 AND 10000)
 );
 
+CREATE TABLE user_profiles (
+    user_id TEXT PRIMARY KEY,
+    theme TEXT NOT NULL DEFAULT '',
+    preferred_currency TEXT NOT NULL DEFAULT '',
+    monthly_expenses_minor INTEGER NOT NULL DEFAULT 0,
+    reserve_months INTEGER NOT NULL DEFAULT 6,
+    hide_balances INTEGER NOT NULL DEFAULT 0,
+    emergency_goal_minor INTEGER NOT NULL DEFAULT 1000000,
+    fire_expenses_minor INTEGER NOT NULL DEFAULT 2400000,
+    instrument_columns_json TEXT NOT NULL DEFAULT '',
+    show_fire_calculator INTEGER NOT NULL DEFAULT 0
+);
+
 -- +goose Down
+DROP TABLE user_profiles;
 DROP TABLE snapshot_entries;
 DROP TABLE snapshots;
 DROP TABLE holdings;
