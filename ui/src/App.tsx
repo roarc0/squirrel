@@ -164,6 +164,78 @@ export function useBackendRows<T>(endpoint: string, source: T[], initialSort = '
   return { rows, sort, direction, sortError, sortRows };
 }
 
+export function LootChestIcon({ size = 26, className }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }}
+    >
+      <defs>
+        <linearGradient id="lootChestGrad" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="var(--mantine-color-teal-4, #20c997)" />
+          <stop offset="100%" stopColor="var(--mantine-color-teal-7, #0ca678)" />
+        </linearGradient>
+        <linearGradient id="lootGoldGrad" x1="10" y1="8" x2="14" y2="16" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#ffd43b" />
+          <stop offset="100%" stopColor="#f59f00" />
+        </linearGradient>
+      </defs>
+
+      {/* Chest Base Body */}
+      <rect
+        x="3"
+        y="11"
+        width="18"
+        height="9"
+        rx="2"
+        fill="url(#lootChestGrad)"
+        fillOpacity="0.18"
+        stroke="url(#lootChestGrad)"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+      />
+
+      {/* Chest Domed Lid */}
+      <path
+        d="M3.5 11C3.5 6.5 7 4 12 4C17 4 20.5 6.5 20.5 11H3.5Z"
+        fill="url(#lootChestGrad)"
+        fillOpacity="0.3"
+        stroke="url(#lootChestGrad)"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+      />
+
+      {/* Center Lock / Keyhole Clasp */}
+      <rect
+        x="9.5"
+        y="9.5"
+        width="5"
+        height="5"
+        rx="1"
+        fill="url(#lootGoldGrad)"
+        stroke="rgba(0,0,0,0.3)"
+        strokeWidth="0.5"
+      />
+      <circle cx="12" cy="11.5" r="0.8" fill="#121212" />
+
+      {/* Metallic Straps */}
+      <line x1="7" y1="4.5" x2="7" y2="19.5" stroke="url(#lootChestGrad)" strokeWidth="1.2" opacity="0.6" />
+      <line x1="17" y1="4.5" x2="17" y2="19.5" stroke="url(#lootChestGrad)" strokeWidth="1.2" opacity="0.6" />
+
+      {/* Golden Sparkle */}
+      <path
+        d="M19.5 2.5L20 4L21.5 4.5L20 5L19.5 6.5L19 5L17.5 4.5L19 4L19.5 2.5Z"
+        fill="#ffd43b"
+      />
+    </svg>
+  );
+}
+
 export function formatUserName(user?: AuthUser | null): string {
   if (!user || !user.email) return 'Account';
   const namePart = user.email.split('@')[0];
@@ -281,7 +353,10 @@ export default function App() {
   <>
     <main className="shell">
       <Group justify="space-between" align="center" mb="md">
-        <Title order={1} size="1.75rem" className="brand" c="teal">LOOT</Title>
+        <Group gap="xs" align="center">
+          <LootChestIcon size={26} />
+          <Title order={1} size="1.75rem" className="brand" c="teal">LOOT</Title>
+        </Group>
         <Group gap={10}>
           <HeaderIconButton icon={<IconArrowsExchange size={16} />} label="Update" onClick={() => setUpdateModalOpened(true)} />
           <ThemePickerButton />
