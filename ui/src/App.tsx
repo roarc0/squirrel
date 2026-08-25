@@ -25,6 +25,8 @@ import {
   IconBell,
   IconBellRinging,
   IconCheck,
+  IconSun,
+  IconMoon,
 } from '@tabler/icons-react';
 import {
   ActionIcon,
@@ -162,6 +164,15 @@ export function useBackendRows<T>(endpoint: string, source: T[], initialSort = '
   return { rows, sort, direction, sortError, sortRows };
 }
 
+export function formatUserName(user?: AuthUser | null): string {
+  if (!user || !user.email) return 'Account';
+  const namePart = user.email.split('@')[0];
+  return namePart
+    .split(/[._-]/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
 export default function App() {
   const [needsLogin, setNeedsLogin] = useState(false);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
@@ -264,20 +275,15 @@ export default function App() {
       </main>
     );
   }
-  setHideBalancesState(hideBalances);
+
   const diagnosticsCount = data.summary.diagnostics?.length ?? 0;
   return (
   <>
     <main className="shell">
       <Group justify="space-between" align="center" mb="md">
         <Title order={1} size="1.75rem" className="brand" c="teal">LOOT</Title>
-        <Group gap={4}>
+        <Group gap={10}>
           <HeaderIconButton icon={<IconArrowsExchange size={16} />} label="Update" onClick={() => setUpdateModalOpened(true)} />
-          <HeaderIconButton
-            icon={hideBalances ? <IconEyeOff size={16} /> : <IconEye size={16} />}
-            label={hideBalances ? 'Show' : 'Hide'}
-            onClick={() => setHideBalances(v => !v)}
-          />
           <ThemePickerButton />
           <Popover width={380} position="bottom-end" shadow="md" radius="lg" withArrow>
             <Popover.Target>
@@ -376,7 +382,7 @@ export default function App() {
                   icon={currentUser.picture
                     ? <Avatar src={currentUser.picture} size={20} radius="xl" />
                     : <IconUser size={16} />}
-                  label="Account"
+                  label={formatUserName(currentUser)}
                 />
               </Menu.Target>
               <Menu.Dropdown>
@@ -398,6 +404,12 @@ export default function App() {
                   </Stack>
                 </Menu.Label>
                 <Menu.Divider />
+                <Menu.Item
+                  leftSection={hideBalances ? <IconEyeOff size={14} /> : <IconEye size={14} />}
+                  onClick={() => setHideBalances(v => !v)}
+                >
+                  {hideBalances ? 'Show Balances' : 'Hide Balances'}
+                </Menu.Item>
                 <Menu.Item leftSection={<IconSettings size={14} />} onClick={() => handleTabChange('settings')}>
                   Settings
                 </Menu.Item>
@@ -439,9 +451,6 @@ export default function App() {
               BTP Rank
             </Tabs.Tab>
           )}
-          <Tabs.Tab value="settings" leftSection={<IconSettings size={16} />}>
-            Settings
-          </Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="overview" className="tab-content"><Overview data={data} reload={load} onSwitchTab={handleTabChange} /></Tabs.Panel>
         <Tabs.Panel value="accounts" className="tab-content"><Accounts accounts={data.accounts} rates={data.rates} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
@@ -594,8 +603,28 @@ function ThemePickerButton() {
     <Popover position="bottom-end" withArrow shadow="md" width={184}>
       <Popover.Target>
         <HeaderIconButton
-          icon={<Box w={13} h={13} style={{ borderRadius: '50%', background: ACCENT_HEX[accent], flexShrink: 0 }} />}
-          label={scheme === 'light' ? 'Light' : 'Dark'}
+          icon={
+            <Box style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {scheme === 'light' ? (
+                <IconSun size={16} color="var(--mantine-color-yellow-5)" />
+              ) : (
+                <IconMoon size={16} color="var(--mantine-color-indigo-3)" />
+              )}
+              <Box
+                w={6}
+                h={6}
+                style={{
+                  borderRadius: '50%',
+                  background: ACCENT_HEX[accent],
+                  position: 'absolute',
+                  bottom: -2,
+                  right: -3,
+                  border: '1px solid var(--mantine-color-body)',
+                }}
+              />
+            </Box>
+          }
+          label="Theme"
         />
       </Popover.Target>
       <Popover.Dropdown p={12}>
