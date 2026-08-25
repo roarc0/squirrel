@@ -68,11 +68,14 @@ export function BtpRankView() {
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState('');
 
-  // Filters
+  // Filters & Sorting
   const [search, setSearch] = useState('');
   const [bondType, setBondType] = useState<string>('');
   const [viewTab, setViewTab] = useState<'all' | 'starred'>('all');
   const [targetYear, setTargetYear] = useState<number | string>('');
+
+  const [sortKey, setSortKey] = useState<string>('score');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   const fetchBtps = useCallback(async () => {
     setLoading(true);
@@ -144,6 +147,38 @@ export function BtpRankView() {
       setError(cause instanceof Error ? cause.message : String(cause));
     }
   };
+
+  const sortedBtps = useMemo(() => {
+    return [...btps].sort((a, b) => {
+      let aVal: any = a[sortKey as keyof BtpBond];
+      let bVal: any = b[sortKey as keyof BtpBond];
+
+      if (sortKey === 'bond') {
+        aVal = a.name;
+        bVal = b.name;
+      } else if (sortKey === 'type') {
+        aVal = a.bond_type;
+        bVal = b.bond_type;
+      } else if (sortKey === 'expiry') {
+        aVal = a.maturity_years;
+        bVal = b.maturity_years;
+      } else if (sortKey === 'duration') {
+        aVal = a.duration_mod;
+        bVal = b.duration_mod;
+      } else if (sortKey === 'total_return') {
+        aVal = a.total_return_net;
+        bVal = b.total_return_net;
+      }
+
+      if (typeof aVal === 'string') {
+        const cmp = aVal.localeCompare(bVal as string);
+        return sortDir === 'asc' ? cmp : -cmp;
+      }
+      const numA = Number(aVal || 0);
+      const numB = Number(bVal || 0);
+      return sortDir === 'asc' ? numA - numB : numB - numA;
+    });
+  }, [btps, sortKey, sortDir]);
 
   const starredCount = useMemo(
     () => btps.filter(b => b.is_starred).length,
@@ -411,10 +446,16 @@ export function BtpRankView() {
 
       <Box mt="md">
         <DataTable
-          rows={btps}
+          rows={sortedBtps}
           columns={columns}
           rowKey={b => b.isin}
           minWidth={1100}
+          sort={sortKey}
+          direction={sortDir}
+          onSort={(key, dir) => {
+            setSortKey(key);
+            setSortDir(dir);
+          }}
         />
       </Box>
     </ViewShell>
