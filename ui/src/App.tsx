@@ -80,6 +80,7 @@ import { DiagnosticsView } from './views/DiagnosticsView';
 import { AIConsultantView } from './views/AIConsultantView';
 import { DraftPortfoliosView } from './views/DraftPortfoliosView';
 import { BtpRankView } from './views/BtpRankView';
+import { QuickSearchModal } from './components/QuickSearchModal';
 import { chartGeometry, matchesExactFilters, pageBounds, performanceMood } from './visual';
 
 type Data = { summary: Summary; accounts: Account[]; rates: ReferenceRate[]; taxRates: TaxRate[]; instruments: Instrument[]; holdings: Holding[]; snapshots: Snapshot[] };
@@ -305,6 +306,7 @@ export default function App() {
   useEffect(() => void load(), [load]);
 
   const [updateModalOpened, setUpdateModalOpened] = useState(false);
+  const [quickSearchOpened, setQuickSearchOpened] = useState(false);
 
   const VALID_TABS = ['overview', 'accounts', 'investments', 'holdings', 'drafts', 'instruments', 'diagnostics', 'consultant', 'advisor', 'btp', 'settings'];
 
@@ -384,11 +386,7 @@ export default function App() {
         });
       } else if (!isEditable && (e.key === '/' || (isCmdOrCtrl && e.key.toLowerCase() === 'k'))) {
         e.preventDefault();
-        const searchInput = document.querySelector<HTMLInputElement>('input[placeholder*="Search"], input[placeholder*="Filter"], input[type="search"], input[type="text"]');
-        if (searchInput) {
-          searchInput.focus();
-          searchInput.select();
-        }
+        setQuickSearchOpened(true);
       }
     };
 
@@ -412,6 +410,7 @@ export default function App() {
       <Group justify="space-between" align="center" mb="md">
         <LootBrandLogo size={26} />
         <Group gap={10}>
+          <HeaderIconButton icon={<IconSearch size={16} />} label="Search (⌘K)" onClick={() => setQuickSearchOpened(true)} />
           <HeaderIconButton icon={<IconArrowsExchange size={16} />} label="Update" onClick={() => setUpdateModalOpened(true)} />
           <ThemePickerButton />
           <Popover width={380} position="bottom-end" shadow="md" radius="lg" withArrow>
@@ -630,6 +629,16 @@ export default function App() {
         accounts={data.accounts}
         holdings={data.holdings}
         reload={load}
+      />
+      <QuickSearchModal
+        opened={quickSearchOpened}
+        onClose={() => setQuickSearchOpened(false)}
+        onSwitchTab={handleTabChange}
+        onToggleHideBalances={() => setHideBalances(v => !v)}
+        onOpenUpdateModal={() => setUpdateModalOpened(true)}
+        hideBalances={hideBalances}
+        instruments={data.instruments}
+        accounts={data.accounts}
       />
     </main>
     <footer className="app-footer">
