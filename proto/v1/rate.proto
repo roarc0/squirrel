@@ -54,6 +54,9 @@ message MarketMetric {
   string unit = 5;
   string observed_on = 6;
   string source_url = 7;
+  optional double change_1y = 8;
+  optional double distance_52w_high = 9;
+  optional double sma_200 = 10;
 }
 
 message MarketObservation {
@@ -65,6 +68,7 @@ message MarketObservation {
 message GetMarketContextRequest {
   // Inflation history to return: "1y", "3y", "5y", or "max". Defaults to "1y".
   string inflation_range = 1;
+  optional bool force_refresh = 2;
 }
 
 message GetMarketContextResponse {

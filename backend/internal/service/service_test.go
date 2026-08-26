@@ -31,7 +31,7 @@ func TestSortSlice(t *testing.T) {
 }
 
 func TestInflationObservationCount(t *testing.T) {
-	for historyRange, want := range map[string]int{"": 12, "1y": 12, "3y": 36, "5y": 60, "max": 120} {
+	for historyRange, want := range map[string]int{"": 365, "1y": 365, "3y": 1095, "5y": 1825, "max": 3650} {
 		got, err := inflationObservationCount(historyRange)
 		if err != nil || got != want {
 			t.Fatalf("range %q: got %d, %v; want %d", historyRange, got, err, want)

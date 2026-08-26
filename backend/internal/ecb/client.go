@@ -61,11 +61,11 @@ func (c *Client) observations(ctx context.Context, flow, key string, count int) 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("ECB %s returned HTTP %d", flow, resp.StatusCode)
 	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20+1))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 16<<20+1))
 	if err != nil {
 		return nil, fmt.Errorf("read ECB %s data: %w", flow, err)
 	}
-	if len(body) > 1<<20 {
+	if len(body) > 16<<20 {
 		return nil, errors.New("ECB response is too large")
 	}
 

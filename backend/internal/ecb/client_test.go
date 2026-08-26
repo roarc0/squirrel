@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestCollectors(t *testing.T) {
@@ -26,6 +27,10 @@ func TestCollectors(t *testing.T) {
 			csv = "BS_ITEM,MATURITY_NOT_IRATE,TIME_PERIOD,OBS_VALUE\nL21,A,2026-06,0.19\nL22,F,2026-06,2.22\n"
 		case "IRS":
 			csv = "REF_AREA,TIME_PERIOD,OBS_VALUE\nDE,2026-07,3.07\nIT,2026-07,3.881\n"
+		case "YC":
+			csv = "KEY,TIME_PERIOD,OBS_VALUE\nSR_2Y,2026-07,2.50\nSR_10Y,2026-07,3.00\n"
+		case "EXR":
+			csv = "TIME_PERIOD,OBS_VALUE\n2026-07,1.08\n"
 		default:
 			http.NotFound(w, r)
 			return
@@ -39,18 +44,36 @@ func TestCollectors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	market, err := client.FetchMarketContext(context.Background(), 60)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if len(rates) != 3 || rates[0].Code != "DFR" || rates[1].Code != "MRR_FR" || rates[1].RateBPS != 240 {
 		t.Fatalf("unexpected policy rates: %+v", rates)
 	}
-	if len(market.Metrics) != 10 || len(market.Observations) != 10 || len(market.Warnings) != 0 {
-		t.Fatalf("unexpected market context: %+v", market)
+	market, err := client.FetchSovereignYields(context.Background(), 60)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(market.Metrics) != 3 || len(market.Observations) != 3 {
+		t.Fatalf("unexpected sovereign yields: %+v", market)
 	}
 	spread := market.Metrics[len(market.Metrics)-1]
 	if spread.Code != "SPREAD_IT_DE_10Y" || math.Abs(spread.Value-81.1) > 0.001 {
 		t.Fatalf("unexpected sovereign spread: %+v", spread)
+	}
+}
+
+func TestLiveFetchMarketContext(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping live market fetch in short mode")
+	}
+	client := New()
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+
+	mc, err := client.FetchMarketContext(ctx, 10)
+	if err != nil {
+		t.Fatalf("live market fetch failed: %v", err)
+	}
+	t.Logf("Fetched %d metrics, %d observations, warnings: %v", len(mc.Metrics), len(mc.Observations), mc.Warnings)
+	if len(mc.Warnings) > 0 {
+		t.Fatalf("Live market context fetch had warnings: %v", mc.Warnings)
 	}
 }

@@ -3,9 +3,11 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"connectrpc.com/connect"
 
+	"github.com/roarc0/squirrel/backend/internal/ecb"
 	portv1 "github.com/roarc0/squirrel/proto/gen/go/v1"
 )
 
@@ -16,16 +18,38 @@ func (s *Server) GetMarketContext(ctx context.Context, req *connect.Request[port
 	}
 
 	var warnings []string
-	market, err := s.ecb.FetchMarketContext(ctx, observationCount)
-	if err == nil {
-		if err := s.store.SaveMarketContext(ctx, market); err != nil {
-			warnings = append(warnings, fmt.Sprintf("failed to save market context cache: %v", err))
-		}
+	var market ecb.MarketContext
+
+	storedMetrics, errMetrics := s.store.ListMarketMetrics(ctx)
+	storedObs, errObs := s.store.ListMarketObservations(ctx)
+	hasCache := errMetrics == nil && errObs == nil && len(storedMetrics) > 0
+
+	forceRefresh := req.Msg.GetForceRefresh()
+
+	if hasCache && !forceRefresh {
+		// Return stored metrics instantly (< 1 ms latency)
+		market.Metrics = storedMetrics
+		market.Observations = storedObs
+
+		// Fire-and-forget background refresh to update SQLite cache
+		go func() {
+			bgCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+			fresh, err := s.ecb.FetchMarketContext(bgCtx, observationCount)
+			if err == nil {
+				_ = s.store.SaveMarketContext(bgCtx, fresh)
+			}
+		}()
 	} else {
-		warnings = append(warnings, fmt.Sprintf("ECB fetch error: %v", err))
-		storedMetrics, errMetrics := s.store.ListMarketMetrics(ctx)
-		storedObs, errObs := s.store.ListMarketObservations(ctx)
-		if errMetrics == nil && errObs == nil && len(storedMetrics) > 0 {
+		// Synchronous live fetch
+		liveMarket, err := s.ecb.FetchMarketContext(ctx, observationCount)
+		if err == nil {
+			market = liveMarket
+			if err := s.store.SaveMarketContext(ctx, market); err != nil {
+				warnings = append(warnings, fmt.Sprintf("failed to save market context cache: %v", err))
+			}
+		} else if hasCache {
+			warnings = append(warnings, fmt.Sprintf("live fetch warning: %v", err))
 			market.Metrics = storedMetrics
 			market.Observations = storedObs
 		} else {
@@ -38,13 +62,16 @@ func (s *Server) GetMarketContext(ctx context.Context, req *connect.Request[port
 	metrics := make([]*portv1.MarketMetric, len(market.Metrics))
 	for i, metric := range market.Metrics {
 		metrics[i] = &portv1.MarketMetric{
-			Code:       metric.Code,
-			Label:      metric.Label,
-			Category:   metric.Category,
-			Value:      metric.Value,
-			Unit:       metric.Unit,
-			ObservedOn: metric.ObservedOn,
-			SourceUrl:  metric.SourceURL,
+			Code:            metric.Code,
+			Label:           metric.Label,
+			Category:        metric.Category,
+			Value:           metric.Value,
+			Unit:            metric.Unit,
+			ObservedOn:      metric.ObservedOn,
+			SourceUrl:       metric.SourceURL,
+			Change_1Y:       metric.Change1Y,
+			Distance_52WHigh: metric.Distance52WHigh,
+			Sma_200:         metric.SMA200,
 		}
 	}
 	observations := make([]*portv1.MarketObservation, len(market.Observations))
@@ -61,13 +88,13 @@ func (s *Server) GetMarketContext(ctx context.Context, req *connect.Request[port
 func inflationObservationCount(historyRange string) (int, error) {
 	switch historyRange {
 	case "", "1y":
-		return 12, nil
+		return 365, nil
 	case "3y":
-		return 36, nil
+		return 1095, nil
 	case "5y":
-		return 60, nil
+		return 1825, nil
 	case "max":
-		return 120, nil
+		return 3650, nil
 	default:
 		return 0, fmt.Errorf("unsupported inflation range %q", historyRange)
 	}

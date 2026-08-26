@@ -102,6 +102,9 @@ export const MarketMetric = /*@__PURE__*/ proto3.makeMessageType(
     { no: 5, name: "unit", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 6, name: "observed_on", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 7, name: "source_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 8, name: "change_1y", kind: "scalar", T: 1 /* ScalarType.DOUBLE */, opt: true },
+    { no: 9, name: "distance_52w_high", kind: "scalar", T: 1 /* ScalarType.DOUBLE */, opt: true },
+    { no: 10, name: "sma_200", kind: "scalar", T: 1 /* ScalarType.DOUBLE */, opt: true },
   ],
 );
 
@@ -124,6 +127,7 @@ export const GetMarketContextRequest = /*@__PURE__*/ proto3.makeMessageType(
   "v1.GetMarketContextRequest",
   () => [
     { no: 1, name: "inflation_range", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "force_refresh", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
   ],
 );
 

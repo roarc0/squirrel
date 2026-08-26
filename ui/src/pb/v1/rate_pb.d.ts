@@ -272,6 +272,21 @@ export declare class MarketMetric extends Message<MarketMetric> {
    */
   sourceUrl: string;
 
+  /**
+   * @generated from field: optional double change_1y = 8;
+   */
+  change1y?: number;
+
+  /**
+   * @generated from field: optional double distance_52w_high = 9;
+   */
+  distance52wHigh?: number;
+
+  /**
+   * @generated from field: optional double sma_200 = 10;
+   */
+  sma200?: number;
+
   constructor(data?: PartialMessage<MarketMetric>);
 
   static readonly runtime: typeof proto3;
@@ -331,6 +346,11 @@ export declare class GetMarketContextRequest extends Message<GetMarketContextReq
    * @generated from field: string inflation_range = 1;
    */
   inflationRange: string;
+
+  /**
+   * @generated from field: optional bool force_refresh = 2;
+   */
+  forceRefresh?: boolean;
 
   constructor(data?: PartialMessage<GetMarketContextRequest>);
 

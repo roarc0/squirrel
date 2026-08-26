@@ -52,6 +52,9 @@ export type MarketMetric = {
   unit: string;
   observed_on: string;
   source_url: string;
+  change_1y?: number;
+  distance_52w_high?: number;
+  sma_200?: number;
 };
 
 export type MarketObservation = { code: string; observed_on: string; value: number };
@@ -694,8 +697,8 @@ export async function refreshReferenceRates(): Promise<ReferenceRate[]> {
   return (res.rates ?? []).map(protoToReferenceRate);
 }
 
-export async function getMarketContext(inflationRange: InflationRange = '1y'): Promise<MarketContext> {
-  const res = await rateClient.getMarketContext({ inflationRange });
+export async function getMarketContext(inflationRange: InflationRange = '1y', forceRefresh = false): Promise<MarketContext> {
+  const res = await rateClient.getMarketContext({ inflationRange, forceRefresh });
   return {
     metrics: (res.metrics ?? []).map((metric: any) => ({
       code: metric.code,
@@ -705,6 +708,9 @@ export async function getMarketContext(inflationRange: InflationRange = '1y'): P
       unit: metric.unit,
       observed_on: metric.observedOn,
       source_url: metric.sourceUrl,
+      change_1y: metric.change_1y ?? metric.change1Y,
+      distance_52w_high: metric.distance_52w_high ?? metric.distance52WHigh,
+      sma_200: metric.sma_200 ?? metric.sma200,
     })),
     observations: (res.observations ?? []).map((observation: any) => ({
       code: observation.code,
