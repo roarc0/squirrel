@@ -6,7 +6,7 @@ import { notifications } from '@mantine/notifications';
 import { getMarketContext, refreshReferenceRates, type InflationRange, type MarketMetric, type MarketObservation, type ReferenceRate } from '../api';
 import { SectionHeader } from '../components/SectionHeader';
 import { ViewShell } from '../components/ViewShell';
-import { chartGeometry, chartTickIndexes, nearestChartIndex } from '../visual';
+import { chartGeometry, chartTickIndexes, filterChartRange, nearestChartIndex, type ChartRange } from '../visual';
 
 const policySource = 'https://data.ecb.europa.eu/main-figures/ecb-interest-rates-and-exchange-rates/key-ecb-interest-rates';
 
@@ -24,16 +24,14 @@ export function MarketContextView({ rates, reload }: { rates: ReferenceRate[]; r
   const [warnings, setWarnings] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyRange, setHistoryRange] = useState<InflationRange>('1y');
   const [error, setError] = useState('');
 
-  const load = useCallback(async (inflationRange: InflationRange, refreshPolicyRates = false) => {
+  const load = useCallback(async (refreshPolicyRates = false) => {
     if (refreshPolicyRates) setRefreshing(true);
     setError('');
     setWarnings([]);
     try {
-      const market = await getMarketContext(inflationRange);
+      const market = await getMarketContext('max');
       setMetrics(market.metrics);
       setObservations(market.observations);
       setWarnings(market.warnings);
@@ -52,14 +50,7 @@ export function MarketContextView({ rates, reload }: { rates: ReferenceRate[]; r
     }
   }, [reload]);
 
-  useEffect(() => { void load('1y'); }, [load]);
-
-  const changeHistoryRange = async (value: string) => {
-    const next = value as InflationRange;
-    setHistoryLoading(true);
-    if (await load(next)) setHistoryRange(next);
-    setHistoryLoading(false);
-  };
+  useEffect(() => { void load(); }, [load]);
 
   const allMetrics = useMemo(() => [
     ...rates.map(rate => ({
@@ -80,21 +71,21 @@ export function MarketContextView({ rates, reload }: { rates: ReferenceRate[]; r
         title="Market Context"
         subtitle="Official public benchmarks that put cash, rates, inflation, and bonds in context."
         badge={<Badge color="blue" variant="light" leftSection={<IconActivity size={12} />}>ECB data</Badge>}
-        actions={<Button leftSection={<IconRefresh size={16} />} loading={refreshing} onClick={() => void load(historyRange, true)}>Refresh all</Button>}
+        actions={<Button leftSection={<IconRefresh size={16} />} loading={refreshing} onClick={() => void load(true)}>Refresh all</Button>}
       />
       {warnings.length > 0 && <Alert color="yellow" title="Some sources were unavailable">{warnings.join(' · ')}</Alert>}
       {loading ? (
         <Paper withBorder radius="lg" p="xl"><Group justify="center"><Loader size="sm" /><Text c="dimmed">Collecting market context…</Text></Group></Paper>
       ) : (
         sections.map(section => (
-          <MetricSection key={section.category} {...section} metrics={allMetrics.filter(metric => metric.category === section.category)} observations={observations} historyRange={historyRange} historyLoading={historyLoading} onHistoryRangeChange={value => void changeHistoryRange(value)} />
+          <MetricSection key={section.category} {...section} metrics={allMetrics.filter(metric => metric.category === section.category)} observations={observations} />
         ))
       )}
     </ViewShell>
   );
 }
 
-function MetricSection({ category, title, subtitle, metrics, observations, historyRange, historyLoading, onHistoryRangeChange }: { category: string; title: string; subtitle: string; metrics: MarketMetric[]; observations: MarketObservation[]; historyRange: InflationRange; historyLoading: boolean; onHistoryRangeChange: (value: string) => void }) {
+function MetricSection({ category, title, subtitle, metrics, observations }: { category: string; title: string; subtitle: string; metrics: MarketMetric[]; observations: MarketObservation[] }) {
   if (metrics.length === 0) return null;
   const source = metrics[0].source_url;
   return (
@@ -125,9 +116,6 @@ function MetricSection({ category, title, subtitle, metrics, observations, histo
             { code: 'MLFR', label: 'Marginal Lending', color: 'violet' },
           ]}
           observations={observations}
-          range={historyRange}
-          loading={historyLoading}
-          onRangeChange={onHistoryRangeChange}
         />
       )}
       {category === 'money_market' && (
@@ -139,9 +127,6 @@ function MetricSection({ category, title, subtitle, metrics, observations, histo
             { code: 'EU000A2QQF32.CR', label: '3M compounded', color: 'violet' },
           ]}
           observations={observations}
-          range={historyRange}
-          loading={historyLoading}
-          onRangeChange={onHistoryRangeChange}
         />
       )}
       {category === 'inflation' && (
@@ -152,9 +137,6 @@ function MetricSection({ category, title, subtitle, metrics, observations, histo
             { code: 'HICP_U2', label: 'Euro area', color: 'teal' },
           ]}
           observations={observations}
-          range={historyRange}
-          loading={historyLoading}
-          onRangeChange={onHistoryRangeChange}
           showZeroBaseline
         />
       )}
@@ -166,9 +148,6 @@ function MetricSection({ category, title, subtitle, metrics, observations, histo
             { code: 'MIR_L22.F', label: 'Term deposits (<= 1Y)', color: 'blue' },
           ]}
           observations={observations}
-          range={historyRange}
-          loading={historyLoading}
-          onRangeChange={onHistoryRangeChange}
         />
       )}
       {category === 'sovereign_bonds' && (
@@ -180,9 +159,6 @@ function MetricSection({ category, title, subtitle, metrics, observations, histo
               { code: 'YIELD_10Y_DE', label: 'Germany 10Y', color: 'teal' },
             ]}
             observations={observations}
-            range={historyRange}
-            loading={historyLoading}
-            onRangeChange={onHistoryRangeChange}
           />
           <MarketChart
             title="Italy–Germany 10-year spread"
@@ -190,9 +166,6 @@ function MetricSection({ category, title, subtitle, metrics, observations, histo
               { code: 'SPREAD_IT_DE_10Y', label: 'BTP–Bund spread', color: 'orange', unit: 'bps' },
             ]}
             observations={observations}
-            range={historyRange}
-            loading={historyLoading}
-            onRangeChange={onHistoryRangeChange}
             valueUnit="bps"
           />
         </SimpleGrid>
@@ -212,21 +185,18 @@ function MarketChart({
   title,
   definitions,
   observations,
-  range,
-  loading,
-  onRangeChange,
   showZeroBaseline = false,
   valueUnit = '%',
+  defaultRange = '1y',
 }: {
   title: string;
   definitions: SeriesDefinition[];
   observations: MarketObservation[];
-  range: InflationRange;
-  loading: boolean;
-  onRangeChange: (value: string) => void;
   showZeroBaseline?: boolean;
   valueUnit?: string;
+  defaultRange?: InflationRange;
 }) {
+  const [range, setRange] = useState<InflationRange>(defaultRange);
   const [hovered, setHovered] = useState<number>();
 
   const relevantObservations = useMemo(() => {
@@ -234,15 +204,19 @@ function MarketChart({
     return observations.filter(obs => codes.has(obs.code));
   }, [definitions, observations]);
 
+  const filteredObservations = useMemo(() => {
+    return filterChartRange(relevantObservations, range as ChartRange);
+  }, [relevantObservations, range]);
+
   const scaleValues = useMemo(() => {
-    const vals = relevantObservations.map(obs => obs.value);
+    const vals = filteredObservations.map(obs => obs.value);
     return showZeroBaseline ? [...vals, 0] : vals;
-  }, [relevantObservations, showZeroBaseline]);
+  }, [filteredObservations, showZeroBaseline]);
 
   if (scaleValues.length === 0) return null;
 
   const scale = chartGeometry(scaleValues, scaleValues, false);
-  const dates = [...new Set(relevantObservations.map(obs => obs.observed_on))].sort();
+  const dates = [...new Set(filteredObservations.map(obs => obs.observed_on))].sort();
   if (dates.length === 0) return null;
 
   const getX = (index: number) => (dates.length === 1 ? 407 : 74 + (index * 666) / (dates.length - 1));
@@ -252,7 +226,7 @@ function MarketChart({
 
   const series = definitions.map(definition => {
     const itemsMap = new Map(
-      relevantObservations
+      filteredObservations
         .filter(obs => obs.code === definition.code)
         .map(obs => [obs.observed_on, obs.value])
     );
@@ -294,10 +268,12 @@ function MarketChart({
     <Paper withBorder radius="lg" p="lg">
       <Group justify="space-between" mb="sm">
         <Text fw={700}>{title}</Text>
-        <Group gap="xs">
-          {loading && <Loader size="xs" />}
-          <SegmentedControl size="xs" value={range} disabled={loading} onChange={onRangeChange} data={[{ label: '1Y', value: '1y' }, { label: '3Y', value: '3y' }, { label: '5Y', value: '5y' }, { label: 'Max', value: 'max' }]} />
-        </Group>
+        <SegmentedControl
+          size="xs"
+          value={range}
+          onChange={val => setRange(val as InflationRange)}
+          data={[{ label: '1Y', value: '1y' }, { label: '3Y', value: '3y' }, { label: '5Y', value: '5y' }, { label: 'Max', value: 'max' }]}
+        />
       </Group>
       <Group gap="md" mb="xs" role="group" aria-label="Chart series">
         {definitions.map(item => (
@@ -401,5 +377,6 @@ function MarketChart({
 function formatMetric(metric: MarketMetric): string {
   return metric.unit === 'bps' ? `${metric.value.toFixed(1)} bps` : `${metric.value.toFixed(2)}${metric.unit}`;
 }
+
 
 
