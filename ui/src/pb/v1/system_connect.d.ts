@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { DownloadAIModelRequest, DownloadAIModelResponse, ExportBackupRequest, ExportBackupResponse, ListAIModelsRequest, ListAIModelsResponse, ListOllamaModelsRequest, ListOllamaModelsResponse, LoadOllamaModelRequest, LoadOllamaModelResponse, RestartLocalServerRequest, RestartLocalServerResponse, RestoreBackupRequest, RestoreBackupResponse, StreamChatRequest, StreamChatResponse } from "./system_pb.js";
+import { DeleteChatSessionRequest, DeleteChatSessionResponse, DownloadAIModelRequest, DownloadAIModelResponse, ExportBackupRequest, ExportBackupResponse, GetChatSessionRequest, GetChatSessionResponse, GetChatStatusRequest, GetChatStatusResponse, ListAIModelsRequest, ListAIModelsResponse, ListChatSessionsRequest, ListChatSessionsResponse, ListOllamaModelsRequest, ListOllamaModelsResponse, LoadOllamaModelRequest, LoadOllamaModelResponse, RestartLocalServerRequest, RestartLocalServerResponse, RestoreBackupRequest, RestoreBackupResponse, SaveChatSessionRequest, SaveChatSessionResponse, StopChatSessionRequest, StopChatSessionResponse, StreamChatRequest, StreamChatResponse } from "./system_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -100,6 +100,72 @@ export declare const SystemService: {
       readonly name: "RestartLocalServer",
       readonly I: typeof RestartLocalServerRequest,
       readonly O: typeof RestartLocalServerResponse,
+      readonly kind: MethodKind.Unary,
+    },
+    /**
+     * List persistent AI Consultant chat sessions.
+     *
+     * @generated from rpc v1.SystemService.ListChatSessions
+     */
+    readonly listChatSessions: {
+      readonly name: "ListChatSessions",
+      readonly I: typeof ListChatSessionsRequest,
+      readonly O: typeof ListChatSessionsResponse,
+      readonly kind: MethodKind.Unary,
+    },
+    /**
+     * Get details and message history of a chat session.
+     *
+     * @generated from rpc v1.SystemService.GetChatSession
+     */
+    readonly getChatSession: {
+      readonly name: "GetChatSession",
+      readonly I: typeof GetChatSessionRequest,
+      readonly O: typeof GetChatSessionResponse,
+      readonly kind: MethodKind.Unary,
+    },
+    /**
+     * Save or update an AI Consultant chat session and its messages.
+     *
+     * @generated from rpc v1.SystemService.SaveChatSession
+     */
+    readonly saveChatSession: {
+      readonly name: "SaveChatSession",
+      readonly I: typeof SaveChatSessionRequest,
+      readonly O: typeof SaveChatSessionResponse,
+      readonly kind: MethodKind.Unary,
+    },
+    /**
+     * Delete an AI Consultant chat session.
+     *
+     * @generated from rpc v1.SystemService.DeleteChatSession
+     */
+    readonly deleteChatSession: {
+      readonly name: "DeleteChatSession",
+      readonly I: typeof DeleteChatSessionRequest,
+      readonly O: typeof DeleteChatSessionResponse,
+      readonly kind: MethodKind.Unary,
+    },
+    /**
+     * Stop background generation for an active chat session.
+     *
+     * @generated from rpc v1.SystemService.StopChatSession
+     */
+    readonly stopChatSession: {
+      readonly name: "StopChatSession",
+      readonly I: typeof StopChatSessionRequest,
+      readonly O: typeof StopChatSessionResponse,
+      readonly kind: MethodKind.Unary,
+    },
+    /**
+     * Get current active generation status for a chat session.
+     *
+     * @generated from rpc v1.SystemService.GetChatStatus
+     */
+    readonly getChatStatus: {
+      readonly name: "GetChatStatus",
+      readonly I: typeof GetChatStatusRequest,
+      readonly O: typeof GetChatStatusResponse,
       readonly kind: MethodKind.Unary,
     },
   }

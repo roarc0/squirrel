@@ -57,6 +57,24 @@ const (
 	// SystemServiceRestartLocalServerProcedure is the fully-qualified name of the SystemService's
 	// RestartLocalServer RPC.
 	SystemServiceRestartLocalServerProcedure = "/v1.SystemService/RestartLocalServer"
+	// SystemServiceListChatSessionsProcedure is the fully-qualified name of the SystemService's
+	// ListChatSessions RPC.
+	SystemServiceListChatSessionsProcedure = "/v1.SystemService/ListChatSessions"
+	// SystemServiceGetChatSessionProcedure is the fully-qualified name of the SystemService's
+	// GetChatSession RPC.
+	SystemServiceGetChatSessionProcedure = "/v1.SystemService/GetChatSession"
+	// SystemServiceSaveChatSessionProcedure is the fully-qualified name of the SystemService's
+	// SaveChatSession RPC.
+	SystemServiceSaveChatSessionProcedure = "/v1.SystemService/SaveChatSession"
+	// SystemServiceDeleteChatSessionProcedure is the fully-qualified name of the SystemService's
+	// DeleteChatSession RPC.
+	SystemServiceDeleteChatSessionProcedure = "/v1.SystemService/DeleteChatSession"
+	// SystemServiceStopChatSessionProcedure is the fully-qualified name of the SystemService's
+	// StopChatSession RPC.
+	SystemServiceStopChatSessionProcedure = "/v1.SystemService/StopChatSession"
+	// SystemServiceGetChatStatusProcedure is the fully-qualified name of the SystemService's
+	// GetChatStatus RPC.
+	SystemServiceGetChatStatusProcedure = "/v1.SystemService/GetChatStatus"
 )
 
 // SystemServiceClient is a client for the v1.SystemService service.
@@ -77,6 +95,18 @@ type SystemServiceClient interface {
 	LoadOllamaModel(context.Context, *connect.Request[v1.LoadOllamaModelRequest]) (*connect.Response[v1.LoadOllamaModelResponse], error)
 	// Restart the managed local llama-server process with a new model and context size.
 	RestartLocalServer(context.Context, *connect.Request[v1.RestartLocalServerRequest]) (*connect.Response[v1.RestartLocalServerResponse], error)
+	// List persistent AI Consultant chat sessions.
+	ListChatSessions(context.Context, *connect.Request[v1.ListChatSessionsRequest]) (*connect.Response[v1.ListChatSessionsResponse], error)
+	// Get details and message history of a chat session.
+	GetChatSession(context.Context, *connect.Request[v1.GetChatSessionRequest]) (*connect.Response[v1.GetChatSessionResponse], error)
+	// Save or update an AI Consultant chat session and its messages.
+	SaveChatSession(context.Context, *connect.Request[v1.SaveChatSessionRequest]) (*connect.Response[v1.SaveChatSessionResponse], error)
+	// Delete an AI Consultant chat session.
+	DeleteChatSession(context.Context, *connect.Request[v1.DeleteChatSessionRequest]) (*connect.Response[v1.DeleteChatSessionResponse], error)
+	// Stop background generation for an active chat session.
+	StopChatSession(context.Context, *connect.Request[v1.StopChatSessionRequest]) (*connect.Response[v1.StopChatSessionResponse], error)
+	// Get current active generation status for a chat session.
+	GetChatStatus(context.Context, *connect.Request[v1.GetChatStatusRequest]) (*connect.Response[v1.GetChatStatusResponse], error)
 }
 
 // NewSystemServiceClient constructs a client for the v1.SystemService service. By default, it uses
@@ -138,6 +168,42 @@ func NewSystemServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(systemServiceMethods.ByName("RestartLocalServer")),
 			connect.WithClientOptions(opts...),
 		),
+		listChatSessions: connect.NewClient[v1.ListChatSessionsRequest, v1.ListChatSessionsResponse](
+			httpClient,
+			baseURL+SystemServiceListChatSessionsProcedure,
+			connect.WithSchema(systemServiceMethods.ByName("ListChatSessions")),
+			connect.WithClientOptions(opts...),
+		),
+		getChatSession: connect.NewClient[v1.GetChatSessionRequest, v1.GetChatSessionResponse](
+			httpClient,
+			baseURL+SystemServiceGetChatSessionProcedure,
+			connect.WithSchema(systemServiceMethods.ByName("GetChatSession")),
+			connect.WithClientOptions(opts...),
+		),
+		saveChatSession: connect.NewClient[v1.SaveChatSessionRequest, v1.SaveChatSessionResponse](
+			httpClient,
+			baseURL+SystemServiceSaveChatSessionProcedure,
+			connect.WithSchema(systemServiceMethods.ByName("SaveChatSession")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteChatSession: connect.NewClient[v1.DeleteChatSessionRequest, v1.DeleteChatSessionResponse](
+			httpClient,
+			baseURL+SystemServiceDeleteChatSessionProcedure,
+			connect.WithSchema(systemServiceMethods.ByName("DeleteChatSession")),
+			connect.WithClientOptions(opts...),
+		),
+		stopChatSession: connect.NewClient[v1.StopChatSessionRequest, v1.StopChatSessionResponse](
+			httpClient,
+			baseURL+SystemServiceStopChatSessionProcedure,
+			connect.WithSchema(systemServiceMethods.ByName("StopChatSession")),
+			connect.WithClientOptions(opts...),
+		),
+		getChatStatus: connect.NewClient[v1.GetChatStatusRequest, v1.GetChatStatusResponse](
+			httpClient,
+			baseURL+SystemServiceGetChatStatusProcedure,
+			connect.WithSchema(systemServiceMethods.ByName("GetChatStatus")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -151,6 +217,12 @@ type systemServiceClient struct {
 	listOllamaModels   *connect.Client[v1.ListOllamaModelsRequest, v1.ListOllamaModelsResponse]
 	loadOllamaModel    *connect.Client[v1.LoadOllamaModelRequest, v1.LoadOllamaModelResponse]
 	restartLocalServer *connect.Client[v1.RestartLocalServerRequest, v1.RestartLocalServerResponse]
+	listChatSessions   *connect.Client[v1.ListChatSessionsRequest, v1.ListChatSessionsResponse]
+	getChatSession     *connect.Client[v1.GetChatSessionRequest, v1.GetChatSessionResponse]
+	saveChatSession    *connect.Client[v1.SaveChatSessionRequest, v1.SaveChatSessionResponse]
+	deleteChatSession  *connect.Client[v1.DeleteChatSessionRequest, v1.DeleteChatSessionResponse]
+	stopChatSession    *connect.Client[v1.StopChatSessionRequest, v1.StopChatSessionResponse]
+	getChatStatus      *connect.Client[v1.GetChatStatusRequest, v1.GetChatStatusResponse]
 }
 
 // ExportBackup calls v1.SystemService.ExportBackup.
@@ -193,6 +265,36 @@ func (c *systemServiceClient) RestartLocalServer(ctx context.Context, req *conne
 	return c.restartLocalServer.CallUnary(ctx, req)
 }
 
+// ListChatSessions calls v1.SystemService.ListChatSessions.
+func (c *systemServiceClient) ListChatSessions(ctx context.Context, req *connect.Request[v1.ListChatSessionsRequest]) (*connect.Response[v1.ListChatSessionsResponse], error) {
+	return c.listChatSessions.CallUnary(ctx, req)
+}
+
+// GetChatSession calls v1.SystemService.GetChatSession.
+func (c *systemServiceClient) GetChatSession(ctx context.Context, req *connect.Request[v1.GetChatSessionRequest]) (*connect.Response[v1.GetChatSessionResponse], error) {
+	return c.getChatSession.CallUnary(ctx, req)
+}
+
+// SaveChatSession calls v1.SystemService.SaveChatSession.
+func (c *systemServiceClient) SaveChatSession(ctx context.Context, req *connect.Request[v1.SaveChatSessionRequest]) (*connect.Response[v1.SaveChatSessionResponse], error) {
+	return c.saveChatSession.CallUnary(ctx, req)
+}
+
+// DeleteChatSession calls v1.SystemService.DeleteChatSession.
+func (c *systemServiceClient) DeleteChatSession(ctx context.Context, req *connect.Request[v1.DeleteChatSessionRequest]) (*connect.Response[v1.DeleteChatSessionResponse], error) {
+	return c.deleteChatSession.CallUnary(ctx, req)
+}
+
+// StopChatSession calls v1.SystemService.StopChatSession.
+func (c *systemServiceClient) StopChatSession(ctx context.Context, req *connect.Request[v1.StopChatSessionRequest]) (*connect.Response[v1.StopChatSessionResponse], error) {
+	return c.stopChatSession.CallUnary(ctx, req)
+}
+
+// GetChatStatus calls v1.SystemService.GetChatStatus.
+func (c *systemServiceClient) GetChatStatus(ctx context.Context, req *connect.Request[v1.GetChatStatusRequest]) (*connect.Response[v1.GetChatStatusResponse], error) {
+	return c.getChatStatus.CallUnary(ctx, req)
+}
+
 // SystemServiceHandler is an implementation of the v1.SystemService service.
 type SystemServiceHandler interface {
 	// Export a portable plaintext JSON backup of the current user's data.
@@ -211,6 +313,18 @@ type SystemServiceHandler interface {
 	LoadOllamaModel(context.Context, *connect.Request[v1.LoadOllamaModelRequest]) (*connect.Response[v1.LoadOllamaModelResponse], error)
 	// Restart the managed local llama-server process with a new model and context size.
 	RestartLocalServer(context.Context, *connect.Request[v1.RestartLocalServerRequest]) (*connect.Response[v1.RestartLocalServerResponse], error)
+	// List persistent AI Consultant chat sessions.
+	ListChatSessions(context.Context, *connect.Request[v1.ListChatSessionsRequest]) (*connect.Response[v1.ListChatSessionsResponse], error)
+	// Get details and message history of a chat session.
+	GetChatSession(context.Context, *connect.Request[v1.GetChatSessionRequest]) (*connect.Response[v1.GetChatSessionResponse], error)
+	// Save or update an AI Consultant chat session and its messages.
+	SaveChatSession(context.Context, *connect.Request[v1.SaveChatSessionRequest]) (*connect.Response[v1.SaveChatSessionResponse], error)
+	// Delete an AI Consultant chat session.
+	DeleteChatSession(context.Context, *connect.Request[v1.DeleteChatSessionRequest]) (*connect.Response[v1.DeleteChatSessionResponse], error)
+	// Stop background generation for an active chat session.
+	StopChatSession(context.Context, *connect.Request[v1.StopChatSessionRequest]) (*connect.Response[v1.StopChatSessionResponse], error)
+	// Get current active generation status for a chat session.
+	GetChatStatus(context.Context, *connect.Request[v1.GetChatStatusRequest]) (*connect.Response[v1.GetChatStatusResponse], error)
 }
 
 // NewSystemServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -268,6 +382,42 @@ func NewSystemServiceHandler(svc SystemServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(systemServiceMethods.ByName("RestartLocalServer")),
 		connect.WithHandlerOptions(opts...),
 	)
+	systemServiceListChatSessionsHandler := connect.NewUnaryHandler(
+		SystemServiceListChatSessionsProcedure,
+		svc.ListChatSessions,
+		connect.WithSchema(systemServiceMethods.ByName("ListChatSessions")),
+		connect.WithHandlerOptions(opts...),
+	)
+	systemServiceGetChatSessionHandler := connect.NewUnaryHandler(
+		SystemServiceGetChatSessionProcedure,
+		svc.GetChatSession,
+		connect.WithSchema(systemServiceMethods.ByName("GetChatSession")),
+		connect.WithHandlerOptions(opts...),
+	)
+	systemServiceSaveChatSessionHandler := connect.NewUnaryHandler(
+		SystemServiceSaveChatSessionProcedure,
+		svc.SaveChatSession,
+		connect.WithSchema(systemServiceMethods.ByName("SaveChatSession")),
+		connect.WithHandlerOptions(opts...),
+	)
+	systemServiceDeleteChatSessionHandler := connect.NewUnaryHandler(
+		SystemServiceDeleteChatSessionProcedure,
+		svc.DeleteChatSession,
+		connect.WithSchema(systemServiceMethods.ByName("DeleteChatSession")),
+		connect.WithHandlerOptions(opts...),
+	)
+	systemServiceStopChatSessionHandler := connect.NewUnaryHandler(
+		SystemServiceStopChatSessionProcedure,
+		svc.StopChatSession,
+		connect.WithSchema(systemServiceMethods.ByName("StopChatSession")),
+		connect.WithHandlerOptions(opts...),
+	)
+	systemServiceGetChatStatusHandler := connect.NewUnaryHandler(
+		SystemServiceGetChatStatusProcedure,
+		svc.GetChatStatus,
+		connect.WithSchema(systemServiceMethods.ByName("GetChatStatus")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/v1.SystemService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SystemServiceExportBackupProcedure:
@@ -286,6 +436,18 @@ func NewSystemServiceHandler(svc SystemServiceHandler, opts ...connect.HandlerOp
 			systemServiceLoadOllamaModelHandler.ServeHTTP(w, r)
 		case SystemServiceRestartLocalServerProcedure:
 			systemServiceRestartLocalServerHandler.ServeHTTP(w, r)
+		case SystemServiceListChatSessionsProcedure:
+			systemServiceListChatSessionsHandler.ServeHTTP(w, r)
+		case SystemServiceGetChatSessionProcedure:
+			systemServiceGetChatSessionHandler.ServeHTTP(w, r)
+		case SystemServiceSaveChatSessionProcedure:
+			systemServiceSaveChatSessionHandler.ServeHTTP(w, r)
+		case SystemServiceDeleteChatSessionProcedure:
+			systemServiceDeleteChatSessionHandler.ServeHTTP(w, r)
+		case SystemServiceStopChatSessionProcedure:
+			systemServiceStopChatSessionHandler.ServeHTTP(w, r)
+		case SystemServiceGetChatStatusProcedure:
+			systemServiceGetChatStatusHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -325,4 +487,28 @@ func (UnimplementedSystemServiceHandler) LoadOllamaModel(context.Context, *conne
 
 func (UnimplementedSystemServiceHandler) RestartLocalServer(context.Context, *connect.Request[v1.RestartLocalServerRequest]) (*connect.Response[v1.RestartLocalServerResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.SystemService.RestartLocalServer is not implemented"))
+}
+
+func (UnimplementedSystemServiceHandler) ListChatSessions(context.Context, *connect.Request[v1.ListChatSessionsRequest]) (*connect.Response[v1.ListChatSessionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.SystemService.ListChatSessions is not implemented"))
+}
+
+func (UnimplementedSystemServiceHandler) GetChatSession(context.Context, *connect.Request[v1.GetChatSessionRequest]) (*connect.Response[v1.GetChatSessionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.SystemService.GetChatSession is not implemented"))
+}
+
+func (UnimplementedSystemServiceHandler) SaveChatSession(context.Context, *connect.Request[v1.SaveChatSessionRequest]) (*connect.Response[v1.SaveChatSessionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.SystemService.SaveChatSession is not implemented"))
+}
+
+func (UnimplementedSystemServiceHandler) DeleteChatSession(context.Context, *connect.Request[v1.DeleteChatSessionRequest]) (*connect.Response[v1.DeleteChatSessionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.SystemService.DeleteChatSession is not implemented"))
+}
+
+func (UnimplementedSystemServiceHandler) StopChatSession(context.Context, *connect.Request[v1.StopChatSessionRequest]) (*connect.Response[v1.StopChatSessionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.SystemService.StopChatSession is not implemented"))
+}
+
+func (UnimplementedSystemServiceHandler) GetChatStatus(context.Context, *connect.Request[v1.GetChatStatusRequest]) (*connect.Response[v1.GetChatStatusResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.SystemService.GetChatStatus is not implemented"))
 }

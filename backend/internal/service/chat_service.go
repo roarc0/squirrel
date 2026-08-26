@@ -10,12 +10,83 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"connectrpc.com/connect"
 
+	"github.com/roarc0/squirrel/backend/internal/auth"
+	"github.com/roarc0/squirrel/backend/internal/store"
 	portv1 "github.com/roarc0/squirrel/proto/gen/go/v1"
 )
+
+type chatBroadcaster struct {
+	mu          sync.Mutex
+	subscribers map[chan *portv1.StreamChatResponse]struct{}
+	history     []*portv1.StreamChatResponse
+	done        bool
+}
+
+func newBroadcaster() *chatBroadcaster {
+	return &chatBroadcaster{
+		subscribers: make(map[chan *portv1.StreamChatResponse]struct{}),
+	}
+}
+
+func (b *chatBroadcaster) Subscribe() (chan *portv1.StreamChatResponse, []*portv1.StreamChatResponse, bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	ch := make(chan *portv1.StreamChatResponse, 256)
+	b.subscribers[ch] = struct{}{}
+
+	historyCopy := make([]*portv1.StreamChatResponse, len(b.history))
+	copy(historyCopy, b.history)
+
+	return ch, historyCopy, b.done
+}
+
+func (b *chatBroadcaster) Unsubscribe(ch chan *portv1.StreamChatResponse) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	delete(b.subscribers, ch)
+	close(ch)
+}
+
+func (b *chatBroadcaster) Broadcast(resp *portv1.StreamChatResponse) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	b.history = append(b.history, resp)
+	if resp.Done {
+		b.done = true
+	}
+
+	for ch := range b.subscribers {
+		select {
+		case ch <- resp:
+		default:
+		}
+	}
+}
+
+type activeChatJob struct {
+	SessionID   string
+	UserID      string
+	Ctx         context.Context
+	Cancel      context.CancelFunc
+	Broadcaster *chatBroadcaster
+	ActualNCtx  int32
+}
+
+type chatJobRegistry struct {
+	mu   sync.Mutex
+	jobs map[string]*activeChatJob
+}
+
+var globalChatJobs = &chatJobRegistry{
+	jobs: make(map[string]*activeChatJob),
+}
 
 const maxAIContextSize int32 = 1 << 20
 
@@ -45,6 +116,69 @@ func probeServerContext(ctx context.Context, endpoint string) int {
 
 func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.StreamChatRequest], stream *connect.ServerStream[portv1.StreamChatResponse]) error {
 	msg := req.Msg
+	sessionID := strings.TrimSpace(msg.SessionId)
+	if sessionID == "" {
+		sessionID = fmt.Sprintf("chat-%d", time.Now().UnixNano())
+	}
+	userID := auth.UserIDOrEmpty(ctx)
+
+	globalChatJobs.mu.Lock()
+	job, exists := globalChatJobs.jobs[sessionID]
+	if !exists {
+		jobCtx, cancel := context.WithCancel(context.Background())
+		job = &activeChatJob{
+			SessionID:   sessionID,
+			UserID:      userID,
+			Ctx:         jobCtx,
+			Cancel:      cancel,
+			Broadcaster: newBroadcaster(),
+		}
+		globalChatJobs.jobs[sessionID] = job
+		globalChatJobs.mu.Unlock()
+
+		go s.runBackgroundChat(job, msg)
+	} else {
+		globalChatJobs.mu.Unlock()
+	}
+
+	ch, history, done := job.Broadcaster.Subscribe()
+	defer job.Broadcaster.Unsubscribe(ch)
+
+	for _, h := range history {
+		if err := stream.Send(h); err != nil {
+			return err
+		}
+	}
+	if done {
+		return nil
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case resp, ok := <-ch:
+			if !ok || resp == nil {
+				return nil
+			}
+			if err := stream.Send(resp); err != nil {
+				return err
+			}
+			if resp.Done {
+				return nil
+			}
+		}
+	}
+}
+
+func (s *Server) runBackgroundChat(job *activeChatJob, msg *portv1.StreamChatRequest) {
+	defer func() {
+		globalChatJobs.mu.Lock()
+		delete(globalChatJobs.jobs, job.SessionID)
+		globalChatJobs.mu.Unlock()
+	}()
+
+	ctx := job.Ctx
 	requestedEndpoint := strings.TrimRight(strings.TrimSpace(msg.Endpoint), "/")
 	endpoint := requestedEndpoint
 	if endpoint == "" {
@@ -52,7 +186,8 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 	}
 	parsedEndpoint, err := validateHTTPSOrLoopbackURL(endpoint)
 	if len(endpoint) > 2048 || err != nil || parsedEndpoint.RawQuery != "" || parsedEndpoint.Fragment != "" {
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid AI endpoint"))
+		job.Broadcaster.Broadcast(&portv1.StreamChatResponse{Done: true})
+		return
 	}
 	endpoint = strings.TrimRight(parsedEndpoint.String(), "/")
 	model := strings.TrimSpace(msg.Model)
@@ -60,10 +195,11 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 		model = s.config.AIModel
 	}
 	if model == "" || len(model) > 256 {
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid AI model name"))
+		job.Broadcaster.Broadcast(&portv1.StreamChatResponse{Done: true})
+		return
 	}
 
-	contextSize := req.Msg.ContextSize
+	contextSize := msg.ContextSize
 	if contextSize <= 0 {
 		contextSize = int32(s.config.AIContextSize)
 	}
@@ -71,17 +207,16 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 		contextSize = 16384
 	}
 	if contextSize > maxAIContextSize {
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("AI context size is too large"))
+		job.Broadcaster.Broadcast(&portv1.StreamChatResponse{Done: true})
+		return
 	}
 
-	// Probe the actual server context window — overrides user setting when server is smaller.
-	// This makes the context budget accurate regardless of what the user configured.
 	if actualCtx := probeServerContext(ctx, endpoint); actualCtx > 0 && int32(actualCtx) < contextSize {
 		slog.InfoContext(ctx, "Server context smaller than configured — using server limit", "server_n_ctx", actualCtx, "configured", contextSize)
 		contextSize = int32(actualCtx)
 	}
+	job.ActualNCtx = contextSize
 
-	// Fetch tools first so we can account for their token cost in budget calculations.
 	var tools []map[string]interface{}
 	if s.mcpHandler != nil {
 		tools = s.mcpHandler.OpenAITools()
@@ -93,7 +228,6 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 		}
 	}
 
-	// Total prompt budget: context minus output headroom and tool schema overhead.
 	totalPromptBudget := int(contextSize) - 500 - toolTokens
 	if totalPromptBudget < 400 {
 		totalPromptBudget = 400
@@ -104,7 +238,6 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 
 	systemPrompt := basePrompt
 	if msg.PortfolioContextJson != "" {
-		// Reserve 200 tokens for last user message turn.
 		portfolioBudgetChars := (totalPromptBudget - baseTokens - 200) * 3
 		portfolioJSON := msg.PortfolioContextJson
 		if portfolioBudgetChars > 0 && len(portfolioJSON) > portfolioBudgetChars {
@@ -158,11 +291,9 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 		return totalChars / 3
 	}
 
-	// Prune older history turns so conversation[1:] fits within maxHistoryTokens.
 	for len(conversation) > 2 && estimateTokens(conversation[1:]) > maxHistoryTokens {
 		conversation = append(conversation[:1], conversation[2:]...)
 	}
-	// Hard-truncate a single oversized user message if still exceeding budget.
 	if len(conversation) > 1 && estimateTokens(conversation[1:]) > maxHistoryTokens {
 		for i := 1; i < len(conversation); i++ {
 			if content, ok := conversation[i]["content"].(string); ok && len(content) > maxHistoryTokens*4 {
@@ -192,11 +323,66 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 		payload["tool_choice"] = "auto"
 	}
 
-	if err := stream.Send(&portv1.StreamChatResponse{ActualNCtx: contextSize}); err != nil {
-		return err
-	}
+	job.Broadcaster.Broadcast(&portv1.StreamChatResponse{ActualNCtx: contextSize})
 	apiKey := s.aiAPIKey(msg.ApiKey, requestedEndpoint, endpoint)
-	return s.executeStreamChatPayload(ctx, endpoint, apiKey, payload, conversation, stream, maxHistoryTokens, estimateTokens, 0)
+
+	accumulatedContent, toolRecords := s.executeJobStreamChatPayload(ctx, job, endpoint, apiKey, payload, conversation, maxHistoryTokens, estimateTokens, 0)
+
+	if len(msg.Messages) > 0 {
+		existingSession, _ := s.store.GetChatSession(context.Background(), job.SessionID, job.UserID)
+		title := "New Conversation"
+		if existingSession != nil && existingSession.Title != "" {
+			title = existingSession.Title
+		} else {
+			for _, m := range msg.Messages {
+				if m.Role == "user" && strings.TrimSpace(m.Content) != "" {
+					title = strings.TrimSpace(m.Content)
+					if len(title) > 42 {
+						title = title[:42] + "..."
+					}
+					break
+				}
+			}
+		}
+
+		var messagesToSave []store.ChatMessageRecord
+		for i, m := range msg.Messages {
+			messagesToSave = append(messagesToSave, store.ChatMessageRecord{
+				ID:        fmt.Sprintf("%s-msg-%d", job.SessionID, i),
+				SessionID: job.SessionID,
+				UserID:    job.UserID,
+				Role:      m.Role,
+				Content:   m.Content,
+				Timestamp: time.Now().Format("15:04"),
+			})
+		}
+
+		if strings.TrimSpace(accumulatedContent) != "" || len(toolRecords) > 0 {
+			toolCallsJSON := ""
+			if len(toolRecords) > 0 {
+				b, _ := json.Marshal(toolRecords)
+				toolCallsJSON = string(b)
+			}
+			messagesToSave = append(messagesToSave, store.ChatMessageRecord{
+				ID:            fmt.Sprintf("%s-assistant-%d", job.SessionID, time.Now().UnixNano()),
+				SessionID:     job.SessionID,
+				UserID:        job.UserID,
+				Role:          "assistant",
+				Content:       accumulatedContent,
+				Timestamp:     time.Now().Format("15:04"),
+				ToolCallsJSON: toolCallsJSON,
+			})
+		}
+
+		_ = s.store.SaveChatSession(context.Background(), &store.ChatSessionRecord{
+			ID:       job.SessionID,
+			UserID:   job.UserID,
+			Title:    title,
+			Messages: messagesToSave,
+		})
+	}
+
+	job.Broadcaster.Broadcast(&portv1.StreamChatResponse{Done: true})
 }
 
 func (s *Server) aiAPIKey(requestKey, requestedEndpoint, resolvedEndpoint string) string {
@@ -210,26 +396,26 @@ func (s *Server) aiAPIKey(requestKey, requestedEndpoint, resolvedEndpoint string
 	return ""
 }
 
-func (s *Server) executeStreamChatPayload(
+func (s *Server) executeJobStreamChatPayload(
 	ctx context.Context,
+	job *activeChatJob,
 	endpoint string,
 	apiKey string,
 	payload map[string]interface{},
 	conversation []map[string]interface{},
-	stream *connect.ServerStream[portv1.StreamChatResponse],
 	maxPromptTokens int,
 	estimateTokens func([]map[string]interface{}) int,
 	toolRound int,
-) error {
+) (string, []map[string]interface{}) {
 	url := fmt.Sprintf("%s/chat/completions", endpoint)
 	bodyBytes, err := json.Marshal(payload)
 	if err != nil {
-		return connect.NewError(connect.CodeInternal, fmt.Errorf("marshal chat payload failed: %w", err))
+		return "", nil
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
 	if err != nil {
-		return connect.NewError(connect.CodeInternal, fmt.Errorf("create chat stream request failed: %w", err))
+		return "", nil
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	if apiKey != "" {
@@ -239,77 +425,19 @@ func (s *Server) executeStreamChatPayload(
 	client := &http.Client{Timeout: 0}
 	res, err := client.Do(httpReq)
 	if err != nil {
-		return connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to AI server at %s: %w", url, err))
+		job.Broadcaster.Broadcast(&portv1.StreamChatResponse{
+			DeltaText: fmt.Sprintf("\n[Error: Failed to connect to AI server at %s: %v]", url, err),
+		})
+		return "", nil
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode >= 400 {
 		errBody, _ := io.ReadAll(io.LimitReader(res.Body, 64<<10))
-
-		// On context overflow errors: extract the server's actual n_ctx, truncate system message, retry once.
-		var errResp struct {
-			Error struct {
-				Type string `json:"type"`
-				NCtx int    `json:"n_ctx"`
-			} `json:"error"`
-		}
-		if json.Unmarshal(errBody, &errResp) == nil && errResp.Error.Type == "exceed_context_size_error" && errResp.Error.NCtx > 0 {
-			actualCtx := errResp.Error.NCtx
-
-			// Small context (≤8192): tools alone are too expensive — drop them unconditionally.
-			if actualCtx <= 8192 {
-				delete(payload, "tools")
-			}
-
-			totalBudget := actualCtx - 500
-			if totalBudget < 300 {
-				totalBudget = 300
-			}
-			msgReserve := 200 // tokens always reserved for the last user turn
-			sysBudget := totalBudget - msgReserve
-
-			if msgs, ok := payload["messages"].([]map[string]interface{}); ok && len(msgs) > 0 {
-				// Truncate system message to sysBudget using conservative /3 estimate.
-				if content, ok := msgs[0]["content"].(string); ok && len(content)/3 > sysBudget {
-					msgs[0]["content"] = content[:sysBudget*3] + "\n... (truncated: server context is " + fmt.Sprintf("%d", actualCtx) + " tokens)"
-				}
-				sysTokens := len(msgs[0]["content"].(string)) / 3
-				histBudget := totalBudget - sysTokens
-				if histBudget < msgReserve {
-					histBudget = msgReserve
-				}
-				// Prune older history, always keep the last user message (msgs[len-1]).
-				for len(msgs) > 2 && estimateTokens(msgs[1:]) > histBudget {
-					msgs = append(msgs[:1], msgs[2:]...)
-				}
-				payload["messages"] = msgs
-				conversation = msgs
-			}
-			bodyBytes2, err := json.Marshal(payload)
-			if err != nil {
-				return connect.NewError(connect.CodeInternal, fmt.Errorf("marshal trimmed chat payload: %w", err))
-			}
-			httpReq2, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes2))
-			if err != nil {
-				return connect.NewError(connect.CodeInternal, fmt.Errorf("create chat retry request: %w", err))
-			}
-			httpReq2.Header.Set("Content-Type", "application/json")
-			if apiKey != "" {
-				httpReq2.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
-			}
-			res2, err2 := (&http.Client{Timeout: 0}).Do(httpReq2)
-			if err2 != nil {
-				return connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to AI server on retry: %w", err2))
-			}
-			defer res2.Body.Close()
-			if res2.StatusCode >= 400 {
-				errBody2, _ := io.ReadAll(io.LimitReader(res2.Body, 64<<10))
-				return connect.NewError(connect.CodeInternal, fmt.Errorf("AI provider HTTP %d (retry after context trim): %s", res2.StatusCode, string(errBody2)))
-			}
-			res = res2
-		} else {
-			return connect.NewError(connect.CodeInternal, fmt.Errorf("AI provider HTTP %d: %s", res.StatusCode, string(errBody)))
-		}
+		job.Broadcaster.Broadcast(&portv1.StreamChatResponse{
+			DeltaText: fmt.Sprintf("\n[Error: AI provider HTTP %d: %s]", res.StatusCode, string(errBody)),
+		})
+		return "", nil
 	}
 
 	type toolCallDelta struct {
@@ -323,10 +451,18 @@ func (s *Server) executeStreamChatPayload(
 
 	var pendingToolCalls []toolCallDelta
 	toolCallMap := make(map[int]*toolCallDelta)
+	var accumulatedText strings.Builder
+	var executedTools []map[string]interface{}
 
 	scanner := bufio.NewScanner(res.Body)
 	scanner.Buffer(make([]byte, 64<<10), 1<<20)
 	for scanner.Scan() {
+		select {
+		case <-ctx.Done():
+			return accumulatedText.String(), executedTools
+		default:
+		}
+
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || strings.HasPrefix(line, ":") {
 			continue
@@ -352,18 +488,16 @@ func (s *Server) executeStreamChatPayload(
 						} `json:"function"`
 					} `json:"tool_calls"`
 				} `json:"delta"`
-				FinishReason *string `json:"finish_reason"`
 			} `json:"choices"`
 		}
 
 		if err := json.Unmarshal([]byte(dataStr), &chunk); err == nil && len(chunk.Choices) > 0 {
 			delta := chunk.Choices[0].Delta
 			if delta.Content != "" {
-				if err := stream.Send(&portv1.StreamChatResponse{
+				accumulatedText.WriteString(delta.Content)
+				job.Broadcaster.Broadcast(&portv1.StreamChatResponse{
 					DeltaText: delta.Content,
-				}); err != nil {
-					return err
-				}
+				})
 			}
 
 			for _, tc := range delta.ToolCalls {
@@ -383,9 +517,6 @@ func (s *Server) executeStreamChatPayload(
 			}
 		}
 	}
-	if err := scanner.Err(); err != nil {
-		return connect.NewError(connect.CodeUnavailable, fmt.Errorf("read AI stream: %w", err))
-	}
 
 	for i := 0; i < len(toolCallMap); i++ {
 		if tc, ok := toolCallMap[i]; ok && tc.Function.Name != "" {
@@ -393,14 +524,17 @@ func (s *Server) executeStreamChatPayload(
 		}
 	}
 
-	if len(pendingToolCalls) > 0 && s.mcpHandler != nil {
-		if toolRound >= 8 {
-			return connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("AI tool-call round limit reached"))
-		}
+	if len(pendingToolCalls) > 0 && s.mcpHandler != nil && toolRound < 8 {
 		var toolCallPayloads []map[string]interface{}
 		var toolResults []map[string]interface{}
 
 		for _, tc := range pendingToolCalls {
+			select {
+			case <-ctx.Done():
+				return accumulatedText.String(), executedTools
+			default:
+			}
+
 			var args map[string]interface{}
 			resultJSON := ""
 			if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil || args == nil {
@@ -409,14 +543,18 @@ func (s *Server) executeStreamChatPayload(
 				resultJSON = fmt.Sprintf(`{"error": %q}`, err.Error())
 			}
 
-			if err := stream.Send(&portv1.StreamChatResponse{
+			executedTools = append(executedTools, map[string]interface{}{
+				"name":   tc.Function.Name,
+				"args":   args,
+				"result": resultJSON,
+			})
+
+			job.Broadcaster.Broadcast(&portv1.StreamChatResponse{
 				IsMcpToolCall:  true,
 				ToolName:       tc.Function.Name,
 				ToolArgsJson:   tc.Function.Arguments,
 				ToolResultJson: resultJSON,
-			}); err != nil {
-				return err
-			}
+			})
 
 			toolCallPayloads = append(toolCallPayloads, map[string]interface{}{
 				"id":   tc.ID,
@@ -461,8 +599,171 @@ func (s *Server) executeStreamChatPayload(
 			}
 		}
 
-		return s.executeStreamChatPayload(ctx, endpoint, apiKey, nextPayload, conversation, stream, maxPromptTokens, estimateTokens, toolRound+1)
+		subContent, subTools := s.executeJobStreamChatPayload(ctx, job, endpoint, apiKey, nextPayload, conversation, maxPromptTokens, estimateTokens, toolRound+1)
+		accumulatedText.WriteString(subContent)
+		executedTools = append(executedTools, subTools...)
 	}
 
-	return stream.Send(&portv1.StreamChatResponse{Done: true})
+	return accumulatedText.String(), executedTools
 }
+
+func (s *Server) ListChatSessions(ctx context.Context, req *connect.Request[portv1.ListChatSessionsRequest]) (*connect.Response[portv1.ListChatSessionsResponse], error) {
+	userID := auth.UserIDOrEmpty(ctx)
+	sessions, err := s.store.ListChatSessions(ctx, userID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	var res []*portv1.ChatSessionData
+	for _, rec := range sessions {
+		res = append(res, &portv1.ChatSessionData{
+			Id:           rec.ID,
+			Title:        rec.Title,
+			CreatedAt:    rec.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:    rec.UpdatedAt.Format(time.RFC3339),
+			MessageCount: int32(rec.MessageCount),
+		})
+	}
+	return connect.NewResponse(&portv1.ListChatSessionsResponse{Sessions: res}), nil
+}
+
+func (s *Server) GetChatSession(ctx context.Context, req *connect.Request[portv1.GetChatSessionRequest]) (*connect.Response[portv1.GetChatSessionResponse], error) {
+	userID := auth.UserIDOrEmpty(ctx)
+	session, err := s.store.GetChatSession(ctx, req.Msg.Id, userID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if session == nil {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("chat session not found"))
+	}
+
+	var messages []*portv1.ChatMessageData
+	for _, m := range session.Messages {
+		messages = append(messages, &portv1.ChatMessageData{
+			Id:            m.ID,
+			Role:          m.Role,
+			Content:       m.Content,
+			Timestamp:     m.Timestamp,
+			ToolCallsJson: m.ToolCallsJSON,
+		})
+	}
+
+	return connect.NewResponse(&portv1.GetChatSessionResponse{
+		Session: &portv1.ChatSessionData{
+			Id:           session.ID,
+			Title:        session.Title,
+			CreatedAt:    session.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:    session.UpdatedAt.Format(time.RFC3339),
+			Messages:     messages,
+			MessageCount: int32(session.MessageCount),
+		},
+	}), nil
+}
+
+func (s *Server) SaveChatSession(ctx context.Context, req *connect.Request[portv1.SaveChatSessionRequest]) (*connect.Response[portv1.SaveChatSessionResponse], error) {
+	userID := auth.UserIDOrEmpty(ctx)
+	if strings.TrimSpace(req.Msg.Id) == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("session id is required"))
+	}
+
+	title := strings.TrimSpace(req.Msg.Title)
+	if title == "" {
+		title = "New Conversation"
+	}
+
+	rec := store.ChatSessionRecord{
+		ID:     req.Msg.Id,
+		UserID: userID,
+		Title:  title,
+	}
+
+	for _, m := range req.Msg.Messages {
+		rec.Messages = append(rec.Messages, store.ChatMessageRecord{
+			ID:            m.Id,
+			SessionID:     req.Msg.Id,
+			UserID:        userID,
+			Role:          m.Role,
+			Content:       m.Content,
+			Timestamp:     m.Timestamp,
+			ToolCallsJSON: m.ToolCallsJson,
+		})
+	}
+
+	if err := s.store.SaveChatSession(ctx, &rec); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	saved, err := s.store.GetChatSession(ctx, req.Msg.Id, userID)
+	if err != nil || saved == nil {
+		return connect.NewResponse(&portv1.SaveChatSessionResponse{Success: true}), nil
+	}
+
+	var messages []*portv1.ChatMessageData
+	for _, m := range saved.Messages {
+		messages = append(messages, &portv1.ChatMessageData{
+			Id:            m.ID,
+			Role:          m.Role,
+			Content:       m.Content,
+			Timestamp:     m.Timestamp,
+			ToolCallsJson: m.ToolCallsJSON,
+		})
+	}
+
+	return connect.NewResponse(&portv1.SaveChatSessionResponse{
+		Success: true,
+		Session: &portv1.ChatSessionData{
+			Id:           saved.ID,
+			Title:        saved.Title,
+			CreatedAt:    saved.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:    saved.UpdatedAt.Format(time.RFC3339),
+			Messages:     messages,
+			MessageCount: int32(saved.MessageCount),
+		},
+	}), nil
+}
+
+func (s *Server) DeleteChatSession(ctx context.Context, req *connect.Request[portv1.DeleteChatSessionRequest]) (*connect.Response[portv1.DeleteChatSessionResponse], error) {
+	userID := auth.UserIDOrEmpty(ctx)
+	if err := s.store.DeleteChatSession(ctx, req.Msg.Id, userID); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&portv1.DeleteChatSessionResponse{Success: true}), nil
+}
+
+func (s *Server) StopChatSession(ctx context.Context, req *connect.Request[portv1.StopChatSessionRequest]) (*connect.Response[portv1.StopChatSessionResponse], error) {
+	sessionID := strings.TrimSpace(req.Msg.SessionId)
+	if sessionID == "" {
+		return connect.NewResponse(&portv1.StopChatSessionResponse{Success: false}), nil
+	}
+
+	globalChatJobs.mu.Lock()
+	job, exists := globalChatJobs.jobs[sessionID]
+	if exists && job != nil {
+		job.Cancel()
+	}
+	globalChatJobs.mu.Unlock()
+
+	return connect.NewResponse(&portv1.StopChatSessionResponse{Success: true}), nil
+}
+
+func (s *Server) GetChatStatus(ctx context.Context, req *connect.Request[portv1.GetChatStatusRequest]) (*connect.Response[portv1.GetChatStatusResponse], error) {
+	sessionID := strings.TrimSpace(req.Msg.SessionId)
+	if sessionID == "" {
+		return connect.NewResponse(&portv1.GetChatStatusResponse{IsGenerating: false}), nil
+	}
+
+	globalChatJobs.mu.Lock()
+	job, exists := globalChatJobs.jobs[sessionID]
+	var nCtx int32
+	if exists && job != nil {
+		nCtx = job.ActualNCtx
+	}
+	globalChatJobs.mu.Unlock()
+
+	return connect.NewResponse(&portv1.GetChatStatusResponse{
+		IsGenerating: exists,
+		SessionId:    sessionID,
+		ActualNCtx:   nCtx,
+	}), nil
+}
+

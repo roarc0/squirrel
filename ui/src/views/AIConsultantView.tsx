@@ -1,7 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
-import { IconSquareFilled, IconTrash, IconSettings, IconInfoCircle, IconUserCheck } from '@tabler/icons-react';
+import {
+  IconSquareFilled,
+  IconTrash,
+  IconSettings,
+  IconInfoCircle,
+  IconUserCheck,
+  IconHistory,
+  IconPlus,
+  IconMessage,
+  IconPencil,
+  IconCheck,
+  IconX,
+  IconClock,
+} from '@tabler/icons-react';
 import {
   Accordion,
+  ActionIcon,
   Alert,
   Badge,
   Box,
@@ -9,11 +23,14 @@ import {
   Card,
   Code,
   Divider,
+  Drawer,
   Group,
+  Loader,
   Modal,
   Paper,
   PasswordInput,
   Progress,
+  ScrollArea,
   Select,
   SimpleGrid,
   Stack,
@@ -21,11 +38,25 @@ import {
   TextInput,
   Textarea,
   Title,
+  Tooltip,
 } from '@mantine/core';
-import type { Account, Holding, Instrument, Summary, AIModelInfo, OllamaModelInfo } from '../api';
+import type { Account, Holding, Instrument, Summary, AIModelInfo, OllamaModelInfo, ChatSessionData, ChatMessageData } from '../api';
 import { ViewShell } from '../components/ViewShell';
 import { SectionHeader } from '../components/SectionHeader';
-import { listAIModels, downloadAIModel, streamChat, listOllamaModels, loadOllamaModel, restartLocalServer } from '../api';
+import {
+  listAIModels,
+  downloadAIModel,
+  streamChat,
+  listOllamaModels,
+  loadOllamaModel,
+  restartLocalServer,
+  listChatSessions,
+  getChatSession,
+  saveChatSession,
+  deleteChatSession,
+  stopChatSession,
+  getChatStatus,
+} from '../api';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import { money, percent } from '../utils/format';
 import { useProfile, loadProfile } from '../hooks/useProfile';
@@ -97,30 +128,274 @@ export function AIConsultantView({
   const [error, setError] = useState('');
   const [detectedNCtx, setDetectedNCtx] = useState<number>(0);
 
-  // Persist chat messages temporarily in sessionStorage until refresh
-  const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    try {
-      const raw = sessionStorage.getItem('squirrel.aiChatHistory');
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  });
+  const getURLSessionId = (): string | null => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('session');
+  };
 
-  const saveMessages = (nextMessages: ChatMessage[]) => {
-    setMessages(nextMessages);
+  const updateSessionURL = (sessionId: string | null, replace = false) => {
     try {
-      sessionStorage.setItem('squirrel.aiChatHistory', JSON.stringify(nextMessages));
+      const url = new URL(window.location.href);
+      if (sessionId) {
+        url.searchParams.set('session', sessionId);
+      } else {
+        url.searchParams.delete('session');
+      }
+      if (replace) {
+        window.history.replaceState({}, '', url.toString());
+      } else {
+        window.history.pushState({}, '', url.toString());
+      }
     } catch {
       /* optional */
     }
   };
 
-  const clearChat = () => {
-    saveMessages([]);
-    setError('');
+  const [sessions, setSessions] = useState<ChatSessionData[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string>(() => {
+    return getURLSessionId() || `chat-${Date.now()}`;
+  });
+  const [isDraftSession, setIsDraftSession] = useState<boolean>(() => {
+    return !getURLSessionId();
+  });
+  const [activeSessionTitle, setActiveSessionTitle] = useState<string>('New Conversation');
+  const [historyOpened, setHistoryOpened] = useState(false);
+  const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
+  const [editTitleValue, setEditTitleValue] = useState<string>('');
+
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+
+  const refreshSessions = async () => {
     try {
-      sessionStorage.removeItem('squirrel.aiChatHistory');
+      const list = await listChatSessions();
+      setSessions(list);
+      return list;
+    } catch {
+      return [];
+    }
+  };
+
+  const reconnectToActiveStream = async (sessionId: string, existingMsgs: ChatMessage[]) => {
+    setLoading(true);
+    setError('');
+
+    const lastMsg = existingMsgs.length > 0 ? existingMsgs[existingMsgs.length - 1] : null;
+    let assistantMsgId: string;
+    let currentMessages: ChatMessage[];
+
+    if (lastMsg && lastMsg.role === 'assistant') {
+      assistantMsgId = lastMsg.id;
+      currentMessages = [...existingMsgs];
+    } else {
+      assistantMsgId = `assistant-${Date.now()}`;
+      const initialAssistantMsg: ChatMessage = {
+        id: assistantMsgId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      currentMessages = [...existingMsgs, initialAssistantMsg];
+    }
+    setMessages(currentMessages);
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    try {
+      let accumulatedText = lastMsg && lastMsg.role === 'assistant' ? lastMsg.content : '';
+      const toolRecords: MCPToolCallRecord[] = lastMsg && lastMsg.toolCalls ? [...lastMsg.toolCalls] : [];
+
+      const stream = streamChat(
+        {
+          provider: settings.provider,
+          endpoint: settings.endpoint,
+          model: settings.model,
+          apiKey: settings.apiKey,
+          contextSize: settings.contextSize || 16384,
+          messages: existingMsgs.filter(m => m.id !== assistantMsgId).map(m => ({ role: m.role, content: m.content })),
+          portfolioContextJson: JSON.stringify(summary),
+          sessionId,
+        },
+        { signal: controller.signal }
+      );
+
+      for await (const chunk of stream) {
+        if (chunk.actualNCtx && chunk.actualNCtx > 0) {
+          setDetectedNCtx(chunk.actualNCtx);
+        }
+        if (chunk.isMcpToolCall && chunk.toolName) {
+          let args = {};
+          try { args = JSON.parse(chunk.toolArgsJson); } catch { /* optional */ }
+          toolRecords.push({
+            name: chunk.toolName,
+            args,
+            result: chunk.toolResultJson,
+          });
+        }
+        if (chunk.deltaText) {
+          accumulatedText += chunk.deltaText;
+          currentMessages = currentMessages.map(m =>
+            m.id === assistantMsgId
+              ? {
+                  ...m,
+                  content: accumulatedText,
+                  toolCalls: toolRecords.length > 0 ? toolRecords : undefined,
+                }
+              : m
+          );
+          setMessages(currentMessages);
+        }
+      }
+      void refreshSessions();
+    } catch (cause) {
+      if (cause instanceof Error && (cause.name === 'AbortError' || cause.message.toLowerCase().includes('abort'))) {
+        return;
+      }
+    } finally {
+      setLoading(false);
+      abortControllerRef.current = null;
+    }
+  };
+
+  const loadSession = async (sessionId: string, syncURL = true) => {
+    try {
+      const data = await getChatSession(sessionId);
+      if (data && data.messages) {
+        const loadedMsgs: ChatMessage[] = data.messages.map(m => {
+          let toolCalls: MCPToolCallRecord[] | undefined;
+          if (m.tool_calls_json) {
+            try {
+              toolCalls = JSON.parse(m.tool_calls_json);
+            } catch {
+              /* ignore */
+            }
+          }
+          return {
+            id: m.id,
+            role: m.role as any,
+            content: m.content,
+            timestamp: m.timestamp,
+            toolCalls,
+          };
+        });
+        setMessages(loadedMsgs);
+        setActiveSessionTitle(data.title || 'New Conversation');
+        setActiveSessionId(data.id);
+        setIsDraftSession(false);
+        if (syncURL) {
+          updateSessionURL(data.id, true);
+        }
+
+        const status = await getChatStatus(data.id);
+        if (status.isGenerating) {
+          setLoading(true);
+          if (status.actualNCtx > 0) setDetectedNCtx(status.actualNCtx);
+          void reconnectToActiveStream(data.id, loadedMsgs);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+
+  useEffect(() => {
+    const handleUrlState = async () => {
+      await refreshSessions();
+      const urlSession = getURLSessionId();
+      if (urlSession) {
+        await loadSession(urlSession, false);
+      } else {
+        const freshId = `chat-${Date.now()}`;
+        setActiveSessionId(freshId);
+        setActiveSessionTitle('New Conversation');
+        setMessages([]);
+        setIsDraftSession(true);
+      }
+    };
+
+    void handleUrlState();
+
+    const onPopState = () => {
+      void handleUrlState();
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  const saveMessages = (nextMessages: ChatMessage[], overrideTitle?: string, targetSessionId?: string) => {
+    setMessages(nextMessages);
+    const sessionIdToSave = targetSessionId || activeSessionId;
+    let titleToSave = overrideTitle || activeSessionTitle;
+
+    // Derive title from first user message if current title is default
+    if ((!titleToSave || titleToSave === 'New Conversation') && nextMessages.length > 0) {
+      const firstUserMsg = nextMessages.find(m => m.role === 'user');
+      if (firstUserMsg && firstUserMsg.content.trim()) {
+        titleToSave = firstUserMsg.content.trim().slice(0, 42);
+        if (firstUserMsg.content.trim().length > 42) {
+          titleToSave += '...';
+        }
+        setActiveSessionTitle(titleToSave);
+      }
+    }
+
+    const payloadMessages: ChatMessageData[] = nextMessages
+      .filter(m => {
+        if (m.role === 'assistant' && !m.content.trim() && (!m.toolCalls || m.toolCalls.length === 0)) {
+          return false;
+        }
+        return true;
+      })
+      .map(m => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp,
+        tool_calls_json: m.toolCalls ? JSON.stringify(m.toolCalls) : '',
+      }));
+
+    void saveChatSession(sessionIdToSave, titleToSave || 'New Conversation', payloadMessages).then(() => {
+      void refreshSessions();
+    });
+  };
+
+  const createNewChat = () => {
+    const newId = `chat-${Date.now()}`;
+    setActiveSessionId(newId);
+    setActiveSessionTitle('New Conversation');
+    setMessages([]);
+    setIsDraftSession(true);
+    setError('');
+    updateSessionURL(null);
+  };
+
+  const removeSession = async (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    try {
+      await deleteChatSession(id);
+      const remaining = await refreshSessions();
+      if (id === activeSessionId) {
+        if (remaining.length > 0) {
+          await loadSession(remaining[0].id);
+        } else {
+          createNewChat();
+        }
+      }
+    } catch {
+      /* optional */
+    }
+  };
+
+  const saveEditedTitle = async (id: string) => {
+    const target = sessions.find(s => s.id === id);
+    if (!target) return;
+    try {
+      await saveChatSession(id, editTitleValue || 'Conversation', target.messages || []);
+      if (id === activeSessionId) {
+        setActiveSessionTitle(editTitleValue || 'Conversation');
+      }
+      setEditingTitleId(null);
+      void refreshSessions();
     } catch {
       /* optional */
     }
@@ -206,6 +481,7 @@ export function AIConsultantView({
   }, [messages, loading]);
 
   const stopAI = () => {
+    void stopChatSession(activeSessionId);
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -217,6 +493,14 @@ export function AIConsultantView({
     const textToSend = queryText.trim();
     if (!textToSend || loading) return;
 
+    let currentSessionId = activeSessionId;
+    if (isDraftSession) {
+      currentSessionId = `chat-${Date.now()}`;
+      setActiveSessionId(currentSessionId);
+      setIsDraftSession(false);
+      updateSessionURL(currentSessionId, true);
+    }
+
     const userMsg: ChatMessage = {
       id: String(Date.now()),
       role: 'user',
@@ -225,7 +509,7 @@ export function AIConsultantView({
     };
 
     const updatedMessages = [...messages, userMsg];
-    saveMessages(updatedMessages);
+    saveMessages(updatedMessages, undefined, currentSessionId);
     setPrompt('');
     setLoading(true);
     setError('');
@@ -239,7 +523,7 @@ export function AIConsultantView({
     };
 
     let currentMessages = [...updatedMessages, initialAssistantMsg];
-    saveMessages(currentMessages);
+    saveMessages(currentMessages, undefined, currentSessionId);
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -266,6 +550,7 @@ export function AIConsultantView({
           contextSize: settings.contextSize || 16384,
           messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
           portfolioContextJson: contextJSON,
+          sessionId: currentSessionId,
         },
         { signal: controller.signal }
       );
@@ -301,7 +586,7 @@ export function AIConsultantView({
                 }
               : m
           );
-          saveMessages(currentMessages);
+          saveMessages(currentMessages, undefined, currentSessionId);
         }
       }
     } catch (cause) {
@@ -323,7 +608,7 @@ export function AIConsultantView({
       };
 
       const filtered = currentMessages.filter(m => m.id !== assistantMsgId || m.content.trim().length > 0);
-      saveMessages([...filtered, errorMsg]);
+      saveMessages([...filtered, errorMsg], undefined, currentSessionId);
     } finally {
       setLoading(false);
       abortControllerRef.current = null;
@@ -345,12 +630,32 @@ export function AIConsultantView({
         badge={<Badge color="teal" variant="light">MCP Proto API Enabled</Badge>}
         actions={
           <Group gap="xs">
-            {messages.length > 0 && (
-              <Button variant="subtle" color="red" size="xs" leftSection={<IconTrash size={14} />} onClick={clearChat}>
-                Clear Chat Session
-              </Button>
-            )}
-            <Button variant="default" size="xs" leftSection={<IconSettings size={14} />} onClick={() => setSettingsOpened(true)}>
+            <Button
+              variant="light"
+              color="teal"
+              size="xs"
+              leftSection={<IconPlus size={14} />}
+              onClick={createNewChat}
+            >
+              New Chat
+            </Button>
+            <Button
+              variant="default"
+              size="xs"
+              leftSection={<IconHistory size={14} />}
+              onClick={() => {
+                void refreshSessions();
+                setHistoryOpened(true);
+              }}
+            >
+              History & Recovery {sessions.length > 0 && `(${sessions.length})`}
+            </Button>
+            <Button
+              variant="default"
+              size="xs"
+              leftSection={<IconSettings size={14} />}
+              onClick={() => setSettingsOpened(true)}
+            >
               AI Settings ({settings.provider} · {settings.contextSize >= 1024 ? `${Math.round(settings.contextSize / 1024)}K` : settings.contextSize})
             </Button>
           </Group>
@@ -403,7 +708,10 @@ export function AIConsultantView({
         </Paper>
       ) : (
         <Stack gap="md">
-          {messages.map(msg => {
+          {messages.map((msg, index) => {
+            const isLastMsg = index === messages.length - 1;
+            const isGeneratingThisMsg = msg.role === 'assistant' && loading && isLastMsg;
+
             if (msg.role === 'error') {
               return (
                 <Alert
@@ -506,7 +814,16 @@ export function AIConsultantView({
                 )}
 
                 <Box style={{ lineHeight: 1.5, fontSize: 14 }}>
-                  <MarkdownRenderer content={msg.content} />
+                  {msg.content.trim() ? (
+                    <MarkdownRenderer content={msg.content} />
+                  ) : isGeneratingThisMsg ? (
+                    <Group gap="xs" py="xs" align="center">
+                      <Loader size="sm" color="teal" type="dots" />
+                      <Text size="xs" c="dimmed" fs="italic">
+                        Thinking...
+                      </Text>
+                    </Group>
+                  ) : null}
                 </Box>
               </Card>
             );
@@ -600,6 +917,141 @@ export function AIConsultantView({
           </Accordion.Panel>
         </Accordion.Item>
       </Accordion>
+
+      <Drawer
+        opened={historyOpened}
+        onClose={() => setHistoryOpened(false)}
+        title={
+          <Group gap="xs">
+            <IconHistory size={20} color="var(--mantine-color-teal-6)" />
+            <Text fw={750} size="md">
+              Saved Chat Sessions ({sessions.length})
+            </Text>
+          </Group>
+        }
+        position="right"
+        size="md"
+        padding="md"
+      >
+        <Stack gap="md" style={{ height: '100%' }}>
+          <Group justify="space-between" align="center">
+            <Text size="xs" c="dimmed">
+              Select any previous chat to restore its history or manage conversations.
+            </Text>
+            <Button size="xs" variant="light" color="teal" leftSection={<IconPlus size={14} />} onClick={() => { createNewChat(); setHistoryOpened(false); }}>
+              New Chat
+            </Button>
+          </Group>
+          <Divider />
+          <ScrollArea.Autosize mah={640} offsetScrollbars>
+            {sessions.length === 0 ? (
+              <Stack align="center" py="xl" gap="xs">
+                <IconMessage size={32} color="var(--mantine-color-dimmed)" />
+                <Text fw={650} size="sm">
+                  No saved conversations yet
+                </Text>
+                <Text size="xs" c="dimmed">
+                  Start asking questions to build your persistent consultation history.
+                </Text>
+              </Stack>
+            ) : (
+              <Stack gap="xs">
+                {sessions.map(s => {
+                  const isActive = s.id === activeSessionId;
+                  const isEditing = editingTitleId === s.id;
+                  return (
+                    <Card
+                      key={s.id}
+                      withBorder
+                      radius="md"
+                      p="sm"
+                      style={{
+                        cursor: 'pointer',
+                        borderColor: isActive ? 'var(--mantine-color-teal-6)' : undefined,
+                        background: isActive ? 'var(--mantine-color-teal-light)' : 'var(--mantine-color-body)',
+                      }}
+                      onClick={() => {
+                        void loadSession(s.id);
+                        setHistoryOpened(false);
+                      }}
+                    >
+                      <Group justify="space-between" align="center" wrap="nowrap" mb={4}>
+                        {isEditing ? (
+                          <Group gap="xs" style={{ flex: 1 }} onClick={e => e.stopPropagation()}>
+                            <TextInput
+                              size="xs"
+                              value={editTitleValue}
+                              onChange={e => setEditTitleValue(e.currentTarget.value)}
+                              style={{ flex: 1 }}
+                              autoFocus
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') void saveEditedTitle(s.id);
+                                else if (e.key === 'Escape') setEditingTitleId(null);
+                              }}
+                            />
+                            <ActionIcon size="xs" color="teal" onClick={() => void saveEditedTitle(s.id)}>
+                              <IconCheck size={14} />
+                            </ActionIcon>
+                            <ActionIcon size="xs" color="gray" onClick={() => setEditingTitleId(null)}>
+                              <IconX size={14} />
+                            </ActionIcon>
+                          </Group>
+                        ) : (
+                          <Group gap="xs" align="center" style={{ flex: 1, minWidth: 0 }}>
+                            <IconMessage size={16} color={isActive ? 'var(--mantine-color-teal-6)' : 'var(--mantine-color-dimmed)'} />
+                            <Text fw={isActive ? 750 : 600} size="sm" truncate style={{ flex: 1 }}>
+                              {s.title}
+                            </Text>
+                            {isActive && <Badge size="xs" color="teal">Active</Badge>}
+                          </Group>
+                        )}
+                        <Group gap={4} style={{ flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                          {!isEditing && (
+                            <Tooltip label="Rename">
+                              <ActionIcon
+                                size="xs"
+                                variant="subtle"
+                                color="gray"
+                                onClick={() => {
+                                  setEditingTitleId(s.id);
+                                  setEditTitleValue(s.title);
+                                }}
+                              >
+                                <IconPencil size={14} />
+                              </ActionIcon>
+                            </Tooltip>
+                          )}
+                          <Tooltip label="Delete chat">
+                            <ActionIcon
+                              size="xs"
+                              variant="subtle"
+                              color="red"
+                              onClick={e => void removeSession(s.id, e)}
+                            >
+                              <IconTrash size={14} />
+                            </ActionIcon>
+                          </Tooltip>
+                        </Group>
+                      </Group>
+                      <Group justify="space-between" align="center" mt={6}>
+                        <Group gap={4} align="center">
+                          <IconClock size={12} color="var(--mantine-color-dimmed)" />
+                          <Text size="11px" c="dimmed">
+                            {new Date(s.updated_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                          </Text>
+                        </Group>
+                        <Badge size="xs" variant="light" color="gray">
+                          {s.message_count} {s.message_count === 1 ? 'msg' : 'msgs'}
+                        </Badge>
+                      </Group>
+                    </Card>
+                  );
+                })}
+              </Stack>
+            )}
+          </ScrollArea.Autosize>
+        </Stack>
+      </Drawer>
 
       <AISettingsModal
         opened={settingsOpened}

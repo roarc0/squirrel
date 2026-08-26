@@ -833,6 +833,7 @@ export async function* streamChat(
     contextSize?: number;
     messages: { role: string; content: string }[];
     portfolioContextJson: string;
+    sessionId?: string;
   },
   options?: { signal?: AbortSignal }
 ): AsyncIterable<StreamChatChunk> {
@@ -845,6 +846,7 @@ export async function* streamChat(
       contextSize: req.contextSize ? req.contextSize : 16384,
       messages: req.messages.map(m => ({ role: m.role, content: m.content })),
       portfolioContextJson: req.portfolioContextJson,
+      sessionId: req.sessionId ?? '',
     },
     options
   );
@@ -860,6 +862,110 @@ export async function* streamChat(
       actualNCtx: Number(chunk.actualNCtx ?? 0),
     };
   }
+}
+
+export async function stopChatSession(sessionId: string): Promise<boolean> {
+  const res = await systemClient.stopChatSession({ sessionId });
+  return Boolean(res.success);
+}
+
+export async function getChatStatus(sessionId: string): Promise<{ isGenerating: boolean; sessionId: string; actualNCtx: number }> {
+  const res = await systemClient.getChatStatus({ sessionId });
+  return {
+    isGenerating: Boolean(res.isGenerating),
+    sessionId: res.sessionId ?? '',
+    actualNCtx: Number(res.actualNCtx ?? 0),
+  };
+}
+
+export type ChatMessageData = {
+  id: string;
+  role: string;
+  content: string;
+  timestamp: string;
+  tool_calls_json?: string;
+};
+
+export type ChatSessionData = {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  messages: ChatMessageData[];
+  message_count: number;
+};
+
+export async function listChatSessions(): Promise<ChatSessionData[]> {
+  const res = await systemClient.listChatSessions({});
+  return ((res.sessions as any[]) ?? []).map(s => ({
+    id: s.id ?? '',
+    title: s.title ?? 'New Conversation',
+    created_at: s.createdAt ?? '',
+    updated_at: s.updatedAt ?? '',
+    messages: ((s.messages as any[]) ?? []).map(m => ({
+      id: m.id ?? '',
+      role: m.role ?? '',
+      content: m.content ?? '',
+      timestamp: m.timestamp ?? '',
+      tool_calls_json: m.toolCallsJson ?? '',
+    })),
+    message_count: Number(s.messageCount ?? 0),
+  }));
+}
+
+export async function getChatSession(id: string): Promise<ChatSessionData | null> {
+  const res = await systemClient.getChatSession({ id });
+  if (!res.session) return null;
+  const s = res.session as any;
+  return {
+    id: s.id ?? '',
+    title: s.title ?? 'New Conversation',
+    created_at: s.createdAt ?? '',
+    updated_at: s.updatedAt ?? '',
+    messages: ((s.messages as any[]) ?? []).map(m => ({
+      id: m.id ?? '',
+      role: m.role ?? '',
+      content: m.content ?? '',
+      timestamp: m.timestamp ?? '',
+      tool_calls_json: m.toolCallsJson ?? '',
+    })),
+    message_count: Number(s.messageCount ?? 0),
+  };
+}
+
+export async function saveChatSession(id: string, title: string, messages: ChatMessageData[]): Promise<ChatSessionData | null> {
+  const res = await systemClient.saveChatSession({
+    id,
+    title,
+    messages: messages.map(m => ({
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      timestamp: m.timestamp,
+      toolCallsJson: m.tool_calls_json ?? '',
+    })),
+  });
+  if (!res.session) return null;
+  const s = res.session as any;
+  return {
+    id: s.id ?? '',
+    title: s.title ?? 'New Conversation',
+    created_at: s.createdAt ?? '',
+    updated_at: s.updatedAt ?? '',
+    messages: ((s.messages as any[]) ?? []).map(m => ({
+      id: m.id ?? '',
+      role: m.role ?? '',
+      content: m.content ?? '',
+      timestamp: m.timestamp ?? '',
+      tool_calls_json: m.toolCallsJson ?? '',
+    })),
+    message_count: Number(s.messageCount ?? 0),
+  };
+}
+
+export async function deleteChatSession(id: string): Promise<boolean> {
+  const res = await systemClient.deleteChatSession({ id });
+  return Boolean(res.success);
 }
 
 export type BtpBond = {

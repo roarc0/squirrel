@@ -135,6 +135,7 @@ export const StreamChatRequest = /*@__PURE__*/ proto3.makeMessageType(
     { no: 5, name: "messages", kind: "message", T: ChatMessagePayload, repeated: true },
     { no: 6, name: "portfolio_context_json", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 7, name: "context_size", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 8, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ],
 );
 
@@ -233,6 +234,158 @@ export const LoadOllamaModelResponse = /*@__PURE__*/ proto3.makeMessageType(
   () => [
     { no: 1, name: "success", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 2, name: "message", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ],
+);
+
+/**
+ * @generated from message v1.ChatMessageData
+ */
+export const ChatMessageData = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.ChatMessageData",
+  () => [
+    { no: 1, name: "id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "role", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "content", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "timestamp", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "tool_calls_json", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ],
+);
+
+/**
+ * @generated from message v1.ChatSessionData
+ */
+export const ChatSessionData = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.ChatSessionData",
+  () => [
+    { no: 1, name: "id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "title", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "created_at", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "updated_at", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "messages", kind: "message", T: ChatMessageData, repeated: true },
+    { no: 6, name: "message_count", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+  ],
+);
+
+/**
+ * @generated from message v1.ListChatSessionsRequest
+ */
+export const ListChatSessionsRequest = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.ListChatSessionsRequest",
+  [],
+);
+
+/**
+ * @generated from message v1.ListChatSessionsResponse
+ */
+export const ListChatSessionsResponse = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.ListChatSessionsResponse",
+  () => [
+    { no: 1, name: "sessions", kind: "message", T: ChatSessionData, repeated: true },
+  ],
+);
+
+/**
+ * @generated from message v1.GetChatSessionRequest
+ */
+export const GetChatSessionRequest = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.GetChatSessionRequest",
+  () => [
+    { no: 1, name: "id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ],
+);
+
+/**
+ * @generated from message v1.GetChatSessionResponse
+ */
+export const GetChatSessionResponse = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.GetChatSessionResponse",
+  () => [
+    { no: 1, name: "session", kind: "message", T: ChatSessionData },
+  ],
+);
+
+/**
+ * @generated from message v1.SaveChatSessionRequest
+ */
+export const SaveChatSessionRequest = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.SaveChatSessionRequest",
+  () => [
+    { no: 1, name: "id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "title", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "messages", kind: "message", T: ChatMessageData, repeated: true },
+  ],
+);
+
+/**
+ * @generated from message v1.SaveChatSessionResponse
+ */
+export const SaveChatSessionResponse = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.SaveChatSessionResponse",
+  () => [
+    { no: 1, name: "success", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 2, name: "session", kind: "message", T: ChatSessionData },
+  ],
+);
+
+/**
+ * @generated from message v1.DeleteChatSessionRequest
+ */
+export const DeleteChatSessionRequest = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.DeleteChatSessionRequest",
+  () => [
+    { no: 1, name: "id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ],
+);
+
+/**
+ * @generated from message v1.DeleteChatSessionResponse
+ */
+export const DeleteChatSessionResponse = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.DeleteChatSessionResponse",
+  () => [
+    { no: 1, name: "success", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+  ],
+);
+
+/**
+ * @generated from message v1.StopChatSessionRequest
+ */
+export const StopChatSessionRequest = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.StopChatSessionRequest",
+  () => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ],
+);
+
+/**
+ * @generated from message v1.StopChatSessionResponse
+ */
+export const StopChatSessionResponse = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.StopChatSessionResponse",
+  () => [
+    { no: 1, name: "success", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+  ],
+);
+
+/**
+ * @generated from message v1.GetChatStatusRequest
+ */
+export const GetChatStatusRequest = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.GetChatStatusRequest",
+  () => [
+    { no: 1, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ],
+);
+
+/**
+ * @generated from message v1.GetChatStatusResponse
+ */
+export const GetChatStatusResponse = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.GetChatStatusResponse",
+  () => [
+    { no: 1, name: "is_generating", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 2, name: "session_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "actual_n_ctx", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
   ],
 );
 

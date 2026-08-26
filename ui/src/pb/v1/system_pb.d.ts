@@ -384,6 +384,11 @@ export declare class StreamChatRequest extends Message<StreamChatRequest> {
    */
   contextSize: number;
 
+  /**
+   * @generated from field: string session_id = 8;
+   */
+  sessionId: string;
+
   constructor(data?: PartialMessage<StreamChatRequest>);
 
   static readonly runtime: typeof proto3;
@@ -673,5 +678,406 @@ export declare class LoadOllamaModelResponse extends Message<LoadOllamaModelResp
   static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): LoadOllamaModelResponse;
 
   static equals(a: LoadOllamaModelResponse | PlainMessage<LoadOllamaModelResponse> | undefined, b: LoadOllamaModelResponse | PlainMessage<LoadOllamaModelResponse> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.ChatMessageData
+ */
+export declare class ChatMessageData extends Message<ChatMessageData> {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string role = 2;
+   */
+  role: string;
+
+  /**
+   * @generated from field: string content = 3;
+   */
+  content: string;
+
+  /**
+   * @generated from field: string timestamp = 4;
+   */
+  timestamp: string;
+
+  /**
+   * @generated from field: string tool_calls_json = 5;
+   */
+  toolCallsJson: string;
+
+  constructor(data?: PartialMessage<ChatMessageData>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.ChatMessageData";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ChatMessageData;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ChatMessageData;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ChatMessageData;
+
+  static equals(a: ChatMessageData | PlainMessage<ChatMessageData> | undefined, b: ChatMessageData | PlainMessage<ChatMessageData> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.ChatSessionData
+ */
+export declare class ChatSessionData extends Message<ChatSessionData> {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string title = 2;
+   */
+  title: string;
+
+  /**
+   * @generated from field: string created_at = 3;
+   */
+  createdAt: string;
+
+  /**
+   * @generated from field: string updated_at = 4;
+   */
+  updatedAt: string;
+
+  /**
+   * @generated from field: repeated v1.ChatMessageData messages = 5;
+   */
+  messages: ChatMessageData[];
+
+  /**
+   * @generated from field: int32 message_count = 6;
+   */
+  messageCount: number;
+
+  constructor(data?: PartialMessage<ChatSessionData>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.ChatSessionData";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ChatSessionData;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ChatSessionData;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ChatSessionData;
+
+  static equals(a: ChatSessionData | PlainMessage<ChatSessionData> | undefined, b: ChatSessionData | PlainMessage<ChatSessionData> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.ListChatSessionsRequest
+ */
+export declare class ListChatSessionsRequest extends Message<ListChatSessionsRequest> {
+  constructor(data?: PartialMessage<ListChatSessionsRequest>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.ListChatSessionsRequest";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListChatSessionsRequest;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ListChatSessionsRequest;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ListChatSessionsRequest;
+
+  static equals(a: ListChatSessionsRequest | PlainMessage<ListChatSessionsRequest> | undefined, b: ListChatSessionsRequest | PlainMessage<ListChatSessionsRequest> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.ListChatSessionsResponse
+ */
+export declare class ListChatSessionsResponse extends Message<ListChatSessionsResponse> {
+  /**
+   * @generated from field: repeated v1.ChatSessionData sessions = 1;
+   */
+  sessions: ChatSessionData[];
+
+  constructor(data?: PartialMessage<ListChatSessionsResponse>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.ListChatSessionsResponse";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListChatSessionsResponse;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ListChatSessionsResponse;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ListChatSessionsResponse;
+
+  static equals(a: ListChatSessionsResponse | PlainMessage<ListChatSessionsResponse> | undefined, b: ListChatSessionsResponse | PlainMessage<ListChatSessionsResponse> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.GetChatSessionRequest
+ */
+export declare class GetChatSessionRequest extends Message<GetChatSessionRequest> {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  constructor(data?: PartialMessage<GetChatSessionRequest>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.GetChatSessionRequest";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetChatSessionRequest;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetChatSessionRequest;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetChatSessionRequest;
+
+  static equals(a: GetChatSessionRequest | PlainMessage<GetChatSessionRequest> | undefined, b: GetChatSessionRequest | PlainMessage<GetChatSessionRequest> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.GetChatSessionResponse
+ */
+export declare class GetChatSessionResponse extends Message<GetChatSessionResponse> {
+  /**
+   * @generated from field: v1.ChatSessionData session = 1;
+   */
+  session?: ChatSessionData;
+
+  constructor(data?: PartialMessage<GetChatSessionResponse>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.GetChatSessionResponse";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetChatSessionResponse;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetChatSessionResponse;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetChatSessionResponse;
+
+  static equals(a: GetChatSessionResponse | PlainMessage<GetChatSessionResponse> | undefined, b: GetChatSessionResponse | PlainMessage<GetChatSessionResponse> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.SaveChatSessionRequest
+ */
+export declare class SaveChatSessionRequest extends Message<SaveChatSessionRequest> {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string title = 2;
+   */
+  title: string;
+
+  /**
+   * @generated from field: repeated v1.ChatMessageData messages = 3;
+   */
+  messages: ChatMessageData[];
+
+  constructor(data?: PartialMessage<SaveChatSessionRequest>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.SaveChatSessionRequest";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): SaveChatSessionRequest;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): SaveChatSessionRequest;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): SaveChatSessionRequest;
+
+  static equals(a: SaveChatSessionRequest | PlainMessage<SaveChatSessionRequest> | undefined, b: SaveChatSessionRequest | PlainMessage<SaveChatSessionRequest> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.SaveChatSessionResponse
+ */
+export declare class SaveChatSessionResponse extends Message<SaveChatSessionResponse> {
+  /**
+   * @generated from field: bool success = 1;
+   */
+  success: boolean;
+
+  /**
+   * @generated from field: v1.ChatSessionData session = 2;
+   */
+  session?: ChatSessionData;
+
+  constructor(data?: PartialMessage<SaveChatSessionResponse>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.SaveChatSessionResponse";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): SaveChatSessionResponse;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): SaveChatSessionResponse;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): SaveChatSessionResponse;
+
+  static equals(a: SaveChatSessionResponse | PlainMessage<SaveChatSessionResponse> | undefined, b: SaveChatSessionResponse | PlainMessage<SaveChatSessionResponse> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.DeleteChatSessionRequest
+ */
+export declare class DeleteChatSessionRequest extends Message<DeleteChatSessionRequest> {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  constructor(data?: PartialMessage<DeleteChatSessionRequest>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.DeleteChatSessionRequest";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DeleteChatSessionRequest;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): DeleteChatSessionRequest;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): DeleteChatSessionRequest;
+
+  static equals(a: DeleteChatSessionRequest | PlainMessage<DeleteChatSessionRequest> | undefined, b: DeleteChatSessionRequest | PlainMessage<DeleteChatSessionRequest> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.DeleteChatSessionResponse
+ */
+export declare class DeleteChatSessionResponse extends Message<DeleteChatSessionResponse> {
+  /**
+   * @generated from field: bool success = 1;
+   */
+  success: boolean;
+
+  constructor(data?: PartialMessage<DeleteChatSessionResponse>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.DeleteChatSessionResponse";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DeleteChatSessionResponse;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): DeleteChatSessionResponse;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): DeleteChatSessionResponse;
+
+  static equals(a: DeleteChatSessionResponse | PlainMessage<DeleteChatSessionResponse> | undefined, b: DeleteChatSessionResponse | PlainMessage<DeleteChatSessionResponse> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.StopChatSessionRequest
+ */
+export declare class StopChatSessionRequest extends Message<StopChatSessionRequest> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId: string;
+
+  constructor(data?: PartialMessage<StopChatSessionRequest>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.StopChatSessionRequest";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StopChatSessionRequest;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): StopChatSessionRequest;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): StopChatSessionRequest;
+
+  static equals(a: StopChatSessionRequest | PlainMessage<StopChatSessionRequest> | undefined, b: StopChatSessionRequest | PlainMessage<StopChatSessionRequest> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.StopChatSessionResponse
+ */
+export declare class StopChatSessionResponse extends Message<StopChatSessionResponse> {
+  /**
+   * @generated from field: bool success = 1;
+   */
+  success: boolean;
+
+  constructor(data?: PartialMessage<StopChatSessionResponse>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.StopChatSessionResponse";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StopChatSessionResponse;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): StopChatSessionResponse;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): StopChatSessionResponse;
+
+  static equals(a: StopChatSessionResponse | PlainMessage<StopChatSessionResponse> | undefined, b: StopChatSessionResponse | PlainMessage<StopChatSessionResponse> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.GetChatStatusRequest
+ */
+export declare class GetChatStatusRequest extends Message<GetChatStatusRequest> {
+  /**
+   * @generated from field: string session_id = 1;
+   */
+  sessionId: string;
+
+  constructor(data?: PartialMessage<GetChatStatusRequest>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.GetChatStatusRequest";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetChatStatusRequest;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetChatStatusRequest;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetChatStatusRequest;
+
+  static equals(a: GetChatStatusRequest | PlainMessage<GetChatStatusRequest> | undefined, b: GetChatStatusRequest | PlainMessage<GetChatStatusRequest> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.GetChatStatusResponse
+ */
+export declare class GetChatStatusResponse extends Message<GetChatStatusResponse> {
+  /**
+   * @generated from field: bool is_generating = 1;
+   */
+  isGenerating: boolean;
+
+  /**
+   * @generated from field: string session_id = 2;
+   */
+  sessionId: string;
+
+  /**
+   * @generated from field: int32 actual_n_ctx = 3;
+   */
+  actualNCtx: number;
+
+  constructor(data?: PartialMessage<GetChatStatusResponse>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.GetChatStatusResponse";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetChatStatusResponse;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetChatStatusResponse;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetChatStatusResponse;
+
+  static equals(a: GetChatStatusResponse | PlainMessage<GetChatStatusResponse> | undefined, b: GetChatStatusResponse | PlainMessage<GetChatStatusResponse> | undefined): boolean;
 }
 

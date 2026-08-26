@@ -139,7 +139,7 @@ func TestMigratesLegacyDatabase(t *testing.T) {
 	defer s.Close()
 	var version int64
 	var errVersion error
-	if version, errVersion = goose.GetDBVersion(s.db); errVersion != nil || version != 7 {
+	if version, errVersion = goose.GetDBVersion(s.db); errVersion != nil || version != 8 {
 		t.Fatalf("migration version=%d err=%v", version, errVersion)
 	}
 }
@@ -393,4 +393,53 @@ func TestUserProfileUserDescription(t *testing.T) {
 		t.Fatalf("expected UserDescription=%q, got %q", p.UserDescription, got.UserDescription)
 	}
 }
+
+func TestChatSessionPersistence(t *testing.T) {
+	s, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	ctx := context.Background()
+
+	sess := &ChatSessionRecord{
+		ID:     "chat-123",
+		UserID: "user1",
+		Title:  "MSCI World ETF Strategy",
+		Messages: []ChatMessageRecord{
+			{ID: "m1", Role: "user", Content: "What is the best TER?", Timestamp: "12:00"},
+			{ID: "m2", Role: "assistant", Content: "Look for TER under 0.15%", Timestamp: "12:01"},
+		},
+	}
+
+	if err := s.SaveChatSession(ctx, sess); err != nil {
+		t.Fatalf("SaveChatSession failed: %v", err)
+	}
+
+	sessions, err := s.ListChatSessions(ctx, "user1")
+	if err != nil || len(sessions) != 1 {
+		t.Fatalf("ListChatSessions failed: err=%v sessions=%+v", err, sessions)
+	}
+	if sessions[0].Title != "MSCI World ETF Strategy" || sessions[0].MessageCount != 2 {
+		t.Fatalf("unexpected session list data: %+v", sessions[0])
+	}
+
+	got, err := s.GetChatSession(ctx, "chat-123", "user1")
+	if err != nil || got == nil || len(got.Messages) != 2 {
+		t.Fatalf("GetChatSession failed: err=%v got=%+v", err, got)
+	}
+	if got.Messages[0].Content != "What is the best TER?" {
+		t.Fatalf("unexpected message content: %s", got.Messages[0].Content)
+	}
+
+	if err := s.DeleteChatSession(ctx, "chat-123", "user1"); err != nil {
+		t.Fatalf("DeleteChatSession failed: %v", err)
+	}
+
+	sessions, err = s.ListChatSessions(ctx, "user1")
+	if err != nil || len(sessions) != 0 {
+		t.Fatalf("expected empty sessions after delete, got %d", len(sessions))
+	}
+}
+
 

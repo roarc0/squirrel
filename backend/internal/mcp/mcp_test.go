@@ -126,3 +126,33 @@ func TestMCPHandlerToolsCall(t *testing.T) {
 		t.Fatalf("expected content in result")
 	}
 }
+
+func TestMCPWebSearchTool(t *testing.T) {
+	handler := mcp.NewHandler(&dummyHandler{})
+	body := []byte(`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"web_search","arguments":{"query":"test Search" font}}}`)
+	// sanitize json query
+	body = []byte(`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"web_search","arguments":{"query":"Italian BTP yield"}}}`)
+	req := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rec.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+
+	result, ok := resp["result"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected result object")
+	}
+
+	content, ok := result["content"].([]interface{})
+	if !ok || len(content) == 0 {
+		t.Fatalf("expected non-empty content in result: %v", result)
+	}
+}

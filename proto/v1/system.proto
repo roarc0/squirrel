@@ -80,6 +80,7 @@ message StreamChatRequest {
   repeated ChatMessagePayload messages = 5;
   string portfolio_context_json = 6;
   int32 context_size = 7;
+  string session_id = 8;
 }
 
 // StreamChatResponse represents streaming token chunks or MCP tool execution events.
@@ -132,6 +133,74 @@ message LoadOllamaModelResponse {
   string message = 2;
 }
 
+message ChatMessageData {
+  string id = 1;
+  string role = 2;
+  string content = 3;
+  string timestamp = 4;
+  string tool_calls_json = 5;
+}
+
+message ChatSessionData {
+  string id = 1;
+  string title = 2;
+  string created_at = 3;
+  string updated_at = 4;
+  repeated ChatMessageData messages = 5;
+  int32 message_count = 6;
+}
+
+message ListChatSessionsRequest {}
+
+message ListChatSessionsResponse {
+  repeated ChatSessionData sessions = 1;
+}
+
+message GetChatSessionRequest {
+  string id = 1;
+}
+
+message GetChatSessionResponse {
+  ChatSessionData session = 1;
+}
+
+message SaveChatSessionRequest {
+  string id = 1;
+  string title = 2;
+  repeated ChatMessageData messages = 3;
+}
+
+message SaveChatSessionResponse {
+  bool success = 1;
+  ChatSessionData session = 2;
+}
+
+message DeleteChatSessionRequest {
+  string id = 1;
+}
+
+message DeleteChatSessionResponse {
+  bool success = 1;
+}
+
+message StopChatSessionRequest {
+  string session_id = 1;
+}
+
+message StopChatSessionResponse {
+  bool success = 1;
+}
+
+message GetChatStatusRequest {
+  string session_id = 1;
+}
+
+message GetChatStatusResponse {
+  bool is_generating = 1;
+  string session_id = 2;
+  int32 actual_n_ctx = 3;
+}
+
 // SystemService manages database backups, system state, local AI models, and Connect Protobuf AI streaming.
 service SystemService {
   // Export a portable plaintext JSON backup of the current user's data.
@@ -150,4 +219,16 @@ service SystemService {
   rpc LoadOllamaModel(LoadOllamaModelRequest) returns (LoadOllamaModelResponse);
   // Restart the managed local llama-server process with a new model and context size.
   rpc RestartLocalServer(RestartLocalServerRequest) returns (RestartLocalServerResponse);
+  // List persistent AI Consultant chat sessions.
+  rpc ListChatSessions(ListChatSessionsRequest) returns (ListChatSessionsResponse);
+  // Get details and message history of a chat session.
+  rpc GetChatSession(GetChatSessionRequest) returns (GetChatSessionResponse);
+  // Save or update an AI Consultant chat session and its messages.
+  rpc SaveChatSession(SaveChatSessionRequest) returns (SaveChatSessionResponse);
+  // Delete an AI Consultant chat session.
+  rpc DeleteChatSession(DeleteChatSessionRequest) returns (DeleteChatSessionResponse);
+  // Stop background generation for an active chat session.
+  rpc StopChatSession(StopChatSessionRequest) returns (StopChatSessionResponse);
+  // Get current active generation status for a chat session.
+  rpc GetChatStatus(GetChatStatusRequest) returns (GetChatStatusResponse);
 }

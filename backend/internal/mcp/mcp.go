@@ -19,22 +19,39 @@ type ToolDefinition struct {
 	RPCPath     string                 `json:"-"`
 }
 
+type CustomToolFunc func(ctx context.Context, args map[string]interface{}) (string, error)
+
 // Handler handles MCP JSON-RPC 2.0 requests at /mcp.
 type Handler struct {
-	rpcHandler http.Handler
-	tools      map[string]ToolDefinition
+	rpcHandler     http.Handler
+	tools          map[string]ToolDefinition
+	customHandlers map[string]CustomToolFunc
 }
 
 // NewHandler creates a new MCP HTTP Handler that proxies tool execution to the underlying Proto Connect RPC Handler.
 func NewHandler(rpcHandler http.Handler) *Handler {
 	h := &Handler{
-		rpcHandler: rpcHandler,
-		tools:      make(map[string]ToolDefinition),
+		rpcHandler:     rpcHandler,
+		tools:          make(map[string]ToolDefinition),
+		customHandlers: make(map[string]CustomToolFunc),
 	}
 	for _, tool := range buildToolsFromProto() {
 		h.tools[tool.Name] = tool
 	}
+
+	// Register web_search custom MCP tool
+	h.RegisterCustomTool(WebSearchToolDefinition(), func(ctx context.Context, args map[string]interface{}) (string, error) {
+		q, _ := args["query"].(string)
+		return PerformWebSearch(ctx, q)
+	})
+
 	return h
+}
+
+// RegisterCustomTool registers a non-Proto custom tool definition and handler.
+func (h *Handler) RegisterCustomTool(def ToolDefinition, fn CustomToolFunc) {
+	h.tools[def.Name] = def
+	h.customHandlers[def.Name] = fn
 }
 
 // OpenAITools returns all registered MCP tools in OpenAI function definitions format.
@@ -53,13 +70,16 @@ func (h *Handler) OpenAITools() []map[string]interface{} {
 	return list
 }
 
-// ExecuteTool dispatches an MCP tool call directly to the internal Connect RPC handler and returns the response JSON.
-func (h *Handler) ExecuteTool(ctx context.Context, name string, args map[string]interface{}) (string, error) {
+// ExecuteTool dispatches an MCP tool call directly to the internal Connect RPC handler or custom handler and returns response JSON.
+func (h *Handler) ExecuteTool(ctx context.Context, name string, args map[string]interface{}, authHeader ...string) (string, error) {
 	tool, ok := h.tools[name]
 	if !ok {
 		return "", fmt.Errorf("unknown MCP tool %q", name)
 	}
-	return h.dispatchRPCCall(ctx, tool.RPCPath, args)
+	if fn, isCustom := h.customHandlers[name]; isCustom {
+		return fn(ctx, args)
+	}
+	return h.dispatchRPCCall(ctx, tool.RPCPath, args, authHeader...)
 }
 
 type jsonRPCRequest struct {
@@ -160,8 +180,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Dispatch tool call to underlying Connect RPC handler
-		resultJSON, err := h.dispatchRPCCall(r.Context(), tool.RPCPath, callParams.Arguments, r.Header.Get("Authorization"))
+		// Dispatch tool call to underlying Connect RPC handler or custom tool handler
+		resultJSON, err := h.ExecuteTool(r.Context(), tool.Name, callParams.Arguments, r.Header.Get("Authorization"))
 		if err != nil {
 			slog.Warn("MCP tool call error", "tool", tool.Name, "error", err)
 			h.writeResult(w, req.ID, map[string]interface{}{

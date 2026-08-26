@@ -94,5 +94,11 @@ func (s *Store) ClaimAdminData(ctx context.Context, googleID string) error {
 	if _, err := tx.ExecContext(ctx, `UPDATE btp_starred SET user_id=? WHERE user_id=''`, googleID); err != nil {
 		return err
 	}
+	if _, err := tx.ExecContext(ctx, `UPDATE chat_sessions SET user_id=? WHERE user_id=''`, googleID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE chat_messages SET user_id=? WHERE user_id=''`, googleID); err != nil {
+		return err
+	}
 	return tx.Commit()
 }

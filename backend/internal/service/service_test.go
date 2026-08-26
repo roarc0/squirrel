@@ -268,3 +268,57 @@ func TestCORSOriginRestriction(t *testing.T) {
 		t.Fatalf("localhost origin failed CORS header check: %s", recLocal.Header().Get("Access-Control-Allow-Origin"))
 	}
 }
+
+func TestChatSessionStatusAndStop(t *testing.T) {
+	data, err := store.Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer data.Close()
+
+	srv := &Server{store: data}
+	ctx := context.Background()
+
+	// Initial status for unknown session should be not generating
+	res, err := srv.GetChatStatus(ctx, connect.NewRequest(&portv1.GetChatStatusRequest{SessionId: "session-test"}))
+	if err != nil || res.Msg.IsGenerating {
+		t.Fatalf("unexpected GetChatStatus for idle session: err=%v, res=%+v", err, res)
+	}
+
+	// Register a mock job
+	jobCtx, cancel := context.WithCancel(context.Background())
+	job := &activeChatJob{
+		SessionID:   "session-test",
+		UserID:      "user1",
+		Ctx:         jobCtx,
+		Cancel:      cancel,
+		Broadcaster: newBroadcaster(),
+		ActualNCtx:  16384,
+	}
+	globalChatJobs.mu.Lock()
+	globalChatJobs.jobs["session-test"] = job
+	globalChatJobs.mu.Unlock()
+
+	// Status should now be is_generating = true
+	res, err = srv.GetChatStatus(ctx, connect.NewRequest(&portv1.GetChatStatusRequest{SessionId: "session-test"}))
+	if err != nil || !res.Msg.IsGenerating || res.Msg.ActualNCtx != 16384 {
+		t.Fatalf("unexpected GetChatStatus for active session: err=%v, res=%+v", err, res)
+	}
+
+	// Stop session should call cancel()
+	stopRes, err := srv.StopChatSession(ctx, connect.NewRequest(&portv1.StopChatSessionRequest{SessionId: "session-test"}))
+	if err != nil || !stopRes.Msg.Success {
+		t.Fatalf("StopChatSession failed: err=%v, res=%+v", err, stopRes)
+	}
+
+	select {
+	case <-jobCtx.Done():
+		// Canceled successfully
+	default:
+		t.Fatal("StopChatSession did not trigger job context cancellation")
+	}
+
+	globalChatJobs.mu.Lock()
+	delete(globalChatJobs.jobs, "session-test")
+	globalChatJobs.mu.Unlock()
+}

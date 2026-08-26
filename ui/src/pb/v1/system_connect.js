@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { DownloadAIModelRequest, DownloadAIModelResponse, ExportBackupRequest, ExportBackupResponse, ListAIModelsRequest, ListAIModelsResponse, ListOllamaModelsRequest, ListOllamaModelsResponse, LoadOllamaModelRequest, LoadOllamaModelResponse, RestartLocalServerRequest, RestartLocalServerResponse, RestoreBackupRequest, RestoreBackupResponse, StreamChatRequest, StreamChatResponse } from "./system_pb.js";
+import { DeleteChatSessionRequest, DeleteChatSessionResponse, DownloadAIModelRequest, DownloadAIModelResponse, ExportBackupRequest, ExportBackupResponse, GetChatSessionRequest, GetChatSessionResponse, GetChatStatusRequest, GetChatStatusResponse, ListAIModelsRequest, ListAIModelsResponse, ListChatSessionsRequest, ListChatSessionsResponse, ListOllamaModelsRequest, ListOllamaModelsResponse, LoadOllamaModelRequest, LoadOllamaModelResponse, RestartLocalServerRequest, RestartLocalServerResponse, RestoreBackupRequest, RestoreBackupResponse, SaveChatSessionRequest, SaveChatSessionResponse, StopChatSessionRequest, StopChatSessionResponse, StreamChatRequest, StreamChatResponse } from "./system_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -100,6 +100,72 @@ export const SystemService = {
       name: "RestartLocalServer",
       I: RestartLocalServerRequest,
       O: RestartLocalServerResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * List persistent AI Consultant chat sessions.
+     *
+     * @generated from rpc v1.SystemService.ListChatSessions
+     */
+    listChatSessions: {
+      name: "ListChatSessions",
+      I: ListChatSessionsRequest,
+      O: ListChatSessionsResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Get details and message history of a chat session.
+     *
+     * @generated from rpc v1.SystemService.GetChatSession
+     */
+    getChatSession: {
+      name: "GetChatSession",
+      I: GetChatSessionRequest,
+      O: GetChatSessionResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Save or update an AI Consultant chat session and its messages.
+     *
+     * @generated from rpc v1.SystemService.SaveChatSession
+     */
+    saveChatSession: {
+      name: "SaveChatSession",
+      I: SaveChatSessionRequest,
+      O: SaveChatSessionResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Delete an AI Consultant chat session.
+     *
+     * @generated from rpc v1.SystemService.DeleteChatSession
+     */
+    deleteChatSession: {
+      name: "DeleteChatSession",
+      I: DeleteChatSessionRequest,
+      O: DeleteChatSessionResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Stop background generation for an active chat session.
+     *
+     * @generated from rpc v1.SystemService.StopChatSession
+     */
+    stopChatSession: {
+      name: "StopChatSession",
+      I: StopChatSessionRequest,
+      O: StopChatSessionResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Get current active generation status for a chat session.
+     *
+     * @generated from rpc v1.SystemService.GetChatStatus
+     */
+    getChatStatus: {
+      name: "GetChatStatus",
+      I: GetChatStatusRequest,
+      O: GetChatStatusResponse,
       kind: MethodKind.Unary,
     },
   }
