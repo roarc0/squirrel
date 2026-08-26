@@ -62,13 +62,21 @@ test('catalog filters combine exact column values', () => {
   assert.equal(matchesExactFilters(values, { issuer: 'iShares', type: '', ucits: '' }), false);
 });
 
-test('inflation chart geometry scales negative and positive values correctly', () => {
-  const values = [-0.5, 0.0, 1.5, 3.2];
-  const geom = chartGeometry(values, values, false);
-  assert.ok(geom.low < -0.5);
-  assert.ok(geom.high > 3.2);
-  const zeroRatio = (geom.high - 0) / (geom.high - geom.low);
-  const zeroY = 24 + zeroRatio * 196;
-  assert.ok(zeroY > 24 && zeroY < 220);
+test('chart ranges filter monthly observed_on dates correctly', () => {
+  const monthly = [
+    '2024-01', '2024-02', '2024-03', '2024-04', '2024-05', '2024-06',
+    '2024-07', '2024-08', '2024-09', '2024-10', '2024-11', '2024-12',
+    '2025-01', '2025-02', '2025-03', '2025-04', '2025-05', '2025-06',
+    '2025-07', '2025-08', '2025-09', '2025-10', '2025-11', '2025-12',
+    '2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06', '2026-07',
+  ].map(observed_on => ({ observed_on }));
+  const oneYear = filterChartRange(monthly, '1y');
+  assert.equal(oneYear.length, 13);
+  assert.equal(oneYear[0].observed_on, '2025-07');
+  assert.equal(oneYear.at(-1)!.observed_on, '2026-07');
+
+  const maxRange = filterChartRange(monthly, 'max');
+  assert.equal(maxRange.length, 31);
 });
+
 

@@ -33,13 +33,19 @@ const chartRanges: Record<Exclude<ChartRange, 'max'>, { days?: number; months?: 
 
 export function filterChartRange<T extends { observed_on: string }>(items: T[], range: ChartRange) {
   if (range === 'max' || items.length === 0) return items;
-  const cutoff = new Date(`${items.at(-1)!.observed_on}T00:00:00Z`); const offset = chartRanges[range];
+  const toIso = (d: string) => (d.length === 7 ? `${d}-01T00:00:00Z` : d.endsWith('Z') ? d : `${d}T00:00:00Z`);
+  const lastIso = toIso(items.at(-1)!.observed_on);
+  const cutoff = new Date(lastIso);
+  const offset = chartRanges[range];
   if (offset.days) cutoff.setUTCDate(cutoff.getUTCDate() - offset.days);
   else {
-    const day = cutoff.getUTCDate(); cutoff.setUTCDate(1); cutoff.setUTCMonth(cutoff.getUTCMonth() - offset.months!);
+    const day = cutoff.getUTCDate();
+    cutoff.setUTCDate(1);
+    cutoff.setUTCMonth(cutoff.getUTCMonth() - offset.months!);
     cutoff.setUTCDate(Math.min(day, new Date(Date.UTC(cutoff.getUTCFullYear(), cutoff.getUTCMonth() + 1, 0)).getUTCDate()));
   }
-  return items.filter(item => Date.parse(`${item.observed_on}T00:00:00Z`) >= cutoff.getTime());
+  const cutoffTime = cutoff.getTime();
+  return items.filter(item => Date.parse(toIso(item.observed_on)) >= cutoffTime);
 }
 
 export function chartGeometry(values: number[], scaleValues = values, floorAtZero = true) {

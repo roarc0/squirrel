@@ -67,7 +67,7 @@ func inflationObservationCount(historyRange string) (int, error) {
 	case "5y":
 		return 60, nil
 	case "max":
-		return 0, nil
+		return 120, nil
 	default:
 		return 0, fmt.Errorf("unsupported inflation range %q", historyRange)
 	}

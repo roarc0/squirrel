@@ -31,13 +31,13 @@ func TestSortSlice(t *testing.T) {
 }
 
 func TestInflationObservationCount(t *testing.T) {
-	for historyRange, want := range map[string]int{"": 12, "1y": 12, "3y": 36, "5y": 60, "max": 0} {
+	for historyRange, want := range map[string]int{"": 12, "1y": 12, "3y": 36, "5y": 60, "max": 120} {
 		got, err := inflationObservationCount(historyRange)
 		if err != nil || got != want {
 			t.Fatalf("range %q: got %d, %v; want %d", historyRange, got, err, want)
 		}
 	}
-	if _, err := inflationObservationCount("10y"); err == nil {
+	if _, err := inflationObservationCount("100y"); err == nil {
 		t.Fatal("unsupported range should fail")
 	}
 }
