@@ -46,7 +46,7 @@ func TestCollectors(t *testing.T) {
 	if len(rates) != 3 || rates[0].Code != "DFR" || rates[1].Code != "MRR_FR" || rates[1].RateBPS != 240 {
 		t.Fatalf("unexpected policy rates: %+v", rates)
 	}
-	if len(market.Metrics) != 10 || len(market.Observations) != 2 || len(market.Warnings) != 0 {
+	if len(market.Metrics) != 10 || len(market.Observations) != 10 || len(market.Warnings) != 0 {
 		t.Fatalf("unexpected market context: %+v", market)
 	}
 	spread := market.Metrics[len(market.Metrics)-1]

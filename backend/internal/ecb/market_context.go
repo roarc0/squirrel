@@ -7,27 +7,25 @@ import (
 	"sync"
 )
 
-func (c *Client) FetchMarketContext(ctx context.Context, inflationObservationCount int) (MarketContext, error) {
+func (c *Client) FetchMarketContext(ctx context.Context, observationCount int) (MarketContext, error) {
 	collectors := []struct {
 		name string
 		get  func(context.Context) (MarketContext, error)
 	}{
 		{"€STR", func(ctx context.Context) (MarketContext, error) {
-			metrics, err := c.FetchESTR(ctx)
-			return MarketContext{Metrics: metrics}, err
+			return c.FetchESTR(ctx, observationCount)
 		}},
 		{"inflation", func(ctx context.Context) (MarketContext, error) {
-			return c.FetchInflation(ctx, inflationObservationCount)
+			return c.FetchInflation(ctx, observationCount)
 		}},
 		{"deposit rates", func(ctx context.Context) (MarketContext, error) {
-			metrics, err := c.FetchDepositRates(ctx)
-			return MarketContext{Metrics: metrics}, err
+			return c.FetchDepositRates(ctx, observationCount)
 		}},
 		{"sovereign yields", func(ctx context.Context) (MarketContext, error) {
-			metrics, err := c.FetchSovereignYields(ctx)
-			return MarketContext{Metrics: metrics}, err
+			return c.FetchSovereignYields(ctx, observationCount)
 		}},
 	}
+
 	results := make([]MarketContext, len(collectors))
 	errs := make([]error, len(collectors))
 	var group sync.WaitGroup

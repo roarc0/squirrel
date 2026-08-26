@@ -85,9 +85,11 @@ export function MarketContextView({ rates, reload }: { rates: ReferenceRate[]; r
       {warnings.length > 0 && <Alert color="yellow" title="Some sources were unavailable">{warnings.join(' · ')}</Alert>}
       {loading ? (
         <Paper withBorder radius="lg" p="xl"><Group justify="center"><Loader size="sm" /><Text c="dimmed">Collecting market context…</Text></Group></Paper>
-      ) : sections.map(section => (
-        <MetricSection key={section.category} {...section} metrics={allMetrics.filter(metric => metric.category === section.category)} observations={observations} historyRange={historyRange} historyLoading={historyLoading} onHistoryRangeChange={value => void changeHistoryRange(value)} />
-      ))}
+      ) : (
+        sections.map(section => (
+          <MetricSection key={section.category} {...section} metrics={allMetrics.filter(metric => metric.category === section.category)} observations={observations} historyRange={historyRange} historyLoading={historyLoading} onHistoryRangeChange={value => void changeHistoryRange(value)} />
+        ))
+      )}
     </ViewShell>
   );
 }
@@ -114,23 +116,133 @@ function MetricSection({ category, title, subtitle, metrics, observations, histo
           </Card>
         ))}
       </SimpleGrid>
-      {category === 'inflation' && <InflationChart observations={observations} range={historyRange} loading={historyLoading} onRangeChange={onHistoryRangeChange} />}
+      {category === 'policy_rates' && (
+        <MarketChart
+          title="Policy rates history"
+          definitions={[
+            { code: 'DFR', label: 'Deposit Facility', color: 'blue' },
+            { code: 'MRR_FR', label: 'Main Refinancing', color: 'teal' },
+            { code: 'MLFR', label: 'Marginal Lending', color: 'violet' },
+          ]}
+          observations={observations}
+          range={historyRange}
+          loading={historyLoading}
+          onRangeChange={onHistoryRangeChange}
+        />
+      )}
+      {category === 'money_market' && (
+        <MarketChart
+          title="Money market history"
+          definitions={[
+            { code: 'EU000A2X2A25.WT', label: '€STR overnight', color: 'blue' },
+            { code: 'EU000A2QQF24.CR', label: '1M compounded', color: 'teal' },
+            { code: 'EU000A2QQF32.CR', label: '3M compounded', color: 'violet' },
+          ]}
+          observations={observations}
+          range={historyRange}
+          loading={historyLoading}
+          onRangeChange={onHistoryRangeChange}
+        />
+      )}
+      {category === 'inflation' && (
+        <MarketChart
+          title="Inflation history"
+          definitions={[
+            { code: 'HICP_IT', label: 'Italy', color: 'blue' },
+            { code: 'HICP_U2', label: 'Euro area', color: 'teal' },
+          ]}
+          observations={observations}
+          range={historyRange}
+          loading={historyLoading}
+          onRangeChange={onHistoryRangeChange}
+          showZeroBaseline
+        />
+      )}
+      {category === 'cash_benchmarks' && (
+        <MarketChart
+          title="Deposit rates history"
+          definitions={[
+            { code: 'MIR_L21.A', label: 'Overnight deposits', color: 'cyan' },
+            { code: 'MIR_L22.F', label: 'Term deposits (<= 1Y)', color: 'blue' },
+          ]}
+          observations={observations}
+          range={historyRange}
+          loading={historyLoading}
+          onRangeChange={onHistoryRangeChange}
+        />
+      )}
+      {category === 'sovereign_bonds' && (
+        <SimpleGrid cols={{ base: 1, lg: 2 }}>
+          <MarketChart
+            title="10-year government yields"
+            definitions={[
+              { code: 'YIELD_10Y_IT', label: 'Italy 10Y', color: 'blue' },
+              { code: 'YIELD_10Y_DE', label: 'Germany 10Y', color: 'teal' },
+            ]}
+            observations={observations}
+            range={historyRange}
+            loading={historyLoading}
+            onRangeChange={onHistoryRangeChange}
+          />
+          <MarketChart
+            title="Italy–Germany 10-year spread"
+            definitions={[
+              { code: 'SPREAD_IT_DE_10Y', label: 'BTP–Bund spread', color: 'orange', unit: 'bps' },
+            ]}
+            observations={observations}
+            range={historyRange}
+            loading={historyLoading}
+            onRangeChange={onHistoryRangeChange}
+            valueUnit="bps"
+          />
+        </SimpleGrid>
+      )}
     </Stack>
   );
 }
 
-function InflationChart({ observations, range, loading, onRangeChange }: { observations: MarketObservation[]; range: InflationRange; loading: boolean; onRangeChange: (value: string) => void }) {
-  const [hovered, setHovered] = useState<number>();
-  const definitions = [
-    { code: 'HICP_IT', label: 'Italy', color: 'blue' },
-    { code: 'HICP_U2', label: 'Euro area', color: 'teal' },
-  ];
+type SeriesDefinition = {
+  code: string;
+  label: string;
+  color: string;
+  unit?: string;
+};
 
-  const scaleValues = [...observations.map(observation => observation.value), 0];
+function MarketChart({
+  title,
+  definitions,
+  observations,
+  range,
+  loading,
+  onRangeChange,
+  showZeroBaseline = false,
+  valueUnit = '%',
+}: {
+  title: string;
+  definitions: SeriesDefinition[];
+  observations: MarketObservation[];
+  range: InflationRange;
+  loading: boolean;
+  onRangeChange: (value: string) => void;
+  showZeroBaseline?: boolean;
+  valueUnit?: string;
+}) {
+  const [hovered, setHovered] = useState<number>();
+
+  const relevantObservations = useMemo(() => {
+    const codes = new Set(definitions.map(d => d.code));
+    return observations.filter(obs => codes.has(obs.code));
+  }, [definitions, observations]);
+
+  const scaleValues = useMemo(() => {
+    const vals = relevantObservations.map(obs => obs.value);
+    return showZeroBaseline ? [...vals, 0] : vals;
+  }, [relevantObservations, showZeroBaseline]);
+
   if (scaleValues.length === 0) return null;
 
   const scale = chartGeometry(scaleValues, scaleValues, false);
-  const dates = [...new Set(observations.map(observation => observation.observed_on))].sort();
+  const dates = [...new Set(relevantObservations.map(obs => obs.observed_on))].sort();
   if (dates.length === 0) return null;
 
   const getX = (index: number) => (dates.length === 1 ? 407 : 74 + (index * 666) / (dates.length - 1));
@@ -140,9 +252,9 @@ function InflationChart({ observations, range, loading, onRangeChange }: { obser
 
   const series = definitions.map(definition => {
     const itemsMap = new Map(
-      observations
-        .filter(observation => observation.code === definition.code)
-        .map(observation => [observation.observed_on, observation.value])
+      relevantObservations
+        .filter(obs => obs.code === definition.code)
+        .map(obs => [obs.observed_on, obs.value])
     );
 
     const points = dates
@@ -172,12 +284,16 @@ function InflationChart({ observations, range, loading, onRangeChange }: { obser
     return parsed.toLocaleDateString(undefined, full ? { month: 'long', year: 'numeric', timeZone: 'UTC' } : range === 'max' ? { year: 'numeric', timeZone: 'UTC' } : { month: 'short', year: '2-digit', timeZone: 'UTC' });
   };
 
-  const zeroY = getY(0);
+  const zeroY = showZeroBaseline ? getY(0) : null;
+
+  const formatValue = (val: number, unit = valueUnit) => {
+    return unit === 'bps' ? `${val.toFixed(1)} bps` : `${val.toFixed(2)}${unit}`;
+  };
 
   return (
     <Paper withBorder radius="lg" p="lg">
       <Group justify="space-between" mb="sm">
-        <Text fw={700}>Inflation history</Text>
+        <Text fw={700}>{title}</Text>
         <Group gap="xs">
           {loading && <Loader size="xs" />}
           <SegmentedControl size="xs" value={range} disabled={loading} onChange={onRangeChange} data={[{ label: '1Y', value: '1y' }, { label: '3Y', value: '3y' }, { label: '5Y', value: '5y' }, { label: 'Max', value: 'max' }]} />
@@ -196,7 +312,7 @@ function InflationChart({ observations, range, loading, onRangeChange }: { obser
         viewBox="0 0 760 260"
         role="img"
         tabIndex={0}
-        aria-label={hoverDate ? `${formatDate(hoverDate, true)}: ${series.map(item => `${item.label} ${item.itemsMap.get(hoverDate)?.toFixed(1) ?? 'N/A'}%`).join(', ')}` : `Italy and euro area annual inflation from ${formatDate(dates[0], true)} to ${formatDate(dates.at(-1)!, true)}. Hover or use arrow keys to inspect monthly values.`}
+        aria-label={hoverDate ? `${formatDate(hoverDate, true)}: ${series.map(item => `${item.label} ${item.itemsMap.has(hoverDate) ? formatValue(item.itemsMap.get(hoverDate)!, item.unit) : 'N/A'}`).join(', ')}` : `${title} from ${formatDate(dates[0], true)} to ${formatDate(dates.at(-1)!, true)}.`}
         style={{ cursor: 'crosshair' }}
         onPointerMove={event => {
           const bounds = event.currentTarget.getBoundingClientRect();
@@ -211,24 +327,24 @@ function InflationChart({ observations, range, loading, onRangeChange }: { obser
           setHovered(current => Math.min(dates.length - 1, Math.max(0, (current ?? dates.length - 1) + (event.key === 'ArrowLeft' ? -1 : 1))));
         }}
       >
-        {/* Shaded Deflation Zone (< 0%) */}
-        {zeroY < 220 && (
+        {/* Shaded Deflation Zone (< 0%) if zero baseline is active */}
+        {showZeroBaseline && zeroY !== null && zeroY < 220 && (
           <rect x="74" y={zeroY} width="666" height={Math.max(0, Math.min(220 - zeroY, 196))} fill="var(--mantine-color-red-filled)" opacity="0.06" />
         )}
         {[0, 1, 2, 3, 4].map(index => {
           const ratio = index / 4;
           const y = 24 + ratio * 196;
           const value = scale.high - ratio * (scale.high - scale.low);
-          if (Math.abs(y - zeroY) < 8) return null;
+          if (showZeroBaseline && zeroY !== null && Math.abs(y - zeroY) < 8) return null;
           return (
             <g key={index}>
               <line x1="74" x2="740" y1={y} y2={y} stroke="currentColor" opacity="0.12" />
-              <text x="66" y={y + 4} textAnchor="end">{value.toFixed(1)}%</text>
+              <text x="66" y={y + 4} textAnchor="end">{formatValue(value)}</text>
             </g>
           );
         })}
-        {/* Explicit 0.0% Deflation Line & Axis Label */}
-        {zeroY >= 24 && zeroY <= 220 && (
+        {/* Explicit 0.0% Line & Axis Label */}
+        {showZeroBaseline && zeroY !== null && zeroY >= 24 && zeroY <= 220 && (
           <g>
             <line x1="74" x2="740" y1={zeroY} y2={zeroY} stroke="var(--mantine-color-red-6)" strokeDasharray="4 4" strokeWidth="1.5" opacity="0.75" />
             <text x="66" y={zeroY + 4} textAnchor="end" fill="var(--mantine-color-red-6)" style={{ fontWeight: 700 }}>0.0%</text>
@@ -263,14 +379,14 @@ function InflationChart({ observations, range, loading, onRangeChange }: { obser
               return <circle key={item.code} cx={hoverX} cy={y} r="5" fill="var(--mantine-color-body)" stroke={`var(--mantine-color-${item.color}-5)`} strokeWidth="2" />;
             })}
             <g transform={`translate(${hoverX > 520 ? hoverX - 202 : hoverX + 12}, 32)`} style={{ pointerEvents: 'none' }}>
-              <rect width="190" height="72" rx="8" fill="var(--mantine-color-body)" stroke="currentColor" strokeOpacity="0.25" />
+              <rect width="190" height={24 + series.length * 22} rx="8" fill="var(--mantine-color-body)" stroke="currentColor" strokeOpacity="0.25" />
               <text x="12" y="20" style={{ fontWeight: 700 }}>{formatDate(hoverDate, true)}</text>
               {series.map((item, index) => {
                 const val = item.itemsMap.get(hoverDate);
                 return (
                   <g key={item.code}>
                     <line x1="12" x2="24" y1={42 + index * 20} y2={42 + index * 20} stroke={`var(--mantine-color-${item.color}-5)`} strokeWidth="2" />
-                    <text x="30" y={46 + index * 20}>{item.label}: {val !== undefined ? `${val.toFixed(1)}%` : 'N/A'}</text>
+                    <text x="30" y={46 + index * 20}>{item.label}: {val !== undefined ? formatValue(val, item.unit) : 'N/A'}</text>
                   </g>
                 );
               })}
@@ -285,4 +401,5 @@ function InflationChart({ observations, range, loading, onRangeChange }: { obser
 function formatMetric(metric: MarketMetric): string {
   return metric.unit === 'bps' ? `${metric.value.toFixed(1)} bps` : `${metric.value.toFixed(2)}${metric.unit}`;
 }
+
 
