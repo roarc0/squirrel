@@ -8,6 +8,7 @@ import (
 
 	"github.com/pressly/goose/v3"
 
+	"github.com/roarc0/squirrel/backend/internal/ecb"
 	"github.com/roarc0/squirrel/backend/internal/portfolio"
 )
 
@@ -138,7 +139,7 @@ func TestMigratesLegacyDatabase(t *testing.T) {
 	defer s.Close()
 	var version int64
 	var errVersion error
-	if version, errVersion = goose.GetDBVersion(s.db); errVersion != nil || version != 4 {
+	if version, errVersion = goose.GetDBVersion(s.db); errVersion != nil || version != 5 {
 		t.Fatalf("migration version=%d err=%v", version, errVersion)
 	}
 }
@@ -321,3 +322,49 @@ func TestSnapshotUpdateDoesNotRevealOtherUsersEntries(t *testing.T) {
 		t.Fatalf("snapshot ownership leaked through errors: foreign=%v missing=%v", foreignErr, missingErr)
 	}
 }
+
+func TestMarketContextStore(t *testing.T) {
+	s, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	ctx := context.Background()
+
+	mc := ecb.MarketContext{
+		Metrics: []ecb.Metric{
+			{Code: "HICP_IT", Label: "Italy inflation", Category: "inflation", Value: 2.9, Unit: "%", ObservedOn: "2026-07", SourceURL: "https://example.com"},
+		},
+		Observations: []ecb.Observation{
+			{Code: "HICP_IT", ObservedOn: "2026-06", Value: 2.8},
+			{Code: "HICP_IT", ObservedOn: "2026-07", Value: 2.9},
+		},
+	}
+
+	if err := s.SaveMarketContext(ctx, mc); err != nil {
+		t.Fatalf("SaveMarketContext failed: %v", err)
+	}
+
+	metrics, err := s.ListMarketMetrics(ctx)
+	if err != nil || len(metrics) != 1 || metrics[0].Code != "HICP_IT" || metrics[0].Value != 2.9 {
+		t.Fatalf("unexpected metrics: err=%v metrics=%+v", err, metrics)
+	}
+
+	observations, err := s.ListMarketObservations(ctx)
+	if err != nil || len(observations) != 2 || observations[0].ObservedOn != "2026-06" || observations[1].ObservedOn != "2026-07" {
+		t.Fatalf("unexpected observations: err=%v obs=%+v", err, observations)
+	}
+
+	// Test upsert update
+	mc.Metrics[0].Value = 3.0
+	mc.Observations[1].Value = 3.0
+	if err := s.SaveMarketContext(ctx, mc); err != nil {
+		t.Fatalf("SaveMarketContext update failed: %v", err)
+	}
+
+	metrics, err = s.ListMarketMetrics(ctx)
+	if err != nil || len(metrics) != 1 || metrics[0].Value != 3.0 {
+		t.Fatalf("updated metrics failed: %+v", metrics)
+	}
+}
+

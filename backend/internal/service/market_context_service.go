@@ -14,10 +14,27 @@ func (s *Server) GetMarketContext(ctx context.Context, req *connect.Request[port
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+
+	var warnings []string
 	market, err := s.ecb.FetchMarketContext(ctx, observationCount)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeUnavailable, err)
+	if err == nil {
+		if err := s.store.SaveMarketContext(ctx, market); err != nil {
+			warnings = append(warnings, fmt.Sprintf("failed to save market context cache: %v", err))
+		}
+	} else {
+		warnings = append(warnings, fmt.Sprintf("ECB fetch error: %v", err))
+		storedMetrics, errMetrics := s.store.ListMarketMetrics(ctx)
+		storedObs, errObs := s.store.ListMarketObservations(ctx)
+		if errMetrics == nil && errObs == nil && len(storedMetrics) > 0 {
+			market.Metrics = storedMetrics
+			market.Observations = storedObs
+		} else {
+			return nil, connect.NewError(connect.CodeUnavailable, err)
+		}
 	}
+
+	warnings = append(warnings, market.Warnings...)
+
 	metrics := make([]*portv1.MarketMetric, len(market.Metrics))
 	for i, metric := range market.Metrics {
 		metrics[i] = &portv1.MarketMetric{
@@ -38,7 +55,7 @@ func (s *Server) GetMarketContext(ctx context.Context, req *connect.Request[port
 			Value:      observation.Value,
 		}
 	}
-	return connect.NewResponse(&portv1.GetMarketContextResponse{Metrics: metrics, Warnings: market.Warnings, Observations: observations}), nil
+	return connect.NewResponse(&portv1.GetMarketContextResponse{Metrics: metrics, Warnings: warnings, Observations: observations}), nil
 }
 
 func inflationObservationCount(historyRange string) (int, error) {
