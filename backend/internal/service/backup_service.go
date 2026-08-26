@@ -44,7 +44,12 @@ func (s *Server) ExportBackup(ctx context.Context, req *connect.Request[portv1.E
 }
 
 func (s *Server) RestoreBackup(ctx context.Context, req *connect.Request[portv1.RestoreBackupRequest]) (*connect.Response[portv1.RestoreBackupResponse], error) {
-	if err := s.store.RestoreBackup(ctx, auth.UserIDOrEmpty(ctx), req.Msg.BackupData); err != nil {
+	userID := auth.UserIDOrEmpty(ctx)
+	allowMissingInstruments := s.config.Auth.SessionSecret == ""
+	if user, ok := auth.UserFromContext(ctx); ok && s.config.Auth.AdminGoogleID != "" && user.GoogleID == s.config.Auth.AdminGoogleID {
+		allowMissingInstruments = true
+	}
+	if err := s.store.RestoreBackup(ctx, userID, req.Msg.BackupData, allowMissingInstruments); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	return connect.NewResponse(&portv1.RestoreBackupResponse{

@@ -61,7 +61,7 @@ const (
 
 // SystemServiceClient is a client for the v1.SystemService service.
 type SystemServiceClient interface {
-	// Export a complete encrypted backup archive of the SQLite database.
+	// Export a portable plaintext JSON backup of the current user's data.
 	ExportBackup(context.Context, *connect.Request[v1.ExportBackupRequest]) (*connect.Response[v1.ExportBackupResponse], error)
 	// Restore the database state from a backup archive.
 	RestoreBackup(context.Context, *connect.Request[v1.RestoreBackupRequest]) (*connect.Response[v1.RestoreBackupResponse], error)
@@ -75,7 +75,7 @@ type SystemServiceClient interface {
 	ListOllamaModels(context.Context, *connect.Request[v1.ListOllamaModelsRequest]) (*connect.Response[v1.ListOllamaModelsResponse], error)
 	// Load an Ollama model into memory with the specified context size.
 	LoadOllamaModel(context.Context, *connect.Request[v1.LoadOllamaModelRequest]) (*connect.Response[v1.LoadOllamaModelResponse], error)
-	// Kill and restart the local llama-server process with a new model and context size.
+	// Restart the managed local llama-server process with a new model and context size.
 	RestartLocalServer(context.Context, *connect.Request[v1.RestartLocalServerRequest]) (*connect.Response[v1.RestartLocalServerResponse], error)
 }
 
@@ -195,7 +195,7 @@ func (c *systemServiceClient) RestartLocalServer(ctx context.Context, req *conne
 
 // SystemServiceHandler is an implementation of the v1.SystemService service.
 type SystemServiceHandler interface {
-	// Export a complete encrypted backup archive of the SQLite database.
+	// Export a portable plaintext JSON backup of the current user's data.
 	ExportBackup(context.Context, *connect.Request[v1.ExportBackupRequest]) (*connect.Response[v1.ExportBackupResponse], error)
 	// Restore the database state from a backup archive.
 	RestoreBackup(context.Context, *connect.Request[v1.RestoreBackupRequest]) (*connect.Response[v1.RestoreBackupResponse], error)
@@ -209,7 +209,7 @@ type SystemServiceHandler interface {
 	ListOllamaModels(context.Context, *connect.Request[v1.ListOllamaModelsRequest]) (*connect.Response[v1.ListOllamaModelsResponse], error)
 	// Load an Ollama model into memory with the specified context size.
 	LoadOllamaModel(context.Context, *connect.Request[v1.LoadOllamaModelRequest]) (*connect.Response[v1.LoadOllamaModelResponse], error)
-	// Kill and restart the local llama-server process with a new model and context size.
+	// Restart the managed local llama-server process with a new model and context size.
 	RestartLocalServer(context.Context, *connect.Request[v1.RestartLocalServerRequest]) (*connect.Response[v1.RestartLocalServerResponse], error)
 }
 

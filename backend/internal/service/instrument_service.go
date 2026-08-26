@@ -12,7 +12,6 @@ import (
 
 	"connectrpc.com/connect"
 
-	"squirrel/backend/internal/auth"
 	"squirrel/backend/internal/portfolio"
 	"squirrel/backend/internal/store"
 	portv1 "squirrel/proto/gen/go/v1"
@@ -41,50 +40,72 @@ func (s *Server) ListInstruments(ctx context.Context, req *connect.Request[portv
 		})
 	} else {
 		columns := map[string]func(portfolio.Instrument, portfolio.Instrument) int{
-			"isin":               func(a, b portfolio.Instrument) int { return cmp.Compare(a.ISIN, b.ISIN) },
-			"name":               func(a, b portfolio.Instrument) int { return cmp.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)) },
-			"ticker":             func(a, b portfolio.Instrument) int { return cmp.Compare(strings.ToLower(a.Ticker), strings.ToLower(b.Ticker)) },
-			"type":               func(a, b portfolio.Instrument) int { return cmp.Compare(a.InstrumentType, b.InstrumentType) },
-			"instrument_type":    func(a, b portfolio.Instrument) int { return cmp.Compare(a.InstrumentType, b.InstrumentType) },
-			"instrumentType":     func(a, b portfolio.Instrument) int { return cmp.Compare(a.InstrumentType, b.InstrumentType) },
-			"issuer":             func(a, b portfolio.Instrument) int { return cmp.Compare(strings.ToLower(a.Provider), strings.ToLower(b.Provider)) },
-			"provider":           func(a, b portfolio.Instrument) int { return cmp.Compare(strings.ToLower(a.Provider), strings.ToLower(b.Provider)) },
-			"asset":              func(a, b portfolio.Instrument) int { return cmp.Compare(a.AssetClass, b.AssetClass) },
-			"asset_class":        func(a, b portfolio.Instrument) int { return cmp.Compare(a.AssetClass, b.AssetClass) },
-			"assetClass":         func(a, b portfolio.Instrument) int { return cmp.Compare(a.AssetClass, b.AssetClass) },
-			"exposure":           func(a, b portfolio.Instrument) int { return cmp.Compare(strings.ToLower(a.IndexName), strings.ToLower(b.IndexName)) },
-			"index_name":         func(a, b portfolio.Instrument) int { return cmp.Compare(strings.ToLower(a.IndexName), strings.ToLower(b.IndexName)) },
-			"indexName":          func(a, b portfolio.Instrument) int { return cmp.Compare(strings.ToLower(a.IndexName), strings.ToLower(b.IndexName)) },
-			"strategy":           func(a, b portfolio.Instrument) int { return cmp.Compare(a.Strategy, b.Strategy) },
-			"hedged":             func(a, b portfolio.Instrument) int { return cmp.Compare(boolInt(a.CurrencyHedged), boolInt(b.CurrencyHedged)) },
-			"status":             func(a, b portfolio.Instrument) int { return cmp.Compare(a.DataStatus, b.DataStatus) },
-			"distribution":       func(a, b portfolio.Instrument) int { return cmp.Compare(a.Distribution, b.Distribution) },
-			"policy":             func(a, b portfolio.Instrument) int { return cmp.Compare(a.Distribution, b.Distribution) },
-			"replication":        func(a, b portfolio.Instrument) int { return cmp.Compare(a.Replication, b.Replication) },
-			"ter":                func(a, b portfolio.Instrument) int { return cmp.Compare(a.TERBPS, b.TERBPS) },
-			"ter_bps":            func(a, b portfolio.Instrument) int { return cmp.Compare(a.TERBPS, b.TERBPS) },
-			"terBps":             func(a, b portfolio.Instrument) int { return cmp.Compare(a.TERBPS, b.TERBPS) },
-			"size":               func(a, b portfolio.Instrument) int { return cmp.Compare(a.FundSizeMillion, b.FundSizeMillion) },
-			"fund_size_million":  func(a, b portfolio.Instrument) int { return cmp.Compare(a.FundSizeMillion, b.FundSizeMillion) },
-			"fundSizeMillion":    func(a, b portfolio.Instrument) int { return cmp.Compare(a.FundSizeMillion, b.FundSizeMillion) },
-			"domicile":           func(a, b portfolio.Instrument) int { return cmp.Compare(a.Domicile, b.Domicile) },
-			"currency":           func(a, b portfolio.Instrument) int { return cmp.Compare(a.FundCurrency, b.FundCurrency) },
-			"fund_currency":      func(a, b portfolio.Instrument) int { return cmp.Compare(a.FundCurrency, b.FundCurrency) },
-			"fundCurrency":       func(a, b portfolio.Instrument) int { return cmp.Compare(a.FundCurrency, b.FundCurrency) },
-			"inception":          func(a, b portfolio.Instrument) int { return cmp.Compare(a.InceptionDate, b.InceptionDate) },
-			"inception_date":     func(a, b portfolio.Instrument) int { return cmp.Compare(a.InceptionDate, b.InceptionDate) },
-			"inceptionDate":      func(a, b portfolio.Instrument) int { return cmp.Compare(a.InceptionDate, b.InceptionDate) },
-			"tracking":           func(a, b portfolio.Instrument) int { return compareOptional(a.TrackingDifferenceBPS, b.TrackingDifferenceBPS) },
-			"tracking_diff":      func(a, b portfolio.Instrument) int { return compareOptional(a.TrackingDifferenceBPS, b.TrackingDifferenceBPS) },
-			"trackingDiff":       func(a, b portfolio.Instrument) int { return compareOptional(a.TrackingDifferenceBPS, b.TrackingDifferenceBPS) },
-			"tracking_error":     func(a, b portfolio.Instrument) int { return compareOptional(a.TrackingErrorBPS, b.TrackingErrorBPS) },
-			"trackingError":      func(a, b portfolio.Instrument) int { return compareOptional(a.TrackingErrorBPS, b.TrackingErrorBPS) },
-			"ucits":              func(a, b portfolio.Instrument) int { return cmp.Compare(boolInt(a.UCITS), boolInt(b.UCITS)) },
-			"starred":            func(a, b portfolio.Instrument) int { return cmp.Compare(boolInt(a.Starred), boolInt(b.Starred)) },
-			"enriched":           func(a, b portfolio.Instrument) int { return cmp.Compare(a.EnrichedAt, b.EnrichedAt) },
-			"enriched_at":        func(a, b portfolio.Instrument) int { return cmp.Compare(a.EnrichedAt, b.EnrichedAt) },
-			"enrichedAt":         func(a, b portfolio.Instrument) int { return cmp.Compare(a.EnrichedAt, b.EnrichedAt) },
-			"last_refreshed":     func(a, b portfolio.Instrument) int { return cmp.Compare(a.EnrichedAt, b.EnrichedAt) },
+			"isin": func(a, b portfolio.Instrument) int { return cmp.Compare(a.ISIN, b.ISIN) },
+			"name": func(a, b portfolio.Instrument) int {
+				return cmp.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name))
+			},
+			"ticker": func(a, b portfolio.Instrument) int {
+				return cmp.Compare(strings.ToLower(a.Ticker), strings.ToLower(b.Ticker))
+			},
+			"type":            func(a, b portfolio.Instrument) int { return cmp.Compare(a.InstrumentType, b.InstrumentType) },
+			"instrument_type": func(a, b portfolio.Instrument) int { return cmp.Compare(a.InstrumentType, b.InstrumentType) },
+			"instrumentType":  func(a, b portfolio.Instrument) int { return cmp.Compare(a.InstrumentType, b.InstrumentType) },
+			"issuer": func(a, b portfolio.Instrument) int {
+				return cmp.Compare(strings.ToLower(a.Provider), strings.ToLower(b.Provider))
+			},
+			"provider": func(a, b portfolio.Instrument) int {
+				return cmp.Compare(strings.ToLower(a.Provider), strings.ToLower(b.Provider))
+			},
+			"asset":       func(a, b portfolio.Instrument) int { return cmp.Compare(a.AssetClass, b.AssetClass) },
+			"asset_class": func(a, b portfolio.Instrument) int { return cmp.Compare(a.AssetClass, b.AssetClass) },
+			"assetClass":  func(a, b portfolio.Instrument) int { return cmp.Compare(a.AssetClass, b.AssetClass) },
+			"exposure": func(a, b portfolio.Instrument) int {
+				return cmp.Compare(strings.ToLower(a.IndexName), strings.ToLower(b.IndexName))
+			},
+			"index_name": func(a, b portfolio.Instrument) int {
+				return cmp.Compare(strings.ToLower(a.IndexName), strings.ToLower(b.IndexName))
+			},
+			"indexName": func(a, b portfolio.Instrument) int {
+				return cmp.Compare(strings.ToLower(a.IndexName), strings.ToLower(b.IndexName))
+			},
+			"strategy": func(a, b portfolio.Instrument) int { return cmp.Compare(a.Strategy, b.Strategy) },
+			"hedged": func(a, b portfolio.Instrument) int {
+				return cmp.Compare(boolInt(a.CurrencyHedged), boolInt(b.CurrencyHedged))
+			},
+			"status":            func(a, b portfolio.Instrument) int { return cmp.Compare(a.DataStatus, b.DataStatus) },
+			"distribution":      func(a, b portfolio.Instrument) int { return cmp.Compare(a.Distribution, b.Distribution) },
+			"policy":            func(a, b portfolio.Instrument) int { return cmp.Compare(a.Distribution, b.Distribution) },
+			"replication":       func(a, b portfolio.Instrument) int { return cmp.Compare(a.Replication, b.Replication) },
+			"ter":               func(a, b portfolio.Instrument) int { return cmp.Compare(a.TERBPS, b.TERBPS) },
+			"ter_bps":           func(a, b portfolio.Instrument) int { return cmp.Compare(a.TERBPS, b.TERBPS) },
+			"terBps":            func(a, b portfolio.Instrument) int { return cmp.Compare(a.TERBPS, b.TERBPS) },
+			"size":              func(a, b portfolio.Instrument) int { return cmp.Compare(a.FundSizeMillion, b.FundSizeMillion) },
+			"fund_size_million": func(a, b portfolio.Instrument) int { return cmp.Compare(a.FundSizeMillion, b.FundSizeMillion) },
+			"fundSizeMillion":   func(a, b portfolio.Instrument) int { return cmp.Compare(a.FundSizeMillion, b.FundSizeMillion) },
+			"domicile":          func(a, b portfolio.Instrument) int { return cmp.Compare(a.Domicile, b.Domicile) },
+			"currency":          func(a, b portfolio.Instrument) int { return cmp.Compare(a.FundCurrency, b.FundCurrency) },
+			"fund_currency":     func(a, b portfolio.Instrument) int { return cmp.Compare(a.FundCurrency, b.FundCurrency) },
+			"fundCurrency":      func(a, b portfolio.Instrument) int { return cmp.Compare(a.FundCurrency, b.FundCurrency) },
+			"inception":         func(a, b portfolio.Instrument) int { return cmp.Compare(a.InceptionDate, b.InceptionDate) },
+			"inception_date":    func(a, b portfolio.Instrument) int { return cmp.Compare(a.InceptionDate, b.InceptionDate) },
+			"inceptionDate":     func(a, b portfolio.Instrument) int { return cmp.Compare(a.InceptionDate, b.InceptionDate) },
+			"tracking": func(a, b portfolio.Instrument) int {
+				return compareOptional(a.TrackingDifferenceBPS, b.TrackingDifferenceBPS)
+			},
+			"tracking_diff": func(a, b portfolio.Instrument) int {
+				return compareOptional(a.TrackingDifferenceBPS, b.TrackingDifferenceBPS)
+			},
+			"trackingDiff": func(a, b portfolio.Instrument) int {
+				return compareOptional(a.TrackingDifferenceBPS, b.TrackingDifferenceBPS)
+			},
+			"tracking_error": func(a, b portfolio.Instrument) int { return compareOptional(a.TrackingErrorBPS, b.TrackingErrorBPS) },
+			"trackingError":  func(a, b portfolio.Instrument) int { return compareOptional(a.TrackingErrorBPS, b.TrackingErrorBPS) },
+			"ucits":          func(a, b portfolio.Instrument) int { return cmp.Compare(boolInt(a.UCITS), boolInt(b.UCITS)) },
+			"starred":        func(a, b portfolio.Instrument) int { return cmp.Compare(boolInt(a.Starred), boolInt(b.Starred)) },
+			"enriched":       func(a, b portfolio.Instrument) int { return cmp.Compare(a.EnrichedAt, b.EnrichedAt) },
+			"enriched_at":    func(a, b portfolio.Instrument) int { return cmp.Compare(a.EnrichedAt, b.EnrichedAt) },
+			"enrichedAt":     func(a, b portfolio.Instrument) int { return cmp.Compare(a.EnrichedAt, b.EnrichedAt) },
+			"last_refreshed": func(a, b portfolio.Instrument) int { return cmp.Compare(a.EnrichedAt, b.EnrichedAt) },
 		}
 		if err := sortSlice(sortField, instruments, columns); err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -118,7 +139,7 @@ func (s *Server) SearchInstruments(ctx context.Context, req *connect.Request[por
 }
 
 func (s *Server) SyncInstrumentCatalog(ctx context.Context, req *connect.Request[portv1.SyncInstrumentCatalogRequest]) (*connect.Response[portv1.SyncInstrumentCatalogResponse], error) {
-	if err := auth.RequireAdmin(ctx, s.config.Auth.AdminGoogleID); err != nil {
+	if err := s.requireAdmin(ctx); err != nil {
 		return nil, err
 	}
 	limit := int(req.Msg.Limit)
@@ -137,7 +158,7 @@ func (s *Server) SyncInstrumentCatalog(ctx context.Context, req *connect.Request
 }
 
 func (s *Server) StreamInstrumentCatalog(ctx context.Context, req *connect.Request[portv1.StreamInstrumentCatalogRequest], stream *connect.ServerStream[portv1.EnrichmentProgress]) error {
-	if err := auth.RequireAdmin(ctx, s.config.Auth.AdminGoogleID); err != nil {
+	if err := s.requireAdmin(ctx); err != nil {
 		return err
 	}
 	mode := req.Msg.Mode
@@ -192,7 +213,7 @@ func (s *Server) StreamInstrumentCatalog(ctx context.Context, req *connect.Reque
 }
 
 func (s *Server) EnrichInstrumentCatalog(ctx context.Context, req *connect.Request[portv1.EnrichInstrumentCatalogRequest]) (*connect.Response[portv1.EnrichInstrumentCatalogResponse], error) {
-	if err := auth.RequireAdmin(ctx, s.config.Auth.AdminGoogleID); err != nil {
+	if err := s.requireAdmin(ctx); err != nil {
 		return nil, err
 	}
 	limit := int(req.Msg.Limit)
@@ -216,7 +237,7 @@ func (s *Server) EnrichInstrumentCatalog(ctx context.Context, req *connect.Reque
 }
 
 func (s *Server) CreateInstrument(ctx context.Context, req *connect.Request[portv1.CreateInstrumentRequest]) (*connect.Response[portv1.CreateInstrumentResponse], error) {
-	if err := auth.RequireAdmin(ctx, s.config.Auth.AdminGoogleID); err != nil {
+	if err := s.requireAdmin(ctx); err != nil {
 		return nil, err
 	}
 	if req.Msg.Instrument == nil {
@@ -231,7 +252,7 @@ func (s *Server) CreateInstrument(ctx context.Context, req *connect.Request[port
 }
 
 func (s *Server) LookupInstrument(ctx context.Context, req *connect.Request[portv1.LookupInstrumentRequest]) (*connect.Response[portv1.LookupInstrumentResponse], error) {
-	if err := auth.RequireAdmin(ctx, s.config.Auth.AdminGoogleID); err != nil {
+	if err := s.requireAdmin(ctx); err != nil {
 		return nil, err
 	}
 	query := strings.TrimSpace(req.Msg.Query)
@@ -263,7 +284,7 @@ func (s *Server) LookupInstrument(ctx context.Context, req *connect.Request[port
 }
 
 func (s *Server) ImportInstruments(ctx context.Context, req *connect.Request[portv1.ImportInstrumentsRequest]) (*connect.Response[portv1.ImportInstrumentsResponse], error) {
-	if err := auth.RequireAdmin(ctx, s.config.Auth.AdminGoogleID); err != nil {
+	if err := s.requireAdmin(ctx); err != nil {
 		return nil, err
 	}
 	isins := req.Msg.Isins
@@ -287,7 +308,7 @@ func (s *Server) ImportInstruments(ctx context.Context, req *connect.Request[por
 }
 
 func (s *Server) DeleteInstrument(ctx context.Context, req *connect.Request[portv1.DeleteInstrumentRequest]) (*connect.Response[portv1.DeleteInstrumentResponse], error) {
-	if err := auth.RequireAdmin(ctx, s.config.Auth.AdminGoogleID); err != nil {
+	if err := s.requireAdmin(ctx); err != nil {
 		return nil, err
 	}
 	if err := s.store.DeleteInstrument(ctx, req.Msg.Id); err != nil {
@@ -297,6 +318,9 @@ func (s *Server) DeleteInstrument(ctx context.Context, req *connect.Request[port
 }
 
 func (s *Server) StarInstrument(ctx context.Context, req *connect.Request[portv1.StarInstrumentRequest]) (*connect.Response[portv1.StarInstrumentResponse], error) {
+	if err := s.requireAdmin(ctx); err != nil {
+		return nil, err
+	}
 	if err := s.store.SetInstrumentStarred(ctx, req.Msg.Isin, req.Msg.Starred); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}

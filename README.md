@@ -4,7 +4,7 @@ Local portfolio and cash-yield dashboard. The React/TypeScript UI is embedded in
 
 ## Requirements
 
-- Go 1.26+
+- Go 1.26.6+
 - Node.js and npm
 - [`just`](https://github.com/casey/just#installation)
 
@@ -19,6 +19,7 @@ On macOS with Homebrew, or Linux with APT, DNF, Pacman, APK, or Zypper, install 
 ## Run
 
 ```sh
+cd ui && npm ci && cd ..
 just run
 ```
 

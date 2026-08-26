@@ -89,6 +89,20 @@ func TestMCPHandlerToolsList(t *testing.T) {
 	}
 }
 
+func TestMCPHandlerDoesNotOverrideCORS(t *testing.T) {
+	handler := mcp.NewHandler(&dummyHandler{})
+	body := []byte(`{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`)
+	req := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewReader(body))
+	req.Header.Set("Origin", "https://evil.example")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("MCP handler bypassed server CORS policy with %q", got)
+	}
+}
+
 func TestMCPHandlerToolsCall(t *testing.T) {
 	handler := mcp.NewHandler(&dummyHandler{})
 	body := []byte(`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_summary","arguments":{}}}`)

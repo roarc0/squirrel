@@ -158,11 +158,11 @@ func Load(path string) (Config, error) {
 			{Code: "IT_ORDINARY", Label: "Italy · ordinary financial income", RateBPS: 2600},
 			{Code: "IT_GOVERNMENT_BOND", Label: "Italy · government/white-list bonds", RateBPS: 1250},
 		},
-		AIProvider: "local",
-		AIEndpoint: "http://127.0.0.1:8080/v1",
-		AIModel:       "qwen3-8b",
-		AIAPIKey:      "",
-		AIContextSize: 16384,
+		AIProvider:     "local",
+		AIEndpoint:     "http://127.0.0.1:8080/v1",
+		AIModel:        "qwen3-8b",
+		AIAPIKey:       "",
+		AIContextSize:  16384,
 		AISystemPrompt: DefaultSystemPrompt(),
 		AIModels:       DefaultAIModels(),
 	}
@@ -176,6 +176,15 @@ func Load(path string) (Config, error) {
 		dec.KnownFields(true)
 		if err := dec.Decode(&cfg); err != nil {
 			return Config{}, fmt.Errorf("decode config: %w", err)
+		}
+		if cfg.AIAPIKey != "" || cfg.Auth.GoogleClientSecret != "" || cfg.Auth.SessionSecret != "" {
+			info, err := f.Stat()
+			if err != nil {
+				return Config{}, fmt.Errorf("inspect config permissions: %w", err)
+			}
+			if info.Mode().Perm()&0o077 != 0 {
+				return Config{}, errors.New("config containing secrets must have permissions 0600")
+			}
 		}
 	}
 
@@ -231,9 +240,12 @@ func (c Config) validate() error {
 	default:
 		return errors.New("log_level must be debug, info, warn, or error")
 	}
-	if c.Auth.GoogleClientID != "" || c.Auth.GoogleClientSecret != "" {
+	if c.Auth.GoogleClientID != "" || c.Auth.GoogleClientSecret != "" || c.Auth.SessionSecret != "" || c.Auth.AdminGoogleID != "" {
 		if c.Auth.GoogleClientID == "" || c.Auth.GoogleClientSecret == "" || c.Auth.SessionSecret == "" {
 			return errors.New("auth requires google_client_id, google_client_secret, and session_secret")
+		}
+		if len(c.Auth.SessionSecret) < 32 {
+			return errors.New("auth session_secret must be at least 32 characters")
 		}
 	}
 	return nil

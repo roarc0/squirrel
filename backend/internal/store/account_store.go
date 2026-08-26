@@ -50,14 +50,7 @@ func (s *Store) SaveReferenceRate(ctx context.Context, rate portfolio.ReferenceR
 }
 
 func (s *Store) ListAccounts(ctx context.Context, userID string) ([]portfolio.Account, error) {
-	query := `SELECT id, name, institution, account_type, preferred, archived, currency, balance_minor, tax_bps, annual_fee_minor, pac_amount_minor, COALESCE(notes, '') FROM accounts`
-	var args []any
-	if userID != "" {
-		query += ` WHERE (user_id = ? OR user_id = '')`
-		args = append(args, userID)
-	}
-	query += ` ORDER BY archived, name, id`
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, name, institution, account_type, preferred, archived, currency, balance_minor, tax_bps, annual_fee_minor, pac_amount_minor, COALESCE(notes, '') FROM accounts WHERE user_id=? ORDER BY archived, name, id`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +69,7 @@ func (s *Store) ListAccounts(ctx context.Context, userID string) ([]portfolio.Ac
 		return nil, err
 	}
 
-	tiers, err := s.db.QueryContext(ctx, `SELECT id, account_id, up_to_minor, fixed_rate_bps, COALESCE(reference_code, ''), spread_bps FROM interest_tiers ORDER BY account_id, position`)
+	tiers, err := s.db.QueryContext(ctx, `SELECT t.id, t.account_id, t.up_to_minor, t.fixed_rate_bps, COALESCE(t.reference_code, ''), t.spread_bps FROM interest_tiers t JOIN accounts a ON a.id=t.account_id WHERE a.user_id=? ORDER BY t.account_id, t.position`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -125,12 +118,12 @@ func (s *Store) SaveAccount(ctx context.Context, account *portfolio.Account, use
 	}
 	defer tx.Rollback()
 	var preferredCount int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM accounts WHERE preferred=1 AND archived=0 AND id<>?`, account.ID).Scan(&preferredCount); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM accounts WHERE preferred=1 AND archived=0 AND id<>? AND user_id=?`, account.ID, userID).Scan(&preferredCount); err != nil {
 		return err
 	}
 	if !account.Archived && (account.Preferred || preferredCount == 0) {
 		account.Preferred = true
-		if _, err := tx.ExecContext(ctx, `UPDATE accounts SET preferred=0 WHERE id<>?`, account.ID); err != nil {
+		if _, err := tx.ExecContext(ctx, `UPDATE accounts SET preferred=0 WHERE id<>? AND user_id=?`, account.ID, userID); err != nil {
 			return err
 		}
 	}
@@ -145,14 +138,7 @@ func (s *Store) SaveAccount(ctx context.Context, account *portfolio.Account, use
 			return err
 		}
 	} else {
-		ownerClause := ""
-		var ownerArgs []any
-		if userID != "" {
-			ownerClause = ` AND (user_id = ? OR user_id = '')`
-			ownerArgs = []any{userID}
-		}
-		args := append([]any{account.Name, account.Institution, account.Type, account.Preferred, account.Archived, account.Currency, account.BalanceMinor, account.TaxBPS, account.AnnualFeeMinor, account.PACAmountMinor, account.Notes, now, account.ID}, ownerArgs...)
-		result, err := tx.ExecContext(ctx, `UPDATE accounts SET name=?, institution=?, account_type=?, preferred=?, archived=?, currency=?, balance_minor=?, tax_bps=?, annual_fee_minor=?, pac_amount_minor=?, notes=?, updated_at=? WHERE id=?`+ownerClause, args...)
+		result, err := tx.ExecContext(ctx, `UPDATE accounts SET name=?, institution=?, account_type=?, preferred=?, archived=?, currency=?, balance_minor=?, tax_bps=?, annual_fee_minor=?, pac_amount_minor=?, notes=?, updated_at=? WHERE id=? AND user_id=?`, account.Name, account.Institution, account.Type, account.Preferred, account.Archived, account.Currency, account.BalanceMinor, account.TaxBPS, account.AnnualFeeMinor, account.PACAmountMinor, account.Notes, now, account.ID, userID)
 		if err != nil {
 			return err
 		}
@@ -169,7 +155,7 @@ func (s *Store) SaveAccount(ctx context.Context, account *portfolio.Account, use
 		}
 	}
 	if account.Archived {
-		if _, err := tx.ExecContext(ctx, `UPDATE accounts SET preferred=1 WHERE id=(SELECT id FROM accounts WHERE archived=0 ORDER BY id LIMIT 1) AND NOT EXISTS (SELECT 1 FROM accounts WHERE preferred=1 AND archived=0)`); err != nil {
+		if _, err := tx.ExecContext(ctx, `UPDATE accounts SET preferred=1 WHERE id=(SELECT id FROM accounts WHERE archived=0 AND user_id=? ORDER BY id LIMIT 1) AND NOT EXISTS (SELECT 1 FROM accounts WHERE preferred=1 AND archived=0 AND user_id=?)`, userID, userID); err != nil {
 			return err
 		}
 	}
@@ -183,19 +169,13 @@ func (s *Store) DeleteAccount(ctx context.Context, id int64, userID string) erro
 	}
 	defer tx.Rollback()
 	var preferred bool
-	ownerClause := ""
-	var ownerArgs []any
-	if userID != "" {
-		ownerClause = ` AND (user_id = ? OR user_id = '')`
-		ownerArgs = []any{userID}
-	}
-	if err := tx.QueryRowContext(ctx, `SELECT preferred FROM accounts WHERE id=?`+ownerClause, append([]any{id}, ownerArgs...)...).Scan(&preferred); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT preferred FROM accounts WHERE id=? AND user_id=?`, id, userID).Scan(&preferred); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return errors.New("account not found")
 		}
 		return err
 	}
-	result, err := tx.ExecContext(ctx, `DELETE FROM accounts WHERE id=?`+ownerClause, append([]any{id}, ownerArgs...)...)
+	result, err := tx.ExecContext(ctx, `DELETE FROM accounts WHERE id=? AND user_id=?`, id, userID)
 	if err != nil {
 		return err
 	}
@@ -203,7 +183,7 @@ func (s *Store) DeleteAccount(ctx context.Context, id int64, userID string) erro
 		return errors.New("account not found")
 	}
 	if preferred {
-		if _, err := tx.ExecContext(ctx, `UPDATE accounts SET preferred=1 WHERE id=(SELECT id FROM accounts WHERE archived=0 ORDER BY id LIMIT 1)`); err != nil {
+		if _, err := tx.ExecContext(ctx, `UPDATE accounts SET preferred=1 WHERE id=(SELECT id FROM accounts WHERE archived=0 AND user_id=? ORDER BY id LIMIT 1)`, userID); err != nil {
 			return err
 		}
 	}

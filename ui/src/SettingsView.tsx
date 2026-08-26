@@ -83,7 +83,7 @@ export function SettingsView({ reload }: { reload: () => Promise<void> }) {
     setNotice('');
     try {
       const { data, filename } = await exportBackup();
-      const blob = new Blob([new Uint8Array(data)], { type: 'application/gzip' });
+      const blob = new Blob([new Uint8Array(data)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -343,7 +343,7 @@ export function SettingsView({ reload }: { reload: () => Promise<void> }) {
                     Export Backup Archive
                   </Text>
                   <Text size="xs" c="dimmed">
-                    Download a full timestamped JSON backup of all accounts, holdings, and snapshots.
+                    Download a full timestamped JSON backup. It contains sensitive financial data and is not encrypted.
                   </Text>
                 </Box>
                 <Button

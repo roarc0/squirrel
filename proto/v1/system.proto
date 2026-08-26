@@ -134,7 +134,7 @@ message LoadOllamaModelResponse {
 
 // SystemService manages database backups, system state, local AI models, and Connect Protobuf AI streaming.
 service SystemService {
-  // Export a complete encrypted backup archive of the SQLite database.
+  // Export a portable plaintext JSON backup of the current user's data.
   rpc ExportBackup(ExportBackupRequest) returns (ExportBackupResponse);
   // Restore the database state from a backup archive.
   rpc RestoreBackup(RestoreBackupRequest) returns (RestoreBackupResponse);
@@ -148,6 +148,6 @@ service SystemService {
   rpc ListOllamaModels(ListOllamaModelsRequest) returns (ListOllamaModelsResponse);
   // Load an Ollama model into memory with the specified context size.
   rpc LoadOllamaModel(LoadOllamaModelRequest) returns (LoadOllamaModelResponse);
-  // Kill and restart the local llama-server process with a new model and context size.
+  // Restart the managed local llama-server process with a new model and context size.
   rpc RestartLocalServer(RestartLocalServerRequest) returns (RestartLocalServerResponse);
 }

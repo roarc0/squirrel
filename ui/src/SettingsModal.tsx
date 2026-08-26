@@ -52,7 +52,7 @@ export function SettingsModal({ opened, onClose, reload }: Props) {
     setNotice('');
     try {
       const { data, filename } = await exportBackup();
-      const blob = new Blob([new Uint8Array(data)], { type: 'application/gzip' });
+      const blob = new Blob([new Uint8Array(data)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -154,7 +154,7 @@ export function SettingsModal({ opened, onClose, reload }: Props) {
         <Paper withBorder p="md" radius="md">
           <Text fw={600} size="sm" mb={4}>Export Data Backup</Text>
           <Text size="xs" c="dimmed" mb="md">
-            Download a complete timestamped archive (.json) of your portfolio data.
+            Download a complete plaintext archive (.json). It contains sensitive financial data and is not encrypted.
           </Text>
           <Button color="teal" variant="light" onClick={handleExport} loading={exporting}>
             Export Backup (.json)

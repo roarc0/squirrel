@@ -10,7 +10,7 @@ ui: generate
 	cd ui && npm run build
 
 run *args: ui
-	CGO_ENABLED=0 go run github.com/air-verse/air@latest -- -config squirrel.yaml {{args}}
+	CGO_ENABLED=0 go run github.com/air-verse/air@v1.67.4 -- -config squirrel.yaml {{args}}
 
 build: ui
 	mkdir -p bin
@@ -38,23 +38,28 @@ db *args:
 	exec sqlite3 "$DB_PATH" {{args}}
 
 ai-setup:
-	@mkdir -p data/models
+	@umask 077; mkdir -p data/models; chmod 700 data/models
 	@if ! command -v llama-server >/dev/null 2>&1; then \
 		echo "Installing llama.cpp via Homebrew..."; \
 		brew install llama.cpp; \
 	fi
 	@if [ ! -f data/models/Qwen_Qwen3-8B-Q4_K_M.gguf ]; then \
 		echo "Downloading Qwen3-8B GGUF into data/models/ (~5GB, best tool-calling model for M5)..."; \
-		curl -L -C - -o data/models/Qwen_Qwen3-8B-Q4_K_M.gguf "https://huggingface.co/bartowski/Qwen_Qwen3-8B-GGUF/resolve/main/Qwen_Qwen3-8B-Q4_K_M.gguf"; \
+		curl --fail --location --proto '=https' --proto-redir '=https' --continue-at - --output data/models/Qwen_Qwen3-8B-Q4_K_M.gguf "https://huggingface.co/bartowski/Qwen_Qwen3-8B-GGUF/resolve/main/Qwen_Qwen3-8B-Q4_K_M.gguf"; \
 	else \
 		echo "Model data/models/Qwen_Qwen3-8B-Q4_K_M.gguf is ready."; \
 	fi
 
 ai-start: ai-setup
 	#!/usr/bin/env bash
-	if [ -f data/models/llama-server.pid ] && kill -0 $(cat data/models/llama-server.pid) 2>/dev/null; then
-		echo "Local AI OpenAI Server is already running on http://127.0.0.1:8080/v1 (PID $(cat data/models/llama-server.pid))"
+	set -u
+	umask 077
+	pid="$(cat data/models/llama-server.pid 2>/dev/null || true)"
+	comm="$(ps -p "${pid:-0}" -o comm= 2>/dev/null || true)"
+	if [[ "$pid" =~ ^[0-9]+$ ]] && [ "${comm##*/}" = "llama-server" ] && kill -0 "$pid" 2>/dev/null; then
+		echo "Local AI OpenAI Server is already running on http://127.0.0.1:8080/v1 (PID $pid)"
 	else
+		rm -f data/models/llama-server.pid
 		echo "Starting Local AI OpenAI Server on http://127.0.0.1:8080/v1 (Metal GPU + flash attention)..."
 		nohup llama-server -m data/models/Qwen_Qwen3-8B-Q4_K_M.gguf --port 8080 --host 127.0.0.1 -ngl 99 -c 32768 --alias qwen3-8b --jinja --flash-attn auto > data/models/llama-server.log 2>&1 &
 		echo $! > data/models/llama-server.pid
@@ -63,23 +68,29 @@ ai-start: ai-setup
 
 ai-stop:
 	#!/usr/bin/env bash
-	if [ -f data/models/llama-server.pid ]; then
-		pid=$(cat data/models/llama-server.pid)
+	set -u
+	pid="$(cat data/models/llama-server.pid 2>/dev/null || true)"
+	comm="$(ps -p "${pid:-0}" -o comm= 2>/dev/null || true)"
+	if [[ "$pid" =~ ^[0-9]+$ ]] && [ "${comm##*/}" = "llama-server" ]; then
 		echo "Stopping Local AI Server (PID $pid)..."
-		kill $pid 2>/dev/null || true
-		rm -f data/models/llama-server.pid
+		kill "$pid" 2>/dev/null || true
 	else
-		echo "No running Local AI Server PID file found."
+		echo "No managed Local AI Server process found."
 	fi
+	rm -f data/models/llama-server.pid
 
 ai-status:
 	#!/usr/bin/env bash
-	if [ -f data/models/llama-server.pid ] && kill -0 $(cat data/models/llama-server.pid) 2>/dev/null; then
-		echo "Local AI Server status: RUNNING (PID $(cat data/models/llama-server.pid)) on http://127.0.0.1:8080/v1"
+	pid="$(cat data/models/llama-server.pid 2>/dev/null || true)"
+	comm="$(ps -p "${pid:-0}" -o comm= 2>/dev/null || true)"
+	ollama_pid="$(cat data/models/ollama.pid 2>/dev/null || true)"
+	ollama_comm="$(ps -p "${ollama_pid:-0}" -o comm= 2>/dev/null || true)"
+	if [[ "$pid" =~ ^[0-9]+$ ]] && [ "${comm##*/}" = "llama-server" ] && kill -0 "$pid" 2>/dev/null; then
+		echo "Local AI Server status: RUNNING (PID $pid) on http://127.0.0.1:8080/v1"
 		curl -s http://127.0.0.1:8080/v1/models || true
 		echo ""
-	elif [ -f data/models/ollama.pid ] && kill -0 $(cat data/models/ollama.pid) 2>/dev/null; then
-		echo "Ollama status: RUNNING (PID $(cat data/models/ollama.pid)) on http://127.0.0.1:11434/v1"
+	elif [[ "$ollama_pid" =~ ^[0-9]+$ ]] && [ "${ollama_comm##*/}" = "ollama" ] && kill -0 "$ollama_pid" 2>/dev/null; then
+		echo "Ollama status: RUNNING (PID $ollama_pid) on http://127.0.0.1:11434/v1"
 		curl -s http://127.0.0.1:11434/v1/models || true
 		echo ""
 	else
@@ -88,14 +99,19 @@ ai-status:
 
 run-ollama:
 	#!/usr/bin/env bash
+	umask 077
 	mkdir -p data/models
+	chmod 700 data/models
 	if ! command -v ollama >/dev/null 2>&1; then
 		echo "Installing Ollama via Homebrew..."
 		brew install ollama
 	fi
-	if [ -f data/models/ollama.pid ] && kill -0 $(cat data/models/ollama.pid) 2>/dev/null; then
-		echo "Ollama server is already running on http://127.0.0.1:11434/v1 (PID $(cat data/models/ollama.pid))"
+	pid="$(cat data/models/ollama.pid 2>/dev/null || true)"
+	comm="$(ps -p "${pid:-0}" -o comm= 2>/dev/null || true)"
+	if [[ "$pid" =~ ^[0-9]+$ ]] && [ "${comm##*/}" = "ollama" ] && kill -0 "$pid" 2>/dev/null; then
+		echo "Ollama server is already running on http://127.0.0.1:11434/v1 (PID $pid)"
 	else
+		rm -f data/models/ollama.pid
 		echo "Starting Ollama server in background..."
 		nohup ollama serve > data/models/ollama.log 2>&1 &
 		echo $! > data/models/ollama.pid
@@ -107,11 +123,12 @@ run-ollama:
 
 stop-ollama:
 	#!/usr/bin/env bash
-	if [ -f data/models/ollama.pid ]; then
-		pid=$(cat data/models/ollama.pid)
+	pid="$(cat data/models/ollama.pid 2>/dev/null || true)"
+	comm="$(ps -p "${pid:-0}" -o comm= 2>/dev/null || true)"
+	if [[ "$pid" =~ ^[0-9]+$ ]] && [ "${comm##*/}" = "ollama" ]; then
 		echo "Stopping Ollama server (PID $pid)..."
-		kill $pid 2>/dev/null || true
-		rm -f data/models/ollama.pid
+		kill "$pid" 2>/dev/null || true
 	else
-		echo "No running Ollama PID file found."
+		echo "No managed Ollama process found."
 	fi
+	rm -f data/models/ollama.pid

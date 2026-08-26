@@ -15,7 +15,7 @@ export const SystemService = {
   typeName: "v1.SystemService",
   methods: {
     /**
-     * Export a complete encrypted backup archive of the SQLite database.
+     * Export a portable plaintext JSON backup of the current user's data.
      *
      * @generated from rpc v1.SystemService.ExportBackup
      */
@@ -92,7 +92,7 @@ export const SystemService = {
       kind: MethodKind.Unary,
     },
     /**
-     * Kill and restart the local llama-server process with a new model and context size.
+     * Restart the managed local llama-server process with a new model and context size.
      *
      * @generated from rpc v1.SystemService.RestartLocalServer
      */

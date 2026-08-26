@@ -2,22 +2,25 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
+
+	"squirrel/backend/internal/portfolio"
 )
 
 const backupVersion = 1
 
 // UserBackup is the JSON schema for portable, user-scoped backups.
 type UserBackup struct {
-	Version    int             `json:"version"`
-	App        string          `json:"app"`
-	ExportedAt string          `json:"exported_at"`
-	Accounts   []BackupAccount `json:"accounts"`
+	Version    int              `json:"version"`
+	App        string           `json:"app"`
+	ExportedAt string           `json:"exported_at"`
+	Accounts   []BackupAccount  `json:"accounts"`
 	Snapshots  []BackupSnapshot `json:"snapshots"`
-	Profile    *BackupProfile  `json:"profile,omitempty"`
+	Profile    *BackupProfile   `json:"profile,omitempty"`
 }
 
 type BackupAccount struct {
@@ -48,6 +51,11 @@ type BackupTier struct {
 
 type BackupHolding struct {
 	InstrumentISIN string `json:"instrument_isin"`
+	InstrumentName string `json:"instrument_name,omitempty"`
+	InstrumentType string `json:"instrument_type,omitempty"`
+	FundCurrency   string `json:"fund_currency,omitempty"`
+	Distribution   string `json:"distribution,omitempty"`
+	Replication    string `json:"replication,omitempty"`
 	InvestedMinor  int64  `json:"invested_minor"`
 	ValueMinor     int64  `json:"value_minor"`
 	TaxBps         int    `json:"tax_bps"`
@@ -86,6 +94,7 @@ type BackupProfile struct {
 	FireExpensesMinor     int64  `json:"fire_expenses_minor"`
 	InstrumentColumnsJSON string `json:"instrument_columns_json"`
 	ShowFireCalculator    bool   `json:"show_fire_calculator"`
+	EnableBtpRanks        bool   `json:"enable_btp_ranks"`
 	ActiveTab             string `json:"active_tab,omitempty"`
 	AISettingsJSON        string `json:"ai_settings_json,omitempty"`
 	DraftPortfoliosJSON   string `json:"draft_portfolios_json,omitempty"`
@@ -109,7 +118,7 @@ func (s *Store) ExportBackup(ctx context.Context, userID string) ([]byte, string
 	}
 	defer rows.Close()
 
-	accountIDs := map[int64]*BackupAccount{}
+	accountIDs := map[int64]int{}
 	for rows.Next() {
 		var id int64
 		var a BackupAccount
@@ -119,9 +128,11 @@ func (s *Store) ExportBackup(ctx context.Context, userID string) ([]byte, string
 			return nil, "", fmt.Errorf("scan account: %w", err)
 		}
 		backup.Accounts = append(backup.Accounts, a)
-		accountIDs[id] = &backup.Accounts[len(backup.Accounts)-1]
+		accountIDs[id] = len(backup.Accounts) - 1
 	}
-	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, "", fmt.Errorf("read accounts: %w", err)
+	}
 
 	// Interest tiers per account
 	if len(accountIDs) > 0 {
@@ -140,15 +151,18 @@ func (s *Store) ExportBackup(ctx context.Context, userID string) ([]byte, string
 			if err := tierRows.Scan(&accountID, &t.Position, &t.UpToMinor, &t.FixedRateBps, &t.ReferenceCode, &t.SpreadBps); err != nil {
 				return nil, "", fmt.Errorf("scan tier: %w", err)
 			}
-			if acc, ok := accountIDs[accountID]; ok {
-				acc.InterestTiers = append(acc.InterestTiers, t)
+			if index, ok := accountIDs[accountID]; ok {
+				backup.Accounts[index].InterestTiers = append(backup.Accounts[index].InterestTiers, t)
 			}
 		}
-		tierRows.Close()
+		if err := tierRows.Err(); err != nil {
+			return nil, "", fmt.Errorf("read interest_tiers: %w", err)
+		}
 
 		// Holdings per account (with instrument ISIN)
 		holdingRows, err := s.db.QueryContext(ctx, `
-			SELECT h.account_id, i.isin, h.invested_minor, h.value_minor, h.tax_bps,
+			SELECT h.account_id, i.isin, i.name, i.instrument_type, i.fund_currency,
+			       i.distribution, i.replication, h.invested_minor, h.value_minor, h.tax_bps,
 			       h.planned_bps, h.is_pac, h.pac_bps, h.pac_frequency, h.notes, h.updated_at
 			FROM holdings h
 			JOIN instruments i ON i.id = h.instrument_id
@@ -161,15 +175,18 @@ func (s *Store) ExportBackup(ctx context.Context, userID string) ([]byte, string
 		for holdingRows.Next() {
 			var accountID int64
 			var h BackupHolding
-			if err := holdingRows.Scan(&accountID, &h.InstrumentISIN, &h.InvestedMinor, &h.ValueMinor,
+			if err := holdingRows.Scan(&accountID, &h.InstrumentISIN, &h.InstrumentName, &h.InstrumentType,
+				&h.FundCurrency, &h.Distribution, &h.Replication, &h.InvestedMinor, &h.ValueMinor,
 				&h.TaxBps, &h.PlannedBps, &h.IsPac, &h.PacBps, &h.PacFrequency, &h.Notes, &h.UpdatedAt); err != nil {
 				return nil, "", fmt.Errorf("scan holding: %w", err)
 			}
-			if acc, ok := accountIDs[accountID]; ok {
-				acc.Holdings = append(acc.Holdings, h)
+			if index, ok := accountIDs[accountID]; ok {
+				backup.Accounts[index].Holdings = append(backup.Accounts[index].Holdings, h)
 			}
 		}
-		holdingRows.Close()
+		if err := holdingRows.Err(); err != nil {
+			return nil, "", fmt.Errorf("read holdings: %w", err)
+		}
 	}
 
 	// Snapshots
@@ -180,7 +197,7 @@ func (s *Store) ExportBackup(ctx context.Context, userID string) ([]byte, string
 	}
 	defer snapRows.Close()
 
-	snapIDs := map[int64]*BackupSnapshot{}
+	snapIDs := map[int64]int{}
 	for snapRows.Next() {
 		var id int64
 		var sn BackupSnapshot
@@ -188,9 +205,11 @@ func (s *Store) ExportBackup(ctx context.Context, userID string) ([]byte, string
 			return nil, "", fmt.Errorf("scan snapshot: %w", err)
 		}
 		backup.Snapshots = append(backup.Snapshots, sn)
-		snapIDs[id] = &backup.Snapshots[len(backup.Snapshots)-1]
+		snapIDs[id] = len(backup.Snapshots) - 1
 	}
-	snapRows.Close()
+	if err := snapRows.Err(); err != nil {
+		return nil, "", fmt.Errorf("read snapshots: %w", err)
+	}
 
 	// Snapshot entries
 	if len(snapIDs) > 0 {
@@ -211,11 +230,13 @@ func (s *Store) ExportBackup(ctx context.Context, userID string) ([]byte, string
 				&e.AssetName, &e.InvestedMinor, &e.ValueMinor, &e.TaxBps); err != nil {
 				return nil, "", fmt.Errorf("scan snapshot entry: %w", err)
 			}
-			if sn, ok := snapIDs[snapID]; ok {
-				sn.Entries = append(sn.Entries, e)
+			if index, ok := snapIDs[snapID]; ok {
+				backup.Snapshots[index].Entries = append(backup.Snapshots[index].Entries, e)
 			}
 		}
-		entryRows.Close()
+		if err := entryRows.Err(); err != nil {
+			return nil, "", fmt.Errorf("read snapshot entries: %w", err)
+		}
 	}
 
 	// Profile
@@ -223,13 +244,17 @@ func (s *Store) ExportBackup(ctx context.Context, userID string) ([]byte, string
 	err = s.db.QueryRowContext(ctx, `
 		SELECT theme, preferred_currency, monthly_expenses_minor, reserve_months,
 		       hide_balances, emergency_goal_minor, fire_expenses_minor,
-		       instrument_columns_json, show_fire_calculator
+		       instrument_columns_json, show_fire_calculator, enable_btp_ranks,
+		       active_tab, ai_settings_json, draft_portfolios_json
 		FROM user_profiles WHERE user_id=?`, userID).Scan(
 		&p.Theme, &p.PreferredCurrency, &p.MonthlyExpensesMinor, &p.ReserveMonths,
 		&p.HideBalances, &p.EmergencyGoalMinor, &p.FireExpensesMinor,
-		&p.InstrumentColumnsJSON, &p.ShowFireCalculator)
+		&p.InstrumentColumnsJSON, &p.ShowFireCalculator, &p.EnableBtpRanks,
+		&p.ActiveTab, &p.AISettingsJSON, &p.DraftPortfoliosJSON)
 	if err == nil {
 		backup.Profile = &p
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return nil, "", fmt.Errorf("read profile: %w", err)
 	}
 
 	data, err := json.MarshalIndent(backup, "", "  ")
@@ -241,12 +266,8 @@ func (s *Store) ExportBackup(ctx context.Context, userID string) ([]byte, string
 	return data, filename, nil
 }
 
-// RestoreBackup replaces the authenticated user's data with the contents of a backup.
-// Instruments referenced by holdings must already exist in the database.
-func (s *Store) RestoreBackup(ctx context.Context, userID string, backupData []byte) error {
-	if userID == "" {
-		return errors.New("user_id required to restore backup")
-	}
+// RestoreBackup replaces the current user's data with the contents of a backup.
+func (s *Store) RestoreBackup(ctx context.Context, userID string, backupData []byte, allowMissingInstruments bool) error {
 	if len(backupData) == 0 {
 		return errors.New("backup data is empty")
 	}
@@ -258,8 +279,24 @@ func (s *Store) RestoreBackup(ctx context.Context, userID string, backupData []b
 	if backup.App != "" && backup.App != "squirrel" {
 		return fmt.Errorf("backup belongs to unknown application %q", backup.App)
 	}
+	if backup.Version < 1 {
+		return errors.New("backup version is missing or invalid")
+	}
 	if backup.Version > backupVersion {
 		return fmt.Errorf("backup version %d is newer than supported version %d", backup.Version, backupVersion)
+	}
+	var restoredProfile *UserProfile
+	if p := backup.Profile; p != nil {
+		restoredProfile = &UserProfile{
+			Theme: p.Theme, PreferredCurrency: p.PreferredCurrency, MonthlyExpensesMinor: p.MonthlyExpensesMinor,
+			ReserveMonths: p.ReserveMonths, HideBalances: p.HideBalances, EmergencyGoalMinor: p.EmergencyGoalMinor,
+			FireExpensesMinor: p.FireExpensesMinor, InstrumentColumnsJSON: p.InstrumentColumnsJSON,
+			ShowFireCalculator: p.ShowFireCalculator, EnableBtpRanks: p.EnableBtpRanks, ActiveTab: p.ActiveTab,
+			AISettingsJSON: p.AISettingsJSON, DraftPortfoliosJSON: p.DraftPortfoliosJSON,
+		}
+		if err := normalizeProfile(restoredProfile); err != nil {
+			return fmt.Errorf("invalid backup profile: %w", err)
+		}
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -323,9 +360,45 @@ func (s *Store) RestoreBackup(ctx context.Context, userID string, backupData []b
 
 		for _, h := range a.Holdings {
 			var instrumentID int64
-			if err := tx.QueryRowContext(ctx, `SELECT id FROM instruments WHERE isin=?`, h.InstrumentISIN).Scan(&instrumentID); err != nil {
-				// Skip holdings whose instrument isn't in this database's catalog.
-				continue
+			err := tx.QueryRowContext(ctx, `SELECT id FROM instruments WHERE isin=?`, h.InstrumentISIN).Scan(&instrumentID)
+			if errors.Is(err, sql.ErrNoRows) {
+				if !allowMissingInstruments {
+					return fmt.Errorf("restore instrument %q is not in the shared catalog", h.InstrumentISIN)
+				}
+				inst := portfolio.Instrument{
+					ISIN: h.InstrumentISIN, Name: h.InstrumentName, InstrumentType: h.InstrumentType,
+					FundCurrency: h.FundCurrency, Distribution: h.Distribution, Replication: h.Replication,
+					DataStatus: portfolio.InstrumentStatusCatalog, RefreshedAt: now,
+				}
+				if inst.Name == "" {
+					inst.Name = inst.ISIN
+				}
+				if inst.InstrumentType == "" {
+					inst.InstrumentType = portfolio.InstrumentTypeETF
+				}
+				if inst.FundCurrency == "" {
+					inst.FundCurrency = "EUR"
+				}
+				if inst.Distribution == "" {
+					inst.Distribution = portfolio.DistributionAccumulating
+				}
+				if inst.Replication == "" {
+					inst.Replication = portfolio.ReplicationPhysicalFull
+				}
+				if err := portfolio.ValidateInstrument(inst); err != nil {
+					return fmt.Errorf("restore instrument %q: %w", h.InstrumentISIN, err)
+				}
+				// ponytail: restore the metadata needed by holdings; profile refresh fills optional catalog fields.
+				if err := tx.QueryRowContext(ctx, `
+					INSERT INTO instruments (isin, name, instrument_type, data_status, distribution, replication,
+					                         fund_currency, ter_bps, refreshed_at, created_at, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?) RETURNING id`,
+					inst.ISIN, inst.Name, inst.InstrumentType, inst.DataStatus, inst.Distribution,
+					inst.Replication, inst.FundCurrency, now, now, now).Scan(&instrumentID); err != nil {
+					return fmt.Errorf("insert restore instrument %q: %w", h.InstrumentISIN, err)
+				}
+			} else if err != nil {
+				return fmt.Errorf("find restore instrument %q: %w", h.InstrumentISIN, err)
 			}
 			isPac := 0
 			if h.IsPac {
@@ -371,8 +444,8 @@ func (s *Store) RestoreBackup(ctx context.Context, userID string, backupData []b
 	}
 
 	// Upsert profile.
-	if backup.Profile != nil {
-		p := backup.Profile
+	if restoredProfile != nil {
+		p := restoredProfile
 		hideBalances := 0
 		if p.HideBalances {
 			hideBalances = 1
@@ -381,20 +454,29 @@ func (s *Store) RestoreBackup(ctx context.Context, userID string, backupData []b
 		if p.ShowFireCalculator {
 			showFire = 1
 		}
+		enableBtpRanks := 0
+		if p.EnableBtpRanks {
+			enableBtpRanks = 1
+		}
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO user_profiles (user_id, theme, preferred_currency, monthly_expenses_minor,
 			                           reserve_months, hide_balances, emergency_goal_minor,
-			                           fire_expenses_minor, instrument_columns_json, show_fire_calculator)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			                           fire_expenses_minor, instrument_columns_json, show_fire_calculator,
+			                           enable_btp_ranks, active_tab, ai_settings_json, draft_portfolios_json)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(user_id) DO UPDATE SET
 			  theme=excluded.theme, preferred_currency=excluded.preferred_currency,
 			  monthly_expenses_minor=excluded.monthly_expenses_minor, reserve_months=excluded.reserve_months,
 			  hide_balances=excluded.hide_balances, emergency_goal_minor=excluded.emergency_goal_minor,
 			  fire_expenses_minor=excluded.fire_expenses_minor,
 			  instrument_columns_json=excluded.instrument_columns_json,
-			  show_fire_calculator=excluded.show_fire_calculator`,
+			  show_fire_calculator=excluded.show_fire_calculator,
+			  enable_btp_ranks=excluded.enable_btp_ranks, active_tab=excluded.active_tab,
+			  ai_settings_json=excluded.ai_settings_json,
+			  draft_portfolios_json=excluded.draft_portfolios_json`,
 			userID, p.Theme, p.PreferredCurrency, p.MonthlyExpensesMinor, p.ReserveMonths,
-			hideBalances, p.EmergencyGoalMinor, p.FireExpensesMinor, p.InstrumentColumnsJSON, showFire); err != nil {
+			hideBalances, p.EmergencyGoalMinor, p.FireExpensesMinor, p.InstrumentColumnsJSON, showFire,
+			enableBtpRanks, p.ActiveTab, p.AISettingsJSON, p.DraftPortfoliosJSON); err != nil {
 			return fmt.Errorf("upsert profile: %w", err)
 		}
 	}

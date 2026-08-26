@@ -22,6 +22,9 @@ func (s *Server) ListReferenceRates(ctx context.Context, req *connect.Request[po
 }
 
 func (s *Server) UpdateReferenceRate(ctx context.Context, req *connect.Request[portv1.UpdateReferenceRateRequest]) (*connect.Response[portv1.UpdateReferenceRateResponse], error) {
+	if err := s.requireAdmin(ctx); err != nil {
+		return nil, err
+	}
 	if req.Msg.Rate == nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("rate is required"))
 	}

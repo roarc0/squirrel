@@ -50,11 +50,14 @@ function getSavedSettings(): AISettings {
     const raw = localStorage.getItem('squirrel.aiSettings');
     if (!raw) return defaultSettings;
     const parsed = JSON.parse(raw);
-    return {
+    const saved = {
       ...defaultSettings,
       ...parsed,
+      apiKey: '',
       contextSize: parsed.contextSize ? Number(parsed.contextSize) : defaultSettings.contextSize,
     };
+    localStorage.setItem('squirrel.aiSettings', JSON.stringify(saved));
+    return saved;
   } catch {
     return defaultSettings;
   }
@@ -125,7 +128,7 @@ export function AIConsultantView({
   const saveSettings = (newSettings: AISettings) => {
     setSettings(newSettings);
     try {
-      localStorage.setItem('squirrel.aiSettings', JSON.stringify(newSettings));
+      localStorage.setItem('squirrel.aiSettings', JSON.stringify({ ...newSettings, apiKey: '' }));
     } catch {
       /* optional */
     }
@@ -836,6 +839,7 @@ function AISettingsModal({
             {provider !== 'ollama' && (
               <PasswordInput
                 label="API Key (Optional for local servers)"
+                description="Kept in memory for this page only; never saved to browser storage."
                 placeholder="sk-..."
                 value={apiKey}
                 onChange={e => setApiKey(e.currentTarget.value)}

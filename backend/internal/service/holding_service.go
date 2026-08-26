@@ -41,8 +41,12 @@ func (s *Server) ListHoldings(ctx context.Context, req *connect.Request[portv1.L
 		})
 	} else {
 		columns := map[string]func(portfolio.Holding, portfolio.Holding) int{
-			"account":     func(a, b portfolio.Holding) int { return cmp.Compare(strings.ToLower(a.AccountName), strings.ToLower(b.AccountName)) },
-			"name":        func(a, b portfolio.Holding) int { return cmp.Compare(strings.ToLower(a.InstrumentName), strings.ToLower(b.InstrumentName)) },
+			"account": func(a, b portfolio.Holding) int {
+				return cmp.Compare(strings.ToLower(a.AccountName), strings.ToLower(b.AccountName))
+			},
+			"name": func(a, b portfolio.Holding) int {
+				return cmp.Compare(strings.ToLower(a.InstrumentName), strings.ToLower(b.InstrumentName))
+			},
 			"isin":        func(a, b portfolio.Holding) int { return cmp.Compare(a.InstrumentISIN, b.InstrumentISIN) },
 			"type":        func(a, b portfolio.Holding) int { return cmp.Compare(a.InstrumentType, b.InstrumentType) },
 			"asset":       func(a, b portfolio.Holding) int { return cmp.Compare(a.AssetClass, b.AssetClass) },
@@ -61,7 +65,9 @@ func (s *Server) ListHoldings(ctx context.Context, req *connect.Request[portv1.L
 				}
 				return cmp.Compare(strings.ToLower(a.InstrumentName), strings.ToLower(b.InstrumentName))
 			},
-			"profit":  func(a, b portfolio.Holding) int { return cmp.Compare(a.ValueMinor-a.InvestedMinor, b.ValueMinor-b.InvestedMinor) },
+			"profit": func(a, b portfolio.Holding) int {
+				return cmp.Compare(a.ValueMinor-a.InvestedMinor, b.ValueMinor-b.InvestedMinor)
+			},
 			"planned": func(a, b portfolio.Holding) int { return cmp.Compare(a.PlannedBPS, b.PlannedBPS) },
 			"actual":  func(a, b portfolio.Holding) int { return cmp.Compare(a.ActualBPS, b.ActualBPS) },
 			"ter":     func(a, b portfolio.Holding) int { return cmp.Compare(a.TERBPS, b.TERBPS) },
@@ -91,21 +97,19 @@ func (s *Server) CreateHolding(ctx context.Context, req *connect.Request[portv1.
 	holding := holdingFromProto(req.Msg.Holding)
 	holding.ID = 0
 	userID := auth.UserIDOrEmpty(ctx)
-	if userID != "" {
-		accounts, err := s.store.ListAccounts(ctx, userID)
-		if err != nil {
-			return nil, connect.NewError(connect.CodeInternal, err)
+	accounts, err := s.store.ListAccounts(ctx, userID)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	owned := false
+	for _, a := range accounts {
+		if a.ID == holding.AccountID {
+			owned = true
+			break
 		}
-		owned := false
-		for _, a := range accounts {
-			if a.ID == holding.AccountID {
-				owned = true
-				break
-			}
-		}
-		if !owned {
-			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("account not found"))
-		}
+	}
+	if !owned {
+		return nil, connect.NewError(connect.CodePermissionDenied, errors.New("account not found"))
 	}
 	if err := s.store.SaveHolding(ctx, &holding); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
@@ -130,21 +134,19 @@ func (s *Server) UpdateHolding(ctx context.Context, req *connect.Request[portv1.
 	patch := req.Msg.Holding
 	// Apply all user-editable fields; protect FK fields from accidental zero.
 	if patch.AccountId != 0 && patch.AccountId != existing.AccountID {
-		if userID := auth.UserIDOrEmpty(ctx); userID != "" {
-			accounts, err := s.store.ListAccounts(ctx, userID)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
+		accounts, err := s.store.ListAccounts(ctx, auth.UserIDOrEmpty(ctx))
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+		owned := false
+		for _, a := range accounts {
+			if a.ID == patch.AccountId {
+				owned = true
+				break
 			}
-			owned := false
-			for _, a := range accounts {
-				if a.ID == patch.AccountId {
-					owned = true
-					break
-				}
-			}
-			if !owned {
-				return nil, connect.NewError(connect.CodePermissionDenied, errors.New("account not found"))
-			}
+		}
+		if !owned {
+			return nil, connect.NewError(connect.CodePermissionDenied, errors.New("account not found"))
 		}
 		existing.AccountID = patch.AccountId
 	}

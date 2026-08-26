@@ -35,6 +35,13 @@ func (s *Server) GetSummary(ctx context.Context, req *connect.Request[portv1.Get
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	activeAccounts := make(map[int64]bool, len(accounts))
+	for _, account := range accounts {
+		activeAccounts[account.ID] = !account.Archived
+	}
+	holdings = slices.DeleteFunc(holdings, func(holding portfolio.Holding) bool {
+		return !activeAccounts[holding.AccountID]
+	})
 	instruments, err := s.store.ListInstruments(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -122,7 +129,7 @@ func (s *Server) GetSummary(ctx context.Context, req *connect.Request[portv1.Get
 		targetCashMinor = *req.Msg.TargetCashMinor
 	}
 
-	rawDiagnostics := portfolio.EvaluateDiagnostics(accounts, holdings, instruments, targetCashMinor, time.Now())
+	rawDiagnostics := portfolio.EvaluateDiagnostics(accounts, holdings, instruments, s.baseCurrency, targetCashMinor, time.Now())
 	pbDiagnostics := make([]*portv1.Diagnostic, len(rawDiagnostics))
 	for i, d := range rawDiagnostics {
 		pbDiagnostics[i] = &portv1.Diagnostic{

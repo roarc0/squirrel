@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,7 +27,10 @@ var activeDownloads sync.Map // map[string]int32
 
 func (s *Server) ListAIModels(ctx context.Context, req *connect.Request[portv1.ListAIModelsRequest]) (*connect.Response[portv1.ListAIModelsResponse], error) {
 	modelsDir := filepath.Join("data", "models")
-	_ = os.MkdirAll(modelsDir, 0755)
+	if err := os.MkdirAll(modelsDir, 0o700); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("create models directory: %w", err))
+	}
+	_ = os.Chmod(modelsDir, 0o700)
 
 	existingFiles := make(map[string]os.FileInfo)
 	entries, err := os.ReadDir(modelsDir)
@@ -106,15 +110,22 @@ func (s *Server) ListAIModels(ctx context.Context, req *connect.Request[portv1.L
 }
 
 func (s *Server) DownloadAIModel(ctx context.Context, req *connect.Request[portv1.DownloadAIModelRequest]) (*connect.Response[portv1.DownloadAIModelResponse], error) {
+	if err := s.requireAdmin(ctx); err != nil {
+		return nil, err
+	}
 	modelQuery := strings.TrimSpace(req.Msg.ModelName)
 	if modelQuery == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("model name or URL is required"))
 	}
+	if len(modelQuery) > 8192 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("model name or URL is too long"))
+	}
 
 	modelsDir := filepath.Join("data", "models")
-	if err := os.MkdirAll(modelsDir, 0755); err != nil {
+	if err := os.MkdirAll(modelsDir, 0o700); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create data/models directory: %w", err))
 	}
+	_ = os.Chmod(modelsDir, 0o700)
 
 	var downloadURL, filename, modelID string
 
@@ -136,8 +147,11 @@ func (s *Server) DownloadAIModel(ctx context.Context, req *connect.Request[portv
 		switch {
 		case strings.HasPrefix(modelQuery, "http://") || strings.HasPrefix(modelQuery, "https://"):
 			downloadURL = modelQuery
-			parts := strings.Split(modelQuery, "/")
-			filename = parts[len(parts)-1]
+			parsed, err := url.Parse(modelQuery)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid model URL: %w", err))
+			}
+			filename = filepath.Base(parsed.Path)
 			if !strings.HasSuffix(strings.ToLower(filename), ".gguf") {
 				filename += ".gguf"
 			}
@@ -152,37 +166,51 @@ func (s *Server) DownloadAIModel(ctx context.Context, req *connect.Request[portv
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("unknown model preset or invalid Hugging Face format %q. Use 'owner/repo' or direct GGUF URL", modelQuery))
 		}
 	}
+	if override := strings.TrimSpace(req.Msg.UrlOverride); override != "" {
+		if len(override) > 8192 {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("model URL is too long"))
+		}
+		downloadURL = override
+	}
+	parsedDownloadURL, err := validateModelDownloadURL(downloadURL)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 
 	filename = filepath.Base(filename)
-	if filename == "." || filename == "/" || !strings.HasSuffix(strings.ToLower(filename), ".gguf") {
+	if !validModelFilename(filename) {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid GGUF model filename %q", filename))
 	}
-	modelID = strings.TrimSuffix(filename, ".gguf")
-
 	targetPath := filepath.Join(modelsDir, filename)
 	tempPath := targetPath + ".tmp"
 
-	activeDownloads.Store(modelID, int32(0))
+	if _, loaded := activeDownloads.LoadOrStore(modelID, int32(0)); loaded {
+		return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("model %s is already downloading", modelID))
+	}
 	defer activeDownloads.Delete(modelID)
 
-	slog.InfoContext(ctx, "Starting AI model download", "model", modelID, "url", downloadURL, "target", targetPath)
+	slog.InfoContext(ctx, "Starting AI model download", "model", modelID, "host", parsedDownloadURL.Hostname(), "target", targetPath)
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, parsedDownloadURL.String(), nil)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("create download request failed: %w", err))
 	}
 
-	res, err := http.DefaultClient.Do(httpReq)
+	client := &http.Client{CheckRedirect: func(req *http.Request, _ []*http.Request) error {
+		_, err := validateModelDownloadURL(req.URL.String())
+		return err
+	}}
+	res, err := client.Do(httpReq)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to model download URL: %w", err))
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("failed to connect to model host %s", parsedDownloadURL.Hostname()))
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode >= 400 {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("download HTTP %d from %s", res.StatusCode, downloadURL))
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("model download HTTP %d from %s", res.StatusCode, parsedDownloadURL.Hostname()))
 	}
 
-	out, err := os.Create(tempPath)
+	out, err := os.OpenFile(tempPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create temporary file: %w", err))
 	}
@@ -201,8 +229,20 @@ func (s *Server) DownloadAIModel(ctx context.Context, req *connect.Request[portv
 		_ = os.Remove(tempPath)
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("download stream failed: %w", err))
 	}
+	file, err := os.Open(tempPath)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("inspect downloaded model: %w", err))
+	}
+	var magic [4]byte
+	_, readErr := io.ReadFull(file, magic[:])
+	_ = file.Close()
+	if readErr != nil || string(magic[:]) != "GGUF" {
+		_ = os.Remove(tempPath)
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("download is not a GGUF model"))
+	}
 
 	if err := os.Rename(tempPath, targetPath); err != nil {
+		_ = os.Remove(tempPath)
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to save final model file: %w", err))
 	}
 
@@ -218,10 +258,18 @@ func (s *Server) DownloadAIModel(ctx context.Context, req *connect.Request[portv
 }
 
 func (s *Server) ListOllamaModels(ctx context.Context, req *connect.Request[portv1.ListOllamaModelsRequest]) (*connect.Response[portv1.ListOllamaModelsResponse], error) {
+	if err := s.requireAdmin(ctx); err != nil {
+		return nil, err
+	}
 	endpoint := strings.TrimSuffix(strings.TrimSuffix(req.Msg.Endpoint, "/v1"), "/")
 	if endpoint == "" {
 		endpoint = "http://localhost:11434"
 	}
+	parsedEndpoint, err := validateHTTPSOrLoopbackURL(endpoint)
+	if err != nil || parsedEndpoint.RawQuery != "" || parsedEndpoint.Fragment != "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid Ollama endpoint"))
+	}
+	endpoint = strings.TrimRight(parsedEndpoint.String(), "/")
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint+"/api/tags", nil)
 	if err != nil {
@@ -235,7 +283,7 @@ func (s *Server) ListOllamaModels(ctx context.Context, req *connect.Request[port
 	defer res.Body.Close()
 
 	if res.StatusCode >= 400 {
-		body, _ := io.ReadAll(res.Body)
+		body, _ := io.ReadAll(io.LimitReader(res.Body, 64<<10))
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("ollama /api/tags HTTP %d: %s", res.StatusCode, string(body)))
 	}
 
@@ -246,7 +294,7 @@ func (s *Server) ListOllamaModels(ctx context.Context, req *connect.Request[port
 			ModifiedAt string `json:"modified_at"`
 		} `json:"models"`
 	}
-	if err := json.NewDecoder(res.Body).Decode(&resp); err != nil {
+	if err := json.NewDecoder(io.LimitReader(res.Body, 4<<20)).Decode(&resp); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("decode ollama response: %w", err))
 	}
 
@@ -263,14 +311,28 @@ func (s *Server) ListOllamaModels(ctx context.Context, req *connect.Request[port
 }
 
 func (s *Server) LoadOllamaModel(ctx context.Context, req *connect.Request[portv1.LoadOllamaModelRequest]) (*connect.Response[portv1.LoadOllamaModelResponse], error) {
+	if err := s.requireAdmin(ctx); err != nil {
+		return nil, err
+	}
 	endpoint := strings.TrimSuffix(strings.TrimSuffix(req.Msg.Endpoint, "/v1"), "/")
 	if endpoint == "" {
 		endpoint = "http://localhost:11434"
 	}
+	parsedEndpoint, err := validateHTTPSOrLoopbackURL(endpoint)
+	if err != nil || parsedEndpoint.RawQuery != "" || parsedEndpoint.Fragment != "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid Ollama endpoint"))
+	}
+	endpoint = strings.TrimRight(parsedEndpoint.String(), "/")
 	model := req.Msg.Model
+	if model == "" || len(model) > 256 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid Ollama model name"))
+	}
 	contextSize := req.Msg.ContextSize
 	if contextSize <= 0 {
 		contextSize = 16384
+	}
+	if contextSize > maxAIContextSize {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("AI context size is too large"))
 	}
 
 	body, _ := json.Marshal(map[string]interface{}{
@@ -295,7 +357,7 @@ func (s *Server) LoadOllamaModel(ctx context.Context, req *connect.Request[portv
 	defer res.Body.Close()
 
 	if res.StatusCode >= 400 {
-		errBody, _ := io.ReadAll(res.Body)
+		errBody, _ := io.ReadAll(io.LimitReader(res.Body, 64<<10))
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("ollama load HTTP %d: %s", res.StatusCode, string(errBody)))
 	}
 
@@ -307,17 +369,27 @@ func (s *Server) LoadOllamaModel(ctx context.Context, req *connect.Request[portv
 }
 
 func (s *Server) RestartLocalServer(ctx context.Context, req *connect.Request[portv1.RestartLocalServerRequest]) (*connect.Response[portv1.RestartLocalServerResponse], error) {
-	filename := filepath.Base(strings.TrimSpace(req.Msg.ModelFilename))
-	if filename == "" || filename == "." || filename == "/" || !strings.HasSuffix(strings.ToLower(filename), ".gguf") {
+	if err := s.requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	requestedFilename := strings.TrimSpace(req.Msg.ModelFilename)
+	filename := filepath.Base(requestedFilename)
+	if filename != requestedFilename || !validModelFilename(filename) {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid GGUF model filename"))
 	}
 	contextSize := req.Msg.ContextSize
 	if contextSize <= 0 {
 		contextSize = 16384
 	}
+	if contextSize > maxAIContextSize {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("AI context size is too large"))
+	}
 	port := int(req.Msg.Port)
 	if port <= 0 {
 		port = 8080
+	}
+	if port > 65535 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid server port"))
 	}
 
 	modelPath := filepath.Join("data", "models", filename)
@@ -330,19 +402,20 @@ func (s *Server) RestartLocalServer(ctx context.Context, req *connect.Request[po
 	// Kill existing llama-server via PID file.
 	if pidBytes, err := os.ReadFile(pidFile); err == nil {
 		if pid, err := strconv.Atoi(strings.TrimSpace(string(pidBytes))); err == nil {
-			if proc, err := os.FindProcess(pid); err == nil {
-				_ = proc.Kill()
+			command, _ := exec.CommandContext(ctx, "ps", "-p", strconv.Itoa(pid), "-o", "comm=").Output()
+			if filepath.Base(strings.TrimSpace(string(command))) == "llama-server" {
+				if proc, err := os.FindProcess(pid); err == nil {
+					_ = proc.Kill()
+				}
 			}
 		}
 		_ = os.Remove(pidFile)
 	}
-	// Also kill any stray llama-server processes.
-	_ = exec.Command("pkill", "-f", "llama-server").Run()
 	time.Sleep(500 * time.Millisecond)
 
 	alias := strings.TrimSuffix(filename, ".gguf")
 	logPath := filepath.Join("data", "models", "llama-server.log")
-	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("open log file: %w", err))
 	}
@@ -365,7 +438,7 @@ func (s *Server) RestartLocalServer(ctx context.Context, req *connect.Request[po
 	}
 	_ = logFile.Close()
 
-	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(cmd.Process.Pid)), 0644); err != nil {
+	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(cmd.Process.Pid)), 0o600); err != nil {
 		slog.WarnContext(ctx, "Failed to write llama-server PID file", "err", err)
 	}
 
@@ -374,7 +447,7 @@ func (s *Server) RestartLocalServer(ctx context.Context, req *connect.Request[po
 	ready := false
 	for i := 0; i < 20; i++ {
 		time.Sleep(500 * time.Millisecond)
-		if n := probeServerContext(endpoint + "/v1"); n > 0 {
+		if n := probeServerContext(ctx, endpoint+"/v1"); n > 0 {
 			ready = true
 			slog.InfoContext(ctx, "llama-server ready", "pid", cmd.Process.Pid, "n_ctx", n, "model", filename)
 			break
@@ -391,4 +464,24 @@ func (s *Server) RestartLocalServer(ctx context.Context, req *connect.Request[po
 		Port:       int32(port),
 		ActualNCtx: contextSize,
 	}), nil
+}
+
+func validateModelDownloadURL(raw string) (*url.URL, error) {
+	parsed, err := validateHTTPSOrLoopbackURL(raw)
+	if err != nil {
+		return nil, fmt.Errorf("invalid model download URL: %w", err)
+	}
+	return parsed, nil
+}
+
+func validModelFilename(filename string) bool {
+	if len(filename) <= len(".gguf") || len(filename) > 255 || !strings.HasSuffix(strings.ToLower(filename), ".gguf") {
+		return false
+	}
+	for _, char := range filename {
+		if (char < 'a' || char > 'z') && (char < 'A' || char > 'Z') && (char < '0' || char > '9') && char != '.' && char != '-' && char != '_' {
+			return false
+		}
+	}
+	return true
 }

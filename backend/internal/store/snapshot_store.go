@@ -10,7 +10,6 @@ import (
 	"squirrel/backend/internal/portfolio"
 )
 
-
 func (s *Store) SaveSnapshot(ctx context.Context, observedOn string, userID string) error {
 	if _, err := time.Parse(time.DateOnly, observedOn); err != nil {
 		return errors.New("snapshot date must use YYYY-MM-DD")
@@ -21,12 +20,8 @@ func (s *Store) SaveSnapshot(ctx context.Context, observedOn string, userID stri
 	}
 	defer tx.Rollback()
 
-	userFilter := ""
-	var userArgs []any
-	if userID != "" {
-		userFilter = ` AND (user_id=? OR user_id='')`
-		userArgs = []any{userID}
-	}
+	userFilter := ` AND user_id=?`
+	userArgs := []any{userID}
 
 	var accountCount int
 	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM accounts WHERE archived=0`+userFilter, userArgs...).Scan(&accountCount); err != nil {
@@ -52,14 +47,10 @@ func (s *Store) SaveSnapshot(ctx context.Context, observedOn string, userID stri
 		append([]any{snapshotID}, userArgs...)...); err != nil {
 		return err
 	}
-	joinFilter := ""
-	if userID != "" {
-		joinFilter = ` AND (a.user_id=? OR a.user_id='')`
-	}
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO snapshot_entries (snapshot_id, account_name, currency, kind, asset_key, asset_name, invested_minor, value_minor, tax_bps)
 		SELECT ?, a.name, a.currency, 'holding', i.isin, i.name, h.invested_minor, h.value_minor, h.tax_bps
-		FROM holdings h JOIN accounts a ON a.id=h.account_id JOIN instruments i ON i.id=h.instrument_id WHERE a.archived=0`+joinFilter,
+		FROM holdings h JOIN accounts a ON a.id=h.account_id JOIN instruments i ON i.id=h.instrument_id WHERE a.archived=0 AND a.user_id=?`,
 		append([]any{snapshotID}, userArgs...)...); err != nil {
 		return err
 	}
@@ -74,13 +65,9 @@ func (s *Store) ListSnapshots(ctx context.Context, userID string) ([]portfolio.S
 			SUM(CASE WHEN e.kind='holding' THEN e.value_minor ELSE 0 END),
 			SUM(e.value_minor)
 		FROM snapshots s JOIN snapshot_entries e ON e.snapshot_id=s.id`
-	var args []any
-	if userID != "" {
-		query += ` WHERE s.user_id = ?`
-		args = append(args, userID)
-	}
+	query += ` WHERE s.user_id = ?`
 	query += ` GROUP BY s.id, s.observed_on, e.currency ORDER BY s.observed_on, e.currency`
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -110,12 +97,8 @@ func (s *Store) UpdateSnapshot(ctx context.Context, snapshot *portfolio.Snapshot
 	}
 	defer tx.Rollback()
 
-	ownerClause := ""
-	var ownerArgs []any
-	if userID != "" {
-		ownerClause = ` AND (user_id=? OR user_id='')`
-		ownerArgs = []any{userID}
-	}
+	ownerClause := ` AND user_id=?`
+	ownerArgs := []any{userID}
 
 	var conflicts, entries int
 	queryConflict := `SELECT COUNT(*) FROM snapshots WHERE observed_on=? AND id<>?` + ownerClause
@@ -126,7 +109,7 @@ func (s *Store) UpdateSnapshot(ctx context.Context, snapshot *portfolio.Snapshot
 	if conflicts > 0 {
 		return errors.New("a snapshot already exists for that date")
 	}
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM snapshot_entries WHERE snapshot_id=? AND currency=?`, snapshot.ID, snapshot.Currency).Scan(&entries); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM snapshot_entries e JOIN snapshots s ON s.id=e.snapshot_id WHERE e.snapshot_id=? AND e.currency=? AND s.user_id=?`, snapshot.ID, snapshot.Currency, userID).Scan(&entries); err != nil {
 		return err
 	}
 	if entries == 0 {
@@ -152,13 +135,7 @@ func (s *Store) UpdateSnapshot(ctx context.Context, snapshot *portfolio.Snapshot
 }
 
 func (s *Store) DeleteSnapshot(ctx context.Context, id int64, userID string) error {
-	query := `DELETE FROM snapshots WHERE id=?`
-	args := []any{id}
-	if userID != "" {
-		query += ` AND (user_id=? OR user_id='')`
-		args = append(args, userID)
-	}
-	result, err := s.db.ExecContext(ctx, query, args...)
+	result, err := s.db.ExecContext(ctx, `DELETE FROM snapshots WHERE id=? AND user_id=?`, id, userID)
 	if err != nil {
 		return err
 	}
@@ -177,23 +154,19 @@ func (s *Store) UpdateSituation(ctx context.Context, userID string, accountUpdat
 
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	accountOwner := ""
-	holdingOwner := ""
-	if userID != "" {
-		accountOwner = ` AND (user_id=? OR user_id='')`
-		holdingOwner = ` AND account_id IN (SELECT id FROM accounts WHERE user_id=? OR user_id='')`
-	}
+	accountOwner := ` AND user_id=?`
+	holdingOwner := ` AND account_id IN (SELECT id FROM accounts WHERE user_id=?)`
 
 	for accountID, balanceMinor := range accountUpdates {
 		if balanceMinor < 0 || balanceMinor > 1_000_000_000_000 {
 			return false, errors.New("account balance is outside the supported range")
 		}
-		args := []any{balanceMinor, now, accountID}
-		if userID != "" {
-			args = append(args, userID)
-		}
-		if _, err := tx.ExecContext(ctx, `UPDATE accounts SET balance_minor=?, updated_at=? WHERE id=?`+accountOwner, args...); err != nil {
+		result, err := tx.ExecContext(ctx, `UPDATE accounts SET balance_minor=?, updated_at=? WHERE id=?`+accountOwner, balanceMinor, now, accountID, userID)
+		if err != nil {
 			return false, fmt.Errorf("update account %d cash: %w", accountID, err)
+		}
+		if changed, _ := result.RowsAffected(); changed == 0 {
+			return false, fmt.Errorf("account %d not found", accountID)
 		}
 	}
 
@@ -206,20 +179,20 @@ func (s *Store) UpdateSituation(ctx context.Context, userID string, accountUpdat
 			if investedMinor < 0 || investedMinor > 1_000_000_000_000 {
 				return false, errors.New("invested value is outside the supported range")
 			}
-			args := []any{valueMinor, investedMinor, now, holdingID}
-			if userID != "" {
-				args = append(args, userID)
-			}
-			if _, err := tx.ExecContext(ctx, `UPDATE holdings SET value_minor=?, invested_minor=?, updated_at=? WHERE id=?`+holdingOwner, args...); err != nil {
+			result, err := tx.ExecContext(ctx, `UPDATE holdings SET value_minor=?, invested_minor=?, updated_at=? WHERE id=?`+holdingOwner, valueMinor, investedMinor, now, holdingID, userID)
+			if err != nil {
 				return false, fmt.Errorf("update holding %d value and invested: %w", holdingID, err)
 			}
-		} else {
-			args := []any{valueMinor, now, holdingID}
-			if userID != "" {
-				args = append(args, userID)
+			if changed, _ := result.RowsAffected(); changed == 0 {
+				return false, fmt.Errorf("holding %d not found", holdingID)
 			}
-			if _, err := tx.ExecContext(ctx, `UPDATE holdings SET value_minor=?, updated_at=? WHERE id=?`+holdingOwner, args...); err != nil {
+		} else {
+			result, err := tx.ExecContext(ctx, `UPDATE holdings SET value_minor=?, updated_at=? WHERE id=?`+holdingOwner, valueMinor, now, holdingID, userID)
+			if err != nil {
 				return false, fmt.Errorf("update holding %d value: %w", holdingID, err)
+			}
+			if changed, _ := result.RowsAffected(); changed == 0 {
+				return false, fmt.Errorf("holding %d not found", holdingID)
 			}
 		}
 	}

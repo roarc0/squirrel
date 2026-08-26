@@ -138,7 +138,7 @@ func TestMigratesLegacyDatabase(t *testing.T) {
 	defer s.Close()
 	var version int64
 	var errVersion error
-	if version, errVersion = goose.GetDBVersion(s.db); errVersion != nil || version != 3 {
+	if version, errVersion = goose.GetDBVersion(s.db); errVersion != nil || version != 4 {
 		t.Fatalf("migration version=%d err=%v", version, errVersion)
 	}
 }
@@ -204,13 +204,13 @@ func TestZeroValuePACHolding(t *testing.T) {
 
 	// Save €0 holding with 5% (500 bps) PAC
 	h := portfolio.Holding{
-		AccountID:    acc.ID,
-		InstrumentID: inst.ID,
-		ValueMinor:   0,
+		AccountID:     acc.ID,
+		InstrumentID:  inst.ID,
+		ValueMinor:    0,
 		InvestedMinor: 0,
-		IsPAC:        true,
-		PACBPS:       500,
-		PACFrequency: "monthly",
+		IsPAC:         true,
+		PACBPS:        500,
+		PACFrequency:  "monthly",
 	}
 	if err := s.SaveHolding(ctx, &h); err != nil {
 		t.Fatalf("SaveHolding failed for €0 PAC holding: %v", err)
@@ -225,5 +225,99 @@ func TestZeroValuePACHolding(t *testing.T) {
 	}
 	if holdings[0].ValueMinor != 0 || !holdings[0].IsPAC || holdings[0].PACBPS != 500 {
 		t.Fatalf("unexpected zero-value holding state: %+v", holdings[0])
+	}
+}
+
+func TestUserDataIsolationAndPreferredAccounts(t *testing.T) {
+	s, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	ctx := context.Background()
+
+	legacy := portfolio.Account{Name: "Legacy", Currency: "EUR"}
+	userA := portfolio.Account{Name: "A", Currency: "EUR"}
+	userB := portfolio.Account{Name: "B", Currency: "EUR"}
+	for _, item := range []struct {
+		account *portfolio.Account
+		userID  string
+	}{{&legacy, ""}, {&userA, "userA"}, {&userB, "userB"}} {
+		if err := s.SaveAccount(ctx, item.account, item.userID); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	for _, item := range []struct {
+		userID string
+		name   string
+	}{{"", "Legacy"}, {"userA", "A"}, {"userB", "B"}} {
+		accounts, err := s.ListAccounts(ctx, item.userID)
+		if err != nil || len(accounts) != 1 || accounts[0].Name != item.name || !accounts[0].Preferred {
+			t.Fatalf("user %q crossed tenant boundary: err=%v accounts=%+v", item.userID, err, accounts)
+		}
+	}
+
+	legacy.Name = "Taken over"
+	if err := s.SaveAccount(ctx, &legacy, "userA"); err == nil {
+		t.Fatal("authenticated user updated unclaimed account")
+	}
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO user_profiles (user_id, theme) VALUES ('', 'dark'); INSERT INTO btp_starred (user_id, isin, created_at) VALUES ('', 'IT0000000001', 'now')`); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ClaimAdminData(ctx, "userA"); err != nil {
+		t.Fatal(err)
+	}
+	claimed, err := s.ListAccounts(ctx, "userA")
+	if err != nil || len(claimed) != 2 {
+		t.Fatalf("admin claim failed: err=%v accounts=%+v", err, claimed)
+	}
+	profile, err := s.GetProfile(ctx, "userA")
+	if err != nil || profile.Theme != "dark" {
+		t.Fatalf("profile was not claimed: err=%v profile=%+v", err, profile)
+	}
+	var starred int
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM btp_starred WHERE user_id='userA'`).Scan(&starred); err != nil || starred != 1 {
+		t.Fatalf("BTP stars were not claimed: err=%v count=%d", err, starred)
+	}
+}
+
+func TestProfileValidation(t *testing.T) {
+	s, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	ctx := context.Background()
+	if err := s.SaveProfile(ctx, "user", UserProfile{PreferredCurrency: "EURO", ReserveMonths: 6}); err == nil {
+		t.Fatal("invalid currency accepted")
+	}
+	if err := s.SaveProfile(ctx, "user", UserProfile{ReserveMonths: 6, DraftPortfoliosJSON: "not json"}); err == nil {
+		t.Fatal("invalid profile JSON accepted")
+	}
+}
+
+func TestSnapshotUpdateDoesNotRevealOtherUsersEntries(t *testing.T) {
+	s, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	ctx := context.Background()
+	account := portfolio.Account{Name: "Private", Currency: "EUR", BalanceMinor: 100}
+	if err := s.SaveAccount(ctx, &account, "userB"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SaveSnapshot(ctx, "2026-08-26", "userB"); err != nil {
+		t.Fatal(err)
+	}
+	var snapshotID int64
+	if err := s.db.QueryRowContext(ctx, `SELECT id FROM snapshots WHERE user_id='userB'`).Scan(&snapshotID); err != nil {
+		t.Fatal(err)
+	}
+	foreignErr := s.UpdateSnapshot(ctx, &portfolio.Snapshot{ID: snapshotID, ObservedOn: "2026-08-27", Currency: "EUR"}, "userA")
+	missingErr := s.UpdateSnapshot(ctx, &portfolio.Snapshot{ID: snapshotID + 1000, ObservedOn: "2026-08-27", Currency: "EUR"}, "userA")
+	if foreignErr == nil || missingErr == nil || foreignErr.Error() != missingErr.Error() {
+		t.Fatalf("snapshot ownership leaked through errors: foreign=%v missing=%v", foreignErr, missingErr)
 	}
 }

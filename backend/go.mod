@@ -1,6 +1,6 @@
 module squirrel/backend
 
-go 1.25.7
+go 1.26.6
 
 require (
 	connectrpc.com/connect v1.18.1

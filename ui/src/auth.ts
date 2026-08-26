@@ -45,15 +45,15 @@ export async function fetchMe(): Promise<AuthUser | null> {
   }
 }
 
-// captureTokenFromURL reads ?token= from the current URL, stores it, and removes it from the URL bar.
+// captureTokenFromURL reads the OAuth token fragment, stores it, and removes it from the URL bar.
 export function captureTokenFromURL(): boolean {
-  const params = new URLSearchParams(window.location.search);
+  const params = new URLSearchParams(window.location.hash.slice(1));
   const token = params.get('token');
   if (!token) return false;
   setToken(token);
   params.delete('token');
-  const newSearch = params.toString();
-  const newURL = newSearch ? `${window.location.pathname}?${newSearch}` : window.location.pathname;
+  const newHash = params.toString();
+  const newURL = `${window.location.pathname}${window.location.search}${newHash ? `#${newHash}` : ''}`;
   window.history.replaceState({}, '', newURL);
   return true;
 }

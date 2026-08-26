@@ -24,6 +24,9 @@ var jwtHeader = base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256","typ
 
 // SignSession creates a signed HS256 JWT for the given Google identity.
 func SignSession(secret, googleID, email, picture string) (string, error) {
+	if len(secret) < 32 || googleID == "" {
+		return "", errors.New("session requires a strong secret and user ID")
+	}
 	claims := sessionClaims{
 		Sub:   googleID,
 		Email: email,
@@ -46,6 +49,9 @@ func VerifySession(secret, token string) (User, error) {
 	if len(parts) != 3 {
 		return User{}, errors.New("malformed token")
 	}
+	if parts[0] != jwtHeader {
+		return User{}, errors.New("unsupported token header")
+	}
 	expected := hmacSHA256(secret, parts[0]+"."+parts[1])
 	if !hmac.Equal([]byte(expected), []byte(parts[2])) {
 		return User{}, errors.New("invalid token signature")
@@ -58,7 +64,10 @@ func VerifySession(secret, token string) (User, error) {
 	if err := json.Unmarshal(payloadBytes, &claims); err != nil {
 		return User{}, errors.New("invalid token claims")
 	}
-	if time.Now().Unix() > claims.Exp {
+	if claims.Sub == "" || claims.Exp <= 0 {
+		return User{}, errors.New("invalid token claims")
+	}
+	if time.Now().Unix() >= claims.Exp {
 		return User{}, errors.New("token expired")
 	}
 	return User{GoogleID: claims.Sub, Email: claims.Email, Picture: claims.Pic}, nil

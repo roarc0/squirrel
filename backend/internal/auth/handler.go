@@ -12,7 +12,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// DataClaimer assigns unclaimed data (user_id='') to the admin on first login.
+// DataClaimer assigns unclaimed data (user_id=”) to the admin on first login.
 type DataClaimer interface {
 	ClaimAdminData(ctx context.Context, googleID string) error
 }
@@ -37,7 +37,11 @@ func NewHandler(clientID, clientSecret, redirectURL, secret, adminGoogleID strin
 
 // Login redirects the browser to Google's OAuth consent screen.
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
-	state := randomState()
+	state, err := randomState()
+	if err != nil {
+		http.Error(w, "oauth state creation failed", http.StatusInternalServerError)
+		return
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     "oauth_state",
 		Value:    state,
@@ -56,7 +60,7 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid oauth state", http.StatusBadRequest)
 		return
 	}
-	http.SetCookie(w, &http.Cookie{Name: "oauth_state", MaxAge: -1, Path: "/"})
+	http.SetCookie(w, &http.Cookie{Name: "oauth_state", Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: -1})
 
 	info, err := googleUserInfo(r.Context(), h.oauth, r.URL.Query().Get("code"))
 	if err != nil {
@@ -77,7 +81,7 @@ func (h *Handler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "/?token="+token, http.StatusFound)
+	http.Redirect(w, r, "/#token="+token, http.StatusFound)
 }
 
 // Me returns the currently authenticated user's info as JSON.
@@ -103,8 +107,10 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func randomState() string {
+func randomState() (string, error) {
 	b := make([]byte, 16)
-	rand.Read(b)
-	return base64.RawURLEncoding.EncodeToString(b)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }

@@ -91,6 +91,17 @@ func TestLookupAllowsNonUCITSETC(t *testing.T) {
 	}
 }
 
+func TestSearchRejectsCrossOriginCallback(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `<script>{"fetchCallbackUrl":"https://evil.example/collect","etfsParams":"query=test"}</script>`)
+	}))
+	defer server.Close()
+	client := &Client{baseURL: server.URL, timeout: time.Second}
+	if _, err := client.Search(context.Background(), "test"); err == nil {
+		t.Fatal("cross-origin callback accepted")
+	}
+}
+
 func profileFixture(isin, name, ticker, focus, ucits string) string {
 	provider, index := "Invesco", "LBMA Gold Price"
 	if ticker == "VWCE" {

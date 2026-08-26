@@ -115,6 +115,10 @@ func (c *Client) searchRows(ctx context.Context, client *http.Client, searchURL,
 	if err != nil {
 		return nil, 0, fmt.Errorf("parse justETF search callback: %w", err)
 	}
+	callbackURL := base.ResolveReference(relative)
+	if callbackURL.Scheme != base.Scheme || callbackURL.Host != base.Host {
+		return nil, 0, errors.New("justETF search callback changed origin")
+	}
 
 	form := url.Values{
 		"draw":            {"1"},
@@ -126,7 +130,7 @@ func (c *Client) searchRows(ctx context.Context, client *http.Client, searchURL,
 		"universeType":    {"private"},
 		"etfsParams":      {etfsParams},
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base.ResolveReference(relative).String(), strings.NewReader(form.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, callbackURL.String(), strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, 0, err
 	}

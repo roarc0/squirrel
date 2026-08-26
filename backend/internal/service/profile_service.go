@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	"connectrpc.com/connect"
 
@@ -40,22 +41,23 @@ func (s *Server) UpdateProfile(ctx context.Context, req *connect.Request[portv1.
 	if userID == "" {
 		return nil, connect.NewError(connect.CodeUnauthenticated, auth.ErrUnauthenticated)
 	}
-	var p store.UserProfile
-	if req.Msg.Profile != nil {
-		p.Theme = req.Msg.Profile.Theme
-		p.PreferredCurrency = req.Msg.Profile.PreferredCurrency
-		p.MonthlyExpensesMinor = req.Msg.Profile.MonthlyExpensesMinor
-		p.ReserveMonths = req.Msg.Profile.ReserveMonths
-		p.HideBalances = req.Msg.Profile.HideBalances
-		p.EmergencyGoalMinor = req.Msg.Profile.EmergencyGoalMinor
-		p.FireExpensesMinor = req.Msg.Profile.FireExpensesMinor
-		p.InstrumentColumnsJSON = req.Msg.Profile.InstrumentColumnsJson
-		p.ShowFireCalculator = req.Msg.Profile.ShowFireCalculator
-		p.EnableBtpRanks = req.Msg.Profile.EnableBtpRanks
-		p.ActiveTab = req.Msg.Profile.ActiveTab
-		p.AISettingsJSON = req.Msg.Profile.AiSettingsJson
-		p.DraftPortfoliosJSON = req.Msg.Profile.DraftPortfoliosJson
+	if req.Msg.Profile == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("profile is required"))
 	}
+	var p store.UserProfile
+	p.Theme = req.Msg.Profile.Theme
+	p.PreferredCurrency = req.Msg.Profile.PreferredCurrency
+	p.MonthlyExpensesMinor = req.Msg.Profile.MonthlyExpensesMinor
+	p.ReserveMonths = req.Msg.Profile.ReserveMonths
+	p.HideBalances = req.Msg.Profile.HideBalances
+	p.EmergencyGoalMinor = req.Msg.Profile.EmergencyGoalMinor
+	p.FireExpensesMinor = req.Msg.Profile.FireExpensesMinor
+	p.InstrumentColumnsJSON = req.Msg.Profile.InstrumentColumnsJson
+	p.ShowFireCalculator = req.Msg.Profile.ShowFireCalculator
+	p.EnableBtpRanks = req.Msg.Profile.EnableBtpRanks
+	p.ActiveTab = req.Msg.Profile.ActiveTab
+	p.AISettingsJSON = req.Msg.Profile.AiSettingsJson
+	p.DraftPortfoliosJSON = req.Msg.Profile.DraftPortfoliosJson
 	if err := s.store.SaveProfile(ctx, userID, p); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

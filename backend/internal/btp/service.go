@@ -15,14 +15,18 @@ import (
 
 type Service struct {
 	portv1connect.UnimplementedBtpServiceHandler
-	store   *Store
-	scraper *Scraper
+	store         *Store
+	scraper       *Scraper
+	authEnabled   bool
+	adminGoogleID string
 }
 
-func NewService(db *sql.DB) *Service {
+func NewService(db *sql.DB, authEnabled bool, adminGoogleID string) *Service {
 	return &Service{
-		store:   NewStore(db),
-		scraper: NewScraper(""),
+		store:         NewStore(db),
+		scraper:       NewScraper(""),
+		authEnabled:   authEnabled,
+		adminGoogleID: adminGoogleID,
 	}
 }
 
@@ -93,13 +97,18 @@ func (s *Service) ListBtps(ctx context.Context, req *connect.Request[portv1.List
 }
 
 func (s *Service) RefreshBtps(ctx context.Context, req *connect.Request[portv1.RefreshBtpsRequest]) (*connect.Response[portv1.RefreshBtpsResponse], error) {
+	if s.authEnabled {
+		if err := auth.RequireAdmin(ctx, s.adminGoogleID); err != nil {
+			return nil, err
+		}
+	}
 	log.Printf("[btp.service] RefreshBtps triggered (targetMaturityYear=%d)", req.Msg.GetTargetMaturityYear())
 	cfg := ScoringConfig{
 		TaxRate:            0.125,
 		TargetMaturityYear: int(req.Msg.GetTargetMaturityYear()),
 	}
 
-	btps, err := s.scraper.ScrapeAll(cfg)
+	btps, err := s.scraper.ScrapeAll(ctx, cfg)
 	if err != nil {
 		log.Printf("[btp.service] ScrapeAll failed: %v", err)
 		return nil, connect.NewError(connect.CodeUnavailable, err)

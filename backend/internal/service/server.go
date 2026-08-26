@@ -59,7 +59,7 @@ func NewWithConfig(data *store.Store, cfg config.Config, profileInterval ...time
 	mux := http.NewServeMux()
 
 	// Auth is optional: only active when session_secret is configured.
-	var connectOpts []connect.HandlerOption
+	connectOpts := []connect.HandlerOption{connect.WithReadMaxBytes(16 << 20)}
 	if cfg.Auth.SessionSecret != "" {
 		connectOpts = append(connectOpts, connect.WithInterceptors(auth.NewInterceptor(cfg.Auth.SessionSecret)))
 
@@ -85,7 +85,7 @@ func NewWithConfig(data *store.Store, cfg config.Config, profileInterval ...time
 	}
 
 	// Register Connect RPC Handlers
-	btpService := btp.NewService(data.DB())
+	btpService := btp.NewService(data.DB(), cfg.Auth.SessionSecret != "", cfg.Auth.AdminGoogleID)
 	mux.Handle(portv1connect.NewBtpServiceHandler(btpService, connectOpts...))
 	mux.Handle(portv1connect.NewRateServiceHandler(s, connectOpts...))
 	mux.Handle(portv1connect.NewAccountServiceHandler(s, connectOpts...))
@@ -111,10 +111,21 @@ func NewWithConfig(data *store.Store, cfg config.Config, profileInterval ...time
 	return h2c.NewHandler(handler, &http2.Server{})
 }
 
+func (s *Server) requireAdmin(ctx context.Context) error {
+	if s.config.Auth.SessionSecret == "" {
+		return nil
+	}
+	return auth.RequireAdmin(ctx, s.config.Auth.AdminGoogleID)
+}
+
 func withCORS(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
-		if isAllowedOrigin(origin) {
+		if origin != "" && !isAllowedOrigin(origin) {
+			http.Error(w, "forbidden origin", http.StatusForbidden)
+			return
+		}
+		if origin != "" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
 			w.Header().Set("Access-Control-Allow-Methods", strings.Join(cors.AllowedMethods(), ", "))
@@ -139,6 +150,21 @@ func isAllowedOrigin(origin string) bool {
 	}
 	host := u.Hostname()
 	return host == "localhost" || host == "127.0.0.1" || host == "::1" || u.Scheme == "app" || u.Scheme == "tauri" || u.Scheme == "vscode-webview"
+}
+
+func validateHTTPSOrLoopbackURL(raw string) (*url.URL, error) {
+	parsed, err := url.ParseRequestURI(raw)
+	if err != nil || parsed.Host == "" || parsed.User != nil {
+		return nil, errors.New("invalid URL")
+	}
+	if parsed.Scheme == "https" {
+		return parsed, nil
+	}
+	ip := net.ParseIP(parsed.Hostname())
+	if parsed.Scheme == "http" && (parsed.Hostname() == "localhost" || ip != nil && ip.IsLoopback()) {
+		return parsed, nil
+	}
+	return nil, errors.New("URL must use HTTPS (HTTP is allowed only on loopback)")
 }
 
 func securityHeaders(next http.Handler) http.Handler {

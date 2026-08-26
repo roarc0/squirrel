@@ -27,8 +27,9 @@ type Diagnostic struct {
 	ISIN      string             `json:"isin,omitempty"`
 }
 
-func EvaluateDiagnostics(accounts []Account, holdings []Holding, instruments []Instrument, targetCashMinor int64, now time.Time) []Diagnostic {
+func EvaluateDiagnostics(accounts []Account, holdings []Holding, instruments []Instrument, baseCurrency string, targetCashMinor int64, now time.Time) []Diagnostic {
 	var results []Diagnostic
+	baseCurrency = strings.ToUpper(strings.TrimSpace(baseCurrency))
 
 	instByISIN := lo.SliceToMap(instruments, func(inst Instrument) (string, Instrument) {
 		return strings.ToUpper(inst.ISIN), inst
@@ -36,12 +37,15 @@ func EvaluateDiagnostics(accounts []Account, holdings []Holding, instruments []I
 
 	// 1. Emergency Reserve & Cash Diagnostic
 	activeAccounts := lo.Filter(accounts, func(acc Account, _ int) bool {
-		return !acc.Archived
+		return !acc.Archived && strings.EqualFold(acc.Currency, baseCurrency)
 	})
 	totalCashMinor := lo.SumBy(activeAccounts, func(acc Account) int64 {
 		return acc.BalanceMinor
 	})
 	totalHoldingMinor := lo.SumBy(holdings, func(h Holding) int64 {
+		if !strings.EqualFold(h.Currency, baseCurrency) {
+			return 0
+		}
 		return h.ValueMinor
 	})
 	totalAssetsMinor := totalCashMinor + totalHoldingMinor
@@ -54,8 +58,8 @@ func EvaluateDiagnostics(accounts []Account, holdings []Holding, instruments []I
 				Severity: SeverityInfo,
 				Title:    "Cash Below Emergency Reserve Target",
 				Message: fmt.Sprintf(
-					"Your liquid cash (€%.2f) is below your configured emergency reserve target (€%.2f). Consider allocating surplus income to build your cash buffer.",
-					float64(totalCashMinor)/100, float64(targetCashMinor)/100,
+					"Your liquid cash (%s %.2f) is below your configured emergency reserve target (%s %.2f). Consider allocating surplus income to build your cash buffer.",
+					baseCurrency, float64(totalCashMinor)/100, baseCurrency, float64(targetCashMinor)/100,
 				),
 			})
 		} else if totalCashMinor > targetCashMinor+500_00 { // > €500 surplus over target
@@ -66,8 +70,8 @@ func EvaluateDiagnostics(accounts []Account, holdings []Holding, instruments []I
 				Severity: SeverityWarning,
 				Title:    "Cash Exceeds Emergency Reserve Target",
 				Message: fmt.Sprintf(
-					"Your liquid cash (€%.2f) exceeds your configured emergency reserve target (€%.2f) by €%.2f. Consider placing excess cash in yield accounts or investing.",
-					float64(totalCashMinor)/100, float64(targetCashMinor)/100, float64(surplusMinor)/100,
+					"Your liquid cash (%s %.2f) exceeds your configured emergency reserve target (%s %.2f) by %s %.2f. Consider placing excess cash in yield accounts or investing.",
+					baseCurrency, float64(totalCashMinor)/100, baseCurrency, float64(targetCashMinor)/100, baseCurrency, float64(surplusMinor)/100,
 				),
 			})
 		}
@@ -80,8 +84,8 @@ func EvaluateDiagnostics(accounts []Account, holdings []Holding, instruments []I
 				Severity: SeverityWarning,
 				Title:    "High Idle Cash Ratio",
 				Message: fmt.Sprintf(
-					"Cash represents %.1f%% of your total portfolio (€%.2f cash / €%.2f total). Consider configuring an emergency cash reserve under Settings.",
-					cashPct, float64(totalCashMinor)/100, float64(totalAssetsMinor)/100,
+					"Cash represents %.1f%% of your %s portfolio (%s %.2f cash / %s %.2f total). Consider configuring an emergency cash reserve under Settings.",
+					cashPct, baseCurrency, baseCurrency, float64(totalCashMinor)/100, baseCurrency, float64(totalAssetsMinor)/100,
 				),
 			})
 		}
@@ -89,8 +93,8 @@ func EvaluateDiagnostics(accounts []Account, holdings []Holding, instruments []I
 
 	// 2. Target Allocation Drift Check
 	for _, h := range holdings {
-		if h.PlannedBPS > 0 && totalHoldingMinor > 0 {
-			actualBPS := int64(float64(h.ValueMinor) * 10000 / float64(totalHoldingMinor))
+		if h.PlannedBPS > 0 {
+			actualBPS := h.ActualBPS
 			driftBPS := actualBPS - h.PlannedBPS
 			if driftBPS > 500 || driftBPS < -500 { // > 5% drift
 				direction := "above"

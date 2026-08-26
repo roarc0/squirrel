@@ -17,11 +17,15 @@ import (
 	portv1 "squirrel/proto/gen/go/v1"
 )
 
+const maxAIContextSize int32 = 1 << 20
+
 // probeServerContext tries to read the actual n_ctx from a running llama-server /props endpoint.
 // Returns 0 if not available (non-llama-server or unreachable).
-func probeServerContext(endpoint string) int {
+func probeServerContext(ctx context.Context, endpoint string) int {
 	base := strings.TrimSuffix(strings.TrimSuffix(endpoint, "/v1"), "/")
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, base+"/props", nil)
+	probeCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(probeCtx, http.MethodGet, base+"/props", nil)
 	if err != nil {
 		return 0
 	}
@@ -33,7 +37,7 @@ func probeServerContext(endpoint string) int {
 	var props struct {
 		NCtx int `json:"n_ctx"`
 	}
-	if json.NewDecoder(res.Body).Decode(&props) == nil && props.NCtx > 0 {
+	if json.NewDecoder(io.LimitReader(res.Body, 64<<10)).Decode(&props) == nil && props.NCtx > 0 {
 		return props.NCtx
 	}
 	return 0
@@ -41,13 +45,22 @@ func probeServerContext(endpoint string) int {
 
 func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.StreamChatRequest], stream *connect.ServerStream[portv1.StreamChatResponse]) error {
 	msg := req.Msg
-	endpoint := strings.TrimRight(strings.TrimSpace(msg.Endpoint), "/")
+	requestedEndpoint := strings.TrimRight(strings.TrimSpace(msg.Endpoint), "/")
+	endpoint := requestedEndpoint
 	if endpoint == "" {
-		endpoint = "http://localhost:8080/v1"
+		endpoint = strings.TrimRight(s.config.AIEndpoint, "/")
 	}
+	parsedEndpoint, err := validateHTTPSOrLoopbackURL(endpoint)
+	if len(endpoint) > 2048 || err != nil || parsedEndpoint.RawQuery != "" || parsedEndpoint.Fragment != "" {
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid AI endpoint"))
+	}
+	endpoint = strings.TrimRight(parsedEndpoint.String(), "/")
 	model := strings.TrimSpace(msg.Model)
 	if model == "" {
 		model = s.config.AIModel
+	}
+	if model == "" || len(model) > 256 {
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid AI model name"))
 	}
 
 	contextSize := req.Msg.ContextSize
@@ -57,10 +70,13 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 	if contextSize <= 0 {
 		contextSize = 16384
 	}
+	if contextSize > maxAIContextSize {
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("AI context size is too large"))
+	}
 
 	// Probe the actual server context window — overrides user setting when server is smaller.
 	// This makes the context budget accurate regardless of what the user configured.
-	if actualCtx := probeServerContext(endpoint); actualCtx > 0 && int32(actualCtx) < contextSize {
+	if actualCtx := probeServerContext(ctx, endpoint); actualCtx > 0 && int32(actualCtx) < contextSize {
 		slog.InfoContext(ctx, "Server context smaller than configured — using server limit", "server_n_ctx", actualCtx, "configured", contextSize)
 		contextSize = int32(actualCtx)
 	}
@@ -175,7 +191,19 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 	if err := stream.Send(&portv1.StreamChatResponse{ActualNCtx: contextSize}); err != nil {
 		return err
 	}
-	return s.executeStreamChatPayload(ctx, endpoint, msg.ApiKey, payload, conversation, stream, maxHistoryTokens, estimateTokens)
+	apiKey := s.aiAPIKey(msg.ApiKey, requestedEndpoint, endpoint)
+	return s.executeStreamChatPayload(ctx, endpoint, apiKey, payload, conversation, stream, maxHistoryTokens, estimateTokens, 0)
+}
+
+func (s *Server) aiAPIKey(requestKey, requestedEndpoint, resolvedEndpoint string) string {
+	if requestKey != "" {
+		return requestKey
+	}
+	configuredEndpoint := strings.TrimRight(strings.TrimSpace(s.config.AIEndpoint), "/")
+	if requestedEndpoint == "" || resolvedEndpoint == configuredEndpoint {
+		return s.config.AIAPIKey
+	}
+	return ""
 }
 
 func (s *Server) executeStreamChatPayload(
@@ -187,6 +215,7 @@ func (s *Server) executeStreamChatPayload(
 	stream *connect.ServerStream[portv1.StreamChatResponse],
 	maxPromptTokens int,
 	estimateTokens func([]map[string]interface{}) int,
+	toolRound int,
 ) error {
 	url := fmt.Sprintf("%s/chat/completions", endpoint)
 	bodyBytes, err := json.Marshal(payload)
@@ -211,7 +240,7 @@ func (s *Server) executeStreamChatPayload(
 	defer res.Body.Close()
 
 	if res.StatusCode >= 400 {
-		errBody, _ := io.ReadAll(res.Body)
+		errBody, _ := io.ReadAll(io.LimitReader(res.Body, 64<<10))
 
 		// On context overflow errors: extract the server's actual n_ctx, truncate system message, retry once.
 		var errResp struct {
@@ -252,8 +281,14 @@ func (s *Server) executeStreamChatPayload(
 				payload["messages"] = msgs
 				conversation = msgs
 			}
-			bodyBytes2, _ := json.Marshal(payload)
-			httpReq2, _ := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes2))
+			bodyBytes2, err := json.Marshal(payload)
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, fmt.Errorf("marshal trimmed chat payload: %w", err))
+			}
+			httpReq2, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes2))
+			if err != nil {
+				return connect.NewError(connect.CodeInternal, fmt.Errorf("create chat retry request: %w", err))
+			}
 			httpReq2.Header.Set("Content-Type", "application/json")
 			if apiKey != "" {
 				httpReq2.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
@@ -264,7 +299,7 @@ func (s *Server) executeStreamChatPayload(
 			}
 			defer res2.Body.Close()
 			if res2.StatusCode >= 400 {
-				errBody2, _ := io.ReadAll(res2.Body)
+				errBody2, _ := io.ReadAll(io.LimitReader(res2.Body, 64<<10))
 				return connect.NewError(connect.CodeInternal, fmt.Errorf("AI provider HTTP %d (retry after context trim): %s", res2.StatusCode, string(errBody2)))
 			}
 			res = res2
@@ -286,15 +321,16 @@ func (s *Server) executeStreamChatPayload(
 	toolCallMap := make(map[int]*toolCallDelta)
 
 	scanner := bufio.NewScanner(res.Body)
+	scanner.Buffer(make([]byte, 64<<10), 1<<20)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || strings.HasPrefix(line, ":") {
 			continue
 		}
-		if !strings.HasPrefix(line, "data: ") {
+		if !strings.HasPrefix(line, "data:") {
 			continue
 		}
-		dataStr := strings.TrimPrefix(line, "data: ")
+		dataStr := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
 		if dataStr == "[DONE]" {
 			break
 		}
@@ -343,6 +379,9 @@ func (s *Server) executeStreamChatPayload(
 			}
 		}
 	}
+	if err := scanner.Err(); err != nil {
+		return connect.NewError(connect.CodeUnavailable, fmt.Errorf("read AI stream: %w", err))
+	}
 
 	for i := 0; i < len(toolCallMap); i++ {
 		if tc, ok := toolCallMap[i]; ok && tc.Function.Name != "" {
@@ -351,18 +390,18 @@ func (s *Server) executeStreamChatPayload(
 	}
 
 	if len(pendingToolCalls) > 0 && s.mcpHandler != nil {
+		if toolRound >= 8 {
+			return connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("AI tool-call round limit reached"))
+		}
 		var toolCallPayloads []map[string]interface{}
 		var toolResults []map[string]interface{}
 
 		for _, tc := range pendingToolCalls {
 			var args map[string]interface{}
-			_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
-			if args == nil {
-				args = make(map[string]interface{})
-			}
-
-			resultJSON, err := s.mcpHandler.ExecuteTool(ctx, tc.Function.Name, args)
-			if err != nil {
+			resultJSON := ""
+			if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil || args == nil {
+				resultJSON = `{"error":"invalid tool arguments"}`
+			} else if resultJSON, err = s.mcpHandler.ExecuteTool(ctx, tc.Function.Name, args); err != nil {
 				resultJSON = fmt.Sprintf(`{"error": %q}`, err.Error())
 			}
 
@@ -418,9 +457,8 @@ func (s *Server) executeStreamChatPayload(
 			}
 		}
 
-		return s.executeStreamChatPayload(ctx, endpoint, apiKey, nextPayload, conversation, stream, maxPromptTokens, estimateTokens)
+		return s.executeStreamChatPayload(ctx, endpoint, apiKey, nextPayload, conversation, stream, maxPromptTokens, estimateTokens, toolRound+1)
 	}
 
-	_ = stream.Send(&portv1.StreamChatResponse{Done: true})
-	return nil
+	return stream.Send(&portv1.StreamChatResponse{Done: true})
 }

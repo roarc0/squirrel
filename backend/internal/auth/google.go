@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	"golang.org/x/oauth2"
@@ -42,8 +43,11 @@ func googleUserInfo(ctx context.Context, cfg *oauth2.Config, code string) (Googl
 		return GoogleUserInfo{}, fmt.Errorf("userinfo status %d", resp.StatusCode)
 	}
 	var info GoogleUserInfo
-	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 64<<10)).Decode(&info); err != nil {
 		return GoogleUserInfo{}, fmt.Errorf("decode user info: %w", err)
+	}
+	if info.Sub == "" || info.Email == "" {
+		return GoogleUserInfo{}, fmt.Errorf("userinfo response is missing identity fields")
 	}
 	return info, nil
 }

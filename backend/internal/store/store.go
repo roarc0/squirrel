@@ -22,7 +22,7 @@ type Store struct {
 }
 
 func (s *Store) DBPath() string { return s.dbPath }
-func (s *Store) DB() *sql.DB     { return s.db }
+func (s *Store) DB() *sql.DB    { return s.db }
 
 func Open(path string) (*Store, error) {
 	if path != ":memory:" {
@@ -66,17 +66,32 @@ func migrate(db *sql.DB) error {
 	return nil
 }
 
-// ClaimAdminData assigns all unclaimed accounts and snapshots (user_id='') to the given Google ID.
+// ClaimAdminData assigns all unclaimed per-user data (user_id=”) to the admin.
 func (s *Store) ClaimAdminData(ctx context.Context, googleID string) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `UPDATE accounts SET preferred=0 WHERE user_id='' AND preferred=1 AND EXISTS (SELECT 1 FROM accounts WHERE user_id=? AND preferred=1)`, googleID); err != nil {
+		return err
+	}
 	if _, err := tx.ExecContext(ctx, `UPDATE accounts SET user_id=? WHERE user_id=''`, googleID); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE snapshots SET user_id=? WHERE user_id=''`, googleID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM user_profiles WHERE user_id='' AND EXISTS (SELECT 1 FROM user_profiles WHERE user_id=?)`, googleID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE user_profiles SET user_id=? WHERE user_id=''`, googleID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM btp_starred WHERE user_id='' AND isin IN (SELECT isin FROM btp_starred WHERE user_id=?)`, googleID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE btp_starred SET user_id=? WHERE user_id=''`, googleID); err != nil {
 		return err
 	}
 	return tx.Commit()

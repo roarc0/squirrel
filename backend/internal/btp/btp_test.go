@@ -1,6 +1,10 @@
 package btp
 
 import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 )
@@ -61,8 +65,16 @@ func TestCalculateMetricsAndScores(t *testing.T) {
 }
 
 func TestScraper(t *testing.T) {
-	scraper := NewScraper("")
-	btps, err := scraper.ScrapeAll(ScoringConfig{TaxRate: 0.125})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("page") == "1" {
+			fmt.Fprint(w, `<table><tr><th>BTP</th></tr><tr><td>IT0005518128</td><td>BTP 4.5% 01/10/2053</td><td>-</td><td>01/10/2053</td><td>4,5%</td><td>98,50</td></tr></table>`)
+			return
+		}
+		fmt.Fprint(w, `<table><tr><th>BTP</th></tr></table>`)
+	}))
+	defer server.Close()
+	scraper := NewScraper(server.URL + "/")
+	btps, err := scraper.ScrapeAll(context.Background(), ScoringConfig{TaxRate: 0.125})
 	if err != nil {
 		t.Fatalf("ScrapeAll error: %v", err)
 	}

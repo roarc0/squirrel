@@ -9,6 +9,7 @@ import (
 	"connectrpc.com/connect"
 
 	"squirrel/backend/internal/auth"
+	"squirrel/backend/internal/config"
 	"squirrel/backend/internal/portfolio"
 	"squirrel/backend/internal/store"
 	portv1 "squirrel/proto/gen/go/v1"
@@ -39,7 +40,7 @@ func TestAccountsIncludeHoldingsAndSummary(t *testing.T) {
 
 	account := portfolio.Account{Name: "Broker", Type: portfolio.AccountTypeBroker, Currency: "EUR", BalanceMinor: 10_000}
 	instrument := portfolio.Instrument{ISIN: "IE00B4L5Y983", Name: "World ETF", Distribution: portfolio.DistributionAccumulating, Replication: portfolio.ReplicationPhysicalFull, FundCurrency: "EUR", UCITS: true}
-	if err := data.SaveAccount(ctx, &account, "testuser"); err != nil {
+	if err := data.SaveAccount(ctx, &account, ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := data.SaveInstrument(ctx, &instrument); err != nil {
@@ -50,10 +51,13 @@ func TestAccountsIncludeHoldingsAndSummary(t *testing.T) {
 	}
 	rich := portfolio.Account{Name: "Rich", Currency: "EUR", BalanceMinor: 50_000}
 	archived := portfolio.Account{Name: "Archived", Currency: "EUR", BalanceMinor: 1_000_000, Archived: true}
-	if err := data.SaveAccount(ctx, &rich, "testuser"); err != nil {
+	if err := data.SaveAccount(ctx, &rich, ""); err != nil {
 		t.Fatal(err)
 	}
-	if err := data.SaveAccount(ctx, &archived, "testuser"); err != nil {
+	if err := data.SaveAccount(ctx, &archived, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := data.SaveHolding(ctx, &portfolio.Holding{AccountID: archived.ID, InstrumentID: instrument.ID, ValueMinor: 1_000_000}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -131,6 +135,29 @@ func TestUpdateHoldingAccountIDAuthorization(t *testing.T) {
 	}
 }
 
+func TestCreateHoldingCannotUseHiddenAccountWithoutAuth(t *testing.T) {
+	data, err := store.Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer data.Close()
+	ctx := context.Background()
+	account := portfolio.Account{Name: "Hidden", Currency: "EUR"}
+	if err := data.SaveAccount(ctx, &account, "authenticated-user"); err != nil {
+		t.Fatal(err)
+	}
+	instrument := portfolio.Instrument{ISIN: "IE00B4L5Y983", Name: "World ETF", Distribution: portfolio.DistributionAccumulating, Replication: portfolio.ReplicationPhysicalFull, FundCurrency: "EUR", UCITS: true}
+	if err := data.SaveInstrument(ctx, &instrument); err != nil {
+		t.Fatal(err)
+	}
+
+	srv := &Server{store: data}
+	_, err = srv.CreateHolding(ctx, connect.NewRequest(&portv1.CreateHoldingRequest{Holding: &portv1.Holding{AccountId: account.ID, InstrumentId: instrument.ID}}))
+	if err == nil {
+		t.Fatal("no-auth caller created a holding in another tenant's hidden account")
+	}
+}
+
 func TestPathTraversalInAIModelFilename(t *testing.T) {
 	data, err := store.Open(":memory:")
 	if err != nil {
@@ -158,6 +185,45 @@ func TestPathTraversalInAIModelFilename(t *testing.T) {
 	}
 }
 
+func TestModelDownloadURLRequiresTLSOrLoopback(t *testing.T) {
+	for _, address := range []string{"https://huggingface.co/model.gguf", "http://127.0.0.1:8081/model.gguf"} {
+		if _, err := validateModelDownloadURL(address); err != nil {
+			t.Fatalf("safe model URL %q rejected: %v", address, err)
+		}
+	}
+	for _, address := range []string{"http://example.com/model.gguf", "file:///tmp/model.gguf", "https://user:secret@example.com/model.gguf"} {
+		if _, err := validateModelDownloadURL(address); err == nil {
+			t.Fatalf("unsafe model URL %q accepted", address)
+		}
+	}
+}
+
+func TestModelFilenameValidation(t *testing.T) {
+	for _, filename := range []string{"model.gguf", "Qwen_3-B.gguf"} {
+		if !validModelFilename(filename) {
+			t.Fatalf("safe filename %q rejected", filename)
+		}
+	}
+	for _, filename := range []string{".gguf", "../model.gguf", "model?.gguf", "model.bin"} {
+		if validModelFilename(filename) {
+			t.Fatalf("unsafe filename %q accepted", filename)
+		}
+	}
+}
+
+func TestConfiguredAIKeyStaysWithConfiguredEndpoint(t *testing.T) {
+	srv := &Server{config: config.Config{AIEndpoint: "https://trusted.example/v1/", AIAPIKey: "configured-secret"}}
+	if got := srv.aiAPIKey("", "https://evil.example/v1", "https://evil.example/v1"); got != "" {
+		t.Fatal("configured AI key was forwarded to an overridden endpoint")
+	}
+	if got := srv.aiAPIKey("", "https://trusted.example/v1", "https://trusted.example/v1"); got != "configured-secret" {
+		t.Fatal("configured endpoint did not receive its configured AI key")
+	}
+	if got := srv.aiAPIKey("request-secret", "https://evil.example/v1", "https://evil.example/v1"); got != "request-secret" {
+		t.Fatal("request-specific AI key was not preserved")
+	}
+}
+
 func TestCORSOriginRestriction(t *testing.T) {
 	data, err := store.Open(":memory:")
 	if err != nil {
@@ -167,7 +233,7 @@ func TestCORSOriginRestriction(t *testing.T) {
 
 	handler := New(data, "EUR", nil)
 
-	// Untrusted origin should NOT get Access-Control-Allow-Origin: * or reflected origin
+	// Untrusted origins are rejected so simple browser requests cannot cause blind mutations.
 	reqEvil := httptest.NewRequest("GET", "/api/accounts", nil)
 	reqEvil.Header.Set("Origin", "http://evil-attacker.com")
 	recEvil := httptest.NewRecorder()
@@ -175,6 +241,9 @@ func TestCORSOriginRestriction(t *testing.T) {
 
 	if recEvil.Header().Get("Access-Control-Allow-Origin") != "" {
 		t.Fatalf("untrusted origin got allowed CORS header: %s", recEvil.Header().Get("Access-Control-Allow-Origin"))
+	}
+	if recEvil.Code != http.StatusForbidden {
+		t.Fatalf("untrusted origin status=%d, want %d", recEvil.Code, http.StatusForbidden)
 	}
 
 	// Localhost origin SHOULD get allowed CORS header

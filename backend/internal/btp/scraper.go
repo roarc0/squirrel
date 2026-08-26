@@ -1,7 +1,10 @@
 package btp
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"regexp"
@@ -17,6 +20,8 @@ var (
 	dateRegex   = regexp.MustCompile(`\d{2}/\d{2}/\d{4}|\d{2}\.\d{2}\.\d{4}`)
 	couponRegex = regexp.MustCompile(`(\d+[\.,]?\d*)\s*%`)
 )
+
+const maxScrapeResponse = 4 << 20
 
 type Scraper struct {
 	client  *http.Client
@@ -35,7 +40,7 @@ func NewScraper(baseURL string) *Scraper {
 	}
 }
 
-func (s *Scraper) ScrapeAll(cfg ScoringConfig) ([]BTP, error) {
+func (s *Scraper) ScrapeAll(ctx context.Context, cfg ScoringConfig) ([]BTP, error) {
 	log.Printf("[btp.scraper] Starting ScrapeAll from %s", s.baseURL)
 	var allBTPs []BTP
 	seenIsins := make(map[string]bool)
@@ -44,10 +49,9 @@ func (s *Scraper) ScrapeAll(cfg ScoringConfig) ([]BTP, error) {
 	page := 1
 
 	for page <= maxPages {
-		btps, err := s.ScrapePage(page)
+		btps, err := s.ScrapePage(ctx, page)
 		if err != nil {
-			log.Printf("[btp.scraper] ScrapePage(%d) error: %v", page, err)
-			break
+			return nil, fmt.Errorf("scrape BTP page %d: %w", page, err)
 		}
 		if len(btps) == 0 {
 			log.Printf("[btp.scraper] ScrapePage(%d) returned 0 BTPs", page)
@@ -71,16 +75,7 @@ func (s *Scraper) ScrapeAll(cfg ScoringConfig) ([]BTP, error) {
 	}
 
 	if len(allBTPs) == 0 {
-		log.Printf("[btp.scraper] Web scraping returned 0 BTPs; loading catalog seeds fallback...")
-		allBTPs = fallbackBTPs()
-	}
-
-	// Always merge special non-vanilla BTP seeds (Valore, Italia, Futura, Inflation, Zero Coupon, Floating)
-	for _, seed := range specialBTPSeeds() {
-		if !seenIsins[seed.ISIN] {
-			seenIsins[seed.ISIN] = true
-			allBTPs = append(allBTPs, seed)
-		}
+		return nil, fmt.Errorf("BTP source returned no bonds")
 	}
 
 	now := time.Now()
@@ -93,47 +88,10 @@ func (s *Scraper) ScrapeAll(cfg ScoringConfig) ([]BTP, error) {
 	return allBTPs, nil
 }
 
-func specialBTPSeeds() []BTP {
-	nowStr := time.Now().Format("2006-01-02 15:04:05")
-	return []BTP{
-		{ISIN: "IT0005565392", Name: "BTP VALORE 3.25% 10/10/2027", Price: 100.10, Coupon: 3.25, ExpiryDate: "10/10/2027", ScrapedAt: nowStr},
-		{ISIN: "IT0005584864", Name: "BTP VALORE 3.35% 14/05/2028", Price: 100.25, Coupon: 3.35, ExpiryDate: "14/05/2028", ScrapedAt: nowStr},
-		{ISIN: "IT0005532715", Name: "BTP ITALIA 2.0% 14/03/2028", Price: 99.40, Coupon: 2.00, ExpiryDate: "14/03/2028", ScrapedAt: nowStr},
-		{ISIN: "IT0005517187", Name: "BTP ITALIA 1.6% 22/11/2028", Price: 98.70, Coupon: 1.60, ExpiryDate: "22/11/2028", ScrapedAt: nowStr},
-		{ISIN: "IT0005415283", Name: "BTP FUTURA 0.75% 14/07/2030", Price: 82.50, Coupon: 0.75, ExpiryDate: "14/07/2030", ScrapedAt: nowStr},
-		{ISIN: "IT0005497000", Name: "BTP ZC 15/12/2026", Price: 95.80, Coupon: 0.00, ExpiryDate: "15/12/2026", ScrapedAt: nowStr},
-		{ISIN: "IT0005436701", Name: "BTP€I 0.15% 15/05/2051", Price: 52.40, Coupon: 0.15, ExpiryDate: "15/05/2051", ScrapedAt: nowStr},
-		{ISIN: "IT0005451361", Name: "CCTEU 15/10/2031", Price: 99.15, Coupon: 3.80, ExpiryDate: "15/10/2031", ScrapedAt: nowStr},
-	}
-}
-
-func fallbackBTPs() []BTP {
-	nowStr := time.Now().Format("2006-01-02 15:04:05")
-	return []BTP{
-		{ISIN: "IT0005518128", Name: "BTP 4.5% 01/10/2053", Price: 98.50, Coupon: 4.50, ExpiryDate: "01/10/2053", ScrapedAt: nowStr},
-		{ISIN: "IT0005425233", Name: "BTP 1.7% 01/09/2051", Price: 56.57, Coupon: 1.70, ExpiryDate: "01/09/2051", ScrapedAt: nowStr},
-		{ISIN: "IT0005480980", Name: "BTP 2.15% 01/09/2052", Price: 62.23, Coupon: 2.15, ExpiryDate: "01/09/2052", ScrapedAt: nowStr},
-		{ISIN: "IT0005438004", Name: "BTP 1.5% 01/04/2045", Price: 62.26, Coupon: 1.50, ExpiryDate: "01/04/2045", ScrapedAt: nowStr},
-		{ISIN: "IT0005441883", Name: "BTP 2.15% 01/03/2072", Price: 55.83, Coupon: 2.15, ExpiryDate: "01/03/2072", ScrapedAt: nowStr},
-		{ISIN: "IT0005398406", Name: "BTP 2.45% 01/09/2050", Price: 68.37, Coupon: 2.45, ExpiryDate: "01/09/2050", ScrapedAt: nowStr},
-		{ISIN: "IT0005217390", Name: "BTP 2.8% 01/03/2067", Price: 66.94, Coupon: 2.80, ExpiryDate: "01/03/2067", ScrapedAt: nowStr},
-		{ISIN: "IT0005162828", Name: "BTP 2.7% 01/03/2047", Price: 75.40, Coupon: 2.70, ExpiryDate: "01/03/2047", ScrapedAt: nowStr},
-		{ISIN: "IT0005421703", Name: "BTP 1.8% 01/03/2041", Price: 72.97, Coupon: 1.80, ExpiryDate: "01/03/2041", ScrapedAt: nowStr},
-		{ISIN: "IT0005083057", Name: "BTP 3.25% 01/09/2046", Price: 83.00, Coupon: 3.25, ExpiryDate: "01/09/2046", ScrapedAt: nowStr},
-		{ISIN: "IT0005273013", Name: "BTP 3.45% 01/03/2048", Price: 84.61, Coupon: 3.45, ExpiryDate: "01/03/2048", ScrapedAt: nowStr},
-		{ISIN: "IT0005611741", Name: "BTP 4.3% 01/10/2054", Price: 93.32, Coupon: 4.30, ExpiryDate: "01/10/2054", ScrapedAt: nowStr},
-		{ISIN: "IT0005363111", Name: "BTP 3.85% 01/09/2049", Price: 89.29, Coupon: 3.85, ExpiryDate: "01/09/2049", ScrapedAt: nowStr},
-		{ISIN: "IT0005668238", Name: "BTP 4.65% 01/10/2055", Price: 98.15, Coupon: 4.65, ExpiryDate: "01/10/2055", ScrapedAt: nowStr},
-		{ISIN: "IT0005565392", Name: "BTP VALORE 3.25% 10/10/2027", Price: 100.10, Coupon: 3.25, ExpiryDate: "10/10/2027", ScrapedAt: nowStr},
-		{ISIN: "IT0005532715", Name: "BTP ITALIA 2.0% 14/03/2028", Price: 99.40, Coupon: 2.00, ExpiryDate: "14/03/2028", ScrapedAt: nowStr},
-		{ISIN: "IT0005497000", Name: "BTP ZC 15/12/2026", Price: 95.80, Coupon: 0.00, ExpiryDate: "15/12/2026", ScrapedAt: nowStr},
-	}
-}
-
-func (s *Scraper) ScrapePage(page int) ([]BTP, error) {
+func (s *Scraper) ScrapePage(ctx context.Context, page int) ([]BTP, error) {
 	url := fmt.Sprintf("%s?page=%d", s.baseURL, page)
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +109,14 @@ func (s *Scraper) ScrapePage(page int) ([]BTP, error) {
 		return nil, fmt.Errorf("HTTP status %d", resp.StatusCode)
 	}
 
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxScrapeResponse+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(body) > maxScrapeResponse {
+		return nil, fmt.Errorf("BTP response is too large")
+	}
+	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
