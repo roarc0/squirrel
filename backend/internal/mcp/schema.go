@@ -57,6 +57,7 @@ var allowedServices = map[protoreflect.FullName]bool{
 	"v1.SummaryService":    true,
 	"v1.SnapshotService":   true,
 	"v1.RateService":       true,
+	"v1.ProfileService":    true,
 }
 
 // deniedMethods is the set of full method names that should NOT be exposed.

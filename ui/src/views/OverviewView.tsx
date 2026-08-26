@@ -29,6 +29,7 @@ import { useConfirmDelete } from '../components/ConfirmDeleteModal';
 import { useProfile } from '../hooks/useProfile';
 import { ViewShell } from '../components/ViewShell';
 import { SectionHeader } from '../components/SectionHeader';
+import { handleLinkClick } from '../utils/navigation';
 
 type Data = { summary: Summary; accounts: any[]; rates: any[]; taxRates: any[]; instruments: Instrument[]; holdings: Holding[]; snapshots: Snapshot[] };
 type Numeric = string | number;
@@ -234,7 +235,14 @@ export function OverviewView({ data, reload, onSwitchTab }: { data: Data; reload
                 <Text size="xs" c="dimmed">{diagnostics[0].title}: {diagnostics[0].message.slice(0, 110)}...</Text>
               </Box>
             </Group>
-            <Button size="xs" variant="light" color="orange" onClick={() => onSwitchTab('diagnostics')}>
+            <Button
+              component="a"
+              href="/diagnostics"
+              size="xs"
+              variant="light"
+              color="orange"
+              onClick={(e) => handleLinkClick(e, '/diagnostics', onSwitchTab)}
+            >
               View Diagnostics tab →
             </Button>
           </Group>

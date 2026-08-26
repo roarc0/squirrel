@@ -5,6 +5,7 @@ import { Empty } from '../components/Empty';
 import { label } from '../utils/format';
 import { ViewShell } from '../components/ViewShell';
 import { SectionHeader } from '../components/SectionHeader';
+import { handleLinkClick } from '../utils/navigation';
 
 export function DiagnosticsView({
   diagnostics,
@@ -70,12 +71,26 @@ export function DiagnosticsView({
               <Text size="sm" c="dimmed" mb="md">{diag.message}</Text>
               <Group justify="end">
                 {diag.category === 'cash' && (
-                  <Button size="xs" variant="light" color="teal" onClick={onOpenSettings}>
+                  <Button
+                    component="a"
+                    href="/settings"
+                    size="xs"
+                    variant="light"
+                    color="teal"
+                    onClick={(e) => handleLinkClick(e, '/settings', onOpenSettings)}
+                  >
                     Configure Emergency Reserve
                   </Button>
                 )}
                 {diag.category === 'drift' && (
-                  <Button size="xs" variant="light" color="teal" onClick={onOpenInvest}>
+                  <Button
+                    component="a"
+                    href="/investments"
+                    size="xs"
+                    variant="light"
+                    color="teal"
+                    onClick={(e) => handleLinkClick(e, '/investments', onOpenInvest)}
+                  >
                     Rebalance Portfolio
                   </Button>
                 )}

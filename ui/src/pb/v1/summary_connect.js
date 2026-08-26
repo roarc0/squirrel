@@ -3,11 +3,11 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { GetSummaryRequest, GetSummaryResponse } from "./summary_pb.js";
+import { GetGeoRadarRequest, GetGeoRadarResponse, GetSummaryRequest, GetSummaryResponse } from "./summary_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
- * SummaryService provides aggregated wealth totals, currency summaries, and portfolio health diagnostics.
+ * SummaryService provides aggregated wealth totals, currency summaries, portfolio health diagnostics, and geographic risk exposure.
  *
  * @generated from service v1.SummaryService
  */
@@ -23,6 +23,17 @@ export const SummaryService = {
       name: "GetSummary",
       I: GetSummaryRequest,
       O: GetSummaryResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Get geographic country breakdown, underlying currency exposure, and FX sensitivity analysis.
+     *
+     * @generated from rpc v1.SummaryService.GetGeoRadar
+     */
+    getGeoRadar: {
+      name: "GetGeoRadar",
+      I: GetGeoRadarRequest,
+      O: GetGeoRadarResponse,
       kind: MethodKind.Unary,
     },
   }

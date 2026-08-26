@@ -152,3 +152,76 @@ func (s *Server) GetSummary(ctx context.Context, req *connect.Request[portv1.Get
 		},
 	}), nil
 }
+
+func (s *Server) GetGeoRadar(ctx context.Context, req *connect.Request[portv1.GetGeoRadarRequest]) (*connect.Response[portv1.GetGeoRadarResponse], error) {
+	accounts, err := s.store.ListAccounts(ctx, auth.UserIDOrEmpty(ctx))
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	holdings, err := s.store.ListHoldings(ctx, auth.UserIDOrEmpty(ctx))
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	instrumentsList, err := s.store.ListInstruments(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	instrumentsMap := make(map[int64]portfolio.Instrument, len(instrumentsList))
+	for _, inst := range instrumentsList {
+		instrumentsMap[inst.ID] = inst
+	}
+
+	eurUsdRate := 1.08
+	fxMc, errFx := s.ecb.FetchEURUSD(ctx, 1)
+	if errFx == nil && len(fxMc.Metrics) > 0 {
+		eurUsdRate = fxMc.Metrics[0].Value
+	}
+
+	includeCash := req.Msg.GetIncludeCash()
+	radar := portfolio.CalculateGeoRadar(accounts, holdings, instrumentsMap, eurUsdRate, includeCash)
+
+	res := &portv1.GetGeoRadarResponse{
+		CurrentEurUsdRate: radar.CurrentEURUSDRate,
+	}
+
+	for _, r := range radar.Regions {
+		res.Regions = append(res.Regions, &portv1.GeoExposure{
+			Region:     r.Region,
+			ValueMinor: r.ValueMinor,
+			Percentage: r.Percentage,
+		})
+	}
+
+	for _, c := range radar.Countries {
+		res.Countries = append(res.Countries, &portv1.GeoExposure{
+			Region:      c.Region,
+			CountryCode: c.CountryCode,
+			CountryName: c.CountryName,
+			ValueMinor:  c.ValueMinor,
+			Percentage:  c.Percentage,
+		})
+	}
+
+	for _, curr := range radar.Currencies {
+		res.Currencies = append(res.Currencies, &portv1.CurrencyExposure{
+			Currency:          curr.Currency,
+			IsHedged:          curr.IsHedged,
+			ValueMinor:         curr.ValueMinor,
+			Percentage:         curr.Percentage,
+			FxImpact_5PctMinor: curr.FXImpact5PctMinor,
+		})
+	}
+
+	for _, d := range radar.Diagnostics {
+		res.Diagnostics = append(res.Diagnostics, &portv1.Diagnostic{
+			Id:       d.ID,
+			Category: d.Category,
+			Severity: string(d.Severity),
+			Title:    d.Title,
+			Message:  d.Message,
+		})
+	}
+
+	return connect.NewResponse(res), nil
+}

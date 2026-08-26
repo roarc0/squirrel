@@ -36,12 +36,17 @@ const (
 	// SummaryServiceGetSummaryProcedure is the fully-qualified name of the SummaryService's GetSummary
 	// RPC.
 	SummaryServiceGetSummaryProcedure = "/v1.SummaryService/GetSummary"
+	// SummaryServiceGetGeoRadarProcedure is the fully-qualified name of the SummaryService's
+	// GetGeoRadar RPC.
+	SummaryServiceGetGeoRadarProcedure = "/v1.SummaryService/GetGeoRadar"
 )
 
 // SummaryServiceClient is a client for the v1.SummaryService service.
 type SummaryServiceClient interface {
 	// Get aggregated portfolio wealth summary, net worth, interest yields, and active health diagnostics.
 	GetSummary(context.Context, *connect.Request[v1.GetSummaryRequest]) (*connect.Response[v1.GetSummaryResponse], error)
+	// Get geographic country breakdown, underlying currency exposure, and FX sensitivity analysis.
+	GetGeoRadar(context.Context, *connect.Request[v1.GetGeoRadarRequest]) (*connect.Response[v1.GetGeoRadarResponse], error)
 }
 
 // NewSummaryServiceClient constructs a client for the v1.SummaryService service. By default, it
@@ -61,12 +66,19 @@ func NewSummaryServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(summaryServiceMethods.ByName("GetSummary")),
 			connect.WithClientOptions(opts...),
 		),
+		getGeoRadar: connect.NewClient[v1.GetGeoRadarRequest, v1.GetGeoRadarResponse](
+			httpClient,
+			baseURL+SummaryServiceGetGeoRadarProcedure,
+			connect.WithSchema(summaryServiceMethods.ByName("GetGeoRadar")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // summaryServiceClient implements SummaryServiceClient.
 type summaryServiceClient struct {
-	getSummary *connect.Client[v1.GetSummaryRequest, v1.GetSummaryResponse]
+	getSummary  *connect.Client[v1.GetSummaryRequest, v1.GetSummaryResponse]
+	getGeoRadar *connect.Client[v1.GetGeoRadarRequest, v1.GetGeoRadarResponse]
 }
 
 // GetSummary calls v1.SummaryService.GetSummary.
@@ -74,10 +86,17 @@ func (c *summaryServiceClient) GetSummary(ctx context.Context, req *connect.Requ
 	return c.getSummary.CallUnary(ctx, req)
 }
 
+// GetGeoRadar calls v1.SummaryService.GetGeoRadar.
+func (c *summaryServiceClient) GetGeoRadar(ctx context.Context, req *connect.Request[v1.GetGeoRadarRequest]) (*connect.Response[v1.GetGeoRadarResponse], error) {
+	return c.getGeoRadar.CallUnary(ctx, req)
+}
+
 // SummaryServiceHandler is an implementation of the v1.SummaryService service.
 type SummaryServiceHandler interface {
 	// Get aggregated portfolio wealth summary, net worth, interest yields, and active health diagnostics.
 	GetSummary(context.Context, *connect.Request[v1.GetSummaryRequest]) (*connect.Response[v1.GetSummaryResponse], error)
+	// Get geographic country breakdown, underlying currency exposure, and FX sensitivity analysis.
+	GetGeoRadar(context.Context, *connect.Request[v1.GetGeoRadarRequest]) (*connect.Response[v1.GetGeoRadarResponse], error)
 }
 
 // NewSummaryServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -93,10 +112,18 @@ func NewSummaryServiceHandler(svc SummaryServiceHandler, opts ...connect.Handler
 		connect.WithSchema(summaryServiceMethods.ByName("GetSummary")),
 		connect.WithHandlerOptions(opts...),
 	)
+	summaryServiceGetGeoRadarHandler := connect.NewUnaryHandler(
+		SummaryServiceGetGeoRadarProcedure,
+		svc.GetGeoRadar,
+		connect.WithSchema(summaryServiceMethods.ByName("GetGeoRadar")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/v1.SummaryService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SummaryServiceGetSummaryProcedure:
 			summaryServiceGetSummaryHandler.ServeHTTP(w, r)
+		case SummaryServiceGetGeoRadarProcedure:
+			summaryServiceGetGeoRadarHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -108,4 +135,8 @@ type UnimplementedSummaryServiceHandler struct{}
 
 func (UnimplementedSummaryServiceHandler) GetSummary(context.Context, *connect.Request[v1.GetSummaryRequest]) (*connect.Response[v1.GetSummaryResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.SummaryService.GetSummary is not implemented"))
+}
+
+func (UnimplementedSummaryServiceHandler) GetGeoRadar(context.Context, *connect.Request[v1.GetGeoRadarRequest]) (*connect.Response[v1.GetGeoRadarResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.SummaryService.GetGeoRadar is not implemented"))
 }

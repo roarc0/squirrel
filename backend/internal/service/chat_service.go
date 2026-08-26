@@ -115,6 +115,10 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 		}
 	}
 
+	if !strings.Contains(strings.ToLower(systemPrompt), "grain of salt") {
+		systemPrompt += "\n\nDISCLAIMER WARNING: Nothing provided by this AI consultant constitutes financial advice. All recommendations and suggestions are to be taken with a grain of salt."
+	}
+
 	var conversation []map[string]interface{}
 	conversation = append(conversation, map[string]interface{}{
 		"role":    "system",

@@ -27,6 +27,7 @@ import {
   IconCheck,
   IconSun,
   IconMoon,
+  IconGlobe,
 } from '@tabler/icons-react';
 import {
   ActionIcon,
@@ -81,6 +82,7 @@ import { AIConsultantView } from './views/AIConsultantView';
 import { DraftPortfoliosView } from './views/DraftPortfoliosView';
 import { BtpRankView } from './views/BtpRankView';
 import { MarketContextView } from './views/MarketContextView';
+import { GeoRadarView } from './views/GeoRadarView';
 import { QuickSearchModal } from './components/QuickSearchModal';
 import { chartGeometry, matchesExactFilters, pageBounds, performanceMood } from './visual';
 
@@ -91,6 +93,7 @@ import { money, investedMoney, setHideBalancesState } from './utils/format';
 import { captureTokenFromURL, clearToken, fetchMe, isUnauthenticatedError, type AuthUser } from './auth';
 import { LoginView } from './LoginView';
 import { loadProfile, useProfile } from './hooks/useProfile';
+import { handleLinkClick } from './utils/navigation';
 
 type ThemeAccent = 'teal' | 'amber' | 'ocean' | 'violet' | 'rose';
 type ThemeScheme = 'light' | 'dark';
@@ -272,6 +275,39 @@ export function formatUserName(user?: AuthUser | null): string {
     .join(' ');
 }
 
+function NavTab({
+  value,
+  href,
+  leftSection,
+  children,
+  onNavigate,
+}: {
+  value: string;
+  href: string;
+  leftSection: React.ReactNode;
+  children: React.ReactNode;
+  onNavigate: (tab: string) => void;
+}) {
+  return (
+    <Tabs.Tab
+      value={value}
+      leftSection={leftSection}
+      renderRoot={(props) => (
+        <a
+          {...props}
+          href={href}
+          onClick={(e) => {
+            props.onClick?.(e);
+            handleLinkClick(e, href, onNavigate);
+          }}
+        />
+      )}
+    >
+      {children}
+    </Tabs.Tab>
+  );
+}
+
 export default function App() {
   const [needsLogin, setNeedsLogin] = useState(false);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
@@ -307,9 +343,14 @@ export default function App() {
   const [updateModalOpened, setUpdateModalOpened] = useState(false);
   const [quickSearchOpened, setQuickSearchOpened] = useState(false);
 
-  const VALID_TABS = ['overview', 'accounts', 'investments', 'drafts', 'instruments', 'market', 'diagnostics', 'consultant', 'btp', 'settings'];
+  const VALID_TABS = ['overview', 'accounts', 'investments', 'drafts', 'instruments', 'market', 'geo', 'diagnostics', 'consultant', 'btp', 'settings'];
 
   const [activeTab, setActiveTab] = useState<string>(() => {
+    const pathname = window.location.pathname.replace(/^\/+/, '').split('/')[0];
+    const pathTab = normalizeTab(pathname);
+    if (pathTab && VALID_TABS.includes(pathTab)) {
+      return pathTab;
+    }
     const params = new URLSearchParams(window.location.search);
     const rawTab = params.get('tab');
     const urlTab = normalizeTab(rawTab);
@@ -337,7 +378,8 @@ export default function App() {
     try {
       localStorage.setItem('squirrel.activeTab', next);
       const url = new URL(window.location.href);
-      url.searchParams.set('tab', next);
+      url.pathname = `/${next}`;
+      url.searchParams.delete('tab');
       window.history.pushState({}, '', url.toString());
     } catch {
       /* optional */
@@ -346,6 +388,12 @@ export default function App() {
 
   useEffect(() => {
     const handlePopState = () => {
+      const pathname = window.location.pathname.replace(/^\/+/, '').split('/')[0];
+      const pathTab = normalizeTab(pathname);
+      if (pathTab && VALID_TABS.includes(pathTab)) {
+        setActiveTab(pathTab);
+        return;
+      }
       const params = new URLSearchParams(window.location.search);
       const tab = normalizeTab(params.get('tab')) || 'overview';
       if (VALID_TABS.includes(tab)) {
@@ -407,7 +455,9 @@ export default function App() {
   <>
     <main className="shell">
       <Group justify="space-between" align="center" mb="md">
-        <SquirrelBrandLogo size={26} />
+        <Box component="a" href="/overview" onClick={(e) => handleLinkClick(e, '/overview', handleTabChange)} style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
+          <SquirrelBrandLogo size={26} />
+        </Box>
         <Group gap={10}>
           <HeaderIconButton icon={<IconSearch size={16} />} label="Search (⌘K)" onClick={() => setQuickSearchOpened(true)} />
           <HeaderIconButton icon={<IconArrowsExchange size={16} />} label="Update" onClick={() => setUpdateModalOpened(true)} />
@@ -486,12 +536,26 @@ export default function App() {
                           {diag.message}
                         </Text>
                         {diag.category === 'cash' && (
-                          <Button size="compact-xs" variant="light" color="teal" onClick={() => handleTabChange('settings')}>
+                          <Button
+                            component="a"
+                            href="/settings"
+                            size="compact-xs"
+                            variant="light"
+                            color="teal"
+                            onClick={(e) => handleLinkClick(e, '/settings', handleTabChange)}
+                          >
                             Configure Reserve →
                           </Button>
                         )}
                         {diag.category === 'drift' && (
-                          <Button size="compact-xs" variant="light" color="teal" onClick={() => handleTabChange('investments')}>
+                          <Button
+                            component="a"
+                            href="/investments"
+                            size="compact-xs"
+                            variant="light"
+                            color="teal"
+                            onClick={(e) => handleLinkClick(e, '/investments', handleTabChange)}
+                          >
                             Rebalance Portfolio →
                           </Button>
                         )}
@@ -537,7 +601,12 @@ export default function App() {
                 >
                   {hideBalances ? 'Show Balances' : 'Hide Balances'}
                 </Menu.Item>
-                <Menu.Item leftSection={<IconSettings size={14} />} onClick={() => handleTabChange('settings')}>
+                <Menu.Item
+                  component="a"
+                  href="/settings"
+                  leftSection={<IconSettings size={14} />}
+                  onClick={(e) => handleLinkClick(e, '/settings', handleTabChange)}
+                >
                   Settings
                 </Menu.Item>
                 <Menu.Divider />
@@ -555,37 +624,41 @@ export default function App() {
       {error && <Alert color="red" mb="md" withCloseButton onClose={() => setError('')}>{error}</Alert>}
       <Tabs value={activeTab} onChange={handleTabChange} keepMounted={false}>
         <Tabs.List mb="xl">
-          <Tabs.Tab value="overview" leftSection={<IconChartPie size={16} />}>
+          <NavTab value="overview" href="/overview" onNavigate={handleTabChange} leftSection={<IconChartPie size={16} />}>
             Overview
-          </Tabs.Tab>
-          <Tabs.Tab value="accounts" leftSection={<IconBuildingBank size={16} />}>
+          </NavTab>
+          <NavTab value="accounts" href="/accounts" onNavigate={handleTabChange} leftSection={<IconBuildingBank size={16} />}>
             Accounts
-          </Tabs.Tab>
-          <Tabs.Tab value="investments" leftSection={<IconBriefcase size={16} />}>
+          </NavTab>
+          <NavTab value="investments" href="/investments" onNavigate={handleTabChange} leftSection={<IconBriefcase size={16} />}>
             Investments
-          </Tabs.Tab>
-          <Tabs.Tab value="drafts" leftSection={<IconFlask size={16} />}>
+          </NavTab>
+          <NavTab value="drafts" href="/drafts" onNavigate={handleTabChange} leftSection={<IconFlask size={16} />}>
             Portfolio Sandbox
-          </Tabs.Tab>
-          <Tabs.Tab value="instruments" leftSection={<IconSearch size={16} />}>
+          </NavTab>
+          <NavTab value="instruments" href="/instruments" onNavigate={handleTabChange} leftSection={<IconSearch size={16} />}>
             Instruments
-          </Tabs.Tab>
-          <Tabs.Tab value="market" leftSection={<IconActivity size={16} />}>
+          </NavTab>
+          <NavTab value="market" href="/market" onNavigate={handleTabChange} leftSection={<IconActivity size={16} />}>
             Market Context
-          </Tabs.Tab>
-          <Tabs.Tab value="consultant" leftSection={<IconRobot size={16} />}>
+          </NavTab>
+          <NavTab value="geo" href="/geo" onNavigate={handleTabChange} leftSection={<IconGlobe size={16} />}>
+            Geo & FX Radar
+          </NavTab>
+          <NavTab value="consultant" href="/consultant" onNavigate={handleTabChange} leftSection={<IconRobot size={16} />}>
             AI Consultant
-          </Tabs.Tab>
+          </NavTab>
           {profile.enable_btp_ranks && (
-            <Tabs.Tab value="btp" leftSection={<IconFileCertificate size={16} />}>
+            <NavTab value="btp" href="/btp" onNavigate={handleTabChange} leftSection={<IconFileCertificate size={16} />}>
               BTP Rank
-            </Tabs.Tab>
+            </NavTab>
           )}
         </Tabs.List>
         <Tabs.Panel value="overview" className="tab-content"><Overview data={data} reload={load} onSwitchTab={handleTabChange} /></Tabs.Panel>
         <Tabs.Panel value="accounts" className="tab-content"><Accounts accounts={data.accounts} rates={data.rates} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
         <Tabs.Panel value="investments" className="tab-content"><Investments holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
         <Tabs.Panel value="holdings" className="tab-content"><Investments holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
+        <Tabs.Panel value="geo" className="tab-content"><GeoRadarView /></Tabs.Panel>
         <Tabs.Panel value="drafts" className="tab-content">
           <DraftPortfoliosView
             holdings={data.holdings}

@@ -139,7 +139,7 @@ func TestMigratesLegacyDatabase(t *testing.T) {
 	defer s.Close()
 	var version int64
 	var errVersion error
-	if version, errVersion = goose.GetDBVersion(s.db); errVersion != nil || version != 6 {
+	if version, errVersion = goose.GetDBVersion(s.db); errVersion != nil || version != 7 {
 		t.Fatalf("migration version=%d err=%v", version, errVersion)
 	}
 }
@@ -365,6 +365,32 @@ func TestMarketContextStore(t *testing.T) {
 	metrics, err = s.ListMarketMetrics(ctx)
 	if err != nil || len(metrics) != 1 || metrics[0].Value != 3.0 {
 		t.Fatalf("updated metrics failed: %+v", metrics)
+	}
+}
+
+func TestUserProfileUserDescription(t *testing.T) {
+	s, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	ctx := context.Background()
+
+	p := UserProfile{
+		PreferredCurrency: "EUR",
+		UserDescription:   "35yo male, growth objective, high risk tolerance",
+	}
+
+	if err := s.SaveProfile(ctx, "user1", p); err != nil {
+		t.Fatalf("SaveProfile failed: %v", err)
+	}
+
+	got, err := s.GetProfile(ctx, "user1")
+	if err != nil {
+		t.Fatalf("GetProfile failed: %v", err)
+	}
+	if got.UserDescription != p.UserDescription {
+		t.Fatalf("expected UserDescription=%q, got %q", p.UserDescription, got.UserDescription)
 	}
 }
 

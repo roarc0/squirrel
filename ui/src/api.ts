@@ -931,3 +931,60 @@ export async function toggleStarBtp(isin: string, starred: boolean): Promise<boo
   const res = await btpClient.toggleStarBtp({ isin, starred });
   return Boolean(res.starred);
 }
+
+export type GeoExposure = {
+  region?: string;
+  country_code?: string;
+  country_name?: string;
+  value_minor: number;
+  percentage: number;
+};
+
+export type CurrencyExposure = {
+  currency: string;
+  is_hedged: boolean;
+  value_minor: number;
+  percentage: number;
+  fx_impact_5pct_minor: number;
+};
+
+export type GeoRadarResult = {
+  regions: GeoExposure[];
+  countries: GeoExposure[];
+  currencies: CurrencyExposure[];
+  diagnostics: Diagnostic[];
+  current_eur_usd_rate: number;
+};
+
+export async function getGeoRadar(includeCash = false): Promise<GeoRadarResult> {
+  const res = await summaryClient.getGeoRadar({ includeCash });
+  return {
+    current_eur_usd_rate: Number(res.currentEurUsdRate ?? 1.08),
+    regions: (res.regions ?? []).map((r: any) => ({
+      region: r.region,
+      value_minor: Number(r.valueMinor),
+      percentage: Number(r.percentage),
+    })),
+    countries: (res.countries ?? []).map((c: any) => ({
+      region: c.region,
+      country_code: c.countryCode,
+      country_name: c.countryName,
+      value_minor: Number(c.valueMinor),
+      percentage: Number(c.percentage),
+    })),
+    currencies: (res.currencies ?? []).map((c: any) => ({
+      currency: c.currency,
+      is_hedged: Boolean(c.isHedged),
+      value_minor: Number(c.valueMinor),
+      percentage: Number(c.percentage),
+      fx_impact_5pct_minor: Number(c.fxImpact_5PctMinor),
+    })),
+    diagnostics: (res.diagnostics ?? []).map((d: any) => ({
+      id: d.id,
+      category: d.category,
+      severity: d.severity,
+      title: d.title,
+      message: d.message,
+    })),
+  };
+}

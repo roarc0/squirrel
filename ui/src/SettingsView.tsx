@@ -18,6 +18,7 @@ import {
   Switch,
   Text,
   TextInput,
+  Textarea,
   Title,
   Tooltip,
 } from '@mantine/core';
@@ -30,10 +31,12 @@ import {
   IconEyeOff,
   IconFileCertificate,
   IconFlame,
+  IconInfoCircle,
   IconPlug,
   IconShieldCheck,
   IconSparkles,
   IconUpload,
+  IconUserCheck,
 } from '@tabler/icons-react';
 
 import { exportBackup, restoreBackup } from './api';
@@ -142,6 +145,41 @@ export function SettingsView({ reload }: { reload: () => Promise<void> }) {
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
         {/* Left Column: General & Plugins */}
         <Stack gap="lg">
+          {/* Section 0: Investor Profile & AI Consulting Context */}
+          <Paper withBorder p="lg" radius="md">
+            <Group justify="space-between" align="center" mb="xs">
+              <Group gap="xs">
+                <IconUserCheck size={20} color="var(--mantine-color-teal-6)" />
+                <Text fw={700} size="md">
+                  Investor Profile & AI Consulting Context
+                </Text>
+              </Group>
+              <Badge color="teal" variant="light">
+                AI Personalization
+              </Badge>
+            </Group>
+            <Text size="xs" c="dimmed" mb="md">
+              State your personal situation, age, sex, risk exposure/tolerance, investment objectives, and time horizon. The AI Consultant uses this information to deliver tailored portfolio advice.
+            </Text>
+            <Stack gap="md">
+              <Textarea
+                label="Investor Description & Profile"
+                description="Include age, sex, investment objectives, risk tolerance, time horizon, monthly contribution goal, or tax constraints."
+                placeholder="e.g. 34yo male, moderate-high risk exposure tolerance, 20-year horizon. Objective: long-term capital growth via low-cost index ETFs, €500/mo PAC, emergency fund secured."
+                minRows={3}
+                maxRows={8}
+                autosize
+                value={profile.user_description || ''}
+                onChange={e => setProfile({ user_description: e.currentTarget.value })}
+              />
+              <Alert icon={<IconInfoCircle size={16} />} color="blue" variant="light">
+                <Text size="xs">
+                  <strong>Financial Advice Disclaimer:</strong> All suggestions and recommendations provided by the AI Consultant are for analytical purposes only and do NOT constitute formal financial advice. Always evaluate recommendations with a grain of salt and consult a certified financial advisor before investing.
+                </Text>
+              </Alert>
+            </Stack>
+          </Paper>
+
           {/* Section 1: Regional & Display Preferences */}
           <Paper withBorder p="lg" radius="md">
             <Group gap="xs" mb="xs">

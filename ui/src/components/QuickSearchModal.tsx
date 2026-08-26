@@ -40,6 +40,7 @@ export type QuickSearchAction = {
   icon: React.ReactNode;
   badge?: string;
   badgeColor?: string;
+  href?: string;
   onSelect: () => void;
 };
 
@@ -88,6 +89,7 @@ export function QuickSearchModal({
         title: 'Overview Dashboard',
         subtitle: 'View portfolio summary, net worth trend, and asset allocation',
         icon: <IconChartPie size={18} color="var(--mantine-color-teal-6)" />,
+        href: '/overview',
         onSelect: () => {
           onSwitchTab('overview');
           onClose();
@@ -99,6 +101,7 @@ export function QuickSearchModal({
         title: 'Accounts & Liquidity',
         subtitle: 'Manage cash balances, bank accounts, and liquidity tiers',
         icon: <IconBuildingBank size={18} color="var(--mantine-color-blue-6)" />,
+        href: '/accounts',
         onSelect: () => {
           onSwitchTab('accounts');
           onClose();
@@ -110,6 +113,7 @@ export function QuickSearchModal({
         title: 'Investments & Holdings',
         subtitle: 'View active holdings, PAC budgets, and position profits',
         icon: <IconBriefcase size={18} color="var(--mantine-color-teal-6)" />,
+        href: '/investments',
         onSelect: () => {
           onSwitchTab('investments');
           onClose();
@@ -121,6 +125,7 @@ export function QuickSearchModal({
         title: 'Portfolio Sandbox (Drafts)',
         subtitle: 'Simulate rebalancing scenarios and draft portfolio strategies',
         icon: <IconFlask size={18} color="var(--mantine-color-violet-6)" />,
+        href: '/drafts',
         onSelect: () => {
           onSwitchTab('drafts');
           onClose();
@@ -132,6 +137,7 @@ export function QuickSearchModal({
         title: 'Instruments Catalog',
         subtitle: 'Search and compare ETFs, Stocks, Bonds, and Funds',
         icon: <IconSearch size={18} color="var(--mantine-color-cyan-6)" />,
+        href: '/instruments',
         onSelect: () => {
           onSwitchTab('instruments');
           onClose();
@@ -143,6 +149,7 @@ export function QuickSearchModal({
         title: 'BTP Rank Analytics',
         subtitle: 'Italian Sovereign Bonds yield curve, duration risk, and scoring',
         icon: <IconFileCertificate size={18} color="var(--mantine-color-blue-6)" />,
+        href: '/btp',
         onSelect: () => {
           onSwitchTab('btp');
           onClose();
@@ -154,6 +161,7 @@ export function QuickSearchModal({
         title: 'Market Context',
         subtitle: 'ECB rates, €STR, inflation, deposit benchmarks, and sovereign yields',
         icon: <IconActivity size={18} color="var(--mantine-color-blue-6)" />,
+        href: '/market',
         onSelect: () => {
           onSwitchTab('market');
           onClose();
@@ -165,6 +173,7 @@ export function QuickSearchModal({
         title: 'AI Consultant',
         subtitle: 'Get AI portfolio observations and allocation advice',
         icon: <IconRobot size={18} color="var(--mantine-color-indigo-6)" />,
+        href: '/consultant',
         onSelect: () => {
           onSwitchTab('consultant');
           onClose();
@@ -176,6 +185,7 @@ export function QuickSearchModal({
         title: 'Settings & Preferences',
         subtitle: 'Configure currency, reserve buffer targets, and backups',
         icon: <IconSettings size={18} color="var(--mantine-color-gray-6)" />,
+        href: '/settings',
         onSelect: () => {
           onSwitchTab('settings');
           onClose();
@@ -219,6 +229,7 @@ export function QuickSearchModal({
         icon: <IconSearch size={18} color="var(--mantine-color-cyan-6)" />,
         badge: inst.instrument_type.toUpperCase(),
         badgeColor: 'cyan',
+        href: '/instruments',
         onSelect: () => {
           onSwitchTab('instruments');
           copyToClipboard(inst.isin, 'ISIN');
@@ -237,6 +248,7 @@ export function QuickSearchModal({
         icon: <IconFileCertificate size={18} color="var(--mantine-color-blue-6)" />,
         badge: `Tier ${btp.tier_rank}`,
         badgeColor: btp.tier_rank === 'S' ? 'violet' : btp.tier_rank === 'A' ? 'teal' : 'blue',
+        href: '/btp',
         onSelect: () => {
           onSwitchTab('btp');
           copyToClipboard(btp.isin, 'BTP ISIN');
@@ -352,7 +364,18 @@ export function QuickSearchModal({
                     return (
                       <UnstyledButton
                         key={action.id}
-                        onClick={action.onSelect}
+                        component={action.href ? 'a' : 'button'}
+                        href={action.href}
+                        onClick={(e: React.MouseEvent) => {
+                          if (action.href && (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0)) {
+                            onClose();
+                            return;
+                          }
+                          if (action.href) {
+                            e.preventDefault();
+                          }
+                          action.onSelect();
+                        }}
                         style={{
                           display: 'block',
                           width: '100%',
@@ -362,6 +385,8 @@ export function QuickSearchModal({
                             ? 'var(--mantine-color-teal-light)'
                             : 'transparent',
                           transition: 'background 120ms ease',
+                          textDecoration: 'none',
+                          color: 'inherit',
                         }}
                       >
                         <Group justify="space-between" align="center" wrap="nowrap">

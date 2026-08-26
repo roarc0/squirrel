@@ -26,6 +26,7 @@ export const UserProfile = /*@__PURE__*/ proto3.makeMessageType(
     { no: 11, name: "active_tab", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 12, name: "ai_settings_json", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 13, name: "draft_portfolios_json", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 14, name: "user_description", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ],
 );
 

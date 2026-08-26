@@ -32,6 +32,8 @@ message UserProfile {
   string ai_settings_json = 12;
   // JSON string of custom draft portfolios.
   string draft_portfolios_json = 13;
+  // User description detailing investment objectives, risk exposure/tolerance, age, sex/gender, time horizon, etc.
+  string user_description = 14;
 }
 
 message GetProfileRequest {}

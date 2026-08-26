@@ -103,6 +103,13 @@ export declare class UserProfile extends Message<UserProfile> {
    */
   draftPortfoliosJson: string;
 
+  /**
+   * User description detailing investment objectives, risk exposure/tolerance, age, sex/gender, time horizon, etc.
+   *
+   * @generated from field: string user_description = 14;
+   */
+  userDescription: string;
+
   constructor(data?: PartialMessage<UserProfile>);
 
   static readonly runtime: typeof proto3;

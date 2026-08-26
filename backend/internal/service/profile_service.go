@@ -32,6 +32,7 @@ func (s *Server) GetProfile(ctx context.Context, _ *connect.Request[portv1.GetPr
 			ActiveTab:             p.ActiveTab,
 			AiSettingsJson:        p.AISettingsJSON,
 			DraftPortfoliosJson:   p.DraftPortfoliosJSON,
+			UserDescription:       p.UserDescription,
 		},
 	}), nil
 }
@@ -58,6 +59,7 @@ func (s *Server) UpdateProfile(ctx context.Context, req *connect.Request[portv1.
 	p.ActiveTab = req.Msg.Profile.ActiveTab
 	p.AISettingsJSON = req.Msg.Profile.AiSettingsJson
 	p.DraftPortfoliosJSON = req.Msg.Profile.DraftPortfoliosJson
+	p.UserDescription = req.Msg.Profile.UserDescription
 	if err := s.store.SaveProfile(ctx, userID, p); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -76,6 +78,7 @@ func (s *Server) UpdateProfile(ctx context.Context, req *connect.Request[portv1.
 			ActiveTab:             p.ActiveTab,
 			AiSettingsJson:        p.AISettingsJSON,
 			DraftPortfoliosJson:   p.DraftPortfoliosJSON,
+			UserDescription:       p.UserDescription,
 		},
 	}), nil
 }

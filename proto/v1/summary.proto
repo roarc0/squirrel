@@ -72,8 +72,38 @@ message GetSummaryResponse {
   Summary summary = 1;
 }
 
-// SummaryService provides aggregated wealth totals, currency summaries, and portfolio health diagnostics.
+// SummaryService provides aggregated wealth totals, currency summaries, portfolio health diagnostics, and geographic risk exposure.
 service SummaryService {
   // Get aggregated portfolio wealth summary, net worth, interest yields, and active health diagnostics.
   rpc GetSummary(GetSummaryRequest) returns (GetSummaryResponse);
+  // Get geographic country breakdown, underlying currency exposure, and FX sensitivity analysis.
+  rpc GetGeoRadar(GetGeoRadarRequest) returns (GetGeoRadarResponse);
+}
+
+message GetGeoRadarRequest {
+  optional bool include_cash = 1;
+}
+
+message GeoExposure {
+  string region = 1;
+  string country_code = 2;
+  string country_name = 3;
+  int64 value_minor = 4;
+  double percentage = 5;
+}
+
+message CurrencyExposure {
+  string currency = 1;
+  bool is_hedged = 2;
+  int64 value_minor = 3;
+  double percentage = 4;
+  int64 fx_impact_5pct_minor = 5;
+}
+
+message GetGeoRadarResponse {
+  repeated GeoExposure regions = 1;
+  repeated GeoExposure countries = 2;
+  repeated CurrencyExposure currencies = 3;
+  repeated Diagnostic diagnostics = 4;
+  double current_eur_usd_rate = 5;
 }

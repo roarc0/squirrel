@@ -92,3 +92,55 @@ export const GetSummaryResponse = /*@__PURE__*/ proto3.makeMessageType(
   ],
 );
 
+/**
+ * @generated from message v1.GetGeoRadarRequest
+ */
+export const GetGeoRadarRequest = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.GetGeoRadarRequest",
+  () => [
+    { no: 1, name: "include_cash", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+  ],
+);
+
+/**
+ * @generated from message v1.GeoExposure
+ */
+export const GeoExposure = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.GeoExposure",
+  () => [
+    { no: 1, name: "region", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "country_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "country_name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "value_minor", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 5, name: "percentage", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+  ],
+);
+
+/**
+ * @generated from message v1.CurrencyExposure
+ */
+export const CurrencyExposure = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.CurrencyExposure",
+  () => [
+    { no: 1, name: "currency", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "is_hedged", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 3, name: "value_minor", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 4, name: "percentage", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 5, name: "fx_impact_5pct_minor", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+  ],
+);
+
+/**
+ * @generated from message v1.GetGeoRadarResponse
+ */
+export const GetGeoRadarResponse = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.GetGeoRadarResponse",
+  () => [
+    { no: 1, name: "regions", kind: "message", T: GeoExposure, repeated: true },
+    { no: 2, name: "countries", kind: "message", T: GeoExposure, repeated: true },
+    { no: 3, name: "currencies", kind: "message", T: CurrencyExposure, repeated: true },
+    { no: 4, name: "diagnostics", kind: "message", T: Diagnostic, repeated: true },
+    { no: 5, name: "current_eur_usd_rate", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+  ],
+);
+

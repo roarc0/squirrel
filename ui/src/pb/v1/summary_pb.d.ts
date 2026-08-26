@@ -295,3 +295,159 @@ export declare class GetSummaryResponse extends Message<GetSummaryResponse> {
   static equals(a: GetSummaryResponse | PlainMessage<GetSummaryResponse> | undefined, b: GetSummaryResponse | PlainMessage<GetSummaryResponse> | undefined): boolean;
 }
 
+/**
+ * @generated from message v1.GetGeoRadarRequest
+ */
+export declare class GetGeoRadarRequest extends Message<GetGeoRadarRequest> {
+  /**
+   * @generated from field: optional bool include_cash = 1;
+   */
+  includeCash?: boolean;
+
+  constructor(data?: PartialMessage<GetGeoRadarRequest>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.GetGeoRadarRequest";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetGeoRadarRequest;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetGeoRadarRequest;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetGeoRadarRequest;
+
+  static equals(a: GetGeoRadarRequest | PlainMessage<GetGeoRadarRequest> | undefined, b: GetGeoRadarRequest | PlainMessage<GetGeoRadarRequest> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.GeoExposure
+ */
+export declare class GeoExposure extends Message<GeoExposure> {
+  /**
+   * @generated from field: string region = 1;
+   */
+  region: string;
+
+  /**
+   * @generated from field: string country_code = 2;
+   */
+  countryCode: string;
+
+  /**
+   * @generated from field: string country_name = 3;
+   */
+  countryName: string;
+
+  /**
+   * @generated from field: int64 value_minor = 4;
+   */
+  valueMinor: bigint;
+
+  /**
+   * @generated from field: double percentage = 5;
+   */
+  percentage: number;
+
+  constructor(data?: PartialMessage<GeoExposure>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.GeoExposure";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GeoExposure;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GeoExposure;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GeoExposure;
+
+  static equals(a: GeoExposure | PlainMessage<GeoExposure> | undefined, b: GeoExposure | PlainMessage<GeoExposure> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.CurrencyExposure
+ */
+export declare class CurrencyExposure extends Message<CurrencyExposure> {
+  /**
+   * @generated from field: string currency = 1;
+   */
+  currency: string;
+
+  /**
+   * @generated from field: bool is_hedged = 2;
+   */
+  isHedged: boolean;
+
+  /**
+   * @generated from field: int64 value_minor = 3;
+   */
+  valueMinor: bigint;
+
+  /**
+   * @generated from field: double percentage = 4;
+   */
+  percentage: number;
+
+  /**
+   * @generated from field: int64 fx_impact_5pct_minor = 5;
+   */
+  fxImpact5pctMinor: bigint;
+
+  constructor(data?: PartialMessage<CurrencyExposure>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.CurrencyExposure";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CurrencyExposure;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): CurrencyExposure;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): CurrencyExposure;
+
+  static equals(a: CurrencyExposure | PlainMessage<CurrencyExposure> | undefined, b: CurrencyExposure | PlainMessage<CurrencyExposure> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.GetGeoRadarResponse
+ */
+export declare class GetGeoRadarResponse extends Message<GetGeoRadarResponse> {
+  /**
+   * @generated from field: repeated v1.GeoExposure regions = 1;
+   */
+  regions: GeoExposure[];
+
+  /**
+   * @generated from field: repeated v1.GeoExposure countries = 2;
+   */
+  countries: GeoExposure[];
+
+  /**
+   * @generated from field: repeated v1.CurrencyExposure currencies = 3;
+   */
+  currencies: CurrencyExposure[];
+
+  /**
+   * @generated from field: repeated v1.Diagnostic diagnostics = 4;
+   */
+  diagnostics: Diagnostic[];
+
+  /**
+   * @generated from field: double current_eur_usd_rate = 5;
+   */
+  currentEurUsdRate: number;
+
+  constructor(data?: PartialMessage<GetGeoRadarResponse>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.GetGeoRadarResponse";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetGeoRadarResponse;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetGeoRadarResponse;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetGeoRadarResponse;
+
+  static equals(a: GetGeoRadarResponse | PlainMessage<GetGeoRadarResponse> | undefined, b: GetGeoRadarResponse | PlainMessage<GetGeoRadarResponse> | undefined): boolean;
+}
+

@@ -13,6 +13,7 @@ export type UserProfile = {
   instrument_columns_json: string;
   show_fire_calculator: boolean;
   enable_btp_ranks: boolean;
+  user_description: string;
 };
 
 const DEFAULTS: UserProfile = {
@@ -26,6 +27,7 @@ const DEFAULTS: UserProfile = {
   instrument_columns_json: '',
   show_fire_calculator: false,
   enable_btp_ranks: false,
+  user_description: '',
 };
 
 let _profile: UserProfile = { ...DEFAULTS };
@@ -51,6 +53,7 @@ export async function loadProfile(): Promise<void> {
       instrument_columns_json: p.instrumentColumnsJson ?? '',
       show_fire_calculator: Boolean(p.showFireCalculator),
       enable_btp_ranks: Boolean(p.enableBtpRanks),
+      user_description: p.userDescription ?? '',
     };
   } catch {
     // Fall back to localStorage values already set before auth
@@ -98,6 +101,7 @@ export function updateProfile(patch: Partial<UserProfile>): void {
         instrumentColumnsJson: _profile.instrument_columns_json,
         showFireCalculator: _profile.show_fire_calculator,
         enableBtpRanks: _profile.enable_btp_ranks,
+        userDescription: _profile.user_description,
       },
     }).catch(() => { /* best-effort */ });
   }, 600);
