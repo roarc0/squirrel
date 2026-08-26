@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"squirrel/backend/internal/portfolio"
+	"github.com/roarc0/squirrel/backend/internal/portfolio"
 )
 
 func TestProfileRequestsAreRateLimited(t *testing.T) {

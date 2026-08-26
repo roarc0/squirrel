@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	"squirrel/backend/internal/config"
-	"squirrel/backend/internal/service"
-	"squirrel/backend/internal/store"
+	"github.com/roarc0/squirrel/backend/internal/config"
+	"github.com/roarc0/squirrel/backend/internal/service"
+	"github.com/roarc0/squirrel/backend/internal/store"
 )
 
 var version = "dev"

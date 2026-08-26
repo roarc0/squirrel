@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { compactMoney, setHideBalancesState } from './utils/format.ts';
-import { chartGeometry, chipColor, filterChartRange, matchesExactFilters, nearestChartIndex, pageBounds, performanceMood } from './visual.ts';
+import { chartGeometry, chartTickIndexes, chipColor, filterChartRange, matchesExactFilters, nearestChartIndex, pageBounds, performanceMood } from './visual.ts';
 
 test('financial labels use semantic colors and unknown labels stay stable', () => {
   assert.equal(chipColor('Cash'), 'teal');
@@ -20,6 +20,7 @@ test('chart geometry stays finite for a flat series', () => {
   assert.ok(geometry.points.every(point => Number.isFinite(point.x) && Number.isFinite(point.y)));
   assert.ok(geometry.high > geometry.low);
   assert.equal(chartGeometry([100]).points[0].x, 407);
+  assert.ok(chartGeometry([-1, 1], undefined, false).low < 0);
 });
 
 test('chart ranges use the latest snapshot as their endpoint', () => {
@@ -44,6 +45,11 @@ test('chart hover snaps to the nearest visible snapshot', () => {
   assert.equal(nearestChartIndex(407, 1), 0);
 });
 
+test('chart ticks spread labels across the visible range', () => {
+  assert.deepEqual(chartTickIndexes(12), [0, 2, 4, 6, 7, 9, 11]);
+  assert.deepEqual(chartTickIndexes(1), [0]);
+});
+
 test('pagination caps pages at one hundred rows', () => {
   assert.deepEqual(pageBounds(120, 2), { current: 2, pages: 3, start: 50, end: 100 });
   assert.deepEqual(pageBounds(250, 2, 500), { current: 2, pages: 3, start: 100, end: 200 });
@@ -55,3 +61,14 @@ test('catalog filters combine exact column values', () => {
   assert.equal(matchesExactFilters(values, { issuer: 'Vanguard', type: '', ucits: 'true' }), true);
   assert.equal(matchesExactFilters(values, { issuer: 'iShares', type: '', ucits: '' }), false);
 });
+
+test('inflation chart geometry scales negative and positive values correctly', () => {
+  const values = [-0.5, 0.0, 1.5, 3.2];
+  const geom = chartGeometry(values, values, false);
+  assert.ok(geom.low < -0.5);
+  assert.ok(geom.high > 3.2);
+  const zeroRatio = (geom.high - 0) / (geom.high - geom.low);
+  const zeroY = 24 + zeroRatio * 196;
+  assert.ok(zeroY > 24 && zeroY < 220);
+});
+

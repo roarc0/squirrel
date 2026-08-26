@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"squirrel/backend/internal/portfolio"
+	"github.com/roarc0/squirrel/backend/internal/portfolio"
 )
 
 func TestExportAndRestoreBackup(t *testing.T) {

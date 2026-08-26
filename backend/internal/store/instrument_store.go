@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"squirrel/backend/internal/portfolio"
+	"github.com/roarc0/squirrel/backend/internal/portfolio"
 )
 
 var ErrNotFound = errors.New("record not found")

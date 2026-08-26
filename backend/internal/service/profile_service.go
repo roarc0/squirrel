@@ -6,9 +6,9 @@ import (
 
 	"connectrpc.com/connect"
 
-	"squirrel/backend/internal/auth"
-	"squirrel/backend/internal/store"
-	portv1 "squirrel/proto/gen/go/v1"
+	"github.com/roarc0/squirrel/backend/internal/auth"
+	"github.com/roarc0/squirrel/backend/internal/store"
+	portv1 "github.com/roarc0/squirrel/proto/gen/go/v1"
 )
 
 func (s *Server) GetProfile(ctx context.Context, _ *connect.Request[portv1.GetProfileRequest]) (*connect.Response[portv1.GetProfileResponse], error) {

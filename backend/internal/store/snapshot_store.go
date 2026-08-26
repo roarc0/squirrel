@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"squirrel/backend/internal/portfolio"
+	"github.com/roarc0/squirrel/backend/internal/portfolio"
 )
 
 func (s *Store) SaveSnapshot(ctx context.Context, observedOn string, userID string) error {

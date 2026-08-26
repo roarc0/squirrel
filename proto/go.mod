@@ -1,4 +1,4 @@
-module squirrel/proto
+module github.com/roarc0/squirrel/proto
 
 go 1.26.6
 

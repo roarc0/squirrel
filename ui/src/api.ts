@@ -44,6 +44,32 @@ export type ReferenceRate = {
   updated_at?: string;
 };
 
+export type MarketMetric = {
+  code: string;
+  label: string;
+  category: string;
+  value: number;
+  unit: string;
+  observed_on: string;
+  source_url: string;
+};
+
+export type MarketObservation = { code: string; observed_on: string; value: number };
+
+export type InflationRange = '1y' | '3y' | '5y' | 'max';
+
+export type MarketContext = { metrics: MarketMetric[]; observations: MarketObservation[]; warnings: string[] };
+
+function protoToReferenceRate(rate: any): ReferenceRate {
+  return {
+    code: rate.code,
+    label: rate.label,
+    rate_bps: num(rate.rateBps),
+    observed_on: rate.observedOn,
+    updated_at: optStr(rate.updatedAt),
+  };
+}
+
 export type TaxRate = { code: string; label: string; rate_bps: number };
 
 export type InterestTier = {
@@ -437,13 +463,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   // Reference Rates & Tax Rates
   if (path === '/api/reference-rates') {
     const res = await rateClient.listReferenceRates({});
-    return (res.rates ?? []).map((r: any) => ({
-      code: r.code,
-      label: r.label,
-      rate_bps: num(r.rateBps),
-      observed_on: r.observedOn,
-      updated_at: optStr(r.updatedAt),
-    })) as unknown as T;
+    return (res.rates ?? []).map(protoToReferenceRate) as unknown as T;
   }
 
   if (path === '/api/tax-rates') {
@@ -667,6 +687,32 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   throw new Error(`Unhandled Connect API call: ${method} ${path}`);
+}
+
+export async function refreshReferenceRates(): Promise<ReferenceRate[]> {
+  const res = await rateClient.refreshReferenceRates({});
+  return (res.rates ?? []).map(protoToReferenceRate);
+}
+
+export async function getMarketContext(inflationRange: InflationRange = '1y'): Promise<MarketContext> {
+  const res = await rateClient.getMarketContext({ inflationRange });
+  return {
+    metrics: (res.metrics ?? []).map((metric: any) => ({
+      code: metric.code,
+      label: metric.label,
+      category: metric.category,
+      value: Number(metric.value),
+      unit: metric.unit,
+      observed_on: metric.observedOn,
+      source_url: metric.sourceUrl,
+    })),
+    observations: (res.observations ?? []).map((observation: any) => ({
+      code: observation.code,
+      observed_on: observation.observedOn,
+      value: Number(observation.value),
+    })),
+    warnings: res.warnings ?? [],
+  };
 }
 
 export async function updateSituation(params: {

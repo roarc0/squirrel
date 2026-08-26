@@ -191,6 +191,197 @@ export declare class UpdateReferenceRateResponse extends Message<UpdateReference
 }
 
 /**
+ * @generated from message v1.RefreshReferenceRatesRequest
+ */
+export declare class RefreshReferenceRatesRequest extends Message<RefreshReferenceRatesRequest> {
+  constructor(data?: PartialMessage<RefreshReferenceRatesRequest>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.RefreshReferenceRatesRequest";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RefreshReferenceRatesRequest;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RefreshReferenceRatesRequest;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RefreshReferenceRatesRequest;
+
+  static equals(a: RefreshReferenceRatesRequest | PlainMessage<RefreshReferenceRatesRequest> | undefined, b: RefreshReferenceRatesRequest | PlainMessage<RefreshReferenceRatesRequest> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.RefreshReferenceRatesResponse
+ */
+export declare class RefreshReferenceRatesResponse extends Message<RefreshReferenceRatesResponse> {
+  /**
+   * @generated from field: repeated v1.ReferenceRate rates = 1;
+   */
+  rates: ReferenceRate[];
+
+  constructor(data?: PartialMessage<RefreshReferenceRatesResponse>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.RefreshReferenceRatesResponse";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RefreshReferenceRatesResponse;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RefreshReferenceRatesResponse;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RefreshReferenceRatesResponse;
+
+  static equals(a: RefreshReferenceRatesResponse | PlainMessage<RefreshReferenceRatesResponse> | undefined, b: RefreshReferenceRatesResponse | PlainMessage<RefreshReferenceRatesResponse> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.MarketMetric
+ */
+export declare class MarketMetric extends Message<MarketMetric> {
+  /**
+   * @generated from field: string code = 1;
+   */
+  code: string;
+
+  /**
+   * @generated from field: string label = 2;
+   */
+  label: string;
+
+  /**
+   * @generated from field: string category = 3;
+   */
+  category: string;
+
+  /**
+   * @generated from field: double value = 4;
+   */
+  value: number;
+
+  /**
+   * @generated from field: string unit = 5;
+   */
+  unit: string;
+
+  /**
+   * @generated from field: string observed_on = 6;
+   */
+  observedOn: string;
+
+  /**
+   * @generated from field: string source_url = 7;
+   */
+  sourceUrl: string;
+
+  constructor(data?: PartialMessage<MarketMetric>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.MarketMetric";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): MarketMetric;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): MarketMetric;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): MarketMetric;
+
+  static equals(a: MarketMetric | PlainMessage<MarketMetric> | undefined, b: MarketMetric | PlainMessage<MarketMetric> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.MarketObservation
+ */
+export declare class MarketObservation extends Message<MarketObservation> {
+  /**
+   * @generated from field: string code = 1;
+   */
+  code: string;
+
+  /**
+   * @generated from field: string observed_on = 2;
+   */
+  observedOn: string;
+
+  /**
+   * @generated from field: double value = 3;
+   */
+  value: number;
+
+  constructor(data?: PartialMessage<MarketObservation>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.MarketObservation";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): MarketObservation;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): MarketObservation;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): MarketObservation;
+
+  static equals(a: MarketObservation | PlainMessage<MarketObservation> | undefined, b: MarketObservation | PlainMessage<MarketObservation> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.GetMarketContextRequest
+ */
+export declare class GetMarketContextRequest extends Message<GetMarketContextRequest> {
+  /**
+   * Inflation history to return: "1y", "3y", "5y", or "max". Defaults to "1y".
+   *
+   * @generated from field: string inflation_range = 1;
+   */
+  inflationRange: string;
+
+  constructor(data?: PartialMessage<GetMarketContextRequest>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.GetMarketContextRequest";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetMarketContextRequest;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetMarketContextRequest;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetMarketContextRequest;
+
+  static equals(a: GetMarketContextRequest | PlainMessage<GetMarketContextRequest> | undefined, b: GetMarketContextRequest | PlainMessage<GetMarketContextRequest> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.GetMarketContextResponse
+ */
+export declare class GetMarketContextResponse extends Message<GetMarketContextResponse> {
+  /**
+   * @generated from field: repeated v1.MarketMetric metrics = 1;
+   */
+  metrics: MarketMetric[];
+
+  /**
+   * @generated from field: repeated string warnings = 2;
+   */
+  warnings: string[];
+
+  /**
+   * @generated from field: repeated v1.MarketObservation observations = 3;
+   */
+  observations: MarketObservation[];
+
+  constructor(data?: PartialMessage<GetMarketContextResponse>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.GetMarketContextResponse";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetMarketContextResponse;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetMarketContextResponse;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetMarketContextResponse;
+
+  static equals(a: GetMarketContextResponse | PlainMessage<GetMarketContextResponse> | undefined, b: GetMarketContextResponse | PlainMessage<GetMarketContextResponse> | undefined): boolean;
+}
+
+/**
  * @generated from message v1.ListTaxRatesRequest
  */
 export declare class ListTaxRatesRequest extends Message<ListTaxRatesRequest> {

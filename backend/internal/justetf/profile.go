@@ -15,7 +15,7 @@ import (
 
 	"golang.org/x/net/html"
 
-	"squirrel/backend/internal/portfolio"
+	"github.com/roarc0/squirrel/backend/internal/portfolio"
 )
 
 var numberPattern = regexp.MustCompile(`[0-9]+(?:[,.][0-9]+)*`)

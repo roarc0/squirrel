@@ -8,7 +8,7 @@ import (
 
 	"github.com/pressly/goose/v3"
 
-	"squirrel/backend/internal/portfolio"
+	"github.com/roarc0/squirrel/backend/internal/portfolio"
 )
 
 func TestStoreRoundTrip(t *testing.T) {

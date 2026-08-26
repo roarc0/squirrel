@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"squirrel/backend/internal/portfolio"
+	"github.com/roarc0/squirrel/backend/internal/portfolio"
 )
 
 const backupVersion = 1

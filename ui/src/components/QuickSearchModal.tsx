@@ -27,6 +27,7 @@ import {
   IconRefresh,
   IconArrowRight,
   IconSparkles,
+  IconActivity,
 } from '@tabler/icons-react';
 import type { Account, Instrument, BtpBond } from '../api';
 import { copyToClipboard } from '../utils/copyToClipboard';
@@ -144,6 +145,17 @@ export function QuickSearchModal({
         icon: <IconFileCertificate size={18} color="var(--mantine-color-blue-6)" />,
         onSelect: () => {
           onSwitchTab('btp');
+          onClose();
+        },
+      },
+      {
+        id: 'nav-market',
+        category: 'Navigation',
+        title: 'Market Context',
+        subtitle: 'ECB rates, €STR, inflation, deposit benchmarks, and sovereign yields',
+        icon: <IconActivity size={18} color="var(--mantine-color-blue-6)" />,
+        onSelect: () => {
+          onSwitchTab('market');
           onClose();
         },
       },

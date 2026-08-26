@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"squirrel/backend/internal/portfolio"
+	"github.com/roarc0/squirrel/backend/internal/portfolio"
 )
 
 var (

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package v1;
 
-option go_package = "squirrel/proto/gen/go/v1;portv1";
+option go_package = "github.com/roarc0/squirrel/proto/gen/go/v1;portv1";
 
 // ReferenceRate defines central bank benchmark rates (e.g., €STR, ECB Deposit Facility Rate).
 message ReferenceRate {
@@ -40,6 +40,39 @@ message UpdateReferenceRateRequest {
 
 message UpdateReferenceRateResponse {}
 
+message RefreshReferenceRatesRequest {}
+
+message RefreshReferenceRatesResponse {
+  repeated ReferenceRate rates = 1;
+}
+
+message MarketMetric {
+  string code = 1;
+  string label = 2;
+  string category = 3;
+  double value = 4;
+  string unit = 5;
+  string observed_on = 6;
+  string source_url = 7;
+}
+
+message MarketObservation {
+  string code = 1;
+  string observed_on = 2;
+  double value = 3;
+}
+
+message GetMarketContextRequest {
+  // Inflation history to return: "1y", "3y", "5y", or "max". Defaults to "1y".
+  string inflation_range = 1;
+}
+
+message GetMarketContextResponse {
+  repeated MarketMetric metrics = 1;
+  repeated string warnings = 2;
+  repeated MarketObservation observations = 3;
+}
+
 message ListTaxRatesRequest {}
 
 message ListTaxRatesResponse {
@@ -52,6 +85,10 @@ service RateService {
   rpc ListReferenceRates(ListReferenceRatesRequest) returns (ListReferenceRatesResponse);
   // Update a central bank reference rate value.
   rpc UpdateReferenceRate(UpdateReferenceRateRequest) returns (UpdateReferenceRateResponse);
+  // Fetch the latest official key interest rates from the ECB.
+  rpc RefreshReferenceRates(RefreshReferenceRatesRequest) returns (RefreshReferenceRatesResponse);
+  // Fetch current public market and economic benchmarks from the ECB.
+  rpc GetMarketContext(GetMarketContextRequest) returns (GetMarketContextResponse);
   // List default jurisdiction tax rates.
   rpc ListTaxRates(ListTaxRatesRequest) returns (ListTaxRatesResponse);
 }

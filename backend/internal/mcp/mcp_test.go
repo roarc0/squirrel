@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"squirrel/backend/internal/mcp"
+	"github.com/roarc0/squirrel/backend/internal/mcp"
 )
 
 type dummyHandler struct{}

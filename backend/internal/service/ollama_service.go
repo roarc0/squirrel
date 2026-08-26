@@ -19,8 +19,8 @@ import (
 
 	"connectrpc.com/connect"
 
-	"squirrel/backend/internal/config"
-	portv1 "squirrel/proto/gen/go/v1"
+	"github.com/roarc0/squirrel/backend/internal/config"
+	portv1 "github.com/roarc0/squirrel/proto/gen/go/v1"
 )
 
 var activeDownloads sync.Map // map[string]int32

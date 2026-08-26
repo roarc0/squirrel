@@ -8,9 +8,9 @@ import (
 
 	"connectrpc.com/connect"
 
-	"squirrel/backend/internal/auth"
-	"squirrel/backend/internal/portfolio"
-	portv1 "squirrel/proto/gen/go/v1"
+	"github.com/roarc0/squirrel/backend/internal/auth"
+	"github.com/roarc0/squirrel/backend/internal/portfolio"
+	portv1 "github.com/roarc0/squirrel/proto/gen/go/v1"
 )
 
 func (s *Server) ListSnapshots(ctx context.Context, req *connect.Request[portv1.ListSnapshotsRequest]) (*connect.Response[portv1.ListSnapshotsResponse], error) {

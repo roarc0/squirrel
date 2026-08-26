@@ -1,8 +1,8 @@
 package service
 
 import (
-	"squirrel/backend/internal/portfolio"
-	portv1 "squirrel/proto/gen/go/v1"
+	"github.com/roarc0/squirrel/backend/internal/portfolio"
+	portv1 "github.com/roarc0/squirrel/proto/gen/go/v1"
 )
 
 func snapshotToProto(s portfolio.Snapshot) *portv1.Snapshot {

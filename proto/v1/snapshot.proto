@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package v1;
 
-option go_package = "squirrel/proto/gen/go/v1;portv1";
+option go_package = "github.com/roarc0/squirrel/proto/gen/go/v1;portv1";
 
 // Snapshot represents a historical point-in-time wealth snapshot.
 message Snapshot {

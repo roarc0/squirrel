@@ -80,11 +80,13 @@ import { DiagnosticsView } from './views/DiagnosticsView';
 import { AIConsultantView } from './views/AIConsultantView';
 import { DraftPortfoliosView } from './views/DraftPortfoliosView';
 import { BtpRankView } from './views/BtpRankView';
+import { MarketContextView } from './views/MarketContextView';
 import { QuickSearchModal } from './components/QuickSearchModal';
 import { chartGeometry, matchesExactFilters, pageBounds, performanceMood } from './visual';
 
 type Data = { summary: Summary; accounts: Account[]; rates: ReferenceRate[]; taxRates: TaxRate[]; instruments: Instrument[]; holdings: Holding[]; snapshots: Snapshot[] };
 type Numeric = string | number;
+const normalizeTab = (tab: string | null) => tab === 'holdings' ? 'investments' : tab === 'advisor' ? 'consultant' : tab === 'rates' ? 'market' : tab;
 import { money, investedMoney, setHideBalancesState } from './utils/format';
 import { captureTokenFromURL, clearToken, fetchMe, isUnauthenticatedError, type AuthUser } from './auth';
 import { LoginView } from './LoginView';
@@ -305,12 +307,12 @@ export default function App() {
   const [updateModalOpened, setUpdateModalOpened] = useState(false);
   const [quickSearchOpened, setQuickSearchOpened] = useState(false);
 
-  const VALID_TABS = ['overview', 'accounts', 'investments', 'holdings', 'drafts', 'instruments', 'diagnostics', 'consultant', 'advisor', 'btp', 'settings'];
+  const VALID_TABS = ['overview', 'accounts', 'investments', 'drafts', 'instruments', 'market', 'diagnostics', 'consultant', 'btp', 'settings'];
 
   const [activeTab, setActiveTab] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
     const rawTab = params.get('tab');
-    const urlTab = rawTab === 'holdings' ? 'investments' : rawTab === 'advisor' ? 'consultant' : rawTab;
+    const urlTab = normalizeTab(rawTab);
     if (urlTab && VALID_TABS.includes(urlTab)) {
       return urlTab;
     }
@@ -319,7 +321,7 @@ export default function App() {
     }
     try {
       const saved = localStorage.getItem('squirrel.activeTab');
-      const normSaved = saved === 'holdings' ? 'investments' : saved === 'advisor' ? 'consultant' : saved;
+      const normSaved = normalizeTab(saved);
       if (normSaved && VALID_TABS.includes(normSaved)) {
         return normSaved;
       }
@@ -345,7 +347,7 @@ export default function App() {
   useEffect(() => {
     const handlePopState = () => {
       const params = new URLSearchParams(window.location.search);
-      const tab = params.get('tab') || 'overview';
+      const tab = normalizeTab(params.get('tab')) || 'overview';
       if (VALID_TABS.includes(tab)) {
         setActiveTab(tab);
       }
@@ -568,6 +570,9 @@ export default function App() {
           <Tabs.Tab value="instruments" leftSection={<IconSearch size={16} />}>
             Instruments
           </Tabs.Tab>
+          <Tabs.Tab value="market" leftSection={<IconActivity size={16} />}>
+            Market Context
+          </Tabs.Tab>
           <Tabs.Tab value="consultant" leftSection={<IconRobot size={16} />}>
             AI Consultant
           </Tabs.Tab>
@@ -590,6 +595,7 @@ export default function App() {
           />
         </Tabs.Panel>
         <Tabs.Panel value="instruments" className="tab-content"><InstrumentFinder instruments={data.instruments} reload={load} /></Tabs.Panel>
+        <Tabs.Panel value="market" className="tab-content"><MarketContextView rates={data.rates} reload={load} /></Tabs.Panel>
         <Tabs.Panel value="diagnostics" className="tab-content">
           <DiagnosticsTab
             diagnostics={data.summary.diagnostics ?? []}

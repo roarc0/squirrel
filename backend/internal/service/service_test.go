@@ -8,12 +8,12 @@ import (
 
 	"connectrpc.com/connect"
 
-	"squirrel/backend/internal/auth"
-	"squirrel/backend/internal/config"
-	"squirrel/backend/internal/portfolio"
-	"squirrel/backend/internal/store"
-	portv1 "squirrel/proto/gen/go/v1"
-	"squirrel/proto/gen/go/v1/portv1connect"
+	"github.com/roarc0/squirrel/backend/internal/auth"
+	"github.com/roarc0/squirrel/backend/internal/config"
+	"github.com/roarc0/squirrel/backend/internal/portfolio"
+	"github.com/roarc0/squirrel/backend/internal/store"
+	portv1 "github.com/roarc0/squirrel/proto/gen/go/v1"
+	"github.com/roarc0/squirrel/proto/gen/go/v1/portv1connect"
 )
 
 func TestSortSlice(t *testing.T) {
@@ -27,6 +27,18 @@ func TestSortSlice(t *testing.T) {
 	}
 	if err := sortSlice("unsafe:asc", rows, map[string]func(row, row) int{}); err == nil {
 		t.Fatal("unknown sort column should fail")
+	}
+}
+
+func TestInflationObservationCount(t *testing.T) {
+	for historyRange, want := range map[string]int{"": 12, "1y": 12, "3y": 36, "5y": 60, "max": 0} {
+		got, err := inflationObservationCount(historyRange)
+		if err != nil || got != want {
+			t.Fatalf("range %q: got %d, %v; want %d", historyRange, got, err, want)
+		}
+	}
+	if _, err := inflationObservationCount("10y"); err == nil {
+		t.Fatal("unsupported range should fail")
 	}
 }
 

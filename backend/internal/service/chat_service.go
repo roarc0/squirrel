@@ -14,7 +14,7 @@ import (
 
 	"connectrpc.com/connect"
 
-	portv1 "squirrel/proto/gen/go/v1"
+	portv1 "github.com/roarc0/squirrel/proto/gen/go/v1"
 )
 
 const maxAIContextSize int32 = 1 << 20

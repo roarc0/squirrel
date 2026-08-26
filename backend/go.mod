@@ -1,4 +1,4 @@
-module squirrel/backend
+module github.com/roarc0/squirrel/backend
 
 go 1.26.6
 
@@ -12,8 +12,8 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5
 	golang.org/x/net v0.57.0
 	google.golang.org/protobuf v1.36.11
-	squirrel/proto v0.0.0
-	squirrel/ui v0.0.0
+	github.com/roarc0/squirrel/proto v0.0.0
+	github.com/roarc0/squirrel/ui v0.0.0
 	modernc.org/sqlite v1.54.0
 )
 
@@ -36,6 +36,6 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 )
 
-replace squirrel/proto => ../proto
+replace github.com/roarc0/squirrel/proto => ../proto
 
-replace squirrel/ui => ../ui
+replace github.com/roarc0/squirrel/ui => ../ui

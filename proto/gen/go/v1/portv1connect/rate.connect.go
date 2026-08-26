@@ -8,8 +8,8 @@ import (
 	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
+	v1 "github.com/roarc0/squirrel/proto/gen/go/v1"
 	http "net/http"
-	v1 "squirrel/proto/gen/go/v1"
 	strings "strings"
 )
 
@@ -39,6 +39,12 @@ const (
 	// RateServiceUpdateReferenceRateProcedure is the fully-qualified name of the RateService's
 	// UpdateReferenceRate RPC.
 	RateServiceUpdateReferenceRateProcedure = "/v1.RateService/UpdateReferenceRate"
+	// RateServiceRefreshReferenceRatesProcedure is the fully-qualified name of the RateService's
+	// RefreshReferenceRates RPC.
+	RateServiceRefreshReferenceRatesProcedure = "/v1.RateService/RefreshReferenceRates"
+	// RateServiceGetMarketContextProcedure is the fully-qualified name of the RateService's
+	// GetMarketContext RPC.
+	RateServiceGetMarketContextProcedure = "/v1.RateService/GetMarketContext"
 	// RateServiceListTaxRatesProcedure is the fully-qualified name of the RateService's ListTaxRates
 	// RPC.
 	RateServiceListTaxRatesProcedure = "/v1.RateService/ListTaxRates"
@@ -50,6 +56,10 @@ type RateServiceClient interface {
 	ListReferenceRates(context.Context, *connect.Request[v1.ListReferenceRatesRequest]) (*connect.Response[v1.ListReferenceRatesResponse], error)
 	// Update a central bank reference rate value.
 	UpdateReferenceRate(context.Context, *connect.Request[v1.UpdateReferenceRateRequest]) (*connect.Response[v1.UpdateReferenceRateResponse], error)
+	// Fetch the latest official key interest rates from the ECB.
+	RefreshReferenceRates(context.Context, *connect.Request[v1.RefreshReferenceRatesRequest]) (*connect.Response[v1.RefreshReferenceRatesResponse], error)
+	// Fetch current public market and economic benchmarks from the ECB.
+	GetMarketContext(context.Context, *connect.Request[v1.GetMarketContextRequest]) (*connect.Response[v1.GetMarketContextResponse], error)
 	// List default jurisdiction tax rates.
 	ListTaxRates(context.Context, *connect.Request[v1.ListTaxRatesRequest]) (*connect.Response[v1.ListTaxRatesResponse], error)
 }
@@ -77,6 +87,18 @@ func NewRateServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(rateServiceMethods.ByName("UpdateReferenceRate")),
 			connect.WithClientOptions(opts...),
 		),
+		refreshReferenceRates: connect.NewClient[v1.RefreshReferenceRatesRequest, v1.RefreshReferenceRatesResponse](
+			httpClient,
+			baseURL+RateServiceRefreshReferenceRatesProcedure,
+			connect.WithSchema(rateServiceMethods.ByName("RefreshReferenceRates")),
+			connect.WithClientOptions(opts...),
+		),
+		getMarketContext: connect.NewClient[v1.GetMarketContextRequest, v1.GetMarketContextResponse](
+			httpClient,
+			baseURL+RateServiceGetMarketContextProcedure,
+			connect.WithSchema(rateServiceMethods.ByName("GetMarketContext")),
+			connect.WithClientOptions(opts...),
+		),
 		listTaxRates: connect.NewClient[v1.ListTaxRatesRequest, v1.ListTaxRatesResponse](
 			httpClient,
 			baseURL+RateServiceListTaxRatesProcedure,
@@ -88,9 +110,11 @@ func NewRateServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 
 // rateServiceClient implements RateServiceClient.
 type rateServiceClient struct {
-	listReferenceRates  *connect.Client[v1.ListReferenceRatesRequest, v1.ListReferenceRatesResponse]
-	updateReferenceRate *connect.Client[v1.UpdateReferenceRateRequest, v1.UpdateReferenceRateResponse]
-	listTaxRates        *connect.Client[v1.ListTaxRatesRequest, v1.ListTaxRatesResponse]
+	listReferenceRates    *connect.Client[v1.ListReferenceRatesRequest, v1.ListReferenceRatesResponse]
+	updateReferenceRate   *connect.Client[v1.UpdateReferenceRateRequest, v1.UpdateReferenceRateResponse]
+	refreshReferenceRates *connect.Client[v1.RefreshReferenceRatesRequest, v1.RefreshReferenceRatesResponse]
+	getMarketContext      *connect.Client[v1.GetMarketContextRequest, v1.GetMarketContextResponse]
+	listTaxRates          *connect.Client[v1.ListTaxRatesRequest, v1.ListTaxRatesResponse]
 }
 
 // ListReferenceRates calls v1.RateService.ListReferenceRates.
@@ -101,6 +125,16 @@ func (c *rateServiceClient) ListReferenceRates(ctx context.Context, req *connect
 // UpdateReferenceRate calls v1.RateService.UpdateReferenceRate.
 func (c *rateServiceClient) UpdateReferenceRate(ctx context.Context, req *connect.Request[v1.UpdateReferenceRateRequest]) (*connect.Response[v1.UpdateReferenceRateResponse], error) {
 	return c.updateReferenceRate.CallUnary(ctx, req)
+}
+
+// RefreshReferenceRates calls v1.RateService.RefreshReferenceRates.
+func (c *rateServiceClient) RefreshReferenceRates(ctx context.Context, req *connect.Request[v1.RefreshReferenceRatesRequest]) (*connect.Response[v1.RefreshReferenceRatesResponse], error) {
+	return c.refreshReferenceRates.CallUnary(ctx, req)
+}
+
+// GetMarketContext calls v1.RateService.GetMarketContext.
+func (c *rateServiceClient) GetMarketContext(ctx context.Context, req *connect.Request[v1.GetMarketContextRequest]) (*connect.Response[v1.GetMarketContextResponse], error) {
+	return c.getMarketContext.CallUnary(ctx, req)
 }
 
 // ListTaxRates calls v1.RateService.ListTaxRates.
@@ -114,6 +148,10 @@ type RateServiceHandler interface {
 	ListReferenceRates(context.Context, *connect.Request[v1.ListReferenceRatesRequest]) (*connect.Response[v1.ListReferenceRatesResponse], error)
 	// Update a central bank reference rate value.
 	UpdateReferenceRate(context.Context, *connect.Request[v1.UpdateReferenceRateRequest]) (*connect.Response[v1.UpdateReferenceRateResponse], error)
+	// Fetch the latest official key interest rates from the ECB.
+	RefreshReferenceRates(context.Context, *connect.Request[v1.RefreshReferenceRatesRequest]) (*connect.Response[v1.RefreshReferenceRatesResponse], error)
+	// Fetch current public market and economic benchmarks from the ECB.
+	GetMarketContext(context.Context, *connect.Request[v1.GetMarketContextRequest]) (*connect.Response[v1.GetMarketContextResponse], error)
 	// List default jurisdiction tax rates.
 	ListTaxRates(context.Context, *connect.Request[v1.ListTaxRatesRequest]) (*connect.Response[v1.ListTaxRatesResponse], error)
 }
@@ -137,6 +175,18 @@ func NewRateServiceHandler(svc RateServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(rateServiceMethods.ByName("UpdateReferenceRate")),
 		connect.WithHandlerOptions(opts...),
 	)
+	rateServiceRefreshReferenceRatesHandler := connect.NewUnaryHandler(
+		RateServiceRefreshReferenceRatesProcedure,
+		svc.RefreshReferenceRates,
+		connect.WithSchema(rateServiceMethods.ByName("RefreshReferenceRates")),
+		connect.WithHandlerOptions(opts...),
+	)
+	rateServiceGetMarketContextHandler := connect.NewUnaryHandler(
+		RateServiceGetMarketContextProcedure,
+		svc.GetMarketContext,
+		connect.WithSchema(rateServiceMethods.ByName("GetMarketContext")),
+		connect.WithHandlerOptions(opts...),
+	)
 	rateServiceListTaxRatesHandler := connect.NewUnaryHandler(
 		RateServiceListTaxRatesProcedure,
 		svc.ListTaxRates,
@@ -149,6 +199,10 @@ func NewRateServiceHandler(svc RateServiceHandler, opts ...connect.HandlerOption
 			rateServiceListReferenceRatesHandler.ServeHTTP(w, r)
 		case RateServiceUpdateReferenceRateProcedure:
 			rateServiceUpdateReferenceRateHandler.ServeHTTP(w, r)
+		case RateServiceRefreshReferenceRatesProcedure:
+			rateServiceRefreshReferenceRatesHandler.ServeHTTP(w, r)
+		case RateServiceGetMarketContextProcedure:
+			rateServiceGetMarketContextHandler.ServeHTTP(w, r)
 		case RateServiceListTaxRatesProcedure:
 			rateServiceListTaxRatesHandler.ServeHTTP(w, r)
 		default:
@@ -166,6 +220,14 @@ func (UnimplementedRateServiceHandler) ListReferenceRates(context.Context, *conn
 
 func (UnimplementedRateServiceHandler) UpdateReferenceRate(context.Context, *connect.Request[v1.UpdateReferenceRateRequest]) (*connect.Response[v1.UpdateReferenceRateResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.RateService.UpdateReferenceRate is not implemented"))
+}
+
+func (UnimplementedRateServiceHandler) RefreshReferenceRates(context.Context, *connect.Request[v1.RefreshReferenceRatesRequest]) (*connect.Response[v1.RefreshReferenceRatesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.RateService.RefreshReferenceRates is not implemented"))
+}
+
+func (UnimplementedRateServiceHandler) GetMarketContext(context.Context, *connect.Request[v1.GetMarketContextRequest]) (*connect.Response[v1.GetMarketContextResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.RateService.GetMarketContext is not implemented"))
 }
 
 func (UnimplementedRateServiceHandler) ListTaxRates(context.Context, *connect.Request[v1.ListTaxRatesRequest]) (*connect.Response[v1.ListTaxRatesResponse], error) {

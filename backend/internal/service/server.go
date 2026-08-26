@@ -18,15 +18,16 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
-	"squirrel/backend/internal/auth"
-	"squirrel/backend/internal/btp"
-	"squirrel/backend/internal/config"
-	"squirrel/backend/internal/justetf"
-	"squirrel/backend/internal/mcp"
-	"squirrel/backend/internal/portfolio"
-	"squirrel/backend/internal/store"
-	"squirrel/proto/gen/go/v1/portv1connect"
-	"squirrel/ui"
+	"github.com/roarc0/squirrel/backend/internal/auth"
+	"github.com/roarc0/squirrel/backend/internal/btp"
+	"github.com/roarc0/squirrel/backend/internal/config"
+	"github.com/roarc0/squirrel/backend/internal/ecb"
+	"github.com/roarc0/squirrel/backend/internal/justetf"
+	"github.com/roarc0/squirrel/backend/internal/mcp"
+	"github.com/roarc0/squirrel/backend/internal/portfolio"
+	"github.com/roarc0/squirrel/backend/internal/store"
+	"github.com/roarc0/squirrel/proto/gen/go/v1/portv1connect"
+	"github.com/roarc0/squirrel/ui"
 )
 
 type Server struct {
@@ -34,6 +35,7 @@ type Server struct {
 	config       config.Config
 	baseCurrency string
 	justETF      *justetf.Client
+	ecb          *ecb.Client
 	taxRates     []portfolio.TaxRate
 	mcpHandler   *mcp.Handler
 }
@@ -53,6 +55,7 @@ func NewWithConfig(data *store.Store, cfg config.Config, profileInterval ...time
 		config:       cfg,
 		baseCurrency: cfg.BaseCurrency,
 		justETF:      justetf.New(profileInterval...),
+		ecb:          ecb.New(),
 		taxRates:     cfg.TaxRates,
 	}
 

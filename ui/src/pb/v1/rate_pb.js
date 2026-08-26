@@ -72,6 +72,74 @@ export const UpdateReferenceRateResponse = /*@__PURE__*/ proto3.makeMessageType(
 );
 
 /**
+ * @generated from message v1.RefreshReferenceRatesRequest
+ */
+export const RefreshReferenceRatesRequest = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.RefreshReferenceRatesRequest",
+  [],
+);
+
+/**
+ * @generated from message v1.RefreshReferenceRatesResponse
+ */
+export const RefreshReferenceRatesResponse = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.RefreshReferenceRatesResponse",
+  () => [
+    { no: 1, name: "rates", kind: "message", T: ReferenceRate, repeated: true },
+  ],
+);
+
+/**
+ * @generated from message v1.MarketMetric
+ */
+export const MarketMetric = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.MarketMetric",
+  () => [
+    { no: 1, name: "code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "label", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "category", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "value", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 5, name: "unit", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "observed_on", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 7, name: "source_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ],
+);
+
+/**
+ * @generated from message v1.MarketObservation
+ */
+export const MarketObservation = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.MarketObservation",
+  () => [
+    { no: 1, name: "code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "observed_on", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "value", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+  ],
+);
+
+/**
+ * @generated from message v1.GetMarketContextRequest
+ */
+export const GetMarketContextRequest = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.GetMarketContextRequest",
+  () => [
+    { no: 1, name: "inflation_range", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ],
+);
+
+/**
+ * @generated from message v1.GetMarketContextResponse
+ */
+export const GetMarketContextResponse = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.GetMarketContextResponse",
+  () => [
+    { no: 1, name: "metrics", kind: "message", T: MarketMetric, repeated: true },
+    { no: 2, name: "warnings", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 3, name: "observations", kind: "message", T: MarketObservation, repeated: true },
+  ],
+);
+
+/**
  * @generated from message v1.ListTaxRatesRequest
  */
 export const ListTaxRatesRequest = /*@__PURE__*/ proto3.makeMessageType(

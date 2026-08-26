@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { ListReferenceRatesRequest, ListReferenceRatesResponse, ListTaxRatesRequest, ListTaxRatesResponse, UpdateReferenceRateRequest, UpdateReferenceRateResponse } from "./rate_pb.js";
+import { GetMarketContextRequest, GetMarketContextResponse, ListReferenceRatesRequest, ListReferenceRatesResponse, ListTaxRatesRequest, ListTaxRatesResponse, RefreshReferenceRatesRequest, RefreshReferenceRatesResponse, UpdateReferenceRateRequest, UpdateReferenceRateResponse } from "./rate_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -34,6 +34,28 @@ export declare const RateService: {
       readonly name: "UpdateReferenceRate",
       readonly I: typeof UpdateReferenceRateRequest,
       readonly O: typeof UpdateReferenceRateResponse,
+      readonly kind: MethodKind.Unary,
+    },
+    /**
+     * Fetch the latest official key interest rates from the ECB.
+     *
+     * @generated from rpc v1.RateService.RefreshReferenceRates
+     */
+    readonly refreshReferenceRates: {
+      readonly name: "RefreshReferenceRates",
+      readonly I: typeof RefreshReferenceRatesRequest,
+      readonly O: typeof RefreshReferenceRatesResponse,
+      readonly kind: MethodKind.Unary,
+    },
+    /**
+     * Fetch current public market and economic benchmarks from the ECB.
+     *
+     * @generated from rpc v1.RateService.GetMarketContext
+     */
+    readonly getMarketContext: {
+      readonly name: "GetMarketContext",
+      readonly I: typeof GetMarketContextRequest,
+      readonly O: typeof GetMarketContextResponse,
       readonly kind: MethodKind.Unary,
     },
     /**

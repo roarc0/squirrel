@@ -8,9 +8,9 @@ import (
 
 	"connectrpc.com/connect"
 
-	"squirrel/backend/internal/auth"
-	portv1 "squirrel/proto/gen/go/v1"
-	"squirrel/proto/gen/go/v1/portv1connect"
+	"github.com/roarc0/squirrel/backend/internal/auth"
+	portv1 "github.com/roarc0/squirrel/proto/gen/go/v1"
+	"github.com/roarc0/squirrel/proto/gen/go/v1/portv1connect"
 )
 
 type Service struct {
