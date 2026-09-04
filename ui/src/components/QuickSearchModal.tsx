@@ -24,25 +24,56 @@ import {
   IconCamera,
   IconEyeOff,
   IconEye,
-  IconRefresh,
   IconArrowRight,
   IconSparkles,
   IconActivity,
+  IconSun,
+  IconMoon,
+  IconPalette,
+  IconRepeat,
+  IconRadar2,
 } from '@tabler/icons-react';
 import type { Account, Instrument, BtpBond } from '../api';
+import type { ThemeAccent, ThemeScheme } from './Sidebar';
 import { copyToClipboard } from '../utils/copyToClipboard';
+
+export type QuickSearchCategory = 'Navigation' | 'Quick Actions' | 'Theme & Appearance' | 'Instruments' | 'BTP Bonds';
 
 export type QuickSearchAction = {
   id: string;
-  category: 'Navigation' | 'Instruments & BTPs' | 'Quick Actions';
+  category: QuickSearchCategory;
   title: string;
   subtitle?: string;
   icon: React.ReactNode;
   badge?: string;
   badgeColor?: string;
+  keywords?: string[];
   href?: string;
   onSelect: () => void;
 };
+
+const MAX_INSTRUMENT_RESULTS = 8;
+const MAX_BTP_RESULTS = 4;
+const MAX_TOTAL_RESULTS = 24;
+
+interface IndexedInstrument {
+  id: number;
+  name: string;
+  ticker?: string;
+  isin: string;
+  type: string;
+  searchKey: string;
+}
+
+interface IndexedBtp {
+  isin: string;
+  name: string;
+  tier_rank: string;
+  price: number;
+  ytm_net: number;
+  expiry_date: string;
+  searchKey: string;
+}
 
 export function QuickSearchModal({
   opened,
@@ -54,6 +85,9 @@ export function QuickSearchModal({
   instruments = [],
   accounts = [],
   btps = [],
+  scheme = 'dark',
+  accent = 'amber',
+  onApplyTheme,
 }: {
   opened: boolean;
   onClose: () => void;
@@ -64,31 +98,63 @@ export function QuickSearchModal({
   instruments?: Instrument[];
   accounts?: Account[];
   btps?: BtpBond[];
+  scheme?: ThemeScheme;
+  accent?: ThemeAccent;
+  onApplyTheme?: (scheme: ThemeScheme, accent: ThemeAccent) => void;
 }) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Reset query and selection when modal opens
+  // Reset query and focus input smoothly when modal opens
   useEffect(() => {
     if (opened) {
       setQuery('');
       setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
+      requestAnimationFrame(() => {
+        setTimeout(() => inputRef.current?.focus(), 30);
+      });
     }
   }, [opened]);
 
-  const allActions = useMemo<QuickSearchAction[]>(() => {
+  // Fast pre-computed index of instruments
+  const indexedInstruments = useMemo<IndexedInstrument[]>(() => {
+    return instruments.map(inst => ({
+      id: inst.id,
+      name: inst.name,
+      ticker: inst.ticker,
+      isin: inst.isin,
+      type: inst.instrument_type,
+      searchKey: `${inst.name} ${inst.isin} ${inst.ticker || ''} ${inst.instrument_type}`.toLowerCase(),
+    }));
+  }, [instruments]);
+
+  // Fast pre-computed index of BTPs
+  const indexedBtps = useMemo<IndexedBtp[]>(() => {
+    return btps.map(b => ({
+      isin: b.isin,
+      name: b.name,
+      tier_rank: b.tier_rank,
+      price: b.price,
+      ytm_net: b.ytm_net,
+      expiry_date: b.expiry_date,
+      searchKey: `${b.name} ${b.isin} ${b.tier_rank} btp bond sovereign`.toLowerCase(),
+    }));
+  }, [btps]);
+
+  // Core Command Palette Actions (Navigation, Tools, Theme)
+  const coreActions = useMemo<QuickSearchAction[]>(() => {
     const actions: QuickSearchAction[] = [];
 
-    // 1. Navigation Tabs
+    // 1. Navigation Actions
     actions.push(
       {
         id: 'nav-overview',
         category: 'Navigation',
         title: 'Overview Dashboard',
-        subtitle: 'View portfolio summary, net worth trend, and asset allocation',
+        subtitle: 'Net worth trend, KPIs, and asset allocation breakdown',
         icon: <IconChartPie size={18} color="var(--mantine-color-teal-6)" />,
+        keywords: ['overview', 'dashboard', 'summary', 'net worth', 'allocation'],
         href: '/overview',
         onSelect: () => {
           onSwitchTab('overview');
@@ -99,8 +165,9 @@ export function QuickSearchModal({
         id: 'nav-accounts',
         category: 'Navigation',
         title: 'Accounts & Liquidity',
-        subtitle: 'Manage cash balances, bank accounts, and liquidity tiers',
+        subtitle: 'Bank accounts, cash balances, and liquidity tiers',
         icon: <IconBuildingBank size={18} color="var(--mantine-color-blue-6)" />,
+        keywords: ['accounts', 'cash', 'bank', 'liquidity', 'balances'],
         href: '/accounts',
         onSelect: () => {
           onSwitchTab('accounts');
@@ -111,8 +178,9 @@ export function QuickSearchModal({
         id: 'nav-investments',
         category: 'Navigation',
         title: 'Investments & Holdings',
-        subtitle: 'View active holdings, PAC budgets, and position profits',
+        subtitle: 'Holdings portfolio, asset values, and return metrics',
         icon: <IconBriefcase size={18} color="var(--mantine-color-teal-6)" />,
+        keywords: ['investments', 'holdings', 'stocks', 'etf', 'portfolio'],
         href: '/investments',
         onSelect: () => {
           onSwitchTab('investments');
@@ -120,11 +188,46 @@ export function QuickSearchModal({
         },
       },
       {
+        id: 'nav-pac',
+        category: 'Navigation',
+        title: 'PAC Accumulation Plans',
+        subtitle: 'Monthly DCA plans, broker allocation targets, and progress',
+        icon: <IconRepeat size={18} color="var(--mantine-color-teal-6)" />,
+        keywords: ['pac', 'dca', 'accumulation', 'monthly', 'recurring', 'savings plan'],
+        href: '/investments/pac',
+        onSelect: () => {
+          onSwitchTab('investments');
+          try {
+            window.history.pushState({}, '', '/investments/pac');
+            window.dispatchEvent(new PopStateEvent('popstate'));
+          } catch {}
+          onClose();
+        },
+      },
+      {
+        id: 'nav-radar',
+        category: 'Navigation',
+        title: 'Geo & FX Radar',
+        subtitle: 'Geographic equity exposure and currency exposure breakdown',
+        icon: <IconRadar2 size={18} color="var(--mantine-color-indigo-6)" />,
+        keywords: ['geo', 'fx', 'radar', 'currency', 'geography', 'exposure', 'usd', 'eur'],
+        href: '/investments/radar',
+        onSelect: () => {
+          onSwitchTab('investments');
+          try {
+            window.history.pushState({}, '', '/investments/radar');
+            window.dispatchEvent(new PopStateEvent('popstate'));
+          } catch {}
+          onClose();
+        },
+      },
+      {
         id: 'nav-drafts',
         category: 'Navigation',
         title: 'Portfolio Sandbox (Drafts)',
-        subtitle: 'Simulate rebalancing scenarios and draft portfolio strategies',
+        subtitle: 'Simulate rebalancing scenarios and draft allocation models',
         icon: <IconFlask size={18} color="var(--mantine-color-violet-6)" />,
+        keywords: ['sandbox', 'drafts', 'simulation', 'rebalancing', 'model'],
         href: '/drafts',
         onSelect: () => {
           onSwitchTab('drafts');
@@ -137,6 +240,7 @@ export function QuickSearchModal({
         title: 'Instruments Catalog',
         subtitle: 'Search and compare ETFs, Stocks, Bonds, and Funds',
         icon: <IconSearch size={18} color="var(--mantine-color-cyan-6)" />,
+        keywords: ['instruments', 'catalog', 'etfs', 'bonds', 'stocks', 'search'],
         href: '/instruments',
         onSelect: () => {
           onSwitchTab('instruments');
@@ -147,8 +251,9 @@ export function QuickSearchModal({
         id: 'nav-btp',
         category: 'Navigation',
         title: 'BTP Rank Analytics',
-        subtitle: 'Italian Sovereign Bonds yield curve, duration risk, and scoring',
+        subtitle: 'Italian Sovereign Bonds yield curve and scoring',
         icon: <IconFileCertificate size={18} color="var(--mantine-color-blue-6)" />,
+        keywords: ['btp', 'bonds', 'yield curve', 'ytm', 'italy', 'sovereign'],
         href: '/btp',
         onSelect: () => {
           onSwitchTab('btp');
@@ -159,8 +264,9 @@ export function QuickSearchModal({
         id: 'nav-market',
         category: 'Navigation',
         title: 'Market Context',
-        subtitle: 'ECB rates, €STR, inflation, deposit benchmarks, and sovereign yields',
+        subtitle: 'ECB rates, €STR, inflation benchmarks, and yield curves',
         icon: <IconActivity size={18} color="var(--mantine-color-blue-6)" />,
+        keywords: ['market', 'rates', 'ecb', 'estr', 'inflation', 'benchmarks', 'yields'],
         href: '/market',
         onSelect: () => {
           onSwitchTab('market');
@@ -173,6 +279,7 @@ export function QuickSearchModal({
         title: 'Portfolio Copilot',
         subtitle: 'Interactive portfolio intelligence, allocation audits & advice',
         icon: <IconRobot size={18} color="var(--mantine-color-indigo-6)" />,
+        keywords: ['copilot', 'advisor', 'ai consultant', 'intelligence', 'advice'],
         href: '/consultant',
         onSelect: () => {
           onSwitchTab('consultant');
@@ -183,8 +290,9 @@ export function QuickSearchModal({
         id: 'nav-settings',
         category: 'Navigation',
         title: 'Settings & Preferences',
-        subtitle: 'Configure currency, target allocations, and profile settings',
+        subtitle: 'Configure currency, target allocations, and profile',
         icon: <IconSettings size={18} color="var(--mantine-color-gray-6)" />,
+        keywords: ['settings', 'preferences', 'profile', 'configuration', 'admin'],
         href: '/settings',
         onSelect: () => {
           onSwitchTab('settings');
@@ -201,6 +309,7 @@ export function QuickSearchModal({
         title: 'Record Portfolio Snapshot',
         subtitle: 'Capture current holding balances and save dated snapshot',
         icon: <IconCamera size={18} color="var(--mantine-color-teal-6)" />,
+        keywords: ['snapshot', 'update', 'record', 'save', 'sync', 'checkpoint'],
         onSelect: () => {
           onClose();
           onOpenUpdateModal();
@@ -212,6 +321,7 @@ export function QuickSearchModal({
         title: hideBalances ? 'Show Balances' : 'Hide Balances (Privacy Mode)',
         subtitle: hideBalances ? 'Unmask monetary values across dashboards' : 'Mask monetary values with asterisks',
         icon: hideBalances ? <IconEye size={18} color="var(--mantine-color-teal-6)" /> : <IconEyeOff size={18} color="var(--mantine-color-orange-6)" />,
+        keywords: ['privacy', 'hide', 'show', 'mask', 'balances', 'stealth'],
         onSelect: () => {
           onToggleHideBalances();
           onClose();
@@ -219,57 +329,186 @@ export function QuickSearchModal({
       }
     );
 
-    // 3. Search Instruments & Accounts
-    for (const inst of instruments) {
-      actions.push({
-        id: `inst-${inst.id}`,
-        category: 'Instruments & BTPs',
-        title: inst.name,
-        subtitle: `${inst.ticker || '—'} · ISIN: ${inst.isin}`,
-        icon: <IconSearch size={18} color="var(--mantine-color-cyan-6)" />,
-        badge: inst.instrument_type.toUpperCase(),
-        badgeColor: 'cyan',
-        href: '/instruments',
-        onSelect: () => {
-          onSwitchTab('instruments');
-          copyToClipboard(inst.isin, 'ISIN');
-          onClose();
+    // 3. Theme & Appearance Actions
+    if (onApplyTheme) {
+      actions.push(
+        {
+          id: 'action-theme-dark',
+          category: 'Theme & Appearance',
+          title: 'Switch to Dark Theme',
+          subtitle: scheme === 'dark' ? 'Currently active' : 'Dark slate color theme',
+          icon: <IconMoon size={18} color="var(--mantine-color-indigo-4)" />,
+          keywords: ['theme', 'dark', 'night', 'mode', 'appearance', 'black', 'dark mode', 'color scheme'],
+          badge: scheme === 'dark' ? 'ACTIVE' : undefined,
+          badgeColor: 'teal',
+          onSelect: () => {
+            onApplyTheme('dark', accent);
+            onClose();
+          },
         },
-      });
-    }
-
-    // 4. Search BTP Bonds
-    for (const btp of btps) {
-      actions.push({
-        id: `btp-${btp.isin}`,
-        category: 'Instruments & BTPs',
-        title: btp.name,
-        subtitle: `Price: €${btp.price.toFixed(2)} · Net YTM: ${btp.ytm_net.toFixed(2)}% · Expiry: ${btp.expiry_date}`,
-        icon: <IconFileCertificate size={18} color="var(--mantine-color-blue-6)" />,
-        badge: `Tier ${btp.tier_rank}`,
-        badgeColor: btp.tier_rank === 'S' ? 'violet' : btp.tier_rank === 'A' ? 'teal' : 'blue',
-        href: '/btp',
-        onSelect: () => {
-          onSwitchTab('btp');
-          copyToClipboard(btp.isin, 'BTP ISIN');
-          onClose();
+        {
+          id: 'action-theme-light',
+          category: 'Theme & Appearance',
+          title: 'Switch to Light Theme',
+          subtitle: scheme === 'light' ? 'Currently active' : 'Crisp daylight clean theme',
+          icon: <IconSun size={18} color="var(--mantine-color-yellow-6)" />,
+          keywords: ['theme', 'light', 'day', 'mode', 'appearance', 'white', 'light mode', 'color scheme'],
+          badge: scheme === 'light' ? 'ACTIVE' : undefined,
+          badgeColor: 'teal',
+          onSelect: () => {
+            onApplyTheme('light', accent);
+            onClose();
+          },
         },
-      });
+        {
+          id: 'action-theme-toggle',
+          category: 'Theme & Appearance',
+          title: 'Toggle Theme (Light / Dark)',
+          subtitle: `Toggle from ${scheme} to ${scheme === 'dark' ? 'light' : 'dark'}`,
+          icon: scheme === 'dark' ? <IconSun size={18} color="var(--mantine-color-yellow-6)" /> : <IconMoon size={18} color="var(--mantine-color-indigo-4)" />,
+          keywords: ['theme', 'toggle theme', 'switch theme', 'invert mode'],
+          onSelect: () => {
+            onApplyTheme(scheme === 'dark' ? 'light' : 'dark', accent);
+            onClose();
+          },
+        },
+        {
+          id: 'action-accent-amber',
+          category: 'Theme & Appearance',
+          title: 'Set Accent: Orange / Amber',
+          subtitle: 'Warm energetic orange highlight color',
+          icon: <IconPalette size={18} color="#f97316" />,
+          keywords: ['accent', 'orange', 'amber', 'color', 'theme'],
+          badge: accent === 'amber' ? 'ACTIVE' : undefined,
+          badgeColor: 'orange',
+          onSelect: () => {
+            onApplyTheme(scheme, 'amber');
+            onClose();
+          },
+        },
+        {
+          id: 'action-accent-teal',
+          category: 'Theme & Appearance',
+          title: 'Set Accent: Teal / Mint',
+          subtitle: 'Clean financial emerald teal highlight color',
+          icon: <IconPalette size={18} color="#12b886" />,
+          keywords: ['accent', 'teal', 'mint', 'emerald', 'green', 'color', 'theme'],
+          badge: accent === 'teal' ? 'ACTIVE' : undefined,
+          badgeColor: 'teal',
+          onSelect: () => {
+            onApplyTheme(scheme, 'teal');
+            onClose();
+          },
+        },
+        {
+          id: 'action-accent-ocean',
+          category: 'Theme & Appearance',
+          title: 'Set Accent: Ocean Blue',
+          subtitle: 'Deep modern ocean blue highlight color',
+          icon: <IconPalette size={18} color="#228be6" />,
+          keywords: ['accent', 'ocean', 'blue', 'color', 'theme'],
+          badge: accent === 'ocean' ? 'ACTIVE' : undefined,
+          badgeColor: 'blue',
+          onSelect: () => {
+            onApplyTheme(scheme, 'ocean');
+            onClose();
+          },
+        },
+        {
+          id: 'action-accent-violet',
+          category: 'Theme & Appearance',
+          title: 'Set Accent: Royal Violet',
+          subtitle: 'Sophisticated purple violet highlight color',
+          icon: <IconPalette size={18} color="#7950f2" />,
+          keywords: ['accent', 'violet', 'purple', 'color', 'theme'],
+          badge: accent === 'violet' ? 'ACTIVE' : undefined,
+          badgeColor: 'violet',
+          onSelect: () => {
+            onApplyTheme(scheme, 'violet');
+            onClose();
+          },
+        }
+      );
     }
 
     return actions;
-  }, [instruments, accounts, btps, hideBalances, onSwitchTab, onClose, onOpenUpdateModal, onToggleHideBalances]);
+  }, [scheme, accent, hideBalances, onSwitchTab, onClose, onOpenUpdateModal, onToggleHideBalances, onApplyTheme]);
 
-  const filteredActions = useMemo(() => {
+  // High-performance search filter:
+  // When query is empty: show core actions (Navigation, Quick Actions, Theme) with ZERO instrument overhead.
+  // When query is entered: search indexed instruments and BTPs with early break to keep list tiny and ultra responsive.
+  const filteredActions = useMemo<QuickSearchAction[]>(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return allActions;
-    return allActions.filter(
-      a =>
-        a.title.toLowerCase().includes(q) ||
-        (a.subtitle && a.subtitle.toLowerCase().includes(q)) ||
-        a.category.toLowerCase().includes(q)
-    );
-  }, [allActions, query]);
+
+    // Default state: show top actions immediately with 0 delay
+    if (!q) {
+      return coreActions;
+    }
+
+    const results: QuickSearchAction[] = [];
+
+    // 1. Search Core Actions (Navigation, Quick Actions, Theme)
+    for (const a of coreActions) {
+      const matchTitle = a.title.toLowerCase().includes(q);
+      const matchSubtitle = a.subtitle ? a.subtitle.toLowerCase().includes(q) : false;
+      const matchCategory = a.category.toLowerCase().includes(q);
+      const matchKeywords = a.keywords ? a.keywords.some(k => k.toLowerCase().includes(q)) : false;
+
+      if (matchTitle || matchSubtitle || matchCategory || matchKeywords) {
+        results.push(a);
+      }
+    }
+
+    // 2. Search Instruments with early termination (capped at MAX_INSTRUMENT_RESULTS)
+    let instCount = 0;
+    for (const inst of indexedInstruments) {
+      if (inst.searchKey.includes(q)) {
+        results.push({
+          id: `inst-${inst.id}`,
+          category: 'Instruments',
+          title: inst.name,
+          subtitle: `${inst.ticker || '—'} · ISIN: ${inst.isin}`,
+          icon: <IconSearch size={18} color="var(--mantine-color-cyan-6)" />,
+          badge: inst.type.toUpperCase(),
+          badgeColor: 'cyan',
+          href: '/instruments',
+          onSelect: () => {
+            onSwitchTab('instruments');
+            copyToClipboard(inst.isin, 'ISIN');
+            onClose();
+          },
+        });
+        instCount++;
+        if (instCount >= MAX_INSTRUMENT_RESULTS) break;
+      }
+    }
+
+    // 3. Search BTPs with early termination (capped at MAX_BTP_RESULTS)
+    let btpCount = 0;
+    for (const btp of indexedBtps) {
+      if (btp.searchKey.includes(q)) {
+        results.push({
+          id: `btp-${btp.isin}`,
+          category: 'BTP Bonds',
+          title: btp.name,
+          subtitle: `Price: €${btp.price.toFixed(2)} · Net YTM: ${btp.ytm_net.toFixed(2)}% · Expiry: ${btp.expiry_date}`,
+          icon: <IconFileCertificate size={18} color="var(--mantine-color-blue-6)" />,
+          badge: `Tier ${btp.tier_rank}`,
+          badgeColor: btp.tier_rank === 'S' ? 'violet' : btp.tier_rank === 'A' ? 'teal' : 'blue',
+          href: '/btp',
+          onSelect: () => {
+            onSwitchTab('btp');
+            copyToClipboard(btp.isin, 'BTP ISIN');
+            onClose();
+          },
+        });
+        btpCount++;
+        if (btpCount >= MAX_BTP_RESULTS) break;
+      }
+    }
+
+    return results.slice(0, MAX_TOTAL_RESULTS);
+  }, [coreActions, query, indexedInstruments, indexedBtps, onSwitchTab, onClose]);
 
   // Handle Keyboard Arrow Navigation & Enter
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -287,7 +526,7 @@ export function QuickSearchModal({
     }
   };
 
-  // Group filtered actions by category
+  // Group filtered actions by category for crisp headings
   const groupedActions = useMemo(() => {
     const groups: { category: string; items: { action: QuickSearchAction; globalIndex: number }[] }[] = [];
     let currentIndex = 0;
@@ -313,15 +552,30 @@ export function QuickSearchModal({
       size="lg"
       padding={0}
       radius="lg"
+      className="quick-search-modal"
+      transitionProps={{
+        transition: 'pop',
+        duration: 160,
+        timingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
+      }}
+      overlayProps={{
+        backgroundOpacity: 0.45,
+        blur: 4,
+      }}
       styles={{
-        content: { overflow: 'hidden', background: 'var(--mantine-color-body)' },
+        content: {
+          overflow: 'hidden',
+          background: 'light-dark(#ffffff, #161b22)',
+          border: '1px solid light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.1))',
+          boxShadow: '0 24px 48px -12px rgba(0, 0, 0, 0.35)',
+        },
       }}
     >
-      <Box p="md" style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}>
+      <Box p="md" style={{ borderBottom: '1px solid light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.08))' }}>
         <TextInput
           ref={inputRef}
           leftSection={<IconSearch size={20} color="var(--mantine-color-teal-6)" />}
-          placeholder="Type a command or search (e.g. Accounts, BTP, ISIN, Privacy)..."
+          placeholder="Search actions, navigation, theme (dark/light), or instruments..."
           variant="unstyled"
           size="md"
           value={query}
@@ -333,7 +587,7 @@ export function QuickSearchModal({
         />
       </Box>
 
-      <ScrollArea.Autosize mah={380} offsetScrollbars p="xs">
+      <ScrollArea.Autosize mah={400} offsetScrollbars p="xs">
         {filteredActions.length === 0 ? (
           <Stack align="center" py="xl" gap="xs">
             <IconSparkles size={32} color="var(--mantine-color-dimmed)" />
@@ -341,7 +595,7 @@ export function QuickSearchModal({
               No matching results found
             </Text>
             <Text size="xs" c="dimmed">
-              Try searching for a tab name, instrument ISIN, or command.
+              Try typing "dark", "light", "snapshot", "pac", or an ISIN ticker.
             </Text>
           </Stack>
         ) : (
@@ -350,7 +604,7 @@ export function QuickSearchModal({
               <Box key={group.category}>
                 <Text
                   size="11px"
-                  fw={700}
+                  fw={750}
                   c="dimmed"
                   px="xs"
                   py={4}
@@ -384,7 +638,7 @@ export function QuickSearchModal({
                           background: isSelected
                             ? 'var(--mantine-color-teal-light)'
                             : 'transparent',
-                          transition: 'background 120ms ease',
+                          transition: 'all 80ms ease',
                           textDecoration: 'none',
                           color: 'inherit',
                         }}
@@ -425,8 +679,8 @@ export function QuickSearchModal({
         )}
       </ScrollArea.Autosize>
 
-      {/* Console-style Command Palette Footer */}
-      <Paper p="xs" radius={0} withBorder style={{ background: 'var(--mantine-color-default-hover)' }}>
+      {/* Command Palette Footer */}
+      <Paper p="xs" radius={0} style={{ background: 'light-dark(#f8fafc, #11141a)', borderTop: '1px solid light-dark(rgba(0, 0, 0, 0.06), rgba(255, 255, 255, 0.06))' }}>
         <Group justify="space-between" align="center">
           <Group gap="md">
             <Group gap={4} align="center">
@@ -449,8 +703,8 @@ export function QuickSearchModal({
               </Text>
             </Group>
           </Group>
-          <Text size="xs" c="teal" fw={700}>
-            Squirrel Command Palette
+          <Text size="xs" c="teal" fw={750}>
+            Squirrel Palette
           </Text>
         </Group>
       </Paper>

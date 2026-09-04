@@ -446,3 +446,27 @@ body,
     transform: translateY(0);
   }
 }
+
+/* Quick Search / Command Palette Pop-in Animation */
+.quick-search-modal .mantine-Modal-content {
+  animation: commandPalettePop 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: center 20%;
+  will-change: transform, opacity;
+}
+
+@keyframes commandPalettePop {
+  0% {
+    opacity: 0;
+    transform: scale(0.96) translateY(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.quick-search-modal .mantine-Modal-overlay {
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+

@@ -8,7 +8,6 @@ import {
   Card,
   Divider,
   Group,
-  Indicator,
   Kbd,
   Menu,
   Popover,
@@ -69,6 +68,39 @@ export const ACCENT_LABELS: Record<ThemeAccent, string> = {
 };
 
 export const ACCENTS = Object.keys(ACCENT_HEX) as ThemeAccent[];
+
+function NotificationBadge({ count, offsetBg = '#ffffff' }: { count: number; offsetBg?: string }) {
+  if (count <= 0) return null;
+  const isMultiDigit = count > 9;
+  return (
+    <Box
+      style={{
+        position: 'absolute',
+        top: -2,
+        right: -2,
+        width: isMultiDigit ? 'auto' : 13,
+        minWidth: 13,
+        height: 13,
+        padding: isMultiDigit ? '0 3.5px' : 0,
+        borderRadius: 999,
+        background: 'var(--mantine-color-orange-6)',
+        color: '#ffffff',
+        fontSize: 8.5,
+        fontWeight: 800,
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        lineHeight: 1,
+        boxShadow: `0 0 0 1.5px ${offsetBg}`,
+        pointerEvents: 'none',
+        zIndex: 2,
+      }}
+    >
+      {count}
+    </Box>
+  );
+}
 
 export interface SidebarProps {
   collapsed: boolean;
@@ -335,18 +367,12 @@ export function Sidebar({
 
           {renderDiagnosticsPopover(
             <Tooltip label={diagnosticsCount > 0 ? `${diagnosticsCount} Warnings` : 'Alerts'} position="right" withArrow offset={14}>
-              <Indicator
-                label={diagnosticsCount}
-                size={14}
-                color="orange"
-                disabled={diagnosticsCount === 0}
-                offset={3}
-                withBorder
-              >
+              <Box style={{ position: 'relative', display: 'inline-flex' }}>
                 <ActionIcon variant="subtle" color={diagnosticsCount > 0 ? 'orange' : 'gray'} size="md" radius="md">
-                  {diagnosticsCount > 0 ? <IconBellRinging size={17} /> : <IconBell size={17} />}
+                  {diagnosticsCount > 0 ? <IconBellRinging size={17} stroke={1.8} /> : <IconBell size={17} stroke={1.8} />}
                 </ActionIcon>
-              </Indicator>
+                <NotificationBadge count={diagnosticsCount} offsetBg="light-dark(#f8fafc, #11141a)" />
+              </Box>
             </Tooltip>
           )}
         </Stack>
@@ -424,36 +450,30 @@ export function Sidebar({
           <Text size="10px" fw={700} c="dimmed" tt="uppercase" style={{ letterSpacing: '0.08em' }}>
             Portfolio
           </Text>
-          <Group gap={6}>
+          <Group gap={4}>
             {renderDiagnosticsPopover(
-              <Indicator
-                label={diagnosticsCount}
-                size={14}
-                color="orange"
-                disabled={diagnosticsCount === 0}
-                offset={2}
-                withBorder
-              >
+              <Box style={{ position: 'relative', display: 'inline-flex' }}>
                 <ActionIcon
                   variant="subtle"
                   color={diagnosticsCount > 0 ? 'orange' : 'gray'}
-                  size="sm"
+                  size="md"
                   radius="md"
                   title="Diagnostics & Alerts"
                 >
-                  {diagnosticsCount > 0 ? <IconBellRinging size={15} /> : <IconBell size={15} />}
+                  {diagnosticsCount > 0 ? <IconBellRinging size={17} stroke={1.8} /> : <IconBell size={17} stroke={1.8} />}
                 </ActionIcon>
-              </Indicator>
+                <NotificationBadge count={diagnosticsCount} offsetBg="light-dark(#ffffff, #161b22)" />
+              </Box>
             )}
             <ActionIcon
               variant="subtle"
               color="gray"
-              size="sm"
+              size="md"
               radius="md"
               title="Settings"
               onClick={() => onNavigate('settings')}
             >
-              <IconSettings size={14} />
+              <IconSettings size={17} stroke={1.8} />
             </ActionIcon>
           </Group>
         </Group>

@@ -602,6 +602,9 @@ export default function App() {
             hideBalances={hideBalances}
             instruments={data.instruments}
             accounts={data.accounts}
+            scheme={scheme}
+            accent={accent}
+            onApplyTheme={applyTheme}
           />
         </main>
         <footer className="app-footer">
