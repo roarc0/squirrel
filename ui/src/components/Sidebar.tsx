@@ -460,6 +460,8 @@ export function Sidebar({
 
         <Group
           justify="space-between"
+          align="center"
+          wrap="nowrap"
           p="xs"
           style={{
             background: 'light-dark(#ffffff, #161b22)',
@@ -468,10 +470,10 @@ export function Sidebar({
             boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
           }}
         >
-          <Group gap="xs" style={{ flex: 1, minWidth: 0 }}>
+          <Box style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
             <Box
-              w={7}
-              h={7}
+              w={8}
+              h={8}
               style={{
                 borderRadius: '50%',
                 background: 'var(--mantine-color-teal-6)',
@@ -479,10 +481,10 @@ export function Sidebar({
                 flexShrink: 0,
               }}
             />
-            <Text size="xs" fw={650} truncate>
+            <Text size="xs" fw={650} truncate style={{ lineHeight: 1 }}>
               Main Portfolio
             </Text>
-          </Group>
+          </Box>
           <Button
             size="compact-xs"
             variant="light"
@@ -542,7 +544,7 @@ export function Sidebar({
 
         <button type="button" className="sidebar-search-btn" onClick={onOpenSearch}>
           <IconSearch size={14} style={{ opacity: 0.7 }} />
-          <span style={{ flex: 1, textAlign: 'left', fontSize: 12 }}>Search portfolio...</span>
+          <span style={{ flex: 1, textAlign: 'left', fontSize: 12 }}>Search or jump to...</span>
           <Kbd size="xs">⌘K</Kbd>
         </button>
 

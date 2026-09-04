@@ -8,6 +8,7 @@ import {
   Card,
   Checkbox,
   Collapse,
+  Divider,
   Group,
   Modal,
   MultiSelect,
@@ -17,6 +18,7 @@ import {
   Select,
   SimpleGrid,
   Stack,
+  Table,
   Text,
   TextInput,
   Textarea,
@@ -427,6 +429,8 @@ function InlinePlannedBpsEditor({
   );
 }
 
+export type InvestmentsSubtab = 'holdings' | 'pac' | 'radar' | 'sandbox';
+
 export function InvestmentsView({
   holdings,
   accounts,
@@ -441,11 +445,11 @@ export function InvestmentsView({
   instruments: Instrument[];
   taxRates: TaxRate[];
   reload: () => Promise<void>;
-  activeSubtab?: 'holdings' | 'radar' | 'sandbox';
-  onSubtabChange?: (subtab: 'holdings' | 'radar' | 'sandbox') => void;
+  activeSubtab?: InvestmentsSubtab;
+  onSubtabChange?: (subtab: InvestmentsSubtab) => void;
   onOpenDrafts?: () => void;
 }) {
-  const [currentSubtab, setCurrentSubtab] = useState<'holdings' | 'radar' | 'sandbox'>(activeSubtab);
+  const [currentSubtab, setCurrentSubtab] = useState<InvestmentsSubtab>(activeSubtab);
 
   useEffect(() => {
     if (activeSubtab) {
@@ -453,7 +457,7 @@ export function InvestmentsView({
     }
   }, [activeSubtab]);
 
-  const handleSubtabChange = (subtab: 'holdings' | 'radar' | 'sandbox') => {
+  const handleSubtabChange = (subtab: InvestmentsSubtab) => {
     setCurrentSubtab(subtab);
     onSubtabChange?.(subtab);
   };
@@ -621,15 +625,22 @@ export function InvestmentsView({
 
   return (
     <ViewShell error={error || table.sortError}>
-      <SubnavTabs<'holdings' | 'radar' | 'sandbox'>
+      <SubnavTabs<InvestmentsSubtab>
         value={currentSubtab}
         onChange={handleSubtabChange}
         tabs={[
           {
             value: 'holdings',
-            label: 'Holdings & PAC',
+            label: 'Holdings',
             icon: <IconBriefcase size={16} />,
             badge: activeHoldings.length > 0 ? activeHoldings.length : undefined,
+          },
+          {
+            value: 'pac',
+            label: 'PAC Plan',
+            icon: <IconRepeat size={16} />,
+            badge: activePacHoldings.length > 0 ? activePacHoldings.length : undefined,
+            badgeColor: 'teal',
           },
           {
             value: 'radar',
@@ -661,10 +672,174 @@ export function InvestmentsView({
           accounts={accounts}
           reload={reload}
         />
+      ) : currentSubtab === 'pac' ? (
+        <Stack gap="md">
+          <SectionHeader
+            title="Capital Accumulation Plan (PAC)"
+            subtitle="Automated dollar-cost averaging strategy and recurring monthly ETF allocations."
+            actions={
+              <Group gap="sm" align="center" wrap="wrap">
+                {activeAccounts.length > 0 && (
+                  <MultiSelect
+                    w={220}
+                    searchable
+                    clearable
+                    placeholder="Filter by account"
+                    value={accountIDs}
+                    data={activeAccounts.map(account => ({ value: String(account.id), label: account.name }))}
+                    onChange={setAccountIDs}
+                  />
+                )}
+                <Button disabled={!ready} onClick={() => open()}>Add PAC Investment</Button>
+              </Group>
+            }
+          />
+
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
+            <Card className="metric" p="md" radius="lg">
+              <Text size="xs" c="dimmed">Monthly Deposit</Text>
+              <Text size="xl" fw={800} c="teal" mt={4}>{money(totalMonthlyPacMinor, currency)}/mo</Text>
+              <Text size="xs" c="dimmed" mt={4}>Across {pacAccountsList.length} {pacAccountsList.length === 1 ? 'account' : 'accounts'}</Text>
+            </Card>
+            <Card className="metric" p="md" radius="lg">
+              <Text size="xs" c="dimmed">Annual DCA Capital</Text>
+              <Text size="xl" fw={800} mt={4}>{money(totalMonthlyPacMinor * 12, currency)}/yr</Text>
+              <Text size="xs" c="dimmed" mt={4}>12 scheduled deposits</Text>
+            </Card>
+            <Card className="metric" p="md" radius="lg">
+              <Text size="xs" c="dimmed">Weighted PAC TER</Text>
+              <Text size="xl" fw={800} mt={4}>{percent(pacWeightedTERBps)}</Text>
+              <Text size="xs" c="orange" mt={4}>Fee drag: -{money(totalPacAnnualFeeDragMinor, currency)}/yr</Text>
+            </Card>
+            <Card className="metric" p="md" radius="lg">
+              <Text size="xs" c="dimmed">5-Yr Projected Capital</Text>
+              <Text size="xl" fw={800} mt={4}>{money(totalMonthlyPacMinor * 60, currency)}</Text>
+              {totalPacAnnualFeeDragMinor > 0 && (
+                <Text size="xs" c="orange" mt={4}>5yr drag: -{money(totalPacAnnualFeeDragMinor * 5, currency)}</Text>
+              )}
+            </Card>
+          </SimpleGrid>
+
+          {pacAccountsList.length === 0 ? (
+            <Empty
+              title="No active accumulation plans"
+              text="Set an automated monthly contribution on your accounts and assign ETF allocations to get started."
+            />
+          ) : (
+            <SimpleGrid cols={{ base: 1, md: Math.min(2, Math.max(1, pacAccountsList.length)) }} spacing="md">
+              {pacAccountsList.map(acc => {
+                const allocatedBps = pacByAccount.get(acc.id)?.allocatedBps ?? 0;
+                const pct = Math.min(allocatedBps / 100, 100);
+                const over = allocatedBps > 10000;
+                const full = allocatedBps === 10000;
+                const accountPacHoldings = pacItems.filter(item => item.holding.account_id === acc.id);
+                const allocatedMonthlyMinor = Math.round(((acc.pac_amount_minor ?? 0) * allocatedBps) / 10000);
+
+                return (
+                  <Card key={acc.id} className="data-table-card metric" p="lg" radius="lg" withBorder>
+                    <Group justify="space-between" align="start" mb="xs">
+                      <Box>
+                        <Group gap="xs" align="center">
+                          <Text fw={750} size="md">{acc.name}</Text>
+                          <Badge size="xs" variant="light" color="gray">{acc.type}</Badge>
+                          <Badge size="xs" variant="outline" color="teal">{acc.currency ?? currency}</Badge>
+                        </Group>
+                        <Text size="xs" c="dimmed" mt={2}>
+                          Account PAC Budget: <Text span fw={700} c="teal">{money(acc.pac_amount_minor ?? 0, acc.currency ?? currency)}/mo</Text>
+                        </Text>
+                      </Box>
+                      <Group gap="xs" align="center">
+                        <PacAmountEditor account={acc} currency={acc.currency ?? currency} onSaved={reload} />
+                        {full && <Badge color="teal" variant="light" leftSection={<IconCheck size={12} />}>100% Allocated</Badge>}
+                        {over && <Badge color="red" variant="light" leftSection={<IconAlertTriangle size={12} />}>Over-allocated ({((allocatedBps / 100)).toFixed(1)}%)</Badge>}
+                        {!full && !over && <Badge color="orange" variant="light">{((10000 - allocatedBps) / 100).toFixed(1)}% Unallocated</Badge>}
+                      </Group>
+                    </Group>
+
+                    <Box my="xs">
+                      <Group justify="space-between" align="baseline" mb={4}>
+                        <Text size="xs" c="dimmed">DCA Allocation</Text>
+                        <Text size="xs" fw={700} c={over ? 'red' : full ? 'teal' : 'dimmed'}>
+                          {money(allocatedMonthlyMinor, acc.currency ?? currency)} / {money(acc.pac_amount_minor ?? 0, acc.currency ?? currency)} ({((allocatedBps / 100)).toFixed(2)}%)
+                        </Text>
+                      </Group>
+                      <Box h={8} bg="light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))" style={{ display: 'flex', overflow: 'hidden', borderRadius: 999 }}>
+                        <Box
+                          bg={over ? 'red.5' : full ? 'teal.5' : 'yellow.5'}
+                          style={{ width: `${pct}%`, borderRadius: 999, transition: 'width 0.3s ease' }}
+                        />
+                      </Box>
+                    </Box>
+
+                    <Divider my="sm" opacity={0.5} />
+
+                    {accountPacHoldings.length === 0 ? (
+                      <Text size="xs" c="dimmed" py="sm" ta="center">
+                        No ETF allocations assigned to this account yet. Click "Add PAC Investment" to configure.
+                      </Text>
+                    ) : (
+                      <Table verticalSpacing="xs" horizontalSpacing="xs" highlightOnHover className="data-table">
+                        <Table.Thead>
+                          <Table.Tr>
+                            <Table.Th><Text size="xs" fw={700} c="dimmed" tt="uppercase">Instrument</Text></Table.Th>
+                            <Table.Th style={{ textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">PAC Share</Text></Table.Th>
+                            <Table.Th style={{ textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Monthly</Text></Table.Th>
+                            <Table.Th style={{ textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Holding Value</Text></Table.Th>
+                            <Table.Th style={{ textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Action</Text></Table.Th>
+                          </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                          {accountPacHoldings.map(item => (
+                            <Table.Tr key={item.holding.id}>
+                              <Table.Td>
+                                <Group gap={6} wrap="nowrap">
+                                  {item.ticker ? <TickerBadge ticker={item.ticker} /> : null}
+                                  <Text size="xs" fw={600} truncate style={{ maxWidth: 160 }}>
+                                    {item.instrumentName}
+                                  </Text>
+                                </Group>
+                              </Table.Td>
+                              <Table.Td style={{ textAlign: 'right' }}>
+                                <Badge color="teal" size="sm" variant="light">
+                                  {percent(item.pacBps)}
+                                </Badge>
+                              </Table.Td>
+                              <Table.Td style={{ textAlign: 'right' }}>
+                                <Text size="xs" fw={700} c="teal">
+                                  {money(item.itemMonthlyMinor, acc.currency ?? currency)}/mo
+                                </Text>
+                              </Table.Td>
+                              <Table.Td style={{ textAlign: 'right' }}>
+                                <Text size="xs" fw={600}>
+                                  {money(item.holding.value_minor, item.holding.currency ?? currency)}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td style={{ textAlign: 'right' }}>
+                                <ActionIcon
+                                  size="sm"
+                                  variant="subtle"
+                                  color="gray"
+                                  onClick={() => open(item.holding)}
+                                  title="Edit PAC share"
+                                >
+                                  <IconPencil size={13} />
+                                </ActionIcon>
+                              </Table.Td>
+                            </Table.Tr>
+                          ))}
+                        </Table.Tbody>
+                      </Table>
+                    )}
+                  </Card>
+                );
+              })}
+            </SimpleGrid>
+          )}
+        </Stack>
       ) : (
         <>
           <SectionHeader
-            title="Investments & PAC"
+            title="Investments"
             subtitle="Actual allocation uses current investment values within each currency; planned allocation is your target."
             actions={
               <Group gap="sm" align="center" wrap="wrap">
@@ -683,80 +858,6 @@ export function InvestmentsView({
               </Group>
             }
           />
-
-          {totalMonthlyPacMinor > 0 && (
-            <Card className="metric" p="lg" radius="lg">
-              <Group justify="space-between" align="start" mb="md">
-                <Box>
-                  <Group gap="xs" mb={2}>
-                    <IconRepeat size={18} color="var(--mantine-color-teal-6)" />
-                    <Text fw={800} size="lg">Active Accumulation Plan (PAC)</Text>
-                    <Badge color="teal" variant="filled">{activePacHoldings.length} Active PAC Investments</Badge>
-                  </Group>
-                  <Text size="xs" c="dimmed">Recurring automated dollar-cost averaging investments per account.</Text>
-                </Box>
-
-                <Group gap="lg" align="center">
-                  <Box ta="right">
-                    <Text size="xs" c="dimmed">Monthly Deposit</Text>
-                    <Text size="xl" fw={800} c="teal">{money(totalMonthlyPacMinor, currency)}/mo</Text>
-                  </Box>
-                  <Box ta="right">
-                    <Text size="xs" c="dimmed">Yearly Investment</Text>
-                    <Text size="xl" fw={800} c="teal">{money(totalMonthlyPacMinor * 12, currency)}/yr</Text>
-                  </Box>
-                  <Box ta="right">
-                    <Text size="xs" c="dimmed">Weighted PAC TER</Text>
-                    <Text size="lg" fw={800} c="dimmed">{percent(pacWeightedTERBps)}</Text>
-                    <Text size="xs" c="orange">-{money(totalPacAnnualFeeDragMinor, currency)}/yr drag</Text>
-                  </Box>
-                  <Box ta="right">
-                    <Text size="xs" c="dimmed">5-Yr Capital Projection</Text>
-                    <Text size="md" fw={700}>{money(totalMonthlyPacMinor * 60, currency)}</Text>
-                    {totalPacAnnualFeeDragMinor > 0 && (
-                      <Text size="xs" c="orange">-{money(totalPacAnnualFeeDragMinor * 5, currency)} 5yr fee drag</Text>
-                    )}
-                  </Box>
-                </Group>
-              </Group>
-
-              <Stack gap="xs">
-                {pacAccountsList.map(acc => {
-                  const allocatedBps = pacByAccount.get(acc.id)?.allocatedBps ?? 0;
-                  const pct = Math.min(allocatedBps / 100, 100);
-                  const over = allocatedBps > 10000;
-                  const full = allocatedBps === 10000;
-
-                  return (
-                    <Paper key={acc.id} p="xs" radius="md" withBorder style={{ backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))' }}>
-                      <Group justify="space-between" align="center" mb={6}>
-                        <Group gap="xs" align="center">
-                          <Text size="xs" fw={750}>{acc.name}</Text>
-                          <PacAmountEditor account={acc} currency={acc.currency ?? currency} onSaved={reload} />
-                        </Group>
-                        <Group gap={4} align="center">
-                          <Text size="xs" fw={700} c={over ? 'red' : full ? 'teal' : 'dimmed'}>
-                            {(allocatedBps / 100).toFixed(2)}% / 100%
-                          </Text>
-                          {full && <IconCheck size={12} color="var(--mantine-color-teal-6)" />}
-                          {over && <IconAlertTriangle size={12} color="var(--mantine-color-red-6)" />}
-                        </Group>
-                      </Group>
-                      <Box h={12} bg="light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))" style={{ display: 'flex', overflow: 'hidden', borderRadius: 999 }}>
-                        <Box
-                          bg={over ? 'red.5' : full ? 'teal.5' : 'yellow.5'}
-                          style={{ width: `${pct}%`, borderRadius: 999, transition: 'width 0.3s ease' }}
-                        />
-                      </Box>
-                      {!full && !over && (
-                        <Text size="xs" c="dimmed" mt={2}>{((10000 - allocatedBps) / 100).toFixed(2)}% unallocated</Text>
-                      )}
-                    </Paper>
-                  );
-                })}
-              </Stack>
-            </Card>
-          )}
 
           {activeHoldings.length > 0 && visibleHoldings.length > 0 && (
             <SimpleGrid cols={{ base: 1, md: Math.min(2, Math.max(1, totals.size)) }}>

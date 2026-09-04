@@ -24,7 +24,7 @@ export function DataTable<T>({ rows, columns, rowKey, minWidth = 800, toolbar, s
   rowStyle?: (row: T) => CSSProperties | undefined;
 }) {
   return (
-    <Paper className="metric" radius="lg" p="md">
+    <Paper className="data-table-card metric" radius="lg" p="md" withBorder>
       {toolbar}
       <Table.ScrollContainer minWidth={minWidth}>
         <Table tabularNums verticalSpacing="sm" horizontalSpacing="xs" highlightOnHover className="data-table">

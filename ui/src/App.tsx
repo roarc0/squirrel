@@ -313,60 +313,84 @@ export default function App() {
 
   const VALID_TABS = ['overview', 'accounts', 'investments', 'drafts', 'instruments', 'market', 'diagnostics', 'consultant', 'btp', 'settings'];
 
-  const [activeTab, setActiveTab] = useState<string>(() => {
-    const pathname = window.location.pathname.replace(/^\/+/, '').split('/')[0];
-    const pathTab = normalizeTab(pathname);
-    if (pathTab && VALID_TABS.includes(pathTab)) {
-      return pathTab;
+  type RouteState = {
+    section: string;
+    subtab?: string;
+  };
+
+  const parseRoute = (path = window.location.pathname, search = window.location.search): RouteState => {
+    const segments = path.replace(/^\/+/, '').split('/').filter(Boolean);
+    const rawSection = segments[0] || '';
+    const rawSubsection = segments[1] || '';
+
+    // Backward compatibility alias redirects:
+    if (rawSection === 'diagnostics') {
+      return { section: 'overview', subtab: 'diagnostics' };
     }
-    const params = new URLSearchParams(window.location.search);
+    if (rawSection === 'drafts') {
+      return { section: 'investments', subtab: 'sandbox' };
+    }
+    if (rawSection === 'holdings') {
+      return { section: 'investments', subtab: 'holdings' };
+    }
+
+    const normSection = normalizeTab(rawSection);
+    if (normSection && VALID_TABS.includes(normSection)) {
+      return { section: normSection, subtab: rawSubsection || undefined };
+    }
+
+    const params = new URLSearchParams(search);
     const rawTab = params.get('tab');
     const urlTab = normalizeTab(rawTab);
     if (urlTab && VALID_TABS.includes(urlTab)) {
-      return urlTab;
+      return { section: urlTab, subtab: params.get('subtab') || undefined };
     }
     if (params.has('similarity')) {
-      return 'instruments';
+      return { section: 'instruments' };
     }
+
     try {
       const saved = localStorage.getItem('squirrel.activeTab');
       const normSaved = normalizeTab(saved);
       if (normSaved && VALID_TABS.includes(normSaved)) {
-        return normSaved;
+        return { section: normSaved };
       }
-    } catch {
-      /* optional */
-    }
-    return 'overview';
-  });
+    } catch {}
 
-  const handleTabChange = (val: string | null) => {
-    const next = val || 'overview';
-    setActiveTab(next);
+    return { section: 'overview' };
+  };
+
+  const [route, setRoute] = useState<RouteState>(parseRoute);
+  const activeTab = route.section;
+
+  const handleSidebarNavigate = (val: string | null) => {
+    const nextSection = val || 'overview';
+    setRoute({ section: nextSection, subtab: undefined });
     try {
-      localStorage.setItem('squirrel.activeTab', next);
+      localStorage.setItem('squirrel.activeTab', nextSection);
       const url = new URL(window.location.href);
-      url.pathname = `/${next}`;
+      url.pathname = `/${nextSection}`;
       url.searchParams.delete('tab');
+      url.searchParams.delete('subtab');
       window.history.pushState({}, '', url.toString());
-    } catch {
-      /* optional */
-    }
+    } catch {}
+  };
+
+  const handleSubtabChange = (section: string, subtab: string) => {
+    setRoute({ section, subtab });
+    try {
+      const url = new URL(window.location.href);
+      const isDefault = (section === 'overview' && subtab === 'overview') || (section === 'investments' && subtab === 'holdings');
+      url.pathname = isDefault ? `/${section}` : `/${section}/${subtab}`;
+      url.searchParams.delete('tab');
+      url.searchParams.delete('subtab');
+      window.history.pushState({}, '', url.toString());
+    } catch {}
   };
 
   useEffect(() => {
     const handlePopState = () => {
-      const pathname = window.location.pathname.replace(/^\/+/, '').split('/')[0];
-      const pathTab = normalizeTab(pathname);
-      if (pathTab && VALID_TABS.includes(pathTab)) {
-        setActiveTab(pathTab);
-        return;
-      }
-      const params = new URLSearchParams(window.location.search);
-      const tab = normalizeTab(params.get('tab')) || 'overview';
-      if (VALID_TABS.includes(tab)) {
-        setActiveTab(tab);
-      }
+      setRoute(parseRoute());
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -460,7 +484,7 @@ export default function App() {
         collapsed={sidebarCollapsed}
         onToggleCollapse={handleToggleSidebar}
         activeTab={activeTab}
-        onNavigate={handleTabChange}
+        onNavigate={handleSidebarNavigate}
         diagnosticsCount={diagnosticsCount}
         diagnostics={data.summary.diagnostics ?? []}
         accountsCount={data.accounts.length}
@@ -481,11 +505,41 @@ export default function App() {
       <div className="app-main-content">
         <main className="app-content-container">
           {error && <Alert color="red" mb="md" withCloseButton onClose={() => setError('')}>{error}</Alert>}
-          <Tabs value={activeTab} onChange={handleTabChange} keepMounted={false}>
-            <Tabs.Panel value="overview" className="tab-content"><Overview data={data} reload={load} onSwitchTab={handleTabChange} activeSubtab="overview" /></Tabs.Panel>
-            <Tabs.Panel value="accounts" className="tab-content"><Accounts accounts={data.accounts} rates={data.rates} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
-            <Tabs.Panel value="investments" className="tab-content"><Investments holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} activeSubtab="holdings" /></Tabs.Panel>
-            <Tabs.Panel value="holdings" className="tab-content"><Investments holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} activeSubtab="holdings" /></Tabs.Panel>
+          <Tabs value={activeTab} onChange={handleSidebarNavigate} keepMounted={false}>
+            <Tabs.Panel value="overview" className="tab-content">
+              <Overview
+                data={data}
+                reload={load}
+                onSwitchTab={handleSidebarNavigate}
+                activeSubtab={(route.subtab as 'overview' | 'diagnostics') || 'overview'}
+                onSubtabChange={(subtab) => handleSubtabChange('overview', subtab)}
+              />
+            </Tabs.Panel>
+            <Tabs.Panel value="accounts" className="tab-content">
+              <Accounts accounts={data.accounts} rates={data.rates} taxRates={data.taxRates} reload={load} />
+            </Tabs.Panel>
+            <Tabs.Panel value="investments" className="tab-content">
+              <Investments
+                holdings={data.holdings}
+                accounts={data.accounts}
+                instruments={data.instruments}
+                taxRates={data.taxRates}
+                reload={load}
+                activeSubtab={(route.subtab as any) || 'holdings'}
+                onSubtabChange={(subtab) => handleSubtabChange('investments', subtab)}
+              />
+            </Tabs.Panel>
+            <Tabs.Panel value="holdings" className="tab-content">
+              <Investments
+                holdings={data.holdings}
+                accounts={data.accounts}
+                instruments={data.instruments}
+                taxRates={data.taxRates}
+                reload={load}
+                activeSubtab="holdings"
+                onSubtabChange={(subtab) => handleSubtabChange('investments', subtab)}
+              />
+            </Tabs.Panel>
             <Tabs.Panel value="drafts" className="tab-content">
               <Investments
                 holdings={data.holdings}
@@ -494,12 +548,19 @@ export default function App() {
                 taxRates={data.taxRates}
                 reload={load}
                 activeSubtab="sandbox"
+                onSubtabChange={(subtab) => handleSubtabChange('investments', subtab)}
               />
             </Tabs.Panel>
             <Tabs.Panel value="instruments" className="tab-content"><InstrumentFinder instruments={data.instruments} reload={load} /></Tabs.Panel>
             <Tabs.Panel value="market" className="tab-content"><MarketContextView rates={data.rates} reload={load} /></Tabs.Panel>
             <Tabs.Panel value="diagnostics" className="tab-content">
-              <Overview data={data} reload={load} onSwitchTab={handleTabChange} activeSubtab="diagnostics" />
+              <Overview
+                data={data}
+                reload={load}
+                onSwitchTab={handleSidebarNavigate}
+                activeSubtab="diagnostics"
+                onSubtabChange={(subtab) => handleSubtabChange('overview', subtab)}
+              />
             </Tabs.Panel>
             <Tabs.Panel value="consultant" className="tab-content">
               <AIConsultantView
@@ -535,7 +596,7 @@ export default function App() {
           <QuickSearchModal
             opened={quickSearchOpened}
             onClose={() => setQuickSearchOpened(false)}
-            onSwitchTab={handleTabChange}
+            onSwitchTab={handleSidebarNavigate}
             onToggleHideBalances={() => setHideBalances(v => !v)}
             onOpenUpdateModal={() => setUpdateModalOpened(true)}
             hideBalances={hideBalances}
@@ -556,13 +617,23 @@ function Overview({
   reload,
   onSwitchTab,
   activeSubtab,
+  onSubtabChange,
 }: {
   data: Data;
   reload: () => Promise<void>;
   onSwitchTab: (tab: string) => void;
   activeSubtab?: 'overview' | 'diagnostics';
+  onSubtabChange?: (subtab: 'overview' | 'diagnostics') => void;
 }) {
-  return <OverviewView data={data} reload={reload} onSwitchTab={onSwitchTab} activeSubtab={activeSubtab} />;
+  return (
+    <OverviewView
+      data={data}
+      reload={reload}
+      onSwitchTab={onSwitchTab}
+      activeSubtab={activeSubtab}
+      onSubtabChange={onSubtabChange}
+    />
+  );
 }
 
 function Metric({ label, value, positive }: { label: string; value: string; positive?: boolean }) {
@@ -689,6 +760,7 @@ function Investments({
   taxRates,
   reload,
   activeSubtab,
+  onSubtabChange,
   onOpenDrafts,
 }: {
   holdings: Holding[];
@@ -696,7 +768,8 @@ function Investments({
   instruments: Instrument[];
   taxRates: TaxRate[];
   reload: () => Promise<void>;
-  activeSubtab?: 'holdings' | 'radar' | 'sandbox';
+  activeSubtab?: 'holdings' | 'pac' | 'radar' | 'sandbox';
+  onSubtabChange?: (subtab: 'holdings' | 'pac' | 'radar' | 'sandbox') => void;
   onOpenDrafts?: () => void;
 }) {
   return (
@@ -707,6 +780,7 @@ function Investments({
       taxRates={taxRates}
       reload={reload}
       activeSubtab={activeSubtab}
+      onSubtabChange={onSubtabChange}
       onOpenDrafts={onOpenDrafts}
     />
   );

@@ -234,6 +234,43 @@ body,
   backdrop-filter: blur(16px);
 }
 
+/* Enhanced Data Table Surface & Rounded Borders */
+.data-table-card {
+  border: 1px solid light-dark(#cbd5e1, #2d3542) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.02) !important;
+  overflow: hidden;
+  background: light-dark(#ffffff, #161b22) !important;
+}
+
+.data-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.data-table thead tr th {
+  border-bottom: 1.5px solid light-dark(#e2e8f0, #272f3c) !important;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+  background: light-dark(#f8fafc, #1a202c);
+}
+
+.data-table thead tr th:first-of-type {
+  border-top-left-radius: 8px;
+}
+
+.data-table thead tr th:last-of-type {
+  border-top-right-radius: 8px;
+}
+
+.data-table tbody tr td {
+  border-bottom: 1px solid light-dark(#f1f5f9, #1c222d) !important;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none !important;
+}
+
 .positive { color: var(--mantine-color-teal-6); }
 .muted { color: var(--mantine-color-dimmed); }
 .wealth-chart { width: 100%; height: auto; overflow: visible; color: var(--mantine-color-dimmed); }
