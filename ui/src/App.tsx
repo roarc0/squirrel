@@ -92,17 +92,7 @@ import { captureTokenFromURL, clearToken, fetchMe, isUnauthenticatedError, type 
 import { LoginView } from './LoginView';
 import { loadProfile, useProfile } from './hooks/useProfile';
 import { handleLinkClick } from './utils/navigation';
-
-type ThemeAccent = 'teal' | 'amber' | 'ocean' | 'violet' | 'rose';
-type ThemeScheme = 'light' | 'dark';
-
-const ACCENT_HEX: Record<ThemeAccent, string> = {
-  teal: '#12b886', amber: '#f97316', ocean: '#228be6', violet: '#7950f2', rose: '#e64980',
-};
-const ACCENT_LABELS: Record<ThemeAccent, string> = {
-  teal: 'Teal', amber: 'Orange', ocean: 'Ocean', violet: 'Violet', rose: 'Rose',
-};
-const ACCENTS = Object.keys(ACCENT_HEX) as ThemeAccent[];
+import { Sidebar, type ThemeAccent, type ThemeScheme, ACCENT_HEX } from './components/Sidebar';
 
 const TEAL_VAR_KEYS = [
   '--mantine-color-teal-0', '--mantine-color-teal-1', '--mantine-color-teal-2',
@@ -273,38 +263,7 @@ export function formatUserName(user?: AuthUser | null): string {
     .join(' ');
 }
 
-function NavTab({
-  value,
-  href,
-  leftSection,
-  children,
-  onNavigate,
-}: {
-  value: string;
-  href: string;
-  leftSection: React.ReactNode;
-  children: React.ReactNode;
-  onNavigate: (tab: string) => void;
-}) {
-  return (
-    <Tabs.Tab
-      value={value}
-      leftSection={leftSection}
-      renderRoot={(props) => (
-        <a
-          {...props}
-          href={href}
-          onClick={(e) => {
-            props.onClick?.(e);
-            handleLinkClick(e, href, onNavigate);
-          }}
-        />
-      )}
-    >
-      {children}
-    </Tabs.Tab>
-  );
-}
+
 
 export default function App() {
   const [needsLogin, setNeedsLogin] = useState(false);
@@ -340,6 +299,17 @@ export default function App() {
 
   const [updateModalOpened, setUpdateModalOpened] = useState(false);
   const [quickSearchOpened, setQuickSearchOpened] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('squirrel.sidebarCollapsed') === 'true';
+  });
+
+  const handleToggleSidebar = () => {
+    setSidebarCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('squirrel.sidebarCollapsed', String(next));
+      return next;
+    });
+  };
 
   const VALID_TABS = ['overview', 'accounts', 'investments', 'drafts', 'instruments', 'market', 'diagnostics', 'consultant', 'btp', 'settings'];
 
@@ -413,7 +383,39 @@ export default function App() {
     setHideBalancesState(hideBalances);
   }, [hideBalances]);
 
-  // Global Keyboard Shortcuts (⌘H / Ctrl+H for hide balances, ⌘K / / for search focus)
+  const { setColorScheme } = useMantineColorScheme();
+  const [scheme, setScheme] = useState<ThemeScheme>(() => {
+    const s = localStorage.getItem('squirrel.scheme');
+    return s === 'light' ? 'light' : 'dark';
+  });
+  const [accent, setAccent] = useState<ThemeAccent>(() => {
+    const a = localStorage.getItem('squirrel.accent') as ThemeAccent | null;
+    return a && a in ACCENT_HEX ? a : 'amber';
+  });
+
+  useEffect(() => {
+    applyAccentVars(accent);
+    document.documentElement.setAttribute('data-accent', accent);
+    setColorScheme(scheme);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const applyTheme = (s: ThemeScheme, a: ThemeAccent) => {
+    setScheme(s);
+    setAccent(a);
+    localStorage.setItem('squirrel.scheme', s);
+    localStorage.setItem('squirrel.accent', a);
+    applyAccentVars(a);
+    document.documentElement.setAttribute('data-accent', a);
+    setProfileField({ theme: `${s}:${a}` });
+    if ('startViewTransition' in document) {
+      (document as any).startViewTransition(() => setColorScheme(s));
+    } else {
+      setColorScheme(s);
+    }
+  };
+
+  // Global Keyboard Shortcuts (⌘H for balances, ⌘B for sidebar, ⌘K / / for search)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isCmdOrCtrl = e.metaKey || e.ctrlKey;
@@ -429,6 +431,9 @@ export default function App() {
           message: profile.hide_balances ? 'Showing balances' : 'Hiding balances',
           autoClose: 1800,
         });
+      } else if (isCmdOrCtrl && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        handleToggleSidebar();
       } else if (!isEditable && (e.key === '/' || (isCmdOrCtrl && e.key.toLowerCase() === 'k'))) {
         e.preventDefault();
         setQuickSearchOpened(true);
@@ -450,271 +455,101 @@ export default function App() {
 
   const diagnosticsCount = data.summary.diagnostics?.length ?? 0;
   return (
-  <>
-    <main className="shell">
-      <Group justify="space-between" align="center" mb="md">
-        <Box component="a" href="/overview" onClick={(e) => handleLinkClick(e, '/overview', handleTabChange)} style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
-          <SquirrelBrandLogo size={26} />
-        </Box>
-        <Group gap={10}>
-          <HeaderIconButton icon={<IconSearch size={16} />} label="Search (⌘K)" onClick={() => setQuickSearchOpened(true)} />
-          <HeaderIconButton icon={<IconArrowsExchange size={16} />} label="Update" variant="primary" onClick={() => setUpdateModalOpened(true)} />
-          <ThemePickerButton />
-          <Popover width={380} position="bottom-end" shadow="md" radius="lg" withArrow>
-            <Popover.Target>
-              <Box style={{ position: 'relative', display: 'inline-block' }}>
-                <HeaderIconButton
-                  icon={diagnosticsCount > 0 ? <IconBellRinging size={16} color="var(--mantine-color-orange-6)" /> : <IconBell size={16} />}
-                  label="Alerts"
-                />
-                {diagnosticsCount > 0 && (
-                  <Badge
-                    size="xs"
-                    color="orange"
-                    circle
-                    style={{
-                      position: 'absolute',
-                      top: -4,
-                      right: -4,
-                      pointerEvents: 'none',
-                      fontSize: 10,
-                      height: 16,
-                      minWidth: 16,
-                    }}
-                  >
-                    {diagnosticsCount}
-                  </Badge>
-                )}
-              </Box>
-            </Popover.Target>
-            <Popover.Dropdown p="sm">
-              <Group justify="space-between" align="center" pb="xs" mb="xs" style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}>
-                <Group gap="xs">
-                  <IconBellRinging size={18} color="var(--mantine-color-teal-6)" />
-                  <Text fw={750} size="sm">
-                    Diagnostics & Warnings
-                  </Text>
-                </Group>
-                <Badge color={diagnosticsCount > 0 ? 'orange' : 'teal'} variant="light" size="sm">
-                  {diagnosticsCount} {diagnosticsCount === 1 ? 'issue' : 'issues'}
-                </Badge>
-              </Group>
+    <div className="app-layout">
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={handleToggleSidebar}
+        activeTab={activeTab}
+        onNavigate={handleTabChange}
+        diagnosticsCount={diagnosticsCount}
+        diagnostics={data.summary.diagnostics ?? []}
+        accountsCount={data.accounts.length}
+        currentUser={currentUser}
+        hideBalances={hideBalances}
+        onToggleHideBalances={() => setHideBalances(v => !v)}
+        onOpenUpdate={() => setUpdateModalOpened(true)}
+        onOpenSearch={() => setQuickSearchOpened(true)}
+        onSignOut={() => { clearToken(); setNeedsLogin(true); setCurrentUser(null); setData(undefined); }}
+        scheme={scheme}
+        accent={accent}
+        onApplyTheme={applyTheme}
+        enableBtp={Boolean(profile.enable_btp_ranks)}
+        squirrelIcon={<SquirrelIcon size={26} />}
+        squirrelBrandLogo={<SquirrelBrandLogo size={24} />}
+      />
 
-              {diagnosticsCount === 0 ? (
-                <Stack align="center" gap="xs" py="md">
-                  <IconCheck size={28} color="var(--mantine-color-teal-6)" />
-                  <Text size="sm" fw={600} c="teal">
-                    All systems optimal!
-                  </Text>
-                  <Text size="xs" c="dimmed" ta="center">
-                    No diagnostic warnings or allocation issues detected across your portfolio.
-                  </Text>
-                </Stack>
-              ) : (
-                <ScrollArea.Autosize mah={360} offsetScrollbars>
-                  <Stack gap="xs">
-                    {data.summary.diagnostics?.map(diag => (
-                      <Card key={diag.id} withBorder radius="md" p="xs" style={{ background: 'var(--mantine-color-body)' }}>
-                        <Group justify="space-between" align="center" mb={4}>
-                          <Badge
-                            color={diag.severity === 'warning' ? 'orange' : diag.severity === 'alert' ? 'red' : 'blue'}
-                            variant="light"
-                            size="xs"
-                          >
-                            {diag.category.toUpperCase()}
-                          </Badge>
-                          <Text size="10px" c="dimmed" tt="uppercase" fw={700}>
-                            {diag.severity}
-                          </Text>
-                        </Group>
-                        <Text fw={700} size="xs" mb={2}>
-                          {diag.title}
-                        </Text>
-                        <Text size="xs" c="dimmed" lh={1.35} mb="xs">
-                          {diag.message}
-                        </Text>
-                        {diag.category === 'cash' && (
-                          <Button
-                            component="a"
-                            href="/settings"
-                            size="compact-xs"
-                            variant="light"
-                            color="teal"
-                            onClick={(e) => handleLinkClick(e, '/settings', handleTabChange)}
-                          >
-                            Configure Reserve →
-                          </Button>
-                        )}
-                        {diag.category === 'drift' && (
-                          <Button
-                            component="a"
-                            href="/investments"
-                            size="compact-xs"
-                            variant="light"
-                            color="teal"
-                            onClick={(e) => handleLinkClick(e, '/investments', handleTabChange)}
-                          >
-                            Rebalance Portfolio →
-                          </Button>
-                        )}
-                      </Card>
-                    ))}
-                  </Stack>
-                </ScrollArea.Autosize>
-              )}
-            </Popover.Dropdown>
-          </Popover>
-          {currentUser ? (
-            <Menu shadow="md" width={240} position="bottom-end">
-              <Menu.Target>
-                <HeaderIconButton
-                  icon={currentUser.picture
-                    ? <Avatar src={currentUser.picture} size={20} radius="xl" />
-                    : <IconUser size={16} />}
-                  label={formatUserName(currentUser)}
-                />
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Label>
-                  <Stack gap={2}>
-                    <Group gap="xs" align="center">
-                      <Text size="sm" fw={600}>{currentUser.email}</Text>
-                      {currentUser.is_admin && <Badge size="xs" color="teal">admin</Badge>}
-                    </Group>
-                    <Text
-                      size="xs"
-                      c="dimmed"
-                      style={{ fontFamily: 'monospace', cursor: 'pointer', wordBreak: 'break-all' }}
-                      title="Click to copy"
-                      onClick={() => navigator.clipboard.writeText(currentUser.google_id)}
-                    >
-                      {currentUser.google_id}
-                    </Text>
-                  </Stack>
-                </Menu.Label>
-                <Menu.Divider />
-                <Menu.Item
-                  leftSection={hideBalances ? <IconEyeOff size={14} /> : <IconEye size={14} />}
-                  onClick={() => setHideBalances(v => !v)}
-                >
-                  {hideBalances ? 'Show Balances' : 'Hide Balances'}
-                </Menu.Item>
-                <Menu.Item
-                  component="a"
-                  href="/settings"
-                  leftSection={<IconSettings size={14} />}
-                  onClick={(e) => handleLinkClick(e, '/settings', handleTabChange)}
-                >
-                  Settings
-                </Menu.Item>
-                <Menu.Divider />
-                <Menu.Item
-                  color="red"
-                  onClick={() => { clearToken(); setNeedsLogin(true); setCurrentUser(null); setData(undefined); }}
-                >
-                  Sign out
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
-          ) : null}
-        </Group>
-      </Group>
-      {error && <Alert color="red" mb="md" withCloseButton onClose={() => setError('')}>{error}</Alert>}
-      <Tabs value={activeTab} onChange={handleTabChange} keepMounted={false}>
-        <Tabs.List mb="xl">
-          <NavTab value="overview" href="/overview" onNavigate={handleTabChange} leftSection={<IconChartPie size={16} />}>
-            Overview
-          </NavTab>
-          <NavTab value="accounts" href="/accounts" onNavigate={handleTabChange} leftSection={<IconBuildingBank size={16} />}>
-            Accounts
-          </NavTab>
-          <NavTab value="investments" href="/investments" onNavigate={handleTabChange} leftSection={<IconBriefcase size={16} />}>
-            Investments
-          </NavTab>
-          <NavTab value="drafts" href="/drafts" onNavigate={handleTabChange} leftSection={<IconFlask size={16} />}>
-            Portfolio Sandbox
-          </NavTab>
-          <NavTab value="instruments" href="/instruments" onNavigate={handleTabChange} leftSection={<IconSearch size={16} />}>
-            Instruments
-          </NavTab>
-          <NavTab value="market" href="/market" onNavigate={handleTabChange} leftSection={<IconActivity size={16} />}>
-            Market Context
-          </NavTab>
-          <NavTab value="consultant" href="/consultant" onNavigate={handleTabChange} leftSection={<IconRobot size={16} />}>
-            AI Consultant
-          </NavTab>
-          {profile.enable_btp_ranks && (
-            <NavTab value="btp" href="/btp" onNavigate={handleTabChange} leftSection={<IconFileCertificate size={16} />}>
-              BTP Rank
-            </NavTab>
-          )}
-        </Tabs.List>
-        <Tabs.Panel value="overview" className="tab-content"><Overview data={data} reload={load} onSwitchTab={handleTabChange} /></Tabs.Panel>
-        <Tabs.Panel value="accounts" className="tab-content"><Accounts accounts={data.accounts} rates={data.rates} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
-        <Tabs.Panel value="investments" className="tab-content"><Investments holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
-        <Tabs.Panel value="holdings" className="tab-content"><Investments holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
-        <Tabs.Panel value="drafts" className="tab-content">
-          <DraftPortfoliosView
-            holdings={data.holdings}
-            instruments={data.instruments}
+      <div className="app-main-content">
+        <main className="app-content-container">
+          {error && <Alert color="red" mb="md" withCloseButton onClose={() => setError('')}>{error}</Alert>}
+          <Tabs value={activeTab} onChange={handleTabChange} keepMounted={false}>
+            <Tabs.Panel value="overview" className="tab-content"><Overview data={data} reload={load} onSwitchTab={handleTabChange} /></Tabs.Panel>
+            <Tabs.Panel value="accounts" className="tab-content"><Accounts accounts={data.accounts} rates={data.rates} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
+            <Tabs.Panel value="investments" className="tab-content"><Investments holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
+            <Tabs.Panel value="holdings" className="tab-content"><Investments holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
+            <Tabs.Panel value="drafts" className="tab-content">
+              <DraftPortfoliosView
+                holdings={data.holdings}
+                instruments={data.instruments}
+                accounts={data.accounts}
+                reload={load}
+              />
+            </Tabs.Panel>
+            <Tabs.Panel value="instruments" className="tab-content"><InstrumentFinder instruments={data.instruments} reload={load} /></Tabs.Panel>
+            <Tabs.Panel value="market" className="tab-content"><MarketContextView rates={data.rates} reload={load} /></Tabs.Panel>
+            <Tabs.Panel value="diagnostics" className="tab-content">
+              <DiagnosticsTab
+                diagnostics={data.summary.diagnostics ?? []}
+                onOpenSettings={() => handleTabChange('settings')}
+                onOpenInvest={() => handleTabChange('investments')}
+              />
+            </Tabs.Panel>
+            <Tabs.Panel value="consultant" className="tab-content">
+              <AIConsultantView
+                summary={data.summary}
+                accounts={data.accounts}
+                holdings={data.holdings}
+                instruments={data.instruments}
+              />
+            </Tabs.Panel>
+            <Tabs.Panel value="advisor" className="tab-content">
+              <AIConsultantView
+                summary={data.summary}
+                accounts={data.accounts}
+                holdings={data.holdings}
+                instruments={data.instruments}
+              />
+            </Tabs.Panel>
+            <Tabs.Panel value="btp" className="tab-content">
+              <BtpRankView />
+            </Tabs.Panel>
+            <Tabs.Panel value="settings" className="tab-content">
+              <SettingsView reload={load} />
+            </Tabs.Panel>
+          </Tabs>
+
+          <UpdateSituationModal
+            opened={updateModalOpened}
+            onClose={() => setUpdateModalOpened(false)}
             accounts={data.accounts}
+            holdings={data.holdings}
             reload={load}
           />
-        </Tabs.Panel>
-        <Tabs.Panel value="instruments" className="tab-content"><InstrumentFinder instruments={data.instruments} reload={load} /></Tabs.Panel>
-        <Tabs.Panel value="market" className="tab-content"><MarketContextView rates={data.rates} reload={load} /></Tabs.Panel>
-        <Tabs.Panel value="diagnostics" className="tab-content">
-          <DiagnosticsTab
-            diagnostics={data.summary.diagnostics ?? []}
-            onOpenSettings={() => handleTabChange('settings')}
-            onOpenInvest={() => handleTabChange('investments')}
-          />
-        </Tabs.Panel>
-        <Tabs.Panel value="consultant" className="tab-content">
-          <AIConsultantView
-            summary={data.summary}
-            accounts={data.accounts}
-            holdings={data.holdings}
+          <QuickSearchModal
+            opened={quickSearchOpened}
+            onClose={() => setQuickSearchOpened(false)}
+            onSwitchTab={handleTabChange}
+            onToggleHideBalances={() => setHideBalances(v => !v)}
+            onOpenUpdateModal={() => setUpdateModalOpened(true)}
+            hideBalances={hideBalances}
             instruments={data.instruments}
-          />
-        </Tabs.Panel>
-        <Tabs.Panel value="advisor" className="tab-content">
-          <AIConsultantView
-            summary={data.summary}
             accounts={data.accounts}
-            holdings={data.holdings}
-            instruments={data.instruments}
           />
-        </Tabs.Panel>
-        <Tabs.Panel value="btp" className="tab-content">
-          <BtpRankView />
-        </Tabs.Panel>
-        <Tabs.Panel value="settings" className="tab-content">
-          <SettingsView reload={load} />
-        </Tabs.Panel>
-      </Tabs>
-      <UpdateSituationModal
-        opened={updateModalOpened}
-        onClose={() => setUpdateModalOpened(false)}
-        accounts={data.accounts}
-        holdings={data.holdings}
-        reload={load}
-      />
-      <QuickSearchModal
-        opened={quickSearchOpened}
-        onClose={() => setQuickSearchOpened(false)}
-        onSwitchTab={handleTabChange}
-        onToggleHideBalances={() => setHideBalances(v => !v)}
-        onOpenUpdateModal={() => setUpdateModalOpened(true)}
-        hideBalances={hideBalances}
-        instruments={data.instruments}
-        accounts={data.accounts}
-      />
-    </main>
-    <footer className="app-footer">
-      <Text size="xs" c="dimmed">Squirrel · Stash, track & grow your wealth</Text>
-    </footer>
-  </>
+        </main>
+        <footer className="app-footer">
+          <Text size="xs" c="dimmed">Squirrel · Stash, track & grow your wealth</Text>
+        </footer>
+      </div>
+    </div>
   );
 }
 
@@ -766,123 +601,7 @@ export function PerformanceResult({ value, invested, currency, mood = false }: {
   );
 }
 
-const HeaderIconButton = React.forwardRef<HTMLButtonElement, { icon: React.ReactNode; label: string; onClick?: () => void; variant?: 'default' | 'primary'; className?: string }>(
-  ({ icon, label, onClick, variant = 'default', className }, ref) => (
-    <button
-      ref={ref}
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      className={`header-btn ${variant === 'primary' ? 'header-btn--primary' : ''} ${className ?? ''}`.trim()}
-    >
-      {icon}
-      <Text size="xs" fw={variant === 'primary' ? 600 : 500} lh={1} c="inherit">{label}</Text>
-    </button>
-  )
-);
 
-function ThemePickerButton() {
-  const { setColorScheme } = useMantineColorScheme();
-  const [, setProfileField] = useProfile();
-  const [scheme, setScheme] = useState<ThemeScheme>(() => {
-    const s = localStorage.getItem('squirrel.scheme');
-    return s === 'light' ? 'light' : 'dark';
-  });
-  const [accent, setAccent] = useState<ThemeAccent>(() => {
-    const a = localStorage.getItem('squirrel.accent') as ThemeAccent | null;
-    return a && a in ACCENT_HEX ? a : 'amber';
-  });
-
-  useEffect(() => {
-    applyAccentVars(accent);
-    document.documentElement.setAttribute('data-accent', accent);
-    setColorScheme(scheme);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const apply = (s: ThemeScheme, a: ThemeAccent) => {
-    localStorage.setItem('squirrel.scheme', s);
-    localStorage.setItem('squirrel.accent', a);
-    applyAccentVars(a);
-    document.documentElement.setAttribute('data-accent', a);
-    setProfileField({ theme: `${s}:${a}` });
-    if ('startViewTransition' in document) {
-      (document as any).startViewTransition(() => setColorScheme(s));
-    } else {
-      setColorScheme(s);
-    }
-  };
-
-  return (
-    <Popover position="bottom-end" withArrow shadow="lg" radius="md" width={224}>
-      <Popover.Target>
-        <HeaderIconButton
-          icon={
-            <Box style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {scheme === 'light' ? (
-                <IconSun size={16} color="var(--mantine-color-yellow-5)" />
-              ) : (
-                <IconMoon size={16} color="var(--mantine-color-indigo-3)" />
-              )}
-              <Box
-                w={6}
-                h={6}
-                style={{
-                  borderRadius: '50%',
-                  background: ACCENT_HEX[accent],
-                  position: 'absolute',
-                  bottom: -2,
-                  right: -3,
-                  border: '1px solid var(--mantine-color-body)',
-                }}
-              />
-            </Box>
-          }
-          label="Theme"
-        />
-      </Popover.Target>
-      <Popover.Dropdown p="md">
-        <Stack gap="xs">
-          <Text size="11px" fw={700} c="dimmed" style={{ letterSpacing: '0.06em', textTransform: 'uppercase' }}>Mode</Text>
-          <SegmentedControl
-            size="xs"
-            fullWidth
-            value={scheme}
-            onChange={v => { const s = v as ThemeScheme; setScheme(s); apply(s, accent); }}
-            data={[{ value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]}
-          />
-          <Divider my={4} />
-          <Text size="11px" fw={700} c="dimmed" style={{ letterSpacing: '0.06em', textTransform: 'uppercase' }}>Accent</Text>
-          <Group gap={10} justify="space-between" wrap="nowrap" px={2} py={2}>
-            {ACCENTS.map(a => (
-              <Tooltip key={a} label={ACCENT_LABELS[a]} position="bottom" withArrow>
-                <Box
-                  component="button"
-                  w={24} h={24}
-                  onClick={() => { setAccent(a); apply(scheme, a); }}
-                  aria-label={ACCENT_LABELS[a]}
-                  style={{
-                    borderRadius: '50%',
-                    background: ACCENT_HEX[a],
-                    cursor: 'pointer',
-                    border: 'none',
-                    padding: 0,
-                    flexShrink: 0,
-                    boxShadow: a === accent
-                      ? `0 0 0 2px var(--mantine-color-body), 0 0 0 4px ${ACCENT_HEX[a]}`
-                      : '0 1px 3px rgba(0,0,0,0.12)',
-                    transform: a === accent ? 'scale(1.08)' : 'scale(1)',
-                    transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-                  }}
-                />
-              </Tooltip>
-            ))}
-          </Group>
-        </Stack>
-      </Popover.Dropdown>
-    </Popover>
-  );
-}
 
 export function AllocationBar({
   segments,

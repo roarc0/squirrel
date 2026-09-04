@@ -26,6 +26,170 @@ body {
   padding: 30px 0 48px;
 }
 
+/* Modern Side Panel Layout */
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.app-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  z-index: 100;
+  background: light-dark(#ffffff, #11141a);
+  border-right: 1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5));
+  box-shadow: 1px 0 4px rgba(0, 0, 0, 0.02);
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), padding 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.app-sidebar.expanded {
+  width: 256px;
+  padding: 16px 12px;
+}
+
+.app-sidebar.collapsed {
+  width: 70px;
+  padding: 16px 8px;
+  align-items: center;
+}
+
+.app-main-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+}
+
+.app-content-container {
+  flex: 1;
+  width: 100%;
+  max-width: 1540px;
+  margin: 0 auto;
+  padding: 28px 36px 56px;
+}
+
+@media (max-width: 768px) {
+  .app-content-container {
+    padding: 18px 14px 44px;
+  }
+}
+
+/* Sidebar Nav Items */
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-1));
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  transition: background 0.12s ease, color 0.12s ease, transform 0.08s ease;
+}
+
+.sidebar-nav-item:hover {
+  background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6));
+  color: light-dark(var(--mantine-color-dark-9), var(--mantine-color-white));
+}
+
+.sidebar-nav-item.active {
+  background: var(--mantine-color-teal-filled);
+  color: var(--mantine-color-white);
+  font-weight: 650;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--mantine-color-teal-6) 32%, transparent);
+}
+
+.sidebar-nav-item.active:hover {
+  background: var(--mantine-color-teal-filled-hover);
+  color: var(--mantine-color-white);
+}
+
+.sidebar-nav-item-collapsed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-1));
+  cursor: pointer;
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  transition: background 0.12s ease, color 0.12s ease, transform 0.08s ease;
+}
+
+.sidebar-nav-item-collapsed:hover {
+  background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6));
+  color: light-dark(var(--mantine-color-dark-9), var(--mantine-color-white));
+}
+
+.sidebar-nav-item-collapsed.active {
+  background: var(--mantine-color-teal-filled);
+  color: var(--mantine-color-white);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--mantine-color-teal-6) 32%, transparent);
+}
+
+/* Sidebar search button */
+.sidebar-search-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
+  background: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+  color: light-dark(var(--mantine-color-gray-6), var(--mantine-color-dark-2));
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+}
+
+.sidebar-search-btn:hover {
+  border-color: light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-3));
+  background: light-dark(var(--mantine-color-white), var(--mantine-color-dark-5));
+  color: light-dark(var(--mantine-color-dark-9), var(--mantine-color-dark-0));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Sidebar user card */
+.sidebar-user-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  color: inherit;
+  font-family: inherit;
+}
+
+.sidebar-user-card:hover {
+  background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6));
+}
+
 .app-footer {
   width: 100%;
   padding: 14px 24px;
