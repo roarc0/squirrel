@@ -223,6 +223,101 @@ function PacBpsEditor({ holding, accountMap, onSaved }: { holding: Holding; acco
   );
 }
 
+function InlinePacShareEditor({
+  holding,
+  onSaved,
+}: {
+  holding: Holding;
+  onSaved: () => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState<number | string>('');
+  const [saving, setSaving] = useState(false);
+
+  const pacBps = holding.pac_bps ?? 0;
+
+  const start = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setValue(pacBps / 100);
+    setEditing(true);
+  };
+  const cancel = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setEditing(false);
+  };
+  const save = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setSaving(true);
+    try {
+      const newBps = Math.round(Number(value) * 100);
+      await api(`/api/holdings/${holding.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ ...holding, pac_bps: newBps, is_pac: newBps > 0 }),
+      });
+      notifications.show({
+        color: 'teal',
+        title: 'PAC share updated',
+        message: `${holding.instrument_name} PAC allocation set to ${Number(value).toFixed(2)}%`,
+      });
+      setEditing(false);
+      await onSaved();
+    } catch (cause) {
+      notifications.show({
+        color: 'red',
+        title: 'Failed to update PAC share',
+        message: cause instanceof Error ? cause.message : String(cause),
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') void save();
+    if (e.key === 'Escape') cancel();
+  };
+
+  if (!editing) {
+    return (
+      <Group gap={4} wrap="nowrap" align="center" justify="end" style={{ cursor: 'pointer' }} onClick={start}>
+        <Badge color="teal" size="sm" variant="light" style={{ cursor: 'pointer' }}>
+          {percent(pacBps)}
+        </Badge>
+        <Tooltip label="Edit PAC % inline" position="top" withArrow>
+          <ActionIcon size={18} variant="subtle" color="gray" onClick={start}>
+            <IconPencil size={11} />
+          </ActionIcon>
+        </Tooltip>
+      </Group>
+    );
+  }
+
+  return (
+    <Group gap={4} wrap="nowrap" align="center" justify="end" onClick={e => e.stopPropagation()}>
+      <NumberInput
+        size="xs"
+        w={72}
+        min={0}
+        max={100}
+        decimalScale={2}
+        value={value}
+        onChange={setValue}
+        onKeyDown={onKey}
+        autoFocus
+        rightSection={<Text size="xs" c="dimmed" pr={4}>%</Text>}
+        rightSectionWidth={20}
+        styles={{ input: { paddingRight: 20 } }}
+      />
+      <ActionIcon size={22} variant="filled" color="teal" loading={saving} onClick={save}>
+        <IconCheck size={12} />
+      </ActionIcon>
+      <ActionIcon size={22} variant="subtle" color="gray" onClick={cancel}>
+        <IconX size={12} />
+      </ActionIcon>
+    </Group>
+  );
+}
+
 function InlineCurrencyEditor({
   holding,
   field,
@@ -690,7 +785,7 @@ export function InvestmentsView({
                     onChange={setAccountIDs}
                   />
                 )}
-                <Button disabled={!ready} onClick={() => open()}>Add PAC Investment</Button>
+                <Button disabled={!ready} onClick={() => open()}>Add Investment</Button>
               </Group>
             }
           />
@@ -775,18 +870,17 @@ export function InvestmentsView({
 
                     {accountPacHoldings.length === 0 ? (
                       <Text size="xs" c="dimmed" py="sm" ta="center">
-                        No ETF allocations assigned to this account yet. Click "Add PAC Investment" to configure.
+                        No ETF allocations assigned to this account yet. Click "Add Investment" to configure.
                       </Text>
                     ) : (
                       <Paper className="data-table-card" radius="md" withBorder style={{ padding: 0, marginTop: 8 }}>
                         <Table verticalSpacing="xs" horizontalSpacing="xs" highlightOnHover className="data-table">
                           <Table.Thead>
                             <Table.Tr>
-                              <Table.Th style={{ width: '42%' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Instrument</Text></Table.Th>
-                              <Table.Th style={{ width: '15%', textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">PAC Share</Text></Table.Th>
-                              <Table.Th style={{ width: '18%', textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Monthly</Text></Table.Th>
+                              <Table.Th style={{ width: '46%' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Instrument</Text></Table.Th>
+                              <Table.Th style={{ width: '20%', textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">PAC Share</Text></Table.Th>
+                              <Table.Th style={{ width: '17%', textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Monthly</Text></Table.Th>
                               <Table.Th style={{ width: '17%', textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Holding Value</Text></Table.Th>
-                              <Table.Th style={{ width: '8%', textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Action</Text></Table.Th>
                             </Table.Tr>
                           </Table.Thead>
                           <Table.Tbody>
@@ -801,9 +895,7 @@ export function InvestmentsView({
                                   </Group>
                                 </Table.Td>
                                 <Table.Td style={{ textAlign: 'right' }}>
-                                  <Badge color="teal" size="sm" variant="light">
-                                    {percent(item.pacBps)}
-                                  </Badge>
+                                  <InlinePacShareEditor holding={item.holding} onSaved={reload} />
                                 </Table.Td>
                                 <Table.Td style={{ textAlign: 'right' }}>
                                   <Text size="xs" fw={700} c="teal">
@@ -814,17 +906,6 @@ export function InvestmentsView({
                                   <Text size="xs" fw={600}>
                                     {money(item.holding.value_minor, item.holding.currency ?? currency)}
                                   </Text>
-                                </Table.Td>
-                                <Table.Td style={{ textAlign: 'right' }}>
-                                  <ActionIcon
-                                    size="sm"
-                                    variant="subtle"
-                                    color="gray"
-                                    onClick={() => open(item.holding)}
-                                    title="Edit PAC share"
-                                  >
-                                    <IconPencil size={13} />
-                                  </ActionIcon>
                                 </Table.Td>
                               </Table.Tr>
                             ))}
