@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ActionIcon,
   Alert,
@@ -25,9 +25,11 @@ import {
 import { notifications } from '@mantine/notifications';
 import {
   IconAlertTriangle,
+  IconBriefcase,
   IconCheck,
   IconChevronDown,
   IconChevronUp,
+  IconFlask,
   IconGlobe,
   IconNotes,
   IconPencil,
@@ -37,6 +39,8 @@ import {
 } from '@tabler/icons-react';
 import { api, type Account, type Holding, type Instrument, type TaxRate } from '../api';
 import { GeoRadarSection } from './GeoRadarView';
+import { DraftPortfoliosView } from './DraftPortfoliosView';
+import { SubnavTabs } from '../components/SubnavTabs';
 import { AllocationBar, PerformanceResult, useBackendRows } from '../App';
 import { copyToClipboard } from '../utils/copyToClipboard';
 import { Chip, ISINBadge, TickerBadge } from '../Chip';
@@ -423,11 +427,40 @@ function InlinePlannedBpsEditor({
   );
 }
 
-export function InvestmentsView({ holdings, accounts, instruments, taxRates, reload, onOpenDrafts }: { holdings: Holding[]; accounts: Account[]; instruments: Instrument[]; taxRates: TaxRate[]; reload: () => Promise<void>; onOpenDrafts?: () => void }) {
+export function InvestmentsView({
+  holdings,
+  accounts,
+  instruments,
+  taxRates,
+  reload,
+  activeSubtab = 'holdings',
+  onSubtabChange,
+}: {
+  holdings: Holding[];
+  accounts: Account[];
+  instruments: Instrument[];
+  taxRates: TaxRate[];
+  reload: () => Promise<void>;
+  activeSubtab?: 'holdings' | 'radar' | 'sandbox';
+  onSubtabChange?: (subtab: 'holdings' | 'radar' | 'sandbox') => void;
+  onOpenDrafts?: () => void;
+}) {
+  const [currentSubtab, setCurrentSubtab] = useState<'holdings' | 'radar' | 'sandbox'>(activeSubtab);
+
+  useEffect(() => {
+    if (activeSubtab) {
+      setCurrentSubtab(activeSubtab);
+    }
+  }, [activeSubtab]);
+
+  const handleSubtabChange = (subtab: 'holdings' | 'radar' | 'sandbox') => {
+    setCurrentSubtab(subtab);
+    onSubtabChange?.(subtab);
+  };
+
   const [opened, setOpened] = useState(false); const [editing, setEditing] = useState<Holding>(); const [error, setError] = useState('');
   const [accountIDs, setAccountIDs] = useQueryParamArray('accounts');
   const [selectedAssetClass, setSelectedAssetClass] = useState<string | null>(null);
-  const [geoRadarOpen, setGeoRadarOpen] = useState(false);
   const { confirmDelete, modal: confirmDeleteModal } = useConfirmDelete();
   const table = useBackendRows('/api/holdings', holdings, 'value', 'desc');
   const activeAccounts = accounts.filter(account => !account.archived); const activeAccountIDs = new Set(activeAccounts.map(account => account.id));
@@ -588,186 +621,216 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
 
   return (
     <ViewShell error={error || table.sortError}>
-      <SectionHeader
-        title="Investments"
-        subtitle="Actual allocation uses current investment values within each currency; planned allocation is your target."
-        actions={
-          <Group gap="sm" align="center" wrap="wrap">
-            {activeAccounts.length > 0 && (
-              <MultiSelect
-                w={240}
-                searchable
-                clearable
-                placeholder="Filter by account"
-                value={accountIDs}
-                data={activeAccounts.map(account => ({ value: String(account.id), label: account.name }))}
-                onChange={setAccountIDs}
-              />
-            )}
-            <Button
-              variant="light"
-              color={geoRadarOpen ? 'blue' : 'gray'}
-              leftSection={<IconGlobe size={16} />}
-              rightSection={geoRadarOpen ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
-              onClick={() => setGeoRadarOpen(v => !v)}
-            >
-              Geo & FX Radar
-            </Button>
-            <Button disabled={!ready} onClick={() => open()}>Add investment</Button>
-          </Group>
-        }
+      <SubnavTabs<'holdings' | 'radar' | 'sandbox'>
+        value={currentSubtab}
+        onChange={handleSubtabChange}
+        tabs={[
+          {
+            value: 'holdings',
+            label: 'Holdings & PAC',
+            icon: <IconBriefcase size={16} />,
+            badge: activeHoldings.length > 0 ? activeHoldings.length : undefined,
+          },
+          {
+            value: 'radar',
+            label: 'Geo & FX Radar',
+            icon: <IconGlobe size={16} />,
+          },
+          {
+            value: 'sandbox',
+            label: 'Portfolio Sandbox',
+            icon: <IconFlask size={16} />,
+          },
+        ]}
       />
 
-    {totalMonthlyPacMinor > 0 && (
-      <Card className="metric" p="lg" radius="lg">
-        <Group justify="space-between" align="start" mb="md">
-          <Box>
-            <Group gap="xs" mb={2}>
-              <IconRepeat size={18} color="var(--mantine-color-teal-6)" />
-              <Text fw={800} size="lg">Active Accumulation Plan (PAC)</Text>
-              <Badge color="teal" variant="filled">{activePacHoldings.length} Active PAC Investments</Badge>
-            </Group>
-            <Text size="xs" c="dimmed">Recurring automated dollar-cost averaging investments per account.</Text>
-          </Box>
-
-          <Group gap="lg" align="center">
-            <Box ta="right">
-              <Text size="xs" c="dimmed">Monthly Deposit</Text>
-              <Text size="xl" fw={800} c="teal">{money(totalMonthlyPacMinor, currency)}/mo</Text>
-            </Box>
-            <Box ta="right">
-              <Text size="xs" c="dimmed">Yearly Investment</Text>
-              <Text size="xl" fw={800} c="teal">{money(totalMonthlyPacMinor * 12, currency)}/yr</Text>
-            </Box>
-            <Box ta="right">
-              <Text size="xs" c="dimmed">Weighted PAC TER</Text>
-              <Text size="lg" fw={800} c="dimmed">{percent(pacWeightedTERBps)}</Text>
-              <Text size="xs" c="orange">-{money(totalPacAnnualFeeDragMinor, currency)}/yr drag</Text>
-            </Box>
-            <Box ta="right">
-              <Text size="xs" c="dimmed">5-Yr Capital Projection</Text>
-              <Text size="md" fw={700}>{money(totalMonthlyPacMinor * 60, currency)}</Text>
-              {totalPacAnnualFeeDragMinor > 0 && (
-                <Text size="xs" c="orange">-{money(totalPacAnnualFeeDragMinor * 5, currency)} 5yr fee drag</Text>
-              )}
-            </Box>
-          </Group>
-        </Group>
-
-        <Stack gap="xs">
-          {pacAccountsList.map(acc => {
-            const allocatedBps = pacByAccount.get(acc.id)?.allocatedBps ?? 0;
-            const pct = Math.min(allocatedBps / 100, 100);
-            const over = allocatedBps > 10000;
-            const full = allocatedBps === 10000;
-
-            return (
-              <Paper key={acc.id} p="xs" radius="md" withBorder style={{ backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))' }}>
-                <Group justify="space-between" align="center" mb={6}>
-                  <Group gap="xs" align="center">
-                    <Text size="xs" fw={750}>{acc.name}</Text>
-                    <PacAmountEditor account={acc} currency={acc.currency ?? currency} onSaved={reload} />
-                  </Group>
-                  <Group gap={4} align="center">
-                    <Text size="xs" fw={700} c={over ? 'red' : full ? 'teal' : 'dimmed'}>
-                      {(allocatedBps / 100).toFixed(2)}% / 100%
-                    </Text>
-                    {full && <IconCheck size={12} color="var(--mantine-color-teal-6)" />}
-                    {over && <IconAlertTriangle size={12} color="var(--mantine-color-red-6)" />}
-                  </Group>
-                </Group>
-                <Box h={12} bg="light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))" style={{ display: 'flex', overflow: 'hidden', borderRadius: 999 }}>
-                  <Box
-                    bg={over ? 'red.5' : full ? 'teal.5' : 'yellow.5'}
-                    style={{ width: `${pct}%`, borderRadius: 999, transition: 'width 0.3s ease' }}
-                  />
-                </Box>
-                {!full && !over && (
-                  <Text size="xs" c="dimmed" mt={2}>{((10000 - allocatedBps) / 100).toFixed(2)}% unallocated</Text>
-                )}
-              </Paper>
-            );
-          })}
+      {currentSubtab === 'radar' ? (
+        <Stack gap="md">
+          <SectionHeader
+            title="Geo & FX Radar"
+            subtitle="Geographical distribution, currency exposure, and FX risk across your investment holdings."
+          />
+          <Paper withBorder radius="lg" p="lg">
+            <GeoRadarSection />
+          </Paper>
         </Stack>
-      </Card>
-    )}
+      ) : currentSubtab === 'sandbox' ? (
+        <DraftPortfoliosView
+          holdings={holdings}
+          instruments={instruments}
+          accounts={accounts}
+          reload={reload}
+        />
+      ) : (
+        <>
+          <SectionHeader
+            title="Investments & PAC"
+            subtitle="Actual allocation uses current investment values within each currency; planned allocation is your target."
+            actions={
+              <Group gap="sm" align="center" wrap="wrap">
+                {activeAccounts.length > 0 && (
+                  <MultiSelect
+                    w={240}
+                    searchable
+                    clearable
+                    placeholder="Filter by account"
+                    value={accountIDs}
+                    data={activeAccounts.map(account => ({ value: String(account.id), label: account.name }))}
+                    onChange={setAccountIDs}
+                  />
+                )}
+                <Button disabled={!ready} onClick={() => open()}>Add investment</Button>
+              </Group>
+            }
+          />
 
-    {activeHoldings.length > 0 && visibleHoldings.length > 0 && (
-      <SimpleGrid cols={{ base: 1, md: Math.min(2, Math.max(1, totals.size)) }}>
-        {[...totals].map(([currency, summary]) => (
-          <Card key={currency} className="metric" p="lg" radius="lg">
-            <Group justify="space-between" align="start">
-              <Box>
-                <Text size="xs" c="dimmed">Visible investments · {currency}</Text>
-                <Text size="xl" fw={750}>{money(summary.value, currency)}</Text>
-              </Box>
-              <Text size="sm" c="dimmed">{summary.count} {summary.count === 1 ? 'investment' : 'investments'}</Text>
+          {totalMonthlyPacMinor > 0 && (
+            <Card className="metric" p="lg" radius="lg">
+              <Group justify="space-between" align="start" mb="md">
+                <Box>
+                  <Group gap="xs" mb={2}>
+                    <IconRepeat size={18} color="var(--mantine-color-teal-6)" />
+                    <Text fw={800} size="lg">Active Accumulation Plan (PAC)</Text>
+                    <Badge color="teal" variant="filled">{activePacHoldings.length} Active PAC Investments</Badge>
+                  </Group>
+                  <Text size="xs" c="dimmed">Recurring automated dollar-cost averaging investments per account.</Text>
+                </Box>
+
+                <Group gap="lg" align="center">
+                  <Box ta="right">
+                    <Text size="xs" c="dimmed">Monthly Deposit</Text>
+                    <Text size="xl" fw={800} c="teal">{money(totalMonthlyPacMinor, currency)}/mo</Text>
+                  </Box>
+                  <Box ta="right">
+                    <Text size="xs" c="dimmed">Yearly Investment</Text>
+                    <Text size="xl" fw={800} c="teal">{money(totalMonthlyPacMinor * 12, currency)}/yr</Text>
+                  </Box>
+                  <Box ta="right">
+                    <Text size="xs" c="dimmed">Weighted PAC TER</Text>
+                    <Text size="lg" fw={800} c="dimmed">{percent(pacWeightedTERBps)}</Text>
+                    <Text size="xs" c="orange">-{money(totalPacAnnualFeeDragMinor, currency)}/yr drag</Text>
+                  </Box>
+                  <Box ta="right">
+                    <Text size="xs" c="dimmed">5-Yr Capital Projection</Text>
+                    <Text size="md" fw={700}>{money(totalMonthlyPacMinor * 60, currency)}</Text>
+                    {totalPacAnnualFeeDragMinor > 0 && (
+                      <Text size="xs" c="orange">-{money(totalPacAnnualFeeDragMinor * 5, currency)} 5yr fee drag</Text>
+                    )}
+                  </Box>
+                </Group>
+              </Group>
+
+              <Stack gap="xs">
+                {pacAccountsList.map(acc => {
+                  const allocatedBps = pacByAccount.get(acc.id)?.allocatedBps ?? 0;
+                  const pct = Math.min(allocatedBps / 100, 100);
+                  const over = allocatedBps > 10000;
+                  const full = allocatedBps === 10000;
+
+                  return (
+                    <Paper key={acc.id} p="xs" radius="md" withBorder style={{ backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))' }}>
+                      <Group justify="space-between" align="center" mb={6}>
+                        <Group gap="xs" align="center">
+                          <Text size="xs" fw={750}>{acc.name}</Text>
+                          <PacAmountEditor account={acc} currency={acc.currency ?? currency} onSaved={reload} />
+                        </Group>
+                        <Group gap={4} align="center">
+                          <Text size="xs" fw={700} c={over ? 'red' : full ? 'teal' : 'dimmed'}>
+                            {(allocatedBps / 100).toFixed(2)}% / 100%
+                          </Text>
+                          {full && <IconCheck size={12} color="var(--mantine-color-teal-6)" />}
+                          {over && <IconAlertTriangle size={12} color="var(--mantine-color-red-6)" />}
+                        </Group>
+                      </Group>
+                      <Box h={12} bg="light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))" style={{ display: 'flex', overflow: 'hidden', borderRadius: 999 }}>
+                        <Box
+                          bg={over ? 'red.5' : full ? 'teal.5' : 'yellow.5'}
+                          style={{ width: `${pct}%`, borderRadius: 999, transition: 'width 0.3s ease' }}
+                        />
+                      </Box>
+                      {!full && !over && (
+                        <Text size="xs" c="dimmed" mt={2}>{((10000 - allocatedBps) / 100).toFixed(2)}% unallocated</Text>
+                      )}
+                    </Paper>
+                  );
+                })}
+              </Stack>
+            </Card>
+          )}
+
+          {activeHoldings.length > 0 && visibleHoldings.length > 0 && (
+            <SimpleGrid cols={{ base: 1, md: Math.min(2, Math.max(1, totals.size)) }}>
+              {[...totals].map(([currency, summary]) => (
+                <Card key={currency} className="metric" p="lg" radius="lg">
+                  <Group justify="space-between" align="start">
+                    <Box>
+                      <Text size="xs" c="dimmed">Visible investments · {currency}</Text>
+                      <Text size="xl" fw={750}>{money(summary.value, currency)}</Text>
+                    </Box>
+                    <Text size="sm" c="dimmed">{summary.count} {summary.count === 1 ? 'investment' : 'investments'}</Text>
+                  </Group>
+                  <Group justify="space-between" align="center" mt={5}>
+                    <Text size="xs" c="dimmed">Invested {investedMoney(summary.invested, summary.value, currency)}</Text>
+                    <PerformanceResult value={summary.value} invested={summary.invested} currency={currency} />
+                  </Group>
+                  <Group justify="space-between" align="center" mt={3}>
+                    <Text size="xs" c="dimmed">Weighted TER: <Text span fw={700} c="dimmed">{summary.value > 0 ? `${(summary.weightedTERNum / summary.value / 100).toFixed(2)}%` : '0.00%'}</Text></Text>
+                    <Text size="xs" c="dimmed">Fee drag: <Text span fw={700} c="orange">-{money(summary.annualFeeDrag, currency)}/yr</Text></Text>
+                  </Group>
+                  <AllocationBar
+                    total={summary.value}
+                    segments={[...summary.classes].map(([assetClass, value]) => ({ label: label(assetClass), value, key: assetClass }))}
+                    selectedKey={selectedAssetClass}
+                    onSelectKey={setSelectedAssetClass}
+                  />
+                </Card>
+              ))}
+            </SimpleGrid>
+          )}
+
+          {selectedAssetClass && (
+            <Group gap="xs" align="center" mt="xs">
+              <Text size="xs" c="dimmed">Filtered by asset class:</Text>
+              <Chip colorKey={selectedAssetClass || ''} variant="filled">{label(selectedAssetClass)}</Chip>
+              <Button size="xs" variant="subtle" color="gray" onClick={() => setSelectedAssetClass(null)}>
+                Clear filter ✕
+              </Button>
             </Group>
-            <Group justify="space-between" align="center" mt={5}>
-              <Text size="xs" c="dimmed">Invested {investedMoney(summary.invested, summary.value, currency)}</Text>
-              <PerformanceResult value={summary.value} invested={summary.invested} currency={currency} />
-            </Group>
-            <Group justify="space-between" align="center" mt={3}>
-              <Text size="xs" c="dimmed">Weighted TER: <Text span fw={700} c="dimmed">{summary.value > 0 ? `${(summary.weightedTERNum / summary.value / 100).toFixed(2)}%` : '0.00%'}</Text></Text>
-              <Text size="xs" c="dimmed">Fee drag: <Text span fw={700} c="orange">-{money(summary.annualFeeDrag, currency)}/yr</Text></Text>
-            </Group>
-            <AllocationBar
-              total={summary.value}
-              segments={[...summary.classes].map(([assetClass, value]) => ({ label: label(assetClass), value, key: assetClass }))}
-              selectedKey={selectedAssetClass}
-              onSelectKey={setSelectedAssetClass}
+          )}
+
+          {!ready ? (
+            <Empty title="Accounts and instruments required" text="Add an active account and an instrument before recording an investment." />
+          ) : activeHoldings.length === 0 ? (
+            <Empty title="No active investments" text="Add an investment or restore an archived account." />
+          ) : visibleHoldings.length === 0 ? (
+            <Empty title="No matching investments" text="Choose another account or clear the filter." />
+          ) : displayedHoldings.length === 0 ? (
+            <Empty title="No matching asset class investments" text={`No investments found under ${label(selectedAssetClass || '')}. Clear filter to show all.`} />
+          ) : (
+            <DataTable
+              rows={displayedHoldings}
+              columns={columns}
+              rowKey={holding => holding.id}
+              minWidth={1250}
+              sort={table.sort}
+              direction={table.direction}
+              onSort={(key, direction) => void table.sortRows(key, direction)}
+              rowStyle={holding => {
+                const isPacActive = holding.is_pac && (holding.pac_bps ?? 0) > 0;
+                return {
+                  opacity: isPacActive ? 1 : 0.65,
+                  backgroundColor: isPacActive ? 'var(--mantine-color-teal-light)' : undefined,
+                  borderLeft: isPacActive ? '4px solid var(--mantine-color-teal-5)' : undefined,
+                };
+              }}
             />
-          </Card>
-        ))}
-      </SimpleGrid>
-    )}
+          )}
+        </>
+      )}
 
-    <Collapse expanded={geoRadarOpen}>
-      <Paper withBorder radius="lg" p="lg">
-        <GeoRadarSection />
-      </Paper>
-    </Collapse>
-
-    {selectedAssetClass && (
-      <Group gap="xs" align="center" mt="xs">
-        <Text size="xs" c="dimmed">Filtered by asset class:</Text>
-        <Chip colorKey={selectedAssetClass || ''} variant="filled">{label(selectedAssetClass)}</Chip>
-        <Button size="xs" variant="subtle" color="gray" onClick={() => setSelectedAssetClass(null)}>
-          Clear filter ✕
-        </Button>
-      </Group>
-    )}
-
-    {!ready ? (
-      <Empty title="Accounts and instruments required" text="Add an active account and an instrument before recording an investment." />
-    ) : activeHoldings.length === 0 ? (
-      <Empty title="No active investments" text="Add an investment or restore an archived account." />
-    ) : visibleHoldings.length === 0 ? (
-      <Empty title="No matching investments" text="Choose another account or clear the filter." />
-    ) : displayedHoldings.length === 0 ? (
-      <Empty title="No matching asset class investments" text={`No investments found under ${label(selectedAssetClass || '')}. Clear filter to show all.`} />
-    ) : (
-      <DataTable
-        rows={displayedHoldings}
-        columns={columns}
-        rowKey={holding => holding.id}
-        minWidth={1250}
-        sort={table.sort}
-        direction={table.direction}
-        onSort={(key, direction) => void table.sortRows(key, direction)}
-        rowStyle={holding => {
-          const isPacActive = holding.is_pac && (holding.pac_bps ?? 0) > 0;
-          return {
-            opacity: isPacActive ? 1 : 0.65,
-            backgroundColor: isPacActive ? 'var(--mantine-color-teal-light)' : undefined,
-            borderLeft: isPacActive ? '4px solid var(--mantine-color-teal-5)' : undefined,
-          };
-        }}
-      />
-    )}
-    <HoldingModal key={editing?.id ?? 'new'} opened={opened} close={() => setOpened(false)} holding={editing} accounts={activeAccounts} holdings={holdings} instruments={instruments} taxRates={taxRates} saved={async () => { setOpened(false); await reload(); }} />
-    {confirmDeleteModal}
-  </ViewShell>
+      <HoldingModal key={editing?.id ?? 'new'} opened={opened} close={() => setOpened(false)} holding={editing} accounts={activeAccounts} holdings={holdings} instruments={instruments} taxRates={taxRates} saved={async () => { setOpened(false); await reload(); }} />
+      {confirmDeleteModal}
+    </ViewShell>
   );
 }
 

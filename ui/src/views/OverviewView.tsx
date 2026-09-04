@@ -22,7 +22,7 @@ import { api, type Holding, type Instrument, type Snapshot, type Summary } from 
 import { AllocationBar, PerformanceResult, useBackendRows } from '../App';
 import { Empty } from '../components/Empty';
 import { DataTable, TableAction, TableActions, type DataColumn } from '../DataTable';
-import { IconPencil, IconTrash } from '@tabler/icons-react';
+import { IconAlertTriangle, IconChartPie, IconPencil, IconTrash } from '@tabler/icons-react';
 import { compactMoney, investedMoney, label, money } from '../utils/format';
 import { chartGeometry, filterChartRange, nearestChartIndex, type ChartRange } from '../visual';
 import { useConfirmDelete } from '../components/ConfirmDeleteModal';
@@ -30,6 +30,8 @@ import { useProfile } from '../hooks/useProfile';
 import { ViewShell } from '../components/ViewShell';
 import { SectionHeader } from '../components/SectionHeader';
 import { handleLinkClick } from '../utils/navigation';
+import { SubnavTabs } from '../components/SubnavTabs';
+import { DiagnosticsView } from './DiagnosticsView';
 
 type Data = { summary: Summary; accounts: any[]; rates: any[]; taxRates: any[]; instruments: Instrument[]; holdings: Holding[]; snapshots: Snapshot[] };
 type Numeric = string | number;
@@ -219,35 +221,86 @@ function FreedomCalculatorCard({ totalWealthMinor, currency }: { totalWealthMino
   );
 }
 
-export function OverviewView({ data, reload, onSwitchTab }: { data: Data; reload: () => Promise<void>; onSwitchTab: (tab: string) => void }) {
+export function OverviewView({
+  data,
+  reload,
+  onSwitchTab,
+  activeSubtab = 'overview',
+  onSubtabChange,
+}: {
+  data: Data;
+  reload: () => Promise<void>;
+  onSwitchTab: (tab: string) => void;
+  activeSubtab?: 'overview' | 'diagnostics';
+  onSubtabChange?: (subtab: 'overview' | 'diagnostics') => void;
+}) {
   const [profile] = useProfile();
+  const [currentSubtab, setCurrentSubtab] = useState<'overview' | 'diagnostics'>(activeSubtab);
+
+  useEffect(() => {
+    if (activeSubtab) {
+      setCurrentSubtab(activeSubtab);
+    }
+  }, [activeSubtab]);
+
+  const handleSubtabChange = (tab: 'overview' | 'diagnostics') => {
+    setCurrentSubtab(tab);
+    onSubtabChange?.(tab);
+  };
+
   const currencies = data.summary.currencies ?? [];
   const diagnostics = data.summary.diagnostics ?? [];
+
   return (
     <ViewShell>
-      {diagnostics.length > 0 && (
-        <Paper withBorder p="md" radius="lg">
-          <Group justify="space-between" align="center">
-            <Group gap="sm">
-              <Badge color="orange" size="lg" variant="light">{diagnostics.length}</Badge>
-              <Box>
-                <Text fw={700} size="sm">Portfolio Diagnostics Detected</Text>
-                <Text size="xs" c="dimmed">{diagnostics[0].title}: {diagnostics[0].message.slice(0, 110)}...</Text>
-              </Box>
-            </Group>
-            <Button
-              component="a"
-              href="/diagnostics"
-              size="xs"
-              variant="light"
-              color="orange"
-              onClick={(e) => handleLinkClick(e, '/diagnostics', onSwitchTab)}
-            >
-              View Diagnostics tab →
-            </Button>
-          </Group>
-        </Paper>
-      )}
+      <SubnavTabs<'overview' | 'diagnostics'>
+        value={currentSubtab}
+        onChange={handleSubtabChange}
+        tabs={[
+          {
+            value: 'overview',
+            label: 'Overview',
+            icon: <IconChartPie size={16} />,
+          },
+          {
+            value: 'diagnostics',
+            label: 'Diagnostics',
+            icon: <IconAlertTriangle size={16} />,
+            badge: diagnostics.length > 0 ? diagnostics.length : undefined,
+            badgeColor: 'orange',
+          },
+        ]}
+      />
+
+      {currentSubtab === 'diagnostics' ? (
+        <DiagnosticsView
+          diagnostics={diagnostics}
+          onOpenSettings={() => onSwitchTab('settings')}
+          onOpenInvest={() => onSwitchTab('investments')}
+        />
+      ) : (
+        <>
+          {diagnostics.length > 0 && (
+            <Paper withBorder p="md" radius="lg" mb="md">
+              <Group justify="space-between" align="center">
+                <Group gap="sm">
+                  <Badge color="orange" size="lg" variant="light">{diagnostics.length}</Badge>
+                  <Box>
+                    <Text fw={700} size="sm">Portfolio Diagnostics Detected</Text>
+                    <Text size="xs" c="dimmed">{diagnostics[0].title}: {diagnostics[0].message.slice(0, 110)}...</Text>
+                  </Box>
+                </Group>
+                <Button
+                  size="xs"
+                  variant="light"
+                  color="orange"
+                  onClick={() => handleSubtabChange('diagnostics')}
+                >
+                  Review Diagnostics ({diagnostics.length}) →
+                </Button>
+              </Group>
+            </Paper>
+          )}
       {currencies.length === 0 ? <Empty title="No accounts yet" text="Add a bank or brokerage account to see your allocation." /> : currencies.map(item => {
         const allocations = (item.allocations ?? []).filter(allocation => allocation.value_minor > 0);
         return (
@@ -284,15 +337,17 @@ export function OverviewView({ data, reload, onSwitchTab }: { data: Data; reload
             currency={item.currency}
           />
         )}
-        <Divider my="md" />
-        <Paper className="metric" p="lg" radius="lg">
-          <Group justify="space-between" mb="sm"><Text fw={700}>Asset allocation</Text><Text size="sm" c="dimmed">Cash interest/year: Gross {money(item.gross_revenue_minor, item.currency)} · Net {money(item.net_revenue_minor, item.currency)}</Text></Group>
-          <AllocationBar total={item.total_minor} segments={[{ label: 'Cash', value: item.balance_minor }, ...allocations.map(allocation => ({ label: label(allocation.asset_class), value: allocation.value_minor }))]} />
-        </Paper>
-      </Box>
-    )})}
-    <SnapshotHistory snapshots={data.snapshots} currency={data.summary.base_currency} reload={reload} />
-  </ViewShell>
+            <Divider my="md" />
+            <Paper className="metric" p="lg" radius="lg">
+              <Group justify="space-between" mb="sm"><Text fw={700}>Asset allocation</Text><Text size="sm" c="dimmed">Cash interest/year: Gross {money(item.gross_revenue_minor, item.currency)} · Net {money(item.net_revenue_minor, item.currency)}</Text></Group>
+              <AllocationBar total={item.total_minor} segments={[{ label: 'Cash', value: item.balance_minor }, ...allocations.map(allocation => ({ label: label(allocation.asset_class), value: allocation.value_minor }))]} />
+            </Paper>
+          </Box>
+        )})}
+        <SnapshotHistory snapshots={data.snapshots} currency={data.summary.base_currency} reload={reload} />
+        </>
+      )}
+    </ViewShell>
   );
 }
 

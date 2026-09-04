@@ -38,8 +38,8 @@ body {
   flex-direction: column;
   flex-shrink: 0;
   z-index: 100;
-  background: #ffffff;
-  border-right: 1px solid var(--mantine-color-gray-2);
+  background: color-mix(in srgb, var(--mantine-color-teal-0) 22%, #f8fafc);
+  border-right: 1px solid color-mix(in srgb, var(--mantine-color-teal-2) 18%, #e2e8f0);
   box-shadow: 1px 0 3px rgba(0, 0, 0, 0.02);
   transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), padding 0.22s cubic-bezier(0.4, 0, 0.2, 1);
   overflow-x: hidden;
@@ -48,8 +48,8 @@ body {
 }
 
 [data-mantine-color-scheme="dark"] .app-sidebar {
-  background: #0d1015;
-  border-right: 1px solid #1c202a;
+  background: #0d1117;
+  border-right: 1px solid #1c2128;
   box-shadow: 2px 0 12px rgba(0, 0, 0, 0.35);
 }
 
@@ -161,21 +161,22 @@ body {
   padding: 6px 10px;
   height: 32px;
   border-radius: 8px;
-  border: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4));
-  background: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6));
+  border: 1px solid light-dark(rgba(0, 0, 0, 0.08), var(--mantine-color-dark-4));
+  background: light-dark(#ffffff, var(--mantine-color-dark-6));
   color: light-dark(var(--mantine-color-gray-6), var(--mantine-color-dark-2));
   font-size: 12px;
   font-family: inherit;
   cursor: pointer;
   outline: none;
+  box-shadow: light-dark(0 1px 2px rgba(0, 0, 0, 0.03), none);
   transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
 }
 
 .sidebar-search-btn:hover {
   border-color: light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-3));
-  background: light-dark(var(--mantine-color-white), var(--mantine-color-dark-5));
+  background: light-dark(#ffffff, var(--mantine-color-dark-5));
   color: light-dark(var(--mantine-color-dark-9), var(--mantine-color-dark-0));
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
 /* Sidebar user card */
@@ -193,7 +194,7 @@ body {
 }
 
 .sidebar-user-card:hover {
-  background: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-6));
+  background: light-dark(rgba(0, 0, 0, 0.04), var(--mantine-color-dark-6));
 }
 
 .app-footer {

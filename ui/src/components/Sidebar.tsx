@@ -8,6 +8,7 @@ import {
   Card,
   Divider,
   Group,
+  Indicator,
   Kbd,
   Menu,
   Popover,
@@ -125,7 +126,7 @@ export function Sidebar({
 }: SidebarProps) {
   const userName = formatUserName(currentUser);
   const userSubtitle = currentUser?.is_admin
-    ? 'Platform Admin'
+    ? 'Admin'
     : currentUser?.email
     ? currentUser.email
     : 'Personal Portfolio';
@@ -134,18 +135,9 @@ export function Sidebar({
     { key: 'overview', label: 'Overview', icon: <IconChartPie size={18} />, href: '/overview' },
     { key: 'accounts', label: 'Accounts', icon: <IconBuildingBank size={18} />, href: '/accounts', badge: accountsCount > 0 ? String(accountsCount) : undefined },
     { key: 'investments', label: 'Investments', icon: <IconBriefcase size={18} />, href: '/investments' },
-    { key: 'drafts', label: 'Portfolio Sandbox', icon: <IconFlask size={18} />, href: '/drafts' },
     { key: 'instruments', label: 'Instruments', icon: <IconCompass size={18} />, href: '/instruments' },
     { key: 'market', label: 'Market Context', icon: <IconActivity size={18} />, href: '/market' },
-    {
-      key: 'diagnostics',
-      label: 'Diagnostics',
-      icon: <IconAlertTriangle size={18} />,
-      href: '/diagnostics',
-      badge: diagnosticsCount > 0 ? String(diagnosticsCount) : undefined,
-      badgeColor: 'orange',
-    },
-    { key: 'consultant', label: 'AI Consultant', icon: <IconRobot size={18} />, href: '/consultant', badge: 'AI', badgeColor: 'teal' },
+    { key: 'consultant', label: 'Portfolio Copilot', icon: <IconRobot size={18} />, href: '/consultant', badge: 'AI', badgeColor: 'teal' },
     ...(enableBtp
       ? [{ key: 'btp', label: 'BTP Rank', icon: <IconFileCertificate size={18} />, href: '/btp' }]
       : []),
@@ -196,6 +188,19 @@ export function Sidebar({
               ))}
             </Stack>
           </ScrollArea.Autosize>
+        )}
+        {diagnosticsCount > 0 && (
+          <Box pt="xs" mt="xs" style={{ borderTop: '1px solid var(--mantine-color-default-border)' }}>
+            <Button
+              fullWidth
+              size="xs"
+              variant="light"
+              color="orange"
+              onClick={() => onNavigate('diagnostics')}
+            >
+              Open all in Overview Diagnostics ({diagnosticsCount}) →
+            </Button>
+          </Box>
         )}
       </Popover.Dropdown>
     </Popover>
@@ -330,21 +335,18 @@ export function Sidebar({
 
           {renderDiagnosticsPopover(
             <Tooltip label={diagnosticsCount > 0 ? `${diagnosticsCount} Warnings` : 'Alerts'} position="right" withArrow offset={14}>
-              <Box style={{ position: 'relative', display: 'inline-block' }}>
+              <Indicator
+                label={diagnosticsCount}
+                size={14}
+                color="orange"
+                disabled={diagnosticsCount === 0}
+                offset={3}
+                withBorder
+              >
                 <ActionIcon variant="subtle" color={diagnosticsCount > 0 ? 'orange' : 'gray'} size="md" radius="md">
                   {diagnosticsCount > 0 ? <IconBellRinging size={17} /> : <IconBell size={17} />}
                 </ActionIcon>
-                {diagnosticsCount > 0 && (
-                  <Badge
-                    size="xs"
-                    color="orange"
-                    circle
-                    style={{ position: 'absolute', top: -3, right: -3, pointerEvents: 'none', height: 13, minWidth: 13, fontSize: 8 }}
-                  >
-                    {diagnosticsCount}
-                  </Badge>
-                )}
-              </Box>
+              </Indicator>
             </Tooltip>
           )}
         </Stack>
@@ -424,21 +426,24 @@ export function Sidebar({
           </Text>
           <Group gap={6}>
             {renderDiagnosticsPopover(
-              <ActionIcon variant="subtle" color={diagnosticsCount > 0 ? 'orange' : 'gray'} size="sm" radius="md" title="Diagnostics & Alerts">
-                <Box style={{ position: 'relative', display: 'inline-flex' }}>
-                  {diagnosticsCount > 0 ? <IconBellRinging size={14} /> : <IconBell size={14} />}
-                  {diagnosticsCount > 0 && (
-                    <Badge
-                      size="xs"
-                      color="orange"
-                      circle
-                      style={{ position: 'absolute', top: -4, right: -4, pointerEvents: 'none', height: 12, minWidth: 12, fontSize: 8 }}
-                    >
-                      {diagnosticsCount}
-                    </Badge>
-                  )}
-                </Box>
-              </ActionIcon>
+              <Indicator
+                label={diagnosticsCount}
+                size={14}
+                color="orange"
+                disabled={diagnosticsCount === 0}
+                offset={2}
+                withBorder
+              >
+                <ActionIcon
+                  variant="subtle"
+                  color={diagnosticsCount > 0 ? 'orange' : 'gray'}
+                  size="sm"
+                  radius="md"
+                  title="Diagnostics & Alerts"
+                >
+                  {diagnosticsCount > 0 ? <IconBellRinging size={15} /> : <IconBell size={15} />}
+                </ActionIcon>
+              </Indicator>
             )}
             <ActionIcon
               variant="subtle"
@@ -457,9 +462,10 @@ export function Sidebar({
           justify="space-between"
           p="xs"
           style={{
-            background: 'light-dark(#f8fafc, #161a22)',
-            border: '1px solid light-dark(#e2e8f0, #21262d)',
+            background: 'light-dark(#ffffff, #161b22)',
+            border: '1px solid light-dark(rgba(0, 0, 0, 0.06), #21262d)',
             borderRadius: 8,
+            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
           }}
         >
           <Group gap="xs" style={{ flex: 1, minWidth: 0 }}>

@@ -482,26 +482,24 @@ export default function App() {
         <main className="app-content-container">
           {error && <Alert color="red" mb="md" withCloseButton onClose={() => setError('')}>{error}</Alert>}
           <Tabs value={activeTab} onChange={handleTabChange} keepMounted={false}>
-            <Tabs.Panel value="overview" className="tab-content"><Overview data={data} reload={load} onSwitchTab={handleTabChange} /></Tabs.Panel>
+            <Tabs.Panel value="overview" className="tab-content"><Overview data={data} reload={load} onSwitchTab={handleTabChange} activeSubtab="overview" /></Tabs.Panel>
             <Tabs.Panel value="accounts" className="tab-content"><Accounts accounts={data.accounts} rates={data.rates} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
-            <Tabs.Panel value="investments" className="tab-content"><Investments holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
-            <Tabs.Panel value="holdings" className="tab-content"><Investments holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
+            <Tabs.Panel value="investments" className="tab-content"><Investments holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} activeSubtab="holdings" /></Tabs.Panel>
+            <Tabs.Panel value="holdings" className="tab-content"><Investments holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} activeSubtab="holdings" /></Tabs.Panel>
             <Tabs.Panel value="drafts" className="tab-content">
-              <DraftPortfoliosView
+              <Investments
                 holdings={data.holdings}
                 instruments={data.instruments}
                 accounts={data.accounts}
+                taxRates={data.taxRates}
                 reload={load}
+                activeSubtab="sandbox"
               />
             </Tabs.Panel>
             <Tabs.Panel value="instruments" className="tab-content"><InstrumentFinder instruments={data.instruments} reload={load} /></Tabs.Panel>
             <Tabs.Panel value="market" className="tab-content"><MarketContextView rates={data.rates} reload={load} /></Tabs.Panel>
             <Tabs.Panel value="diagnostics" className="tab-content">
-              <DiagnosticsTab
-                diagnostics={data.summary.diagnostics ?? []}
-                onOpenSettings={() => handleTabChange('settings')}
-                onOpenInvest={() => handleTabChange('investments')}
-              />
+              <Overview data={data} reload={load} onSwitchTab={handleTabChange} activeSubtab="diagnostics" />
             </Tabs.Panel>
             <Tabs.Panel value="consultant" className="tab-content">
               <AIConsultantView
@@ -553,26 +551,18 @@ export default function App() {
   );
 }
 
-function DiagnosticsTab({
-  diagnostics,
-  onOpenSettings,
-  onOpenInvest,
+function Overview({
+  data,
+  reload,
+  onSwitchTab,
+  activeSubtab,
 }: {
-  diagnostics: Diagnostic[];
-  onOpenSettings: () => void;
-  onOpenInvest: () => void;
+  data: Data;
+  reload: () => Promise<void>;
+  onSwitchTab: (tab: string) => void;
+  activeSubtab?: 'overview' | 'diagnostics';
 }) {
-  return (
-    <DiagnosticsView
-      diagnostics={diagnostics}
-      onOpenSettings={onOpenSettings}
-      onOpenInvest={onOpenInvest}
-    />
-  );
-}
-
-function Overview({ data, reload, onSwitchTab }: { data: Data; reload: () => Promise<void>; onSwitchTab: (tab: string) => void }) {
-  return <OverviewView data={data} reload={reload} onSwitchTab={onSwitchTab} />;
+  return <OverviewView data={data} reload={reload} onSwitchTab={onSwitchTab} activeSubtab={activeSubtab} />;
 }
 
 function Metric({ label, value, positive }: { label: string; value: string; positive?: boolean }) {
@@ -692,8 +682,34 @@ function Accounts({ accounts, rates, taxRates, reload }: { accounts: Account[]; 
 
 type HoldingDraft = { accountID: string; instrumentID: string; value: Numeric; sinceBuy: Numeric; planned: Numeric; tax: Numeric };
 
-function Investments({ holdings, accounts, instruments, taxRates, reload, onOpenDrafts }: { holdings: Holding[]; accounts: Account[]; instruments: Instrument[]; taxRates: TaxRate[]; reload: () => Promise<void>; onOpenDrafts?: () => void }) {
-  return <InvestmentsView holdings={holdings} accounts={accounts} instruments={instruments} taxRates={taxRates} reload={reload} onOpenDrafts={onOpenDrafts} />;
+function Investments({
+  holdings,
+  accounts,
+  instruments,
+  taxRates,
+  reload,
+  activeSubtab,
+  onOpenDrafts,
+}: {
+  holdings: Holding[];
+  accounts: Account[];
+  instruments: Instrument[];
+  taxRates: TaxRate[];
+  reload: () => Promise<void>;
+  activeSubtab?: 'holdings' | 'radar' | 'sandbox';
+  onOpenDrafts?: () => void;
+}) {
+  return (
+    <InvestmentsView
+      holdings={holdings}
+      accounts={accounts}
+      instruments={instruments}
+      taxRates={taxRates}
+      reload={reload}
+      activeSubtab={activeSubtab}
+      onOpenDrafts={onOpenDrafts}
+    />
+  );
 }
 
 function InstrumentFinder({ instruments, reload }: { instruments: Instrument[]; reload: () => Promise<void> }) {

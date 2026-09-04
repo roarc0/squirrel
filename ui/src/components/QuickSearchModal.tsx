@@ -21,7 +21,7 @@ import {
   IconRobot,
   IconFileCertificate,
   IconSettings,
-  IconArrowsExchange,
+  IconCamera,
   IconEyeOff,
   IconEye,
   IconRefresh,
@@ -170,8 +170,8 @@ export function QuickSearchModal({
       {
         id: 'nav-consultant',
         category: 'Navigation',
-        title: 'AI Consultant',
-        subtitle: 'Get AI portfolio observations and allocation advice',
+        title: 'Portfolio Copilot',
+        subtitle: 'Interactive portfolio intelligence, allocation audits & advice',
         icon: <IconRobot size={18} color="var(--mantine-color-indigo-6)" />,
         href: '/consultant',
         onSelect: () => {
@@ -183,7 +183,7 @@ export function QuickSearchModal({
         id: 'nav-settings',
         category: 'Navigation',
         title: 'Settings & Preferences',
-        subtitle: 'Configure currency, reserve buffer targets, and backups',
+        subtitle: 'Configure currency, target allocations, and profile settings',
         icon: <IconSettings size={18} color="var(--mantine-color-gray-6)" />,
         href: '/settings',
         onSelect: () => {
@@ -198,9 +198,9 @@ export function QuickSearchModal({
       {
         id: 'action-update',
         category: 'Quick Actions',
-        title: 'Update Portfolio Values',
-        subtitle: 'Record current holding balances and update snapshot',
-        icon: <IconArrowsExchange size={18} color="var(--mantine-color-teal-6)" />,
+        title: 'Record Portfolio Snapshot',
+        subtitle: 'Capture current holding balances and save dated snapshot',
+        icon: <IconCamera size={18} color="var(--mantine-color-teal-6)" />,
         onSelect: () => {
           onClose();
           onOpenUpdateModal();
