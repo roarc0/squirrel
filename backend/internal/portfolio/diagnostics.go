@@ -106,7 +106,7 @@ func EvaluateDiagnostics(accounts []Account, holdings []Holding, instruments []I
 					Category:  "drift",
 					Severity:  SeverityWarning,
 					Title:     "Target Allocation Drift",
-					Message:   fmt.Sprintf("%s is %.1f%% %s planned target (Planned: %.1f%%, Actual: %.1f%%). Use Invest & Rebalance to realign.", h.InstrumentName, float64(absInt64(driftBPS))/100, direction, float64(h.PlannedBPS)/100, float64(actualBPS)/100),
+					Message:   fmt.Sprintf("%s is %.1f%% %s planned target (Planned: %.1f%%, Actual: %.1f%%). Consider adjusting your portfolio allocations to realign.", h.InstrumentName, float64(absInt64(driftBPS))/100, direction, float64(h.PlannedBPS)/100, float64(actualBPS)/100),
 					HoldingID: h.ID,
 					ISIN:      h.InstrumentISIN,
 				})

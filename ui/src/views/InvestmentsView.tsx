@@ -7,6 +7,7 @@ import {
   Button,
   Card,
   Checkbox,
+  Collapse,
   Group,
   Modal,
   MultiSelect,
@@ -25,20 +26,22 @@ import { notifications } from '@mantine/notifications';
 import {
   IconAlertTriangle,
   IconCheck,
+  IconChevronDown,
+  IconChevronUp,
+  IconGlobe,
   IconNotes,
   IconPencil,
-  IconPlayerPlay,
   IconRepeat,
   IconTrash,
   IconX,
 } from '@tabler/icons-react';
 import { api, type Account, type Holding, type Instrument, type TaxRate } from '../api';
+import { GeoRadarSection } from './GeoRadarView';
 import { AllocationBar, PerformanceResult, useBackendRows } from '../App';
 import { copyToClipboard } from '../utils/copyToClipboard';
 import { Chip, ISINBadge, TickerBadge } from '../Chip';
 import { Empty } from '../components/Empty';
 import { DataTable, TableAction, TableActions, type DataColumn } from '../DataTable';
-import { InvestModal } from '../InvestModal';
 import { instrumentLabels, investedMoney, label, money, percent } from '../utils/format';
 import { useConfirmDelete } from '../components/ConfirmDeleteModal';
 import { useQueryParamArray } from '../hooks/useQueryParam';
@@ -420,120 +423,11 @@ function InlinePlannedBpsEditor({
   );
 }
 
-function TriggerPacModal({
-  opened,
-  onClose,
-  activePacHoldings,
-  accountMap,
-  reload,
-}: {
-  opened: boolean;
-  onClose: () => void;
-  activePacHoldings: Holding[];
-  accountMap: Map<number, Account>;
-  reload: () => Promise<void>;
-}) {
-  const [executing, setExecuting] = useState(false);
-
-  const items = activePacHoldings.map(h => {
-    const acc = accountMap.get(h.account_id);
-    const totalPacMinor = acc?.pac_amount_minor ?? 0;
-    const pacBps = h.pac_bps ?? 0;
-    const depositMinor = totalPacMinor > 0 && pacBps > 0 ? Math.round((totalPacMinor * pacBps) / 10000) : 0;
-    return {
-      holding: h,
-      accountName: h.account_name,
-      currency: h.currency ?? 'EUR',
-      depositMinor,
-      newInvestedMinor: h.invested_minor + depositMinor,
-      newValueMinor: h.value_minor + depositMinor,
-    };
-  });
-
-  const totalDepositMinor = items.reduce((sum, item) => sum + item.depositMinor, 0);
-  const currency = items[0]?.currency ?? 'EUR';
-
-  const execute = async () => {
-    setExecuting(true);
-    try {
-      let count = 0;
-      for (const item of items) {
-        if (item.depositMinor <= 0) continue;
-        await api(`/api/holdings/${item.holding.id}`, {
-          method: 'PUT',
-          body: JSON.stringify({
-            ...item.holding,
-            invested_minor: item.newInvestedMinor,
-            value_minor: item.newValueMinor,
-          }),
-        });
-        count++;
-      }
-      notifications.show({
-        color: 'teal',
-        title: 'PAC Deposit Executed!',
-        message: `Successfully added ${money(totalDepositMinor, currency)} across ${count} active PAC investment positions.`,
-      });
-      onClose();
-      await reload();
-    } catch (cause) {
-      notifications.show({
-        color: 'red',
-        title: 'Failed to execute PAC deposit',
-        message: cause instanceof Error ? cause.message : String(cause),
-      });
-    } finally {
-      setExecuting(false);
-    }
-  };
-
-  return (
-    <Modal opened={opened} onClose={onClose} title="Trigger Monthly PAC Deposit" size="lg">
-      <Stack gap="md">
-        <Alert color="teal" variant="light" icon={<IconRepeat size={18} />}>
-          Triggering this PAC execution will add each holding's calculated monthly PAC deposit amount directly to both its <strong>Amount Invested (cost basis)</strong> and <strong>Current Value</strong>.
-        </Alert>
-
-        <Group justify="space-between" align="center" p="xs" style={{ borderBottom: '1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4))' }}>
-          <Text size="xs" fw={700} c="dimmed">TOTAL MONTHLY PAC DEPOSIT TO APPLY</Text>
-          <Text size="lg" fw={800} c="teal">{money(totalDepositMinor, currency)}</Text>
-        </Group>
-
-        <Stack gap="xs">
-          {items.map((item, idx) => (
-            <Paper key={idx} p="xs" radius="sm" withBorder>
-              <Group justify="space-between" align="center">
-                <Box>
-                  <Text fw={700} size="sm">{item.holding.instrument_name}</Text>
-                  <Text size="xs" c="dimmed">{item.accountName} · PAC Share: {percent(item.holding.pac_bps)}</Text>
-                </Box>
-                <Box ta="right">
-                  <Badge color="teal" size="md" variant="light" mb={2}>+{money(item.depositMinor, item.currency)}</Badge>
-                  <Text size="xs" c="dimmed">
-                    Invested: {money(item.holding.invested_minor, item.currency)} ➔ <Text span fw={700} c="teal">{money(item.newInvestedMinor, item.currency)}</Text>
-                  </Text>
-                </Box>
-              </Group>
-            </Paper>
-          ))}
-        </Stack>
-
-        <Group justify="space-between" mt="md">
-          <Button variant="default" onClick={onClose} disabled={executing}>Cancel</Button>
-          <Button color="teal" loading={executing} leftSection={<IconPlayerPlay size={16} />} onClick={() => void execute()}>
-            Confirm & Apply {money(totalDepositMinor, currency)} PAC Contribution
-          </Button>
-        </Group>
-      </Stack>
-    </Modal>
-  );
-}
-
 export function InvestmentsView({ holdings, accounts, instruments, taxRates, reload, onOpenDrafts }: { holdings: Holding[]; accounts: Account[]; instruments: Instrument[]; taxRates: TaxRate[]; reload: () => Promise<void>; onOpenDrafts?: () => void }) {
   const [opened, setOpened] = useState(false); const [editing, setEditing] = useState<Holding>(); const [error, setError] = useState('');
   const [accountIDs, setAccountIDs] = useQueryParamArray('accounts');
   const [selectedAssetClass, setSelectedAssetClass] = useState<string | null>(null);
-  const [triggerPacOpened, setTriggerPacOpened] = useState(false);
+  const [geoRadarOpen, setGeoRadarOpen] = useState(false);
   const { confirmDelete, modal: confirmDeleteModal } = useConfirmDelete();
   const table = useBackendRows('/api/holdings', holdings, 'value', 'desc');
   const activeAccounts = accounts.filter(account => !account.archived); const activeAccountIDs = new Set(activeAccounts.map(account => account.id));
@@ -636,7 +530,6 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
     { key: 'tax', label: 'Tax', sortable: true, align: 'right', render: holding => percent(holding.tax_bps) },
     { key: 'actions', align: 'right', render: holding => <TableActions><TableAction label={`Edit ${holding.instrument_name}`} onClick={() => open(holding)}><IconPencil size={14} /></TableAction><TableAction label={`Delete ${holding.instrument_name}`} color="red" onClick={() => void remove(holding)}><IconTrash size={14} /></TableAction></TableActions> },
   ];
-  const [investOpened, setInvestOpened] = useState(false);
 
   // Compute PAC accumulation metrics & TER drag for visible holdings & visible accounts
   const visibleAccounts = activeAccounts.filter(account => accountIDs.length === 0 || accountIDs.includes(String(account.id)));
@@ -711,18 +604,15 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
                 onChange={setAccountIDs}
               />
             )}
-            {activePacHoldings.length > 0 && (
-              <Button
-                color="teal"
-                variant="filled"
-                leftSection={<IconPlayerPlay size={16} />}
-                disabled={!ready}
-                onClick={() => setTriggerPacOpened(true)}
-              >
-                Trigger PAC
-              </Button>
-            )}
-            <Button variant="light" color="teal" disabled={!ready} onClick={() => setInvestOpened(true)}>Invest & Rebalance</Button>
+            <Button
+              variant="light"
+              color={geoRadarOpen ? 'blue' : 'gray'}
+              leftSection={<IconGlobe size={16} />}
+              rightSection={geoRadarOpen ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
+              onClick={() => setGeoRadarOpen(v => !v)}
+            >
+              Geo & FX Radar
+            </Button>
             <Button disabled={!ready} onClick={() => open()}>Add investment</Button>
           </Group>
         }
@@ -760,17 +650,6 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
               {totalPacAnnualFeeDragMinor > 0 && (
                 <Text size="xs" c="orange">-{money(totalPacAnnualFeeDragMinor * 5, currency)} 5yr fee drag</Text>
               )}
-            </Box>
-            <Box>
-              <Button
-                color="teal"
-                variant="filled"
-                size="sm"
-                leftSection={<IconPlayerPlay size={16} />}
-                onClick={() => setTriggerPacOpened(true)}
-              >
-                Trigger PAC
-              </Button>
             </Box>
           </Group>
         </Group>
@@ -843,6 +722,12 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
       </SimpleGrid>
     )}
 
+    <Collapse expanded={geoRadarOpen}>
+      <Paper withBorder radius="lg" p="lg">
+        <GeoRadarSection />
+      </Paper>
+    </Collapse>
+
     {selectedAssetClass && (
       <Group gap="xs" align="center" mt="xs">
         <Text size="xs" c="dimmed">Filtered by asset class:</Text>
@@ -881,8 +766,6 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
       />
     )}
     <HoldingModal key={editing?.id ?? 'new'} opened={opened} close={() => setOpened(false)} holding={editing} accounts={activeAccounts} holdings={holdings} instruments={instruments} taxRates={taxRates} saved={async () => { setOpened(false); await reload(); }} />
-    <InvestModal opened={investOpened} onClose={() => setInvestOpened(false)} holdings={holdings} reload={reload} />
-    <TriggerPacModal opened={triggerPacOpened} onClose={() => setTriggerPacOpened(false)} activePacHoldings={activePacHoldings} accountMap={accountMap} reload={reload} />
     {confirmDeleteModal}
   </ViewShell>
   );

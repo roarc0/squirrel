@@ -117,6 +117,34 @@ body,
   box-shadow: none;
 }
 
+.header-btn--primary {
+  background: var(--mantine-color-teal-filled);
+  border-color: var(--mantine-color-teal-filled);
+  color: var(--mantine-color-white);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15), 0 2px 6px color-mix(in srgb, var(--mantine-color-teal-6) 30%, transparent);
+}
+
+[data-mantine-color-scheme="dark"] .header-btn--primary {
+  background: var(--mantine-color-teal-filled);
+  border-color: var(--mantine-color-teal-filled);
+  color: var(--mantine-color-white);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--mantine-color-teal-6) 40%, transparent);
+}
+
+.header-btn--primary:hover {
+  background: var(--mantine-color-teal-filled-hover);
+  border-color: var(--mantine-color-teal-filled-hover);
+  color: var(--mantine-color-white);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--mantine-color-teal-6) 45%, transparent);
+}
+
+[data-mantine-color-scheme="dark"] .header-btn--primary:hover {
+  background: var(--mantine-color-teal-filled-hover);
+  border-color: var(--mantine-color-teal-filled-hover);
+  color: var(--mantine-color-white);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--mantine-color-teal-6) 55%, transparent);
+}
+
 /* Accent backgrounds — unique gradient position per accent; color auto-inherits from JS-overridden --mantine-color-teal-* vars */
 [data-accent="amber"] body {
   background:

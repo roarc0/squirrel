@@ -70,7 +70,6 @@ import { Chip, chipColor } from './Chip';
 import { DataTable, TableAction, TableActions, type DataColumn, type SortDirection } from './DataTable';
 import { CompareModal } from './CompareModal';
 import { AppSkeleton } from './components/AppSkeleton';
-import { InvestModal } from './InvestModal';
 import { SettingsView } from './SettingsView';
 import { UpdateSituationModal } from './UpdateSituationModal';
 import { OverviewView } from './views/OverviewView';
@@ -82,13 +81,12 @@ import { AIConsultantView } from './views/AIConsultantView';
 import { DraftPortfoliosView } from './views/DraftPortfoliosView';
 import { BtpRankView } from './views/BtpRankView';
 import { MarketContextView } from './views/MarketContextView';
-import { GeoRadarView } from './views/GeoRadarView';
 import { QuickSearchModal } from './components/QuickSearchModal';
 import { chartGeometry, matchesExactFilters, pageBounds, performanceMood } from './visual';
 
 type Data = { summary: Summary; accounts: Account[]; rates: ReferenceRate[]; taxRates: TaxRate[]; instruments: Instrument[]; holdings: Holding[]; snapshots: Snapshot[] };
 type Numeric = string | number;
-const normalizeTab = (tab: string | null) => tab === 'holdings' ? 'investments' : tab === 'advisor' ? 'consultant' : tab === 'rates' ? 'market' : tab;
+const normalizeTab = (tab: string | null) => tab === 'holdings' || tab === 'geo' ? 'investments' : tab === 'advisor' ? 'consultant' : tab === 'rates' ? 'market' : tab;
 import { money, investedMoney, setHideBalancesState } from './utils/format';
 import { captureTokenFromURL, clearToken, fetchMe, isUnauthenticatedError, type AuthUser } from './auth';
 import { LoginView } from './LoginView';
@@ -343,7 +341,7 @@ export default function App() {
   const [updateModalOpened, setUpdateModalOpened] = useState(false);
   const [quickSearchOpened, setQuickSearchOpened] = useState(false);
 
-  const VALID_TABS = ['overview', 'accounts', 'investments', 'drafts', 'instruments', 'market', 'geo', 'diagnostics', 'consultant', 'btp', 'settings'];
+  const VALID_TABS = ['overview', 'accounts', 'investments', 'drafts', 'instruments', 'market', 'diagnostics', 'consultant', 'btp', 'settings'];
 
   const [activeTab, setActiveTab] = useState<string>(() => {
     const pathname = window.location.pathname.replace(/^\/+/, '').split('/')[0];
@@ -460,7 +458,7 @@ export default function App() {
         </Box>
         <Group gap={10}>
           <HeaderIconButton icon={<IconSearch size={16} />} label="Search (⌘K)" onClick={() => setQuickSearchOpened(true)} />
-          <HeaderIconButton icon={<IconArrowsExchange size={16} />} label="Update" onClick={() => setUpdateModalOpened(true)} />
+          <HeaderIconButton icon={<IconArrowsExchange size={16} />} label="Update" variant="primary" onClick={() => setUpdateModalOpened(true)} />
           <ThemePickerButton />
           <Popover width={380} position="bottom-end" shadow="md" radius="lg" withArrow>
             <Popover.Target>
@@ -642,9 +640,6 @@ export default function App() {
           <NavTab value="market" href="/market" onNavigate={handleTabChange} leftSection={<IconActivity size={16} />}>
             Market Context
           </NavTab>
-          <NavTab value="geo" href="/geo" onNavigate={handleTabChange} leftSection={<IconGlobe size={16} />}>
-            Geo & FX Radar
-          </NavTab>
           <NavTab value="consultant" href="/consultant" onNavigate={handleTabChange} leftSection={<IconRobot size={16} />}>
             AI Consultant
           </NavTab>
@@ -658,7 +653,6 @@ export default function App() {
         <Tabs.Panel value="accounts" className="tab-content"><Accounts accounts={data.accounts} rates={data.rates} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
         <Tabs.Panel value="investments" className="tab-content"><Investments holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
         <Tabs.Panel value="holdings" className="tab-content"><Investments holdings={data.holdings} accounts={data.accounts} instruments={data.instruments} taxRates={data.taxRates} reload={load} /></Tabs.Panel>
-        <Tabs.Panel value="geo" className="tab-content"><GeoRadarView /></Tabs.Panel>
         <Tabs.Panel value="drafts" className="tab-content">
           <DraftPortfoliosView
             holdings={data.holdings}
@@ -772,11 +766,17 @@ export function PerformanceResult({ value, invested, currency, mood = false }: {
   );
 }
 
-const HeaderIconButton = React.forwardRef<HTMLButtonElement, { icon: React.ReactNode; label: string; onClick?: () => void }>(
-  ({ icon, label, onClick }, ref) => (
-    <button ref={ref} type="button" onClick={onClick} aria-label={label} className="header-btn">
+const HeaderIconButton = React.forwardRef<HTMLButtonElement, { icon: React.ReactNode; label: string; onClick?: () => void; variant?: 'default' | 'primary'; className?: string }>(
+  ({ icon, label, onClick, variant = 'default', className }, ref) => (
+    <button
+      ref={ref}
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className={`header-btn ${variant === 'primary' ? 'header-btn--primary' : ''} ${className ?? ''}`.trim()}
+    >
       {icon}
-      <Text size="xs" fw={500} lh={1}>{label}</Text>
+      <Text size="xs" fw={variant === 'primary' ? 600 : 500} lh={1} c="inherit">{label}</Text>
     </button>
   )
 );

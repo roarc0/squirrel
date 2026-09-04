@@ -91,7 +91,7 @@ export function DiagnosticsView({
                     color="teal"
                     onClick={(e) => handleLinkClick(e, '/investments', onOpenInvest)}
                   >
-                    Rebalance Portfolio
+                    View Investments
                   </Button>
                 )}
               </Group>

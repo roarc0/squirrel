@@ -7,7 +7,7 @@ import { SectionHeader } from '../components/SectionHeader';
 import { ViewShell } from '../components/ViewShell';
 import { chipColor } from '../visual';
 
-export function GeoRadarView() {
+export function GeoRadarSection() {
   const [data, setData] = useState<GeoRadarResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -39,27 +39,26 @@ export function GeoRadarView() {
   }, [usdExposure, fxShiftPct]);
 
   return (
-    <ViewShell error={error} onCloseError={() => setError('')}>
-      <SectionHeader
-        title="Geographic & Currency Risk Radar"
-        subtitle="Look through your ETFs and holdings to see your real country breakdown, underlying currency exposure, and FX sensitivity."
-        badge={
+    <Stack gap="md">
+      {error && <Alert color="red" withCloseButton onClose={() => setError('')}>{error}</Alert>}
+
+      <Group justify="space-between" align="center" wrap="wrap">
+        <Group gap="xs" align="center">
           <Badge color="blue" variant="light" leftSection={<IconWorldLatitude size={12} />}>
             {data ? `EUR/USD ${data.current_eur_usd_rate.toFixed(4)}` : 'Live FX Data'}
           </Badge>
-        }
-        actions={
-          <SegmentedControl
-            size="xs"
-            value={includeCash ? 'cash' : 'investments'}
-            onChange={v => setIncludeCash(v === 'cash')}
-            data={[
-              { label: 'Investments Only (Default)', value: 'investments' },
-              { label: 'Include Cash Accounts', value: 'cash' },
-            ]}
-          />
-        }
-      />
+          <Text size="xs" c="dimmed">Look through ETFs to analyze geographic breakdown & currency sensitivity.</Text>
+        </Group>
+        <SegmentedControl
+          size="xs"
+          value={includeCash ? 'cash' : 'investments'}
+          onChange={v => setIncludeCash(v === 'cash')}
+          data={[
+            { label: 'Investments Only (Default)', value: 'investments' },
+            { label: 'Include Cash Accounts', value: 'cash' },
+          ]}
+        />
+      </Group>
 
       {loading ? (
         <Paper withBorder radius="lg" p="xl">
@@ -226,6 +225,19 @@ export function GeoRadarView() {
           </Paper>
         </Stack>
       )}
+    </Stack>
+  );
+}
+
+export function GeoRadarView() {
+  return (
+    <ViewShell>
+      <SectionHeader
+        title="Geographic & Currency Risk Radar"
+        subtitle="Look through your ETFs and holdings to see your real country breakdown, underlying currency exposure, and FX sensitivity."
+      />
+      <GeoRadarSection />
     </ViewShell>
   );
 }
+
