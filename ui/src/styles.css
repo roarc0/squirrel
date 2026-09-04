@@ -234,41 +234,61 @@ body,
   backdrop-filter: blur(16px);
 }
 
-/* Enhanced Data Table Surface & Rounded Borders */
+/* Solid, Flat, Crisp Data Table Surface */
 .data-table-card {
-  border: 1px solid light-dark(#cbd5e1, #2d3542) !important;
-  border-radius: 12px !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.02) !important;
-  overflow: hidden;
+  border: 1px solid light-dark(#cbd5e1, #334155) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  overflow: hidden !important;
   background: light-dark(#ffffff, #161b22) !important;
+  padding: 0 !important;
 }
 
 .data-table {
+  width: 100%;
   border-collapse: separate;
   border-spacing: 0;
 }
 
 .data-table thead tr th {
-  border-bottom: 1.5px solid light-dark(#e2e8f0, #272f3c) !important;
-  padding-top: 10px !important;
-  padding-bottom: 10px !important;
-  background: light-dark(#f8fafc, #1a202c);
+  border-bottom: 1px solid light-dark(#cbd5e1, #334155) !important;
+  padding: 10px 14px !important;
+  background: light-dark(#f8fafc, #1a202c) !important;
+  color: light-dark(#475569, #94a3b8) !important;
+  font-size: 11px !important;
+  font-weight: 750 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
 }
 
-.data-table thead tr th:first-of-type {
-  border-top-left-radius: 8px;
+.data-table thead tr:first-child th:first-child {
+  border-top-left-radius: 9px;
 }
 
-.data-table thead tr th:last-of-type {
-  border-top-right-radius: 8px;
+.data-table thead tr:first-child th:last-child {
+  border-top-right-radius: 9px;
 }
 
 .data-table tbody tr td {
-  border-bottom: 1px solid light-dark(#f1f5f9, #1c222d) !important;
+  border-bottom: 1px solid light-dark(#e2e8f0, #262e3d) !important;
+  padding: 10px 14px !important;
+  transition: background-color 0.1s ease;
+}
+
+.data-table tbody tr:hover td {
+  background-color: light-dark(#f8fafc, #1f2735) !important;
 }
 
 .data-table tbody tr:last-child td {
   border-bottom: none !important;
+}
+
+.data-table tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 9px;
+}
+
+.data-table tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 9px;
 }
 
 .positive { color: var(--mantine-color-teal-6); }
@@ -400,13 +420,35 @@ body,
   }
 }
 
-/* Muted, subtle styling for ISIN and Ticker badges */
-.isin-badge, .ticker-badge {
+/* Ticker badge: slightly bigger, bold, crisp monospace tag */
+.ticker-badge {
   cursor: pointer;
-  font-family: var(--mantine-font-family-monospace);
-  font-weight: 550;
-  letter-spacing: -0.01em;
-  opacity: 0.85;
+  font-family: 'SF Mono', ui-monospace, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 11px !important;
+  font-weight: 750 !important;
+  letter-spacing: 0.03em !important;
+  height: 20px !important;
+  padding: 0 6px !important;
+  border-radius: 4px !important;
+  width: max-content !important;
+  min-width: max-content !important;
+  max-width: none !important;
+  flex: 0 0 auto;
+  overflow: visible !important;
+  white-space: nowrap !important;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+/* ISIN badge: compact, clean, subtle identifier */
+.isin-badge {
+  cursor: pointer;
+  font-family: 'SF Mono', ui-monospace, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 10px !important;
+  font-weight: 550 !important;
+  letter-spacing: 0.01em !important;
+  height: 18px !important;
+  padding: 0 5px !important;
+  border-radius: 4px !important;
   width: max-content !important;
   min-width: max-content !important;
   max-width: none !important;

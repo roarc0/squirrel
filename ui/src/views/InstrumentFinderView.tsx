@@ -281,7 +281,7 @@ export function InstrumentFinderView({ instruments, reload }: { instruments: Ins
         </Stack>
       ) : '—',
     }] : []),
-    { key: 'name', label: 'Instrument', sortable: true, render: item => <><Text fw={650}>{item.instrument.name}</Text><Group gap={5} mt={3}><Chip size="xs">{productLabel(item.instrument)}</Chip>{item.instrument.ticker && <TickerBadge ticker={item.instrument.ticker} />}</Group></> },
+    { key: 'name', label: 'Instrument', sortable: true, render: item => <><Text size="sm" fw={600} lh={1.3}>{item.instrument.name}</Text><Group gap={5} mt={3}><Chip size="xs">{productLabel(item.instrument)}</Chip>{item.instrument.ticker && <TickerBadge ticker={item.instrument.ticker} />}</Group></> },
     ...(show('ticker') ? [{ key: 'ticker', label: 'Ticker', sortable: true, render: (item: CatalogRow) => <TickerBadge ticker={item.instrument.ticker} /> }] : []),
     ...(show('isin') ? [{ key: 'isin', label: 'ISIN', sortable: true, render: (item: CatalogRow) => <ISINBadge isin={item.instrument.isin} /> }] : []),
     ...(show('type') ? [{ key: 'type', label: 'Type', sortable: true, render: (item: RankedInstrument) => <Chip>{instrumentLabels[item.instrument.instrument_type]}</Chip> }] : []),

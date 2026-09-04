@@ -28,13 +28,13 @@ export function ISINBadge({ isin, size = 'xs' }: { isin?: string; size?: BadgePr
   );
 }
 
-export function TickerBadge({ ticker, size = 'xs' }: { ticker?: string; size?: BadgeProps['size'] }) {
+export function TickerBadge({ ticker, size = 'sm' }: { ticker?: string; size?: BadgeProps['size'] }) {
   if (!ticker) return <Text size="xs" c="dimmed">—</Text>;
   return (
     <Tooltip label="Click to copy Ticker" withArrow>
       <Badge
         size={size}
-        variant="subtle"
+        variant="light"
         color="teal"
         className="ticker-badge"
         onClick={(e) => {

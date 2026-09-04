@@ -505,7 +505,7 @@ export function InvestmentsView({
       sortable: true,
       render: holding => (
         <Stack gap={2}>
-          <Text fw={650}>{holding.instrument_name}</Text>
+          <Text size="sm" fw={600} lh={1.3}>{holding.instrument_name}</Text>
           <Group gap={6} align="center" mt={2}>
             {holding.instrument_ticker && <TickerBadge ticker={holding.instrument_ticker} />}
             {holding.instrument_isin && <ISINBadge isin={holding.instrument_isin} />}
@@ -778,57 +778,59 @@ export function InvestmentsView({
                         No ETF allocations assigned to this account yet. Click "Add PAC Investment" to configure.
                       </Text>
                     ) : (
-                      <Table verticalSpacing="xs" horizontalSpacing="xs" highlightOnHover className="data-table">
-                        <Table.Thead>
-                          <Table.Tr>
-                            <Table.Th><Text size="xs" fw={700} c="dimmed" tt="uppercase">Instrument</Text></Table.Th>
-                            <Table.Th style={{ textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">PAC Share</Text></Table.Th>
-                            <Table.Th style={{ textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Monthly</Text></Table.Th>
-                            <Table.Th style={{ textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Holding Value</Text></Table.Th>
-                            <Table.Th style={{ textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Action</Text></Table.Th>
-                          </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                          {accountPacHoldings.map(item => (
-                            <Table.Tr key={item.holding.id}>
-                              <Table.Td>
-                                <Group gap={6} wrap="nowrap">
-                                  {item.ticker ? <TickerBadge ticker={item.ticker} /> : null}
-                                  <Text size="xs" fw={600} truncate style={{ maxWidth: 160 }}>
-                                    {item.instrumentName}
-                                  </Text>
-                                </Group>
-                              </Table.Td>
-                              <Table.Td style={{ textAlign: 'right' }}>
-                                <Badge color="teal" size="sm" variant="light">
-                                  {percent(item.pacBps)}
-                                </Badge>
-                              </Table.Td>
-                              <Table.Td style={{ textAlign: 'right' }}>
-                                <Text size="xs" fw={700} c="teal">
-                                  {money(item.itemMonthlyMinor, acc.currency ?? currency)}/mo
-                                </Text>
-                              </Table.Td>
-                              <Table.Td style={{ textAlign: 'right' }}>
-                                <Text size="xs" fw={600}>
-                                  {money(item.holding.value_minor, item.holding.currency ?? currency)}
-                                </Text>
-                              </Table.Td>
-                              <Table.Td style={{ textAlign: 'right' }}>
-                                <ActionIcon
-                                  size="sm"
-                                  variant="subtle"
-                                  color="gray"
-                                  onClick={() => open(item.holding)}
-                                  title="Edit PAC share"
-                                >
-                                  <IconPencil size={13} />
-                                </ActionIcon>
-                              </Table.Td>
+                      <Paper className="data-table-card" radius="md" withBorder style={{ padding: 0, marginTop: 8 }}>
+                        <Table verticalSpacing="xs" horizontalSpacing="xs" highlightOnHover className="data-table">
+                          <Table.Thead>
+                            <Table.Tr>
+                              <Table.Th style={{ width: '42%' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Instrument</Text></Table.Th>
+                              <Table.Th style={{ width: '15%', textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">PAC Share</Text></Table.Th>
+                              <Table.Th style={{ width: '18%', textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Monthly</Text></Table.Th>
+                              <Table.Th style={{ width: '17%', textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Holding Value</Text></Table.Th>
+                              <Table.Th style={{ width: '8%', textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Action</Text></Table.Th>
                             </Table.Tr>
-                          ))}
-                        </Table.Tbody>
-                      </Table>
+                          </Table.Thead>
+                          <Table.Tbody>
+                            {accountPacHoldings.map(item => (
+                              <Table.Tr key={item.holding.id}>
+                                <Table.Td>
+                                  <Group gap={6} wrap="nowrap">
+                                    {item.ticker ? <TickerBadge ticker={item.ticker} /> : null}
+                                    <Text size="xs" fw={600} truncate style={{ flex: 1, minWidth: 0 }} title={item.instrumentName}>
+                                      {item.instrumentName}
+                                    </Text>
+                                  </Group>
+                                </Table.Td>
+                                <Table.Td style={{ textAlign: 'right' }}>
+                                  <Badge color="teal" size="sm" variant="light">
+                                    {percent(item.pacBps)}
+                                  </Badge>
+                                </Table.Td>
+                                <Table.Td style={{ textAlign: 'right' }}>
+                                  <Text size="xs" fw={700} c="teal">
+                                    {money(item.itemMonthlyMinor, acc.currency ?? currency)}/mo
+                                  </Text>
+                                </Table.Td>
+                                <Table.Td style={{ textAlign: 'right' }}>
+                                  <Text size="xs" fw={600}>
+                                    {money(item.holding.value_minor, item.holding.currency ?? currency)}
+                                  </Text>
+                                </Table.Td>
+                                <Table.Td style={{ textAlign: 'right' }}>
+                                  <ActionIcon
+                                    size="sm"
+                                    variant="subtle"
+                                    color="gray"
+                                    onClick={() => open(item.holding)}
+                                    title="Edit PAC share"
+                                  >
+                                    <IconPencil size={13} />
+                                  </ActionIcon>
+                                </Table.Td>
+                              </Table.Tr>
+                            ))}
+                          </Table.Tbody>
+                        </Table>
+                      </Paper>
                     )}
                   </Card>
                 );

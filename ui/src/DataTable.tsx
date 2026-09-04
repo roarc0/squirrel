@@ -24,10 +24,10 @@ export function DataTable<T>({ rows, columns, rowKey, minWidth = 800, toolbar, s
   rowStyle?: (row: T) => CSSProperties | undefined;
 }) {
   return (
-    <Paper className="data-table-card metric" radius="lg" p="md" withBorder>
-      {toolbar}
+    <Paper className="data-table-card" radius="md" withBorder style={{ padding: 0 }}>
+      {toolbar && <div style={{ padding: '8px 12px', borderBottom: '1px solid light-dark(#cbd5e1, #334155)' }}>{toolbar}</div>}
       <Table.ScrollContainer minWidth={minWidth}>
-        <Table tabularNums verticalSpacing="sm" horizontalSpacing="xs" highlightOnHover className="data-table">
+        <Table tabularNums verticalSpacing="sm" horizontalSpacing="md" highlightOnHover className="data-table">
           <Table.Thead>
             <Table.Tr>
               {columns.map(column => (
