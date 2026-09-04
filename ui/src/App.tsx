@@ -292,7 +292,13 @@ export default function App() {
         setNeedsLogin(true);
         return;
       }
-      setError(cause instanceof Error ? cause.message : String(cause));
+      const message = cause instanceof Error ? cause.message : String(cause);
+      setError(message);
+      notifications.show({
+        color: 'red',
+        title: 'Connection Error',
+        message,
+      });
     }
   }, []);
   useEffect(() => void load(), [load]);
@@ -508,7 +514,6 @@ export default function App() {
 
       <div className="app-main-content">
         <main className="app-content-container">
-          {error && <Alert color="red" mb="md" withCloseButton onClose={() => setError('')}>{error}</Alert>}
           <Tabs value={activeTab} onChange={handleSidebarNavigate} keepMounted={false}>
             <Tabs.Panel value="overview" className="tab-content">
               <Overview

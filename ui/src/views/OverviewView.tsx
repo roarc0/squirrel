@@ -281,28 +281,7 @@ export function OverviewView({
         />
       ) : (
         <>
-          {diagnostics.length > 0 && (
-            <Paper withBorder p="md" radius="lg" mb="md">
-              <Group justify="space-between" align="center">
-                <Group gap="sm">
-                  <Badge color="orange" size="lg" variant="light">{diagnostics.length}</Badge>
-                  <Box>
-                    <Text fw={700} size="sm">Portfolio Diagnostics Detected</Text>
-                    <Text size="xs" c="dimmed">{diagnostics[0].title}: {diagnostics[0].message.slice(0, 110)}...</Text>
-                  </Box>
-                </Group>
-                <Button
-                  size="xs"
-                  variant="light"
-                  color="orange"
-                  onClick={() => handleSubtabChange('diagnostics')}
-                >
-                  Review Diagnostics ({diagnostics.length}) →
-                </Button>
-              </Group>
-            </Paper>
-          )}
-      {currencies.length === 0 ? <Empty title="No accounts yet" text="Add a bank or brokerage account to see your allocation." /> : currencies.map(item => {
+          {currencies.length === 0 ? <Empty title="No accounts yet" text="Add a bank or brokerage account to see your allocation." /> : currencies.map(item => {
         const allocations = (item.allocations ?? []).filter(allocation => allocation.value_minor > 0);
         return (
         <Box key={item.currency}>
