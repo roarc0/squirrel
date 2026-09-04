@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Alert,
   Badge,
@@ -39,77 +39,26 @@ type Numeric = string | number;
 
 const minor = (value: Numeric | undefined) => (value === '' || value === undefined ? 0 : Math.round(Number(value) * 100));
 
-function Metric({ label, value, positive }: { label: string; value: string; positive?: boolean }) {
-  return <Card className="metric" p="lg" radius="lg"><Text size="sm" c="dimmed">{label}</Text><Text size="xl" fw={750} mt={4} className={positive ? 'positive' : ''}>{value}</Text></Card>;
-}
-
-function InvestmentMetric({ value, invested, currency }: { value: number; invested: number; currency: string }) {
-  return <Card className="metric" p="lg" radius="lg"><Text size="sm" c="dimmed">Investments</Text><Text size="xl" fw={750} mt={4}>{money(value, currency)}</Text><Text size="xs" c="dimmed" mt={5}>Invested {investedMoney(invested, value, currency)}</Text></Card>;
-}
-
-function PerformanceMetric({ value, invested, currency }: { value: number; invested: number; currency: string }) {
-  return <Card className="metric" p="lg" radius="lg"><Text size="sm" c="dimmed">Investment trend</Text><Group mt={10} align="center"><PerformanceResult value={value} invested={invested} currency={currency} mood /></Group></Card>;
-}
-
-function TERMetric({ holdings, instruments, currency }: { holdings: Holding[]; instruments: Instrument[]; currency: string }) {
-  const instMap = new Map<number, Instrument>(instruments.map(i => [i.id, i]));
-  let totalVal = 0;
-  let weightedTERNum = 0;
-  let annualFeeDrag = 0;
-
-  for (const h of holdings) {
-    if ((h.currency ?? 'EUR') === currency) {
-      const inst = instMap.get(h.instrument_id);
-      const terBps = inst?.ter_bps ?? 0;
-      totalVal += h.value_minor;
-      weightedTERNum += h.value_minor * terBps;
-      annualFeeDrag += Math.round((h.value_minor * terBps) / 10000);
-    }
-  }
-
-  const weightedTER = totalVal > 0 ? (weightedTERNum / totalVal / 100).toFixed(2) : '0.00';
-
+function StatTile({
+  label,
+  value,
+  hint,
+  positive,
+  negative,
+}: {
+  label: React.ReactNode;
+  value: React.ReactNode;
+  hint?: React.ReactNode;
+  positive?: boolean;
+  negative?: boolean;
+}) {
   return (
-    <Card className="metric" p="lg" radius="lg">
-      <Text size="sm" c="dimmed">Weighted Expense (TER)</Text>
-      <Group justify="space-between" align="baseline" mt={5}>
-        <Text size="xl" fw={750}>{totalVal > 0 ? `${weightedTER}%` : '—'}</Text>
-        {annualFeeDrag > 0 && (
-          <Text size="xs" fw={700} c="orange" title="Estimated annual ETF TER cost">
-            -{money(annualFeeDrag, currency)}/yr
-          </Text>
-        )}
-      </Group>
-    </Card>
-  );
-}
-
-function NetPassiveCashflowCard({ netInterestMinor, holdings, instruments, currency }: { netInterestMinor: number; holdings: Holding[]; instruments: Instrument[]; currency: string }) {
-  const instMap = new Map<number, Instrument>(instruments.map(i => [i.id, i]));
-  let annualTERDrag = 0;
-  for (const h of holdings) {
-    if ((h.currency ?? 'EUR') === currency) {
-      const terBps = h.ter_bps ?? instMap.get(h.instrument_id)?.ter_bps ?? 0;
-      annualTERDrag += Math.round((h.value_minor * terBps) / 10000);
-    }
-  }
-  const netBalance = netInterestMinor - annualTERDrag;
-  return (
-    <Card className="metric" p="lg" radius="lg">
-      <Group justify="space-between" mb="xs">
-        <Text fw={700} size="sm">Net Passive Flow</Text>
-        <Badge color={netBalance >= 0 ? 'teal' : 'red'} variant="light">
-          {netBalance >= 0 ? 'Positive Yield' : 'Net Cost'}
-        </Badge>
-      </Group>
-      <Group align="baseline" gap="xs">
-        <Text size="xl" fw={750} c={netBalance >= 0 ? 'teal' : 'red'}>
-          {netBalance >= 0 ? '+' : ''}{money(netBalance, currency)}/yr
-        </Text>
-      </Group>
-      <Text size="xs" c="dimmed" mt={4}>
-        +{money(netInterestMinor, currency)}/yr net interest · -{money(annualTERDrag, currency)}/yr TER fees
-      </Text>
+    <Card withBorder className="stat-card" p="md" radius="md">
+      <div className="stat-tile-label">{label}</div>
+      <div className={`stat-tile-value ${positive ? 'positive' : negative ? 'negative' : ''}`}>
+        {value}
+      </div>
+      {hint && <div className="stat-tile-hint">{hint}</div>}
     </Card>
   );
 }
@@ -129,26 +78,35 @@ function EmergencyReserveCard({ cashMinor, currency }: { cashMinor: number; curr
 
   const goalMinor = goal * 100;
   const pct = Math.min(100, Math.round((cashMinor / Math.max(1, goalMinor)) * 100));
+  const annualExpenses = profile.fire_expenses_minor > 0 ? profile.fire_expenses_minor : 2400000;
+  const monthlyExpenses = annualExpenses / 12;
+  const monthsCovered = monthlyExpenses > 0 ? (cashMinor / monthlyExpenses).toFixed(1) : null;
 
   return (
-    <Card className="metric" p="lg" radius="lg">
-      <Group justify="space-between" mb="xs">
+    <Card withBorder className="solid-inner-card" p="lg" radius="md">
+      <div className="solid-card-header">
         <Group gap="xs">
           <Text fw={700} size="sm">Emergency Reserve</Text>
-          <Button size="xs" variant="subtle" color="gray" leftSection={<IconPencil size={12} />} onClick={() => { setDraftGoal(goal); setEditing(true); }}>
+          <Button size="compact-xs" variant="subtle" color="gray" leftSection={<IconPencil size={12} />} onClick={() => { setDraftGoal(goal); setEditing(true); }}>
             Goal
           </Button>
         </Group>
-        <Badge color={pct >= 100 ? 'teal' : pct >= 50 ? 'blue' : 'orange'} variant="filled">
+        <Badge color={pct >= 100 ? 'teal' : pct >= 50 ? 'blue' : 'orange'} variant="light" size="xs">
           {pct >= 100 ? 'Fully Reserved' : `${pct}% Funded`}
         </Badge>
-      </Group>
+      </div>
       <Group align="baseline" justify="space-between" mt={4}>
-        <Text size="lg" fw={750}>
-          {money(cashMinor, currency)} <Text span size="xs" c="dimmed">/ {money(goalMinor, currency)} goal</Text>
+        <Text size="xl" fw={750} style={{ fontFamily: 'ui-monospace, monospace' }}>
+          {money(cashMinor, currency)}
+        </Text>
+        <Text size="xs" c="dimmed">
+          Goal: {money(goalMinor, currency)}
         </Text>
       </Group>
       <Progress value={pct} color={pct >= 100 ? 'teal' : pct >= 50 ? 'blue' : 'orange'} animated={pct < 100} radius="xl" mt="xs" />
+      <Text size="xs" c="dimmed" mt={8}>
+        {monthsCovered ? `Covers ~${monthsCovered} months of essential living costs.` : 'Recommended: 3 to 6 months of liquid expenses.'}
+      </Text>
       <Modal opened={editing} onClose={() => setEditing(false)} title={`Target Emergency Reserve (${currency})`} size="sm">
         <Stack gap="sm">
           <NumberInput label="Target Cash Goal" min={100} value={draftGoal} onChange={setDraftGoal} />
@@ -181,34 +139,40 @@ function FreedomCalculatorCard({ totalWealthMinor, currency }: { totalWealthMino
   const fireProgressPct = Math.min(100, Math.round((totalWealthMinor / Math.max(1, targetFireWealthMinor)) * 100));
 
   return (
-    <Card className="metric" p="lg" radius="lg" mt="md">
-      <Group justify="space-between" mb="xs">
+    <Card withBorder className="solid-inner-card" p="lg" radius="md">
+      <div className="solid-card-header">
         <Group gap="xs">
           <Text fw={700} size="sm">Financial Independence (FIRE) & SWR</Text>
-          <Button size="xs" variant="subtle" color="gray" leftSection={<IconPencil size={12} />} onClick={() => { setDraftExpenses(annualExpenses); setEditing(true); }}>
-            Expenses Goal
+          <Button size="compact-xs" variant="subtle" color="gray" leftSection={<IconPencil size={12} />} onClick={() => { setDraftExpenses(annualExpenses); setEditing(true); }}>
+            Expenses
           </Button>
         </Group>
-        <Badge color={fireProgressPct >= 100 ? 'teal' : 'blue'} variant="filled">
+        <Badge color={fireProgressPct >= 100 ? 'teal' : 'blue'} variant="light" size="xs">
           {fireProgressPct >= 100 ? 'FIRE Target Reached 🎉' : `${fireProgressPct}% to FIRE Target`}
         </Badge>
-      </Group>
-      <SimpleGrid cols={{ base: 1, sm: 3 }} mt="sm">
-        <Box>
-          <Text size="xs" c="dimmed">4% SWR Safe Passive Income</Text>
-          <Text size="md" fw={750} c="teal">{money(swr4Monthly, currency)}/mo</Text>
-          <Text size="xs" c="dimmed">{money(swr4Annual, currency)}/yr budget</Text>
-        </Box>
-        <Box>
-          <Text size="xs" c="dimmed">Freedom Horizon Covered</Text>
-          <Text size="md" fw={750}>{yearsCovered} years</Text>
-          <Text size="xs" c="dimmed">at {money(annualExpenses * 100, currency)}/yr expenses</Text>
-        </Box>
-        <Box>
-          <Text size="xs" c="dimmed">Target FIRE Net Wealth (25x)</Text>
-          <Text size="md" fw={750}>{money(targetFireWealthMinor, currency)}</Text>
-          <Text size="xs" c="dimmed">{money(totalWealthMinor, currency)} current wealth</Text>
-        </Box>
+      </div>
+      <SimpleGrid cols={{ base: 1, sm: 3 }} mt="xs">
+        <Card withBorder className="stat-card" p="xs" radius="sm" style={{ minHeight: 74 }}>
+          <div className="stat-tile-label">4% SWR Safe Income</div>
+          <div className="stat-tile-value" style={{ fontSize: '1.15rem', color: 'var(--mantine-color-teal-6)' }}>
+            {money(swr4Monthly, currency)}/mo
+          </div>
+          <div className="stat-tile-hint">{money(swr4Annual, currency)}/yr budget</div>
+        </Card>
+        <Card withBorder className="stat-card" p="xs" radius="sm" style={{ minHeight: 74 }}>
+          <div className="stat-tile-label">Freedom Runway</div>
+          <div className="stat-tile-value" style={{ fontSize: '1.15rem' }}>
+            {yearsCovered} yrs
+          </div>
+          <div className="stat-tile-hint">at {money(annualExpenses * 100, currency)}/yr</div>
+        </Card>
+        <Card withBorder className="stat-card" p="xs" radius="sm" style={{ minHeight: 74 }}>
+          <div className="stat-tile-label">Target 25x Wealth</div>
+          <div className="stat-tile-value" style={{ fontSize: '1.15rem' }}>
+            {money(targetFireWealthMinor, currency)}
+          </div>
+          <div className="stat-tile-hint">{money(totalWealthMinor, currency)} current</div>
+        </Card>
       </SimpleGrid>
       <Progress value={fireProgressPct} color={fireProgressPct >= 100 ? 'teal' : 'blue'} radius="xl" mt="md" />
       <Modal opened={editing} onClose={() => setEditing(false)} title={`Target Annual Living Expenses (${currency})`} size="sm">
@@ -281,50 +245,175 @@ export function OverviewView({
         />
       ) : (
         <>
-          {currencies.length === 0 ? <Empty title="No accounts yet" text="Add a bank or brokerage account to see your allocation." /> : currencies.map(item => {
-        const allocations = (item.allocations ?? []).filter(allocation => allocation.value_minor > 0);
-        return (
-        <Box key={item.currency}>
-          <SectionHeader
-            title="Assets"
-            subtitle="Current rough situation"
-            badge={<Badge color="teal" variant="light" size="sm">{item.currency}</Badge>}
-            order={3}
-          />
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 5 }}>
-          <Metric label="Cash balance" value={money(item.balance_minor, item.currency)} />
-          <InvestmentMetric value={item.portfolio_minor} invested={item.invested_minor} currency={item.currency} />
-          <PerformanceMetric value={item.portfolio_minor} invested={item.invested_minor} currency={item.currency} />
-          <TERMetric holdings={data.holdings} instruments={data.instruments} currency={item.currency} />
-          <Metric label="Total wealth" value={money(item.total_minor, item.currency)} positive />
-        </SimpleGrid>
-        <Divider my="md" />
-        <SimpleGrid cols={{ base: 1, sm: 2 }}>
-          <NetPassiveCashflowCard
-            netInterestMinor={item.net_revenue_minor}
-            holdings={data.holdings}
-            instruments={data.instruments}
-            currency={item.currency}
-          />
-          <EmergencyReserveCard
-            cashMinor={item.balance_minor}
-            currency={item.currency}
-          />
-        </SimpleGrid>
-        {profile.show_fire_calculator && (
-          <FreedomCalculatorCard
-            totalWealthMinor={item.total_minor}
-            currency={item.currency}
-          />
-        )}
-            <Divider my="md" />
-            <Paper className="metric" p="lg" radius="lg">
-              <Group justify="space-between" mb="sm"><Text fw={700}>Asset allocation</Text><Text size="sm" c="dimmed">Cash interest/year: Gross {money(item.gross_revenue_minor, item.currency)} · Net {money(item.net_revenue_minor, item.currency)}</Text></Group>
-              <AllocationBar total={item.total_minor} segments={[{ label: 'Cash', value: item.balance_minor }, ...allocations.map(allocation => ({ label: label(allocation.asset_class), value: allocation.value_minor }))]} />
-            </Paper>
-          </Box>
-        )})}
-        <SnapshotHistory snapshots={data.snapshots} currency={data.summary.base_currency} reload={reload} />
+          {currencies.length === 0 ? (
+            <Empty title="No accounts yet" text="Add a bank or brokerage account to see your allocation." />
+          ) : (
+            currencies.map(item => {
+              const allocations = (item.allocations ?? []).filter(allocation => allocation.value_minor > 0);
+
+              // Calculate weighted TER and annual drag
+              const instMap = new Map<number, Instrument>(data.instruments.map(i => [i.id, i]));
+              let totalVal = 0;
+              let weightedTERNum = 0;
+              let annualTERDrag = 0;
+              for (const h of data.holdings) {
+                if ((h.currency ?? 'EUR') === item.currency) {
+                  const inst = instMap.get(h.instrument_id);
+                  const terBps = h.ter_bps ?? inst?.ter_bps ?? 0;
+                  totalVal += h.value_minor;
+                  weightedTERNum += h.value_minor * terBps;
+                  annualTERDrag += Math.round((h.value_minor * terBps) / 10000);
+                }
+              }
+              const weightedTER = totalVal > 0 ? (weightedTERNum / totalVal / 100).toFixed(2) : '0.00';
+              const netPassiveBalance = item.net_revenue_minor - annualTERDrag;
+              const cashRatio = item.total_minor > 0 ? ((item.balance_minor / item.total_minor) * 100).toFixed(1) : '0';
+
+              const investedChange = item.portfolio_minor - item.invested_minor;
+              const investedPct = item.invested_minor > 0 ? ((investedChange / item.invested_minor) * 100).toFixed(1) : '0.0';
+
+              return (
+                <Stack key={item.currency} gap="md" mb="xl">
+                  {/* Area 1: Summary Lead Section (Faithful to Trade Republic Analyzer) */}
+                  <Card withBorder className="section-card" p="md" radius="md">
+                    <div className="section-card-header">
+                      <div>
+                        <h2 className="section-card-title">Summary</h2>
+                        <p className="section-card-meta">
+                          {data.accounts.filter(a => !a.archived && a.currency === item.currency).length} active accounts · {data.holdings.filter(h => (h.currency ?? 'EUR') === item.currency).length} investment positions · Currency {item.currency}
+                        </p>
+                      </div>
+                      <Badge color="teal" variant="light" size="md">{item.currency}</Badge>
+                    </div>
+
+                    <div className="stat-tiles-grid">
+                      <StatTile
+                        label="Total Net Wealth"
+                        value={money(item.total_minor, item.currency)}
+                        hint="Consolidated capital across liquid cash and investments."
+                      />
+
+                      <StatTile
+                        label="Investment Profit"
+                        value={
+                          item.invested_minor > 0
+                            ? `${investedChange >= 0 ? '+' : ''}${money(investedChange, item.currency)}`
+                            : '—'
+                        }
+                        positive={item.invested_minor > 0 && investedChange >= 0}
+                        negative={item.invested_minor > 0 && investedChange < 0}
+                        hint={
+                          item.invested_minor > 0
+                            ? `Return of ${investedChange >= 0 ? '+' : ''}${investedPct}% on ${money(item.invested_minor, item.currency)} capital paid in.`
+                            : 'No investment purchase cost basis recorded.'
+                        }
+                      />
+
+                      <StatTile
+                        label="Annual Net Flow"
+                        value={`${netPassiveBalance >= 0 ? '+' : ''}${money(netPassiveBalance, item.currency)}/yr`}
+                        positive={netPassiveBalance >= 0}
+                        negative={netPassiveBalance < 0}
+                        hint={`+${money(item.net_revenue_minor, item.currency)}/yr net interest after -${money(annualTERDrag, item.currency)}/yr TER fund fees.`}
+                      />
+
+                      <StatTile
+                        label="Liquid Cash"
+                        value={money(item.balance_minor, item.currency)}
+                        hint={`${cashRatio}% liquidity ratio · Gross interest +${money(item.gross_revenue_minor, item.currency)}/yr.`}
+                      />
+                    </div>
+                  </Card>
+
+                  {/* Area 2: Asset Allocation & Composition */}
+                  <Card withBorder className="section-card" p="md" radius="md">
+                    <div className="section-card-header">
+                      <div>
+                        <h2 className="section-card-title">Asset Allocation</h2>
+                        <p className="section-card-meta">
+                          Distribution across liquid cash and investment asset classes
+                        </p>
+                      </div>
+                      <Text size="xs" c="dimmed">
+                        Total Assets: <Text span fw={750} c="inherit">{money(item.total_minor, item.currency)}</Text>
+                      </Text>
+                    </div>
+                    <Card withBorder className="solid-inner-card" p="sm" radius="md">
+                      <AllocationBar
+                        total={item.total_minor}
+                        segments={[
+                          { label: 'Cash', value: item.balance_minor },
+                          ...allocations.map(a => ({ label: label(a.asset_class), value: a.value_minor })),
+                        ]}
+                      />
+                    </Card>
+                    <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="sm" mt="sm">
+                      <Card withBorder className="asset-card" p="sm" radius="md">
+                        <Group justify="space-between" align="center">
+                          <Group gap={6}>
+                            <Box w={8} h={8} style={{ borderRadius: '50%', background: 'var(--mantine-color-cyan-5)' }} />
+                            <Text size="xs" fw={700}>Liquid Cash</Text>
+                          </Group>
+                          <Badge size="xs" variant="light" color="cyan">{cashRatio}%</Badge>
+                        </Group>
+                        <Text size="md" fw={750} mt={4} style={{ fontVariantNumeric: 'tabular-nums' }}>
+                          {money(item.balance_minor, item.currency)}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          Net interest: +{money(item.net_revenue_minor, item.currency)}/yr
+                        </Text>
+                      </Card>
+                      {allocations.map(a => {
+                        const sharePct = item.total_minor > 0 ? ((a.value_minor / item.total_minor) * 100).toFixed(1) : '0';
+                        const matchingCount = data.holdings.filter(h => {
+                          if ((h.currency ?? 'EUR') !== item.currency) return false;
+                          const inst = instMap.get(h.instrument_id);
+                          return (inst?.asset_class ?? 'equity') === a.asset_class;
+                        }).length;
+
+                        return (
+                          <Card key={a.asset_class} withBorder className="asset-card" p="sm" radius="md">
+                            <Group justify="space-between" align="center">
+                              <Group gap={6}>
+                                <Box w={8} h={8} style={{ borderRadius: '50%', background: 'var(--mantine-color-teal-5)' }} />
+                                <Text size="xs" fw={700}>{label(a.asset_class)}</Text>
+                              </Group>
+                              <Badge size="xs" variant="light" color="teal">{sharePct}%</Badge>
+                            </Group>
+                            <Text size="md" fw={750} mt={4} style={{ fontVariantNumeric: 'tabular-nums' }}>
+                              {money(a.value_minor, item.currency)}
+                            </Text>
+                            <Text size="xs" c="dimmed">
+                              {matchingCount > 0 ? `${matchingCount} position${matchingCount > 1 ? 's' : ''}` : 'Allocated assets'}
+                            </Text>
+                          </Card>
+                        );
+                      })}
+                    </SimpleGrid>
+                  </Card>
+
+                  {/* Area 3: Milestones & Financial Independence */}
+                  <Card withBorder className="section-card" p="md" radius="md">
+                    <div className="section-card-header">
+                      <div>
+                        <h2 className="section-card-title">Financial Independence & Milestones</h2>
+                        <p className="section-card-meta">
+                          Emergency liquidity reserves and safe withdrawal capacity
+                        </p>
+                      </div>
+                    </div>
+                    <SimpleGrid cols={{ base: 1, md: profile.show_fire_calculator ? 2 : 1 }} spacing="sm">
+                      <EmergencyReserveCard cashMinor={item.balance_minor} currency={item.currency} />
+                      {profile.show_fire_calculator && (
+                        <FreedomCalculatorCard totalWealthMinor={item.total_minor} currency={item.currency} />
+                      )}
+                    </SimpleGrid>
+                  </Card>
+                </Stack>
+              );
+            })
+          )}
+          <SnapshotHistory snapshots={data.snapshots} currency={data.summary.base_currency} reload={reload} />
         </>
       )}
     </ViewShell>
@@ -333,32 +422,172 @@ export function OverviewView({
 
 function SnapshotHistory({ snapshots, currency, reload }: { snapshots: Snapshot[]; currency: string; reload: () => Promise<void> }) {
   const [observedOn, setObservedOn] = useState(new Date().toISOString().slice(0, 10));
-  const [saving, setSaving] = useState(false); const [editing, setEditing] = useState<Snapshot>(); const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState<Snapshot>();
+  const [error, setError] = useState('');
   const { confirmDelete, modal: confirmDeleteModal } = useConfirmDelete();
-  const table = useBackendRows('/api/snapshots', snapshots);
+  const table = useBackendRows('/api/snapshots', snapshots, 'date', 'desc');
   const current = snapshots.filter(item => item.currency === currency).sort((a, b) => a.observed_on.localeCompare(b.observed_on));
+
+  const displayRows = useMemo(() => {
+    const rows = [...table.rows];
+    if (!table.sort || (table.sort === 'date' && table.direction === 'desc')) {
+      return rows.sort((a, b) => b.observed_on.localeCompare(a.observed_on));
+    }
+    if (table.sort === 'date' && table.direction === 'asc') {
+      return rows.sort((a, b) => a.observed_on.localeCompare(b.observed_on));
+    }
+    return rows;
+  }, [table.rows, table.sort, table.direction]);
+
+  const deltaMap = new Map<number, { diff: number; pct: number }>();
+  for (let i = 0; i < current.length; i++) {
+    if (i === 0) {
+      deltaMap.set(current[i].id, { diff: 0, pct: 0 });
+    } else {
+      const prev = current[i - 1];
+      const diff = current[i].total_minor - prev.total_minor;
+      const pct = prev.total_minor > 0 ? (diff / prev.total_minor) * 100 : 0;
+      deltaMap.set(current[i].id, { diff, pct });
+    }
+  }
+
   const removeSnapshot = (item: Snapshot) => {
     confirmDelete('snapshot', `${item.observed_on} (${money(item.total_minor, item.currency)})`, async () => {
       await api(`/api/snapshots/${item.id}`, { method: 'DELETE' });
       await reload();
     });
   };
+
   const columns: DataColumn<Snapshot>[] = [
     { key: 'date', label: 'Date', sortable: true, render: item => new Date(`${item.observed_on}T00:00:00`).toLocaleDateString() },
-    { key: 'currency', label: 'Currency', sortable: true, render: item => item.currency },
-    { key: 'cash', label: 'Cash', sortable: true, align: 'right', render: item => money(item.cash_minor, item.currency) },
-    { key: 'portfolio', label: 'Investments', sortable: true, align: 'right', render: item => money(item.portfolio_minor, item.currency) },
-    { key: 'total', label: 'Total', sortable: true, align: 'right', render: item => money(item.total_minor, item.currency) },
-    { key: 'actions', align: 'right', render: item => <TableActions><TableAction label="Edit snapshot" onClick={() => setEditing(item)}><IconPencil size={14} /></TableAction><TableAction label="Delete snapshot" color="red" onClick={() => removeSnapshot(item)}><IconTrash size={14} /></TableAction></TableActions> },
+    { key: 'currency', label: 'Currency', sortable: true, render: item => <Badge variant="light" color="teal" size="xs">{item.currency}</Badge> },
+    { key: 'cash', label: 'Cash', sortable: true, align: 'right', render: item => <span style={{ fontFamily: 'ui-monospace, monospace' }}>{money(item.cash_minor, item.currency)}</span> },
+    { key: 'portfolio', label: 'Investments', sortable: true, align: 'right', render: item => <span style={{ fontFamily: 'ui-monospace, monospace' }}>{money(item.portfolio_minor, item.currency)}</span> },
+    { key: 'total', label: 'Total', sortable: true, align: 'right', render: item => <Text fw={750} style={{ fontFamily: 'ui-monospace, monospace' }}>{money(item.total_minor, item.currency)}</Text> },
+    {
+      key: 'change',
+      label: 'Change',
+      sortable: false,
+      align: 'right',
+      render: item => {
+        const delta = deltaMap.get(item.id);
+        if (!delta || (delta.diff === 0 && delta.pct === 0)) {
+          return <Text size="xs" c="dimmed">—</Text>;
+        }
+        const isPositive = delta.diff >= 0;
+        return (
+          <Group gap={6} justify="flex-end" wrap="nowrap">
+            <Text
+              size="xs"
+              fw={700}
+              c={isPositive ? 'teal' : 'red'}
+              style={{ fontFamily: 'ui-monospace, monospace' }}
+            >
+              {isPositive ? '+' : ''}{money(delta.diff, item.currency)}
+            </Text>
+            <Badge
+              size="xs"
+              variant="light"
+              color={isPositive ? 'teal' : 'red'}
+              style={{ fontFamily: 'ui-monospace, monospace' }}
+            >
+              {isPositive ? '+' : ''}{delta.pct.toFixed(1)}%
+            </Badge>
+          </Group>
+        );
+      },
+    },
+    {
+      key: 'actions',
+      align: 'right',
+      render: item => (
+        <TableActions>
+          <TableAction label="Edit snapshot" onClick={() => setEditing(item)}>
+            <IconPencil size={14} />
+          </TableAction>
+          <TableAction label="Delete snapshot" color="red" onClick={() => removeSnapshot(item)}>
+            <IconTrash size={14} />
+          </TableAction>
+        </TableActions>
+      ),
+    },
   ];
-  const save = async () => { setSaving(true); try { await api('/api/snapshots', { method: 'POST', body: JSON.stringify({ observed_on: observedOn }) }); setError(''); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } finally { setSaving(false); } };
-  return <Stack gap="md"><Group justify="space-between" align="end"><Box><Title order={3}>Wealth history</Title><Text c="dimmed">A snapshot copies every account's cash and investment holdings for that date.</Text></Box><Group align="end"><TextInput type="date" label="Snapshot date" value={observedOn} onChange={event => setObservedOn(event.currentTarget.value)} /><Button loading={saving} onClick={() => void save()}>Save snapshot</Button></Group></Group>
-    {(error || table.sortError) && <Alert color="red">{error || table.sortError}</Alert>}
-    {current.length > 1 ? <WealthChart snapshots={current} currency={currency} /> : current.length === 1 && <Alert color="gray">Save one more snapshot to see the wealth trend.</Alert>}
-    {snapshots.length === 0 ? <Empty title="No snapshots yet" text="Update your balances and holdings, then save the current situation." /> : <DataTable rows={table.sort ? table.rows : [...table.rows].reverse()} columns={columns} rowKey={item => `${item.id}-${item.currency}`} minWidth={820} sort={table.sort} direction={table.direction} onSort={(key, direction) => void table.sortRows(key, direction)} />}
-    <SnapshotModal key={editing ? `${editing.id}-${editing.currency}` : 'closed'} snapshot={editing} close={() => setEditing(undefined)} saved={async () => { setEditing(undefined); await reload(); }} />
-    {confirmDeleteModal}
-  </Stack>;
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await api('/api/snapshots', { method: 'POST', body: JSON.stringify({ observed_on: observedOn }) });
+      setError('');
+      await reload();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Stack gap="lg">
+      {/* Area 4: Wealth Evolution Chart */}
+      {current.length > 1 ? (
+        <WealthChart snapshots={current} currency={currency} />
+      ) : current.length === 1 ? (
+        <Alert color="gray">Save one more snapshot to see the wealth trend over time.</Alert>
+      ) : null}
+
+      {/* Area 5: Snapshots History Ledger */}
+      <Card withBorder className="section-card" p="md" radius="md">
+        <div className="section-card-header">
+          <div>
+            <h2 className="section-card-title">Snapshots Ledger</h2>
+            <p className="section-card-meta">
+              Periodic historical snapshots of cash reserves and investment balances
+            </p>
+          </div>
+          <Group align="end">
+            <TextInput
+              type="date"
+              size="xs"
+              label="Snapshot date"
+              value={observedOn}
+              onChange={event => setObservedOn(event.currentTarget.value)}
+            />
+            <Button size="xs" loading={saving} onClick={() => void save()}>
+              Save snapshot
+            </Button>
+          </Group>
+        </div>
+
+        {(error || table.sortError) && <Alert color="red" mb="sm">{error || table.sortError}</Alert>}
+
+        {snapshots.length === 0 ? (
+          <Empty title="No snapshots yet" text="Update your balances and holdings, then save the current situation." />
+        ) : (
+          <DataTable
+            rows={displayRows}
+            columns={columns}
+            rowKey={item => `${item.id}-${item.currency}`}
+            minWidth={820}
+            sort={table.sort}
+            direction={table.direction}
+            onSort={(key, direction) => void table.sortRows(key, direction)}
+          />
+        )}
+      </Card>
+
+      <SnapshotModal
+        key={editing ? `${editing.id}-${editing.currency}` : 'closed'}
+        snapshot={editing}
+        close={() => setEditing(undefined)}
+        saved={async () => {
+          setEditing(undefined);
+          await reload();
+        }}
+      />
+      {confirmDeleteModal}
+    </Stack>
+  );
 }
 
 function SnapshotModal({ snapshot, close, saved }: { snapshot?: Snapshot; close: () => void; saved: () => Promise<void> }) {
@@ -392,13 +621,19 @@ function WealthChart({ snapshots, currency }: { snapshots: Snapshot[]; currency:
   const dates = [0, Math.floor((shown.length - 1) / 2), shown.length - 1].filter((index, position, all) => all.indexOf(index) === position);
 
   return (
-    <Card className="metric" p="lg" radius="lg">
-      <Stack gap="sm" ref={containerRef}>
-        <Group justify="space-between" align="center" wrap="nowrap">
-          <Text fw={700}>Wealth over time</Text>
-          <SegmentedControl size="xs" value={range} onChange={value => setRange(value as ChartRange)} data={['1w', '2w', '1m', '3m', '6m', '1y', '3y', '5y', 'max']} />
-        </Group>
-        <Group gap="xs" role="group" aria-label="Chart series">
+    <Card withBorder className="section-card" p="md" radius="md">
+      <div className="section-card-header">
+        <div>
+          <h2 className="section-card-title">Wealth Evolution</h2>
+          <p className="section-card-meta">
+            Historical net worth progression over time
+          </p>
+        </div>
+        <SegmentedControl size="xs" value={range} onChange={value => setRange(value as ChartRange)} data={['1w', '2w', '1m', '3m', '6m', '1y', '3y', '5y', 'max']} />
+      </div>
+      <Card withBorder className="solid-inner-card" p="md" radius="md">
+        <Stack gap="sm" ref={containerRef}>
+          <Group gap="xs" role="group" aria-label="Chart series">
           {metricKeys.map(key => (
             <Button
               key={key}
@@ -492,6 +727,7 @@ function WealthChart({ snapshots, currency }: { snapshots: Snapshot[]; currency:
           )}
         </svg>
       </Stack>
+      </Card>
     </Card>
   );
 }

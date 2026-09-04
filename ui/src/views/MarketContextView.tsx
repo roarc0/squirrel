@@ -513,7 +513,8 @@ function MarketChart({
   observations,
   showZeroBaseline = false,
   valueUnit = '%',
-  defaultRange = '1y',
+  defaultRange = 'max',
+  chartKey,
 }: {
   title: string;
   definitions: SeriesDefinition[];
@@ -521,8 +522,29 @@ function MarketChart({
   showZeroBaseline?: boolean;
   valueUnit?: string;
   defaultRange?: InflationRange;
+  chartKey?: string;
 }) {
-  const [range, setRange] = useState<InflationRange>(defaultRange);
+  const key = `squirrel.marketChartRange.${chartKey || title.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+  const [range, setRangeState] = useState<InflationRange>(() => {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const stored = localStorage.getItem(key);
+        if (stored && ['1y', '3y', '5y', 'max'].includes(stored)) {
+          return stored as InflationRange;
+        }
+      } catch {}
+    }
+    return defaultRange;
+  });
+
+  const setRange = (val: InflationRange) => {
+    setRangeState(val);
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem(key, val);
+      } catch {}
+    }
+  };
   const [hovered, setHovered] = useState<number>();
 
   const relevantObservations = useMemo(() => {

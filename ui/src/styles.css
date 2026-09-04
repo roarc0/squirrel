@@ -1,6 +1,15 @@
 :root {
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+  color-scheme: light dark;
+}
+
+html[data-mantine-color-scheme="light"] {
+  color-scheme: light;
+}
+
+html[data-mantine-color-scheme="dark"] {
+  color-scheme: dark;
 }
 
 html, body {
@@ -234,14 +243,179 @@ body,
   backdrop-filter: blur(16px);
 }
 
+/* ==========================================================================
+   Solid, Flat Card & Section System (Faithful to Trade Republic Analyzer)
+   ========================================================================== */
+
+/* Outer Section Enclosing Card - Soft neutral matching SubnavTabs */
+.section-card,
+.lead-summary-card {
+  background-color: rgba(0, 0, 0, 0.035) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  border-radius: 10px !important;
+  padding: 16px 20px !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+}
+
+[data-mantine-color-scheme="dark"] .section-card,
+[data-mantine-color-scheme="dark"] .lead-summary-card {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+.section-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.section-card-title,
+.lead-summary-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: #0f172a !important;
+  margin: 0;
+}
+
+[data-mantine-color-scheme="dark"] .section-card-title,
+[data-mantine-color-scheme="dark"] .lead-summary-title {
+  color: #f8fafc !important;
+}
+
+.section-card-meta,
+.lead-summary-meta {
+  font-size: 0.8rem;
+  color: #64748b !important;
+  margin-top: 2px;
+}
+
+[data-mantine-color-scheme="dark"] .section-card-meta,
+[data-mantine-color-scheme="dark"] .lead-summary-meta {
+  color: #94a3b8 !important;
+}
+
+/* Stat Card & Inner Sub-Cards (White solid cards sitting on the soft neutral section) */
+.stat-card,
+.solid-inner-card,
+.asset-card,
+.solid-card,
+.stat-tile,
+.asset-tile {
+  background-color: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+[data-mantine-color-scheme="dark"] .stat-card,
+[data-mantine-color-scheme="dark"] .solid-inner-card,
+[data-mantine-color-scheme="dark"] .asset-card,
+[data-mantine-color-scheme="dark"] .solid-card,
+[data-mantine-color-scheme="dark"] .stat-tile,
+[data-mantine-color-scheme="dark"] .asset-tile {
+  background-color: #1a202c !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15) !important;
+}
+
+.stat-card:hover,
+.asset-card:hover,
+.stat-tile:hover,
+.asset-tile:hover {
+  border-color: var(--mantine-color-teal-5) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-mantine-color-scheme="dark"] .stat-card:hover,
+[data-mantine-color-scheme="dark"] .asset-card:hover,
+[data-mantine-color-scheme="dark"] .stat-tile:hover,
+[data-mantine-color-scheme="dark"] .asset-tile:hover {
+  border-color: var(--mantine-color-teal-6) !important;
+}
+
+.stat-tiles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.stat-tile-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+[data-mantine-color-scheme="dark"] .stat-tile-label {
+  color: #94a3b8;
+}
+
+.stat-tile-value {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 1.42rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  margin-top: 4px;
+  color: #0f172a;
+}
+
+[data-mantine-color-scheme="dark"] .stat-tile-value {
+  color: #f8fafc;
+}
+
+.stat-tile-value.positive {
+  color: var(--mantine-color-teal-6) !important;
+}
+
+.stat-tile-value.negative {
+  color: var(--mantine-color-red-6) !important;
+}
+
+.stat-tile-hint {
+  font-size: 0.76rem;
+  color: #64748b;
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
+[data-mantine-color-scheme="dark"] .stat-tile-hint {
+  color: #94a3b8;
+}
+
+.solid-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
 /* Solid, Flat, Crisp Data Table Surface */
 .data-table-card {
-  border: 1px solid light-dark(#cbd5e1, #334155) !important;
-  border-radius: 10px !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  background-color: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
   overflow: hidden !important;
-  background: light-dark(#ffffff, #161b22) !important;
   padding: 0 !important;
+}
+
+[data-mantine-color-scheme="dark"] .data-table-card {
+  background-color: #1a202c !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
 .data-table {
@@ -251,32 +425,84 @@ body,
 }
 
 .data-table thead tr th {
-  border-bottom: 1px solid light-dark(#cbd5e1, #334155) !important;
-  padding: 10px 14px !important;
-  background: light-dark(#f8fafc, #1a202c) !important;
-  color: light-dark(#475569, #94a3b8) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+  padding: 9px 14px !important;
+  background-color: rgba(0, 0, 0, 0.02) !important;
+  color: #475569 !important;
   font-size: 11px !important;
-  font-weight: 750 !important;
-  letter-spacing: 0.05em !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
   text-transform: uppercase !important;
 }
 
+[data-mantine-color-scheme="dark"] .data-table thead tr th {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background-color: rgba(255, 255, 255, 0.02) !important;
+  color: #94a3b8 !important;
+}
+
 .data-table thead tr:first-child th:first-child {
-  border-top-left-radius: 9px;
+  border-top-left-radius: 7px;
 }
 
 .data-table thead tr:first-child th:last-child {
-  border-top-right-radius: 9px;
+  border-top-right-radius: 7px;
 }
 
-.data-table tbody tr td {
-  border-bottom: 1px solid light-dark(#e2e8f0, #262e3d) !important;
-  padding: 10px 14px !important;
+.data-table tbody tr {
+  background-color: #ffffff;
   transition: background-color 0.1s ease;
 }
 
+[data-mantine-color-scheme="dark"] .data-table tbody tr {
+  background-color: #1c222c;
+}
+
+.data-table tbody tr td {
+  border-bottom: 1px solid #e2e8f0 !important;
+  padding: 9px 14px !important;
+  background-color: inherit;
+  transition: background-color 0.1s ease;
+}
+
+[data-mantine-color-scheme="dark"] .data-table tbody tr td {
+  border-bottom: 1px solid #262e3d !important;
+  background-color: inherit;
+}
+
 .data-table tbody tr:hover td {
-  background-color: light-dark(#f8fafc, #1f2735) !important;
+  background-color: #f8fafc;
+}
+
+[data-mantine-color-scheme="dark"] .data-table tbody tr:hover td {
+  background-color: #232c39;
+}
+
+/* PAC Active Row Highlight - Purple / Violet */
+.data-table tbody tr.pac-active-row,
+.data-table tbody tr.pac-active-row td {
+  background-color: rgba(121, 80, 242, 0.08) !important;
+}
+
+[data-mantine-color-scheme="dark"] .data-table tbody tr.pac-active-row,
+[data-mantine-color-scheme="dark"] .data-table tbody tr.pac-active-row td {
+  background-color: rgba(132, 94, 247, 0.16) !important;
+}
+
+.data-table tbody tr.pac-active-row td:first-child {
+  border-left: 3px solid #7950f2 !important;
+}
+
+[data-mantine-color-scheme="dark"] .data-table tbody tr.pac-active-row td:first-child {
+  border-left: 3px solid #9775fa !important;
+}
+
+.data-table tbody tr.pac-active-row:hover td {
+  background-color: rgba(121, 80, 242, 0.13) !important;
+}
+
+[data-mantine-color-scheme="dark"] .data-table tbody tr.pac-active-row:hover td {
+  background-color: rgba(132, 94, 247, 0.22) !important;
 }
 
 .data-table tbody tr:last-child td {
@@ -284,11 +510,11 @@ body,
 }
 
 .data-table tbody tr:last-child td:first-child {
-  border-bottom-left-radius: 9px;
+  border-bottom-left-radius: 7px;
 }
 
 .data-table tbody tr:last-child td:last-child {
-  border-bottom-right-radius: 9px;
+  border-bottom-right-radius: 7px;
 }
 
 .positive { color: var(--mantine-color-teal-6); }

@@ -999,12 +999,13 @@ export function InvestmentsView({
               sort={table.sort}
               direction={table.direction}
               onSort={(key, direction) => void table.sortRows(key, direction)}
+              rowClassName={holding => ((holding.pac_bps ?? 0) > 0 ? 'pac-active-row' : undefined)}
               rowStyle={holding => {
-                const isPacActive = holding.is_pac && (holding.pac_bps ?? 0) > 0;
+                const isPacActive = (holding.pac_bps ?? 0) > 0;
                 return {
-                  opacity: isPacActive ? 1 : 0.65,
-                  backgroundColor: isPacActive ? 'var(--mantine-color-teal-light)' : undefined,
-                  borderLeft: isPacActive ? '4px solid var(--mantine-color-teal-5)' : undefined,
+                  opacity: isPacActive ? 1 : 0.75,
+                  backgroundColor: isPacActive ? 'rgba(121, 80, 242, 0.08)' : undefined,
+                  borderLeft: isPacActive ? '3px solid #7950f2' : undefined,
                 };
               }}
             />

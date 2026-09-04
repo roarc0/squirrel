@@ -12,7 +12,7 @@ export type DataColumn<T> = {
   align?: 'left' | 'center' | 'right';
 };
 
-export function DataTable<T>({ rows, columns, rowKey, minWidth = 800, toolbar, sort, direction = 'asc', onSort, rowStyle }: {
+export function DataTable<T>({ rows, columns, rowKey, minWidth = 800, toolbar, sort, direction = 'asc', onSort, rowStyle, rowClassName }: {
   rows: T[];
   columns: DataColumn<T>[];
   rowKey: (row: T) => string | number;
@@ -22,6 +22,7 @@ export function DataTable<T>({ rows, columns, rowKey, minWidth = 800, toolbar, s
   direction?: SortDirection;
   onSort?: (key: string, direction: SortDirection) => void;
   rowStyle?: (row: T) => CSSProperties | undefined;
+  rowClassName?: (row: T) => string | undefined;
 }) {
   return (
     <Paper className="data-table-card" radius="md" withBorder style={{ padding: 0 }}>
@@ -55,22 +56,28 @@ export function DataTable<T>({ rows, columns, rowKey, minWidth = 800, toolbar, s
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {rows.map(row => (
-              <Table.Tr key={rowKey(row)} style={rowStyle?.(row)}>
-                {columns.map(column => (
-                  <Table.Td
-                    key={column.key}
-                    style={{
-                      textAlign: column.align ?? 'left',
-                      width: column.key === 'actions' ? '1%' : undefined,
-                      whiteSpace: column.key === 'actions' || column.align === 'right' ? 'nowrap' : undefined,
-                    }}
-                  >
-                    {column.render(row)}
-                  </Table.Td>
-                ))}
-              </Table.Tr>
-            ))}
+            {rows.map(row => {
+              const rStyle = rowStyle?.(row);
+              const rClass = rowClassName?.(row);
+              return (
+                <Table.Tr key={rowKey(row)} style={rStyle} className={rClass}>
+                  {columns.map((column, colIdx) => (
+                    <Table.Td
+                      key={column.key}
+                      style={{
+                        textAlign: column.align ?? 'left',
+                        width: column.key === 'actions' ? '1%' : undefined,
+                        whiteSpace: column.key === 'actions' || column.align === 'right' ? 'nowrap' : undefined,
+                        ...(rStyle?.backgroundColor ? { backgroundColor: rStyle.backgroundColor } : {}),
+                        ...(colIdx === 0 && rStyle?.borderLeft ? { borderLeft: rStyle.borderLeft } : {}),
+                      }}
+                    >
+                      {column.render(row)}
+                    </Table.Td>
+                  ))}
+                </Table.Tr>
+              );
+            })}
           </Table.Tbody>
         </Table>
       </Table.ScrollContainer>
