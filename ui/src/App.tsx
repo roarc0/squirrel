@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   IconChartPie,
   IconBuildingBank,
@@ -478,11 +478,8 @@ export default function App() {
   }
 
   const diagnosticsCount = data.summary.diagnostics?.length ?? 0;
-  const latestSnapshotDate = useMemo(() => {
-    if (!data?.snapshots || data.snapshots.length === 0) return undefined;
-    const sorted = [...data.snapshots].sort((a, b) => a.observed_on.localeCompare(b.observed_on));
-    return sorted[sorted.length - 1]?.observed_on;
-  }, [data?.snapshots]);
+  const sortedSnapshots = [...(data.snapshots ?? [])].sort((a, b) => a.observed_on.localeCompare(b.observed_on));
+  const latestSnapshotDate = sortedSnapshots[sortedSnapshots.length - 1]?.observed_on;
 
   return (
     <div className="app-layout">
