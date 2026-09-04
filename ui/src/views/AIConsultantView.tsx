@@ -625,7 +625,7 @@ export function AIConsultantView({
   return (
     <ViewShell error={error} onCloseError={() => setError('')}>
       <SectionHeader
-        title="AI Portfolio Consultant"
+        title="AI Consultant"
         subtitle="Interactive portfolio analysis and financial planning assistant."
         badge={<Badge color="teal" variant="light">MCP Proto API Enabled</Badge>}
         actions={

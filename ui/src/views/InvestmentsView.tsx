@@ -27,6 +27,7 @@ import {
   IconCheck,
   IconNotes,
   IconPencil,
+  IconPlayerPlay,
   IconRepeat,
   IconTrash,
   IconX,
@@ -118,10 +119,16 @@ function PacAmountEditor({ account, currency, onSaved }: { account: Account; cur
   );
 }
 
-function PacBpsEditor({ holding, onSaved }: { holding: Holding; onSaved: () => Promise<void> }) {
+function PacBpsEditor({ holding, accountMap, onSaved }: { holding: Holding; accountMap: Map<number, Account>; onSaved: () => Promise<void> }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState<number | string>('');
   const [saving, setSaving] = useState(false);
+
+  const account = accountMap.get(holding.account_id);
+  const totalPacMinor = account?.pac_amount_minor ?? 0;
+  const pacBps = holding.pac_bps ?? 0;
+  const calcAmountMinor = totalPacMinor > 0 && pacBps > 0 ? Math.round((totalPacMinor * pacBps) / 10000) : 0;
+  const freq = holding.pac_frequency || 'monthly';
 
   const start = () => { setValue((holding.pac_bps ?? 0) / 100); setEditing(true); };
   const cancel = () => setEditing(false);
@@ -144,25 +151,45 @@ function PacBpsEditor({ holding, onSaved }: { holding: Holding; onSaved: () => P
   const onKey = (e: React.KeyboardEvent) => { if (e.key === 'Enter') void save(); if (e.key === 'Escape') cancel(); };
 
   if (!editing) {
+    if (!holding.is_pac && (holding.pac_bps ?? 0) === 0) {
+      return (
+        <Group gap={4} wrap="nowrap" align="center" justify="end">
+          <Text size="xs" c="dimmed">—</Text>
+          <Tooltip label="Set PAC %" position="top" withArrow>
+            <ActionIcon size={18} variant="subtle" color="gray" onClick={start}>
+              <IconPencil size={11} />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
+      );
+    }
+
     return (
-      <Group gap={4} wrap="nowrap" align="center">
-        <Badge color="teal" variant="filled" size="sm" style={{ flexShrink: 0 }}>
-          <Group gap={3} align="center">
-            <IconRepeat size={11} />
-            <span>{percent(holding.pac_bps ?? 0)}</span>
+      <Stack gap={2} align="flex-end" style={{ minWidth: 84 }}>
+        <Badge color="teal" variant="filled" size="xs" style={{ flexShrink: 0, textTransform: 'none' }}>
+          <Group gap={3} align="center" wrap="nowrap">
+            <IconRepeat size={10} style={{ flexShrink: 0 }} />
+            <Text span size="xs" fw={700} style={{ whiteSpace: 'nowrap' }}>{percent(holding.pac_bps ?? 0)}</Text>
           </Group>
         </Badge>
-        <Tooltip label="Edit PAC %" position="top" withArrow>
-          <ActionIcon size={18} variant="subtle" color="teal" onClick={start} style={{ flexShrink: 0 }}>
-            <IconPencil size={12} />
-          </ActionIcon>
-        </Tooltip>
-      </Group>
+        <Group gap={3} align="center" justify="end" wrap="nowrap">
+          {calcAmountMinor > 0 && (
+            <Text size="xs" fw={700} c="teal" style={{ whiteSpace: 'nowrap' }}>
+              {money(calcAmountMinor, holding.currency ?? 'EUR')}/{freq.slice(0, 2)}
+            </Text>
+          )}
+          <Tooltip label="Edit PAC %" position="top" withArrow>
+            <ActionIcon size={16} variant="subtle" color="teal" onClick={start} style={{ flexShrink: 0 }}>
+              <IconPencil size={11} />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
+      </Stack>
     );
   }
 
   return (
-    <Group gap={4} wrap="nowrap" align="center">
+    <Group gap={4} wrap="nowrap" align="center" justify="end">
       <NumberInput
         size="xs"
         w={72}
@@ -187,10 +214,326 @@ function PacBpsEditor({ holding, onSaved }: { holding: Holding; onSaved: () => P
   );
 }
 
+function InlineCurrencyEditor({
+  holding,
+  field,
+  label,
+  onSaved,
+}: {
+  holding: Holding;
+  field: 'value_minor' | 'invested_minor';
+  label: string;
+  onSaved: () => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState<number | string>('');
+  const [saving, setSaving] = useState(false);
+
+  const currency = holding.currency ?? 'EUR';
+  const rawMinor = holding[field] ?? 0;
+
+  const start = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setValue(rawMinor / 100);
+    setEditing(true);
+  };
+  const cancel = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setEditing(false);
+  };
+  const save = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setSaving(true);
+    try {
+      const newMinor = Math.round(Number(value) * 100);
+      await api(`/api/holdings/${holding.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ ...holding, [field]: newMinor }),
+      });
+      notifications.show({
+        color: 'teal',
+        title: 'Holding updated',
+        message: `${holding.instrument_name} ${label} set to ${money(newMinor, currency)}`,
+      });
+      setEditing(false);
+      await onSaved();
+    } catch (cause) {
+      notifications.show({
+        color: 'red',
+        title: `Failed to update ${label.toLowerCase()}`,
+        message: cause instanceof Error ? cause.message : String(cause),
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') void save();
+    if (e.key === 'Escape') cancel();
+  };
+
+  if (!editing) {
+    return (
+      <Group gap={4} align="center" justify="end" wrap="nowrap" style={{ cursor: 'pointer' }} onClick={start}>
+        {field === 'invested_minor' ? (
+          investedMoney(holding.invested_minor, holding.value_minor, currency)
+        ) : (
+          <Text fw={650}>{money(holding.value_minor, currency)}</Text>
+        )}
+        <Tooltip label={`Edit ${label.toLowerCase()}`} position="top" withArrow>
+          <ActionIcon size={18} variant="subtle" color="gray" onClick={start}>
+            <IconPencil size={11} />
+          </ActionIcon>
+        </Tooltip>
+      </Group>
+    );
+  }
+
+  return (
+    <Group gap={4} wrap="nowrap" align="center" justify="end" onClick={e => e.stopPropagation()}>
+      <NumberInput
+        size="xs"
+        w={104}
+        min={0}
+        decimalScale={2}
+        value={value}
+        onChange={setValue}
+        onKeyDown={onKey}
+        autoFocus
+        leftSection={<Text size="xs" c="dimmed">{currency}</Text>}
+        leftSectionWidth={30}
+      />
+      <ActionIcon size={22} variant="filled" color="teal" loading={saving} onClick={save}>
+        <IconCheck size={12} />
+      </ActionIcon>
+      <ActionIcon size={22} variant="subtle" color="gray" onClick={cancel}>
+        <IconX size={12} />
+      </ActionIcon>
+    </Group>
+  );
+}
+
+function InlinePlannedBpsEditor({
+  holding,
+  actualBps,
+  onSaved,
+}: {
+  holding: Holding;
+  actualBps: number;
+  onSaved: () => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState<number | string>('');
+  const [saving, setSaving] = useState(false);
+
+  const plannedBps = holding.planned_bps ?? 0;
+
+  const start = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setValue(plannedBps / 100);
+    setEditing(true);
+  };
+  const cancel = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setEditing(false);
+  };
+  const save = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setSaving(true);
+    try {
+      const newBps = Math.round(Number(value) * 100);
+      await api(`/api/holdings/${holding.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ ...holding, planned_bps: newBps }),
+      });
+      notifications.show({
+        color: 'teal',
+        title: 'Target allocation updated',
+        message: `${holding.instrument_name} wanted allocation set to ${Number(value).toFixed(2)}%`,
+      });
+      setEditing(false);
+      await onSaved();
+    } catch (cause) {
+      notifications.show({
+        color: 'red',
+        title: 'Failed to update target allocation',
+        message: cause instanceof Error ? cause.message : String(cause),
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') void save();
+    if (e.key === 'Escape') cancel();
+  };
+
+  const deviationBps = actualBps - plannedBps;
+
+  if (!editing) {
+    return (
+      <Stack gap={1} align="flex-end" style={{ cursor: 'pointer' }} onClick={start}>
+        <Group gap={4} wrap="nowrap" align="center">
+          <Text fw={650} c={plannedBps > 0 ? undefined : 'dimmed'}>
+            {percent(plannedBps)}
+          </Text>
+          <Tooltip label="Edit wanted / target %" position="top" withArrow>
+            <ActionIcon size={18} variant="subtle" color="gray" onClick={start}>
+              <IconPencil size={11} />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
+        {plannedBps > 0 && Math.abs(deviationBps) > 50 && (
+          <Text size="xs" c={deviationBps > 0 ? 'orange' : 'blue'}>
+            {deviationBps > 0 ? `+${percent(deviationBps)} over` : `${percent(deviationBps)} under`}
+          </Text>
+        )}
+      </Stack>
+    );
+  }
+
+  return (
+    <Group gap={4} wrap="nowrap" align="center" justify="end" onClick={e => e.stopPropagation()}>
+      <NumberInput
+        size="xs"
+        w={72}
+        min={0}
+        max={100}
+        decimalScale={2}
+        value={value}
+        onChange={setValue}
+        onKeyDown={onKey}
+        autoFocus
+        rightSection={<Text size="xs" c="dimmed" pr={4}>%</Text>}
+        rightSectionWidth={20}
+        styles={{ input: { paddingRight: 20 } }}
+      />
+      <ActionIcon size={22} variant="filled" color="teal" loading={saving} onClick={save}>
+        <IconCheck size={12} />
+      </ActionIcon>
+      <ActionIcon size={22} variant="subtle" color="gray" onClick={cancel}>
+        <IconX size={12} />
+      </ActionIcon>
+    </Group>
+  );
+}
+
+function TriggerPacModal({
+  opened,
+  onClose,
+  activePacHoldings,
+  accountMap,
+  reload,
+}: {
+  opened: boolean;
+  onClose: () => void;
+  activePacHoldings: Holding[];
+  accountMap: Map<number, Account>;
+  reload: () => Promise<void>;
+}) {
+  const [executing, setExecuting] = useState(false);
+
+  const items = activePacHoldings.map(h => {
+    const acc = accountMap.get(h.account_id);
+    const totalPacMinor = acc?.pac_amount_minor ?? 0;
+    const pacBps = h.pac_bps ?? 0;
+    const depositMinor = totalPacMinor > 0 && pacBps > 0 ? Math.round((totalPacMinor * pacBps) / 10000) : 0;
+    return {
+      holding: h,
+      accountName: h.account_name,
+      currency: h.currency ?? 'EUR',
+      depositMinor,
+      newInvestedMinor: h.invested_minor + depositMinor,
+      newValueMinor: h.value_minor + depositMinor,
+    };
+  });
+
+  const totalDepositMinor = items.reduce((sum, item) => sum + item.depositMinor, 0);
+  const currency = items[0]?.currency ?? 'EUR';
+
+  const execute = async () => {
+    setExecuting(true);
+    try {
+      let count = 0;
+      for (const item of items) {
+        if (item.depositMinor <= 0) continue;
+        await api(`/api/holdings/${item.holding.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            ...item.holding,
+            invested_minor: item.newInvestedMinor,
+            value_minor: item.newValueMinor,
+          }),
+        });
+        count++;
+      }
+      notifications.show({
+        color: 'teal',
+        title: 'PAC Deposit Executed!',
+        message: `Successfully added ${money(totalDepositMinor, currency)} across ${count} active PAC investment positions.`,
+      });
+      onClose();
+      await reload();
+    } catch (cause) {
+      notifications.show({
+        color: 'red',
+        title: 'Failed to execute PAC deposit',
+        message: cause instanceof Error ? cause.message : String(cause),
+      });
+    } finally {
+      setExecuting(false);
+    }
+  };
+
+  return (
+    <Modal opened={opened} onClose={onClose} title="Trigger Monthly PAC Deposit" size="lg">
+      <Stack gap="md">
+        <Alert color="teal" variant="light" icon={<IconRepeat size={18} />}>
+          Triggering this PAC execution will add each holding's calculated monthly PAC deposit amount directly to both its <strong>Amount Invested (cost basis)</strong> and <strong>Current Value</strong>.
+        </Alert>
+
+        <Group justify="space-between" align="center" p="xs" style={{ borderBottom: '1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4))' }}>
+          <Text size="xs" fw={700} c="dimmed">TOTAL MONTHLY PAC DEPOSIT TO APPLY</Text>
+          <Text size="lg" fw={800} c="teal">{money(totalDepositMinor, currency)}</Text>
+        </Group>
+
+        <Stack gap="xs">
+          {items.map((item, idx) => (
+            <Paper key={idx} p="xs" radius="sm" withBorder>
+              <Group justify="space-between" align="center">
+                <Box>
+                  <Text fw={700} size="sm">{item.holding.instrument_name}</Text>
+                  <Text size="xs" c="dimmed">{item.accountName} · PAC Share: {percent(item.holding.pac_bps)}</Text>
+                </Box>
+                <Box ta="right">
+                  <Badge color="teal" size="md" variant="light" mb={2}>+{money(item.depositMinor, item.currency)}</Badge>
+                  <Text size="xs" c="dimmed">
+                    Invested: {money(item.holding.invested_minor, item.currency)} ➔ <Text span fw={700} c="teal">{money(item.newInvestedMinor, item.currency)}</Text>
+                  </Text>
+                </Box>
+              </Group>
+            </Paper>
+          ))}
+        </Stack>
+
+        <Group justify="space-between" mt="md">
+          <Button variant="default" onClick={onClose} disabled={executing}>Cancel</Button>
+          <Button color="teal" loading={executing} leftSection={<IconPlayerPlay size={16} />} onClick={() => void execute()}>
+            Confirm & Apply {money(totalDepositMinor, currency)} PAC Contribution
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+}
+
 export function InvestmentsView({ holdings, accounts, instruments, taxRates, reload, onOpenDrafts }: { holdings: Holding[]; accounts: Account[]; instruments: Instrument[]; taxRates: TaxRate[]; reload: () => Promise<void>; onOpenDrafts?: () => void }) {
   const [opened, setOpened] = useState(false); const [editing, setEditing] = useState<Holding>(); const [error, setError] = useState('');
   const [accountIDs, setAccountIDs] = useQueryParamArray('accounts');
   const [selectedAssetClass, setSelectedAssetClass] = useState<string | null>(null);
+  const [triggerPacOpened, setTriggerPacOpened] = useState(false);
   const { confirmDelete, modal: confirmDeleteModal } = useConfirmDelete();
   const table = useBackendRows('/api/holdings', holdings, 'value', 'desc');
   const activeAccounts = accounts.filter(account => !account.archived); const activeAccountIDs = new Set(activeAccounts.map(account => account.id));
@@ -250,38 +593,33 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
     { key: 'type', label: 'Type', sortable: true, render: holding => <Chip>{instrumentLabels[holding.instrument_type ?? 'other']}</Chip> },
     { key: 'asset_class', label: 'Asset class', sortable: true, render: holding => <Chip>{label(holding.asset_class || 'other')}</Chip> },
     {
-      key: 'pac',
-      label: 'PAC',
+      key: 'planned',
+      label: 'Wanted %',
       sortable: true,
       align: 'right',
-      render: holding => {
-        const account = accountMap.get(holding.account_id);
-        const totalPacMinor = account?.pac_amount_minor ?? 0;
-        const pacBps = holding.pac_bps ?? 0;
-        const calcAmountMinor = totalPacMinor > 0 && pacBps > 0 ? Math.round((totalPacMinor * pacBps) / 10000) : 0;
-
-        if (holding.is_pac && pacBps > 0) {
-          const freq = (holding.pac_frequency || 'monthly');
-          const pctStr = percent(pacBps);
-          const amtStr = calcAmountMinor > 0 ? money(calcAmountMinor, holding.currency ?? 'EUR') : '';
-          return (
-            <Stack gap={2} align="flex-end" style={{ minWidth: 100 }}>
-              <Badge color="teal" variant="filled" size="xs" style={{ height: 'auto', padding: '3px 8px', textTransform: 'none', whiteSpace: 'normal', textAlign: 'right' }}>
-                <Group gap={3} align="center" justify="end">
-                  <IconRepeat size={11} />
-                  <span>{pctStr}</span>
-                </Group>
-              </Badge>
-              {amtStr ? (
-                <Text size="xs" fw={700} c="teal">
-                  {amtStr}/{freq.slice(0, 2)}
-                </Text>
-              ) : null}
-            </Stack>
-          );
-        }
-        return <Text c="dimmed">—</Text>;
-      },
+      render: holding => <InlinePlannedBpsEditor holding={holding} actualBps={actualBPS(holding)} onSaved={reload} />,
+    },
+    { key: 'actual', label: 'Actual %', sortable: true, align: 'right', render: holding => <Text fw={650}>{percent(actualBPS(holding))}</Text> },
+    {
+      key: 'pac',
+      label: 'PAC %',
+      sortable: true,
+      align: 'right',
+      render: holding => <PacBpsEditor holding={holding} accountMap={accountMap} onSaved={reload} />,
+    },
+    {
+      key: 'value',
+      label: 'Current value',
+      sortable: true,
+      align: 'right',
+      render: holding => <InlineCurrencyEditor holding={holding} field="value_minor" label="Current value" onSaved={reload} />,
+    },
+    {
+      key: 'invested',
+      label: 'Amount invested',
+      sortable: true,
+      align: 'right',
+      render: holding => <InlineCurrencyEditor holding={holding} field="invested_minor" label="Amount invested" onSaved={reload} />,
     },
     { key: 'ter', label: 'TER / Fee Drag', sortable: true, align: 'right', render: holding => {
       const terBps = holding.ter_bps ?? instMap.get(holding.instrument_id)?.ter_bps;
@@ -294,9 +632,6 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
         </Stack>
       );
     } },
-    { key: 'value', label: 'Current value', sortable: true, align: 'right', render: holding => <Text fw={650}>{money(holding.value_minor, holding.currency ?? 'EUR')}</Text> },
-    { key: 'actual', label: 'Actual', sortable: true, align: 'right', render: holding => percent(actualBPS(holding)) },
-    { key: 'invested', label: 'Amount invested', sortable: true, align: 'right', render: holding => investedMoney(holding.invested_minor, holding.value_minor, holding.currency ?? 'EUR') },
     { key: 'change', label: 'Gain / loss', sortable: true, align: 'right', render: holding => { if (holding.invested_minor === 0) return <Text c="dimmed">—</Text>; const change = holding.value_minor - holding.invested_minor; return <Stack gap={1} align="flex-end"><Text fw={650} c={change >= 0 ? 'teal' : 'red'}>{money(change, holding.currency ?? 'EUR')}</Text><Text size="xs" c="dimmed">{change >= 0 ? '+' : ''}{(change / holding.invested_minor * 100).toFixed(1)}%</Text></Stack>; } },
     { key: 'tax', label: 'Tax', sortable: true, align: 'right', render: holding => percent(holding.tax_bps) },
     { key: 'actions', align: 'right', render: holding => <TableActions><TableAction label={`Edit ${holding.instrument_name}`} onClick={() => open(holding)}><IconPencil size={14} /></TableAction><TableAction label={`Delete ${holding.instrument_name}`} color="red" onClick={() => void remove(holding)}><IconTrash size={14} /></TableAction></TableActions> },
@@ -376,6 +711,17 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
                 onChange={setAccountIDs}
               />
             )}
+            {activePacHoldings.length > 0 && (
+              <Button
+                color="teal"
+                variant="filled"
+                leftSection={<IconPlayerPlay size={16} />}
+                disabled={!ready}
+                onClick={() => setTriggerPacOpened(true)}
+              >
+                Trigger PAC
+              </Button>
+            )}
             <Button variant="light" color="teal" disabled={!ready} onClick={() => setInvestOpened(true)}>Invest & Rebalance</Button>
             <Button disabled={!ready} onClick={() => open()}>Add investment</Button>
           </Group>
@@ -394,7 +740,7 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
             <Text size="xs" c="dimmed">Recurring automated dollar-cost averaging investments per account.</Text>
           </Box>
 
-          <Group gap="xl">
+          <Group gap="lg" align="center">
             <Box ta="right">
               <Text size="xs" c="dimmed">Monthly Deposit</Text>
               <Text size="xl" fw={800} c="teal">{money(totalMonthlyPacMinor, currency)}/mo</Text>
@@ -414,6 +760,17 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
               {totalPacAnnualFeeDragMinor > 0 && (
                 <Text size="xs" c="orange">-{money(totalPacAnnualFeeDragMinor * 5, currency)} 5yr fee drag</Text>
               )}
+            </Box>
+            <Box>
+              <Button
+                color="teal"
+                variant="filled"
+                size="sm"
+                leftSection={<IconPlayerPlay size={16} />}
+                onClick={() => setTriggerPacOpened(true)}
+              >
+                Trigger PAC
+              </Button>
             </Box>
           </Group>
         </Group>
@@ -509,7 +866,7 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
         rows={displayedHoldings}
         columns={columns}
         rowKey={holding => holding.id}
-        minWidth={1080}
+        minWidth={1250}
         sort={table.sort}
         direction={table.direction}
         onSort={(key, direction) => void table.sortRows(key, direction)}
@@ -525,6 +882,7 @@ export function InvestmentsView({ holdings, accounts, instruments, taxRates, rel
     )}
     <HoldingModal key={editing?.id ?? 'new'} opened={opened} close={() => setOpened(false)} holding={editing} accounts={activeAccounts} holdings={holdings} instruments={instruments} taxRates={taxRates} saved={async () => { setOpened(false); await reload(); }} />
     <InvestModal opened={investOpened} onClose={() => setInvestOpened(false)} holdings={holdings} reload={reload} />
+    <TriggerPacModal opened={triggerPacOpened} onClose={() => setTriggerPacOpened(false)} activePacHoldings={activePacHoldings} accountMap={accountMap} reload={reload} />
     {confirmDeleteModal}
   </ViewShell>
   );

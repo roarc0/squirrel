@@ -31,13 +31,13 @@ export function DataTable<T>({ rows, columns, rowKey, minWidth = 800, toolbar, s
           <Table.Thead>
             <Table.Tr>
               {columns.map(column => (
-                <Table.Th key={column.key} style={{ textAlign: column.align ?? 'left' }}>
+                <Table.Th key={column.key} style={{ textAlign: column.align ?? 'left', whiteSpace: 'nowrap' }}>
                   {column.sortable && onSort ? (
                     <UnstyledButton
                       onClick={() => onSort(column.key, sort === column.key && direction === 'asc' ? 'desc' : 'asc')}
                     >
                       <Group gap={3} display="inline-flex" align="center">
-                        <Text size="xs" fw={700} c="dimmed" tt="uppercase" style={{ letterSpacing: '0.05em' }}>
+                        <Text size="xs" fw={700} c="dimmed" tt="uppercase" style={{ letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
                           {column.label}
                         </Text>
                         {sort === column.key ? (
@@ -46,7 +46,7 @@ export function DataTable<T>({ rows, columns, rowKey, minWidth = 800, toolbar, s
                       </Group>
                     </UnstyledButton>
                   ) : (
-                    <Text size="xs" fw={700} c="dimmed" tt="uppercase" style={{ letterSpacing: '0.05em' }}>
+                    <Text size="xs" fw={700} c="dimmed" tt="uppercase" style={{ letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
                       {column.label}
                     </Text>
                   )}
@@ -63,7 +63,7 @@ export function DataTable<T>({ rows, columns, rowKey, minWidth = 800, toolbar, s
                     style={{
                       textAlign: column.align ?? 'left',
                       width: column.key === 'actions' ? '1%' : undefined,
-                      whiteSpace: column.key === 'actions' ? 'nowrap' : undefined,
+                      whiteSpace: column.key === 'actions' || column.align === 'right' ? 'nowrap' : undefined,
                     }}
                   >
                     {column.render(row)}
