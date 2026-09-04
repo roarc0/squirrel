@@ -25,7 +25,9 @@ import {
 } from '@mantine/core';
 import {
   IconArrowsExchange,
+  IconColumns,
   IconExternalLink,
+  IconFilter,
   IconPencil,
   IconRefresh,
   IconStar,
@@ -395,8 +397,22 @@ export function InstrumentFinderView({ instruments, reload }: { instruments: Ins
                 ? ` · Avg TER ${(matchingRows.filter(r => r.instrument.ter_bps > 0).reduce((sum, r) => sum + r.instrument.ter_bps, 0) / Math.max(1, matchingRows.filter(r => r.instrument.ter_bps > 0).length) / 100).toFixed(2)}%`
                 : ''}
             </Text>
-            <Button size="xs" variant="light" onClick={() => setFiltersOpen(filtersOpen ? '' : '1')}>Filters{activeFilterCount ? ` (${activeFilterCount})` : ''}</Button>
-            <Button size="xs" variant="light" onClick={() => setColumnsOpen(current => !current)}>Columns</Button>
+            <Button
+              size="xs"
+              variant="light"
+              leftSection={<IconFilter size={14} />}
+              onClick={() => setFiltersOpen(filtersOpen ? '' : '1')}
+            >
+              Filters{activeFilterCount ? ` (${activeFilterCount})` : ''}
+            </Button>
+            <Button
+              size="xs"
+              variant="light"
+              leftSection={<IconColumns size={14} />}
+              onClick={() => setColumnsOpen(current => !current)}
+            >
+              Columns
+            </Button>
           </Group>
         </Group>
         {filtersOpen && <Card withBorder padding="sm" mb="sm"><SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
