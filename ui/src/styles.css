@@ -13,10 +13,7 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background:
-    radial-gradient(circle at 12% -10%, color-mix(in srgb, var(--mantine-color-teal-7) 21%, transparent), transparent 56rem),
-    var(--mantine-color-body);
-  background-attachment: fixed;
+  background: var(--mantine-color-body);
 }
 
 .shell {
@@ -41,13 +38,19 @@ body {
   flex-direction: column;
   flex-shrink: 0;
   z-index: 100;
-  background: light-dark(#ffffff, #11141a);
-  border-right: 1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5));
-  box-shadow: 1px 0 4px rgba(0, 0, 0, 0.02);
+  background: #ffffff;
+  border-right: 1px solid var(--mantine-color-gray-2);
+  box-shadow: 1px 0 3px rgba(0, 0, 0, 0.02);
   transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), padding 0.22s cubic-bezier(0.4, 0, 0.2, 1);
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: thin;
+}
+
+[data-mantine-color-scheme="dark"] .app-sidebar {
+  background: #0d1015;
+  border-right: 1px solid #1c202a;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.35);
 }
 
 .app-sidebar.expanded {
@@ -66,7 +69,10 @@ body {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  background: transparent;
+  background:
+    radial-gradient(circle at 92% -8%, color-mix(in srgb, var(--mantine-color-teal-6) 16%, transparent), transparent 60rem),
+    transparent;
+  background-attachment: fixed;
 }
 
 .app-content-container {
@@ -309,32 +315,32 @@ body,
   box-shadow: 0 4px 12px color-mix(in srgb, var(--mantine-color-teal-6) 55%, transparent);
 }
 
-/* Accent backgrounds — unique gradient position per accent; color auto-inherits from JS-overridden --mantine-color-teal-* vars */
-[data-accent="amber"] body {
+/* Accent backgrounds — ambient glow positioned gracefully on the top-right of main content */
+[data-accent="amber"] .app-main-content {
   background:
-    radial-gradient(circle at 5% 92%, color-mix(in srgb, var(--mantine-color-teal-6) 27%, transparent), transparent 62rem),
-    var(--mantine-color-body);
+    radial-gradient(circle at 92% -8%, color-mix(in srgb, var(--mantine-color-teal-6) 20%, transparent), transparent 60rem),
+    transparent;
   background-attachment: fixed;
 }
 
-[data-accent="ocean"] body {
+[data-accent="ocean"] .app-main-content {
   background:
-    radial-gradient(circle at 90% -8%, color-mix(in srgb, var(--mantine-color-teal-5) 24%, transparent), transparent 58rem),
-    var(--mantine-color-body);
+    radial-gradient(circle at 92% -8%, color-mix(in srgb, var(--mantine-color-teal-5) 20%, transparent), transparent 58rem),
+    transparent;
   background-attachment: fixed;
 }
 
-[data-accent="violet"] body {
+[data-accent="violet"] .app-main-content {
   background:
-    radial-gradient(circle at 18% -8%, color-mix(in srgb, var(--mantine-color-teal-6) 38%, transparent), transparent 70rem),
-    var(--mantine-color-body);
+    radial-gradient(circle at 92% -8%, color-mix(in srgb, var(--mantine-color-teal-6) 26%, transparent), transparent 64rem),
+    transparent;
   background-attachment: fixed;
 }
 
-[data-accent="rose"] body {
+[data-accent="rose"] .app-main-content {
   background:
-    radial-gradient(circle at 82% 12%, color-mix(in srgb, var(--mantine-color-teal-6) 32%, transparent), transparent 62rem),
-    var(--mantine-color-body);
+    radial-gradient(circle at 92% -8%, color-mix(in srgb, var(--mantine-color-teal-6) 22%, transparent), transparent 60rem),
+    transparent;
   background-attachment: fixed;
 }
 

@@ -117,11 +117,11 @@ export function UpdateSituationModal({ opened, onClose, accounts, holdings, relo
         observedOn: saveSnapshot ? observedOn : undefined,
       });
 
-      notifications.show({ color: 'teal', title: 'Situation updated', message: saveSnapshot ? 'Values saved and snapshot recorded.' : 'Values updated.' });
+      notifications.show({ color: 'teal', title: 'Snapshot saved', message: saveSnapshot ? 'Values saved and snapshot recorded.' : 'Values updated.' });
       await reload();
       onClose();
     } catch (cause) {
-      notifications.show({ color: 'red', title: 'Failed to update situation', message: cause instanceof Error ? cause.message : String(cause) });
+      notifications.show({ color: 'red', title: 'Failed to save snapshot', message: cause instanceof Error ? cause.message : String(cause) });
     } finally {
       setSaving(false);
     }
@@ -136,12 +136,12 @@ export function UpdateSituationModal({ opened, onClose, accounts, holdings, relo
     <Modal
       opened={opened}
       onClose={onClose}
-      title={<Text fw={700} size="lg">Update Portfolio Situation</Text>}
+      title={<Text fw={700} size="lg">Portfolio Snapshot</Text>}
       size="xl"
     >
       <Stack gap="md">
         <Text size="sm" c="dimmed">
-          Quickly update cash balances and current asset values across all accounts in one place.
+          Record a portfolio snapshot and update cash balances and asset values in one place.
         </Text>
 
         <Paper withBorder p="sm" radius="md">
@@ -326,7 +326,7 @@ export function UpdateSituationModal({ opened, onClose, accounts, holdings, relo
             Cancel
           </Button>
           <Button color="teal" onClick={handleSave} loading={saving}>
-            Save situation
+            Save snapshot
           </Button>
         </Group>
       </Stack>

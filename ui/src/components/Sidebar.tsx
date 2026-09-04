@@ -21,11 +21,11 @@ import {
 import {
   IconActivity,
   IconAlertTriangle,
-  IconArrowsExchange,
   IconBell,
   IconBellRinging,
   IconBriefcase,
   IconBuildingBank,
+  IconCamera,
   IconChartPie,
   IconCheck,
   IconChevronRight,
@@ -320,20 +320,26 @@ export function Sidebar({
 
         <Divider w="60%" my="xs" opacity={0.6} />
 
-        {/* Alerts Bell in collapsed state */}
-        <Box my={4}>
+        {/* Tools in collapsed state */}
+        <Stack gap={6} align="center" my={2}>
+          <Tooltip label="Snapshot" position="right" withArrow offset={14}>
+            <ActionIcon variant="light" color="teal" size="md" radius="md" onClick={onOpenUpdate} aria-label="Snapshot">
+              <IconCamera size={17} />
+            </ActionIcon>
+          </Tooltip>
+
           {renderDiagnosticsPopover(
             <Tooltip label={diagnosticsCount > 0 ? `${diagnosticsCount} Warnings` : 'Alerts'} position="right" withArrow offset={14}>
               <Box style={{ position: 'relative', display: 'inline-block' }}>
-                <ActionIcon variant="subtle" color={diagnosticsCount > 0 ? 'orange' : 'gray'} size="lg" radius="md">
-                  {diagnosticsCount > 0 ? <IconBellRinging size={18} /> : <IconBell size={18} />}
+                <ActionIcon variant="subtle" color={diagnosticsCount > 0 ? 'orange' : 'gray'} size="md" radius="md">
+                  {diagnosticsCount > 0 ? <IconBellRinging size={17} /> : <IconBell size={17} />}
                 </ActionIcon>
                 {diagnosticsCount > 0 && (
                   <Badge
                     size="xs"
                     color="orange"
                     circle
-                    style={{ position: 'absolute', top: -3, right: -3, pointerEvents: 'none', height: 14, minWidth: 14, fontSize: 9 }}
+                    style={{ position: 'absolute', top: -3, right: -3, pointerEvents: 'none', height: 13, minWidth: 13, fontSize: 8 }}
                   >
                     {diagnosticsCount}
                   </Badge>
@@ -341,7 +347,7 @@ export function Sidebar({
               </Box>
             </Tooltip>
           )}
-        </Box>
+        </Stack>
 
         {/* Nav items vertical stack */}
         <Stack gap={6} align="center" style={{ flex: 1, width: '100%', overflowY: 'auto' }} py="xs">
@@ -364,14 +370,8 @@ export function Sidebar({
 
         <Divider w="60%" my="xs" opacity={0.6} />
 
-        {/* Collapsed Bottom actions: Update, Search, Theme, Avatar */}
+        {/* Collapsed Bottom actions: Search, Avatar */}
         <Stack gap="xs" align="center" w="100%">
-          <Tooltip label="Update Situation" position="right" withArrow offset={14}>
-            <ActionIcon variant="filled" color="teal" size="lg" radius="md" onClick={onOpenUpdate} aria-label="Update Situation">
-              <IconArrowsExchange size={18} />
-            </ActionIcon>
-          </Tooltip>
-
           <Tooltip label="Search (⌘K)" position="right" withArrow offset={14}>
             <ActionIcon variant="subtle" color="gray" size="lg" radius="md" onClick={onOpenSearch} aria-label="Search">
               <IconSearch size={18} />
@@ -418,15 +418,15 @@ export function Sidebar({
 
       {/* Portfolio / Workspace card */}
       <Box mb="md" px={4}>
-        <Group justify="space-between" align="center" mb={4}>
+        <Group justify="space-between" align="center" mb={6}>
           <Text size="10px" fw={700} c="dimmed" tt="uppercase" style={{ letterSpacing: '0.08em' }}>
             Portfolio
           </Text>
-          <Group gap={4}>
+          <Group gap={6}>
             {renderDiagnosticsPopover(
               <ActionIcon variant="subtle" color={diagnosticsCount > 0 ? 'orange' : 'gray'} size="sm" radius="md" title="Diagnostics & Alerts">
                 <Box style={{ position: 'relative', display: 'inline-flex' }}>
-                  {diagnosticsCount > 0 ? <IconBellRinging size={15} /> : <IconBell size={15} />}
+                  {diagnosticsCount > 0 ? <IconBellRinging size={14} /> : <IconBell size={14} />}
                   {diagnosticsCount > 0 && (
                     <Badge
                       size="xs"
@@ -448,38 +448,45 @@ export function Sidebar({
               title="Settings"
               onClick={() => onNavigate('settings')}
             >
-              <IconSettings size={15} />
+              <IconSettings size={14} />
             </ActionIcon>
           </Group>
         </Group>
 
         <Group
-          gap="xs"
+          justify="space-between"
           p="xs"
           style={{
-            background: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-7))',
-            border: '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))',
+            background: 'light-dark(#f8fafc, #161a22)',
+            border: '1px solid light-dark(#e2e8f0, #21262d)',
             borderRadius: 8,
           }}
         >
-          <Box
-            w={8}
-            h={8}
-            style={{
-              borderRadius: '50%',
-              background: 'var(--mantine-color-teal-6)',
-              boxShadow: '0 0 0 2px color-mix(in srgb, var(--mantine-color-teal-6) 25%, transparent)',
-              flexShrink: 0,
-            }}
-          />
-          <Text size="xs" fw={650} truncate style={{ flex: 1 }}>
-            Main Portfolio
-          </Text>
-          {accountsCount > 0 && (
-            <Badge size="xs" variant="light" color="gray">
-              {accountsCount} acc
-            </Badge>
-          )}
+          <Group gap="xs" style={{ flex: 1, minWidth: 0 }}>
+            <Box
+              w={7}
+              h={7}
+              style={{
+                borderRadius: '50%',
+                background: 'var(--mantine-color-teal-6)',
+                boxShadow: '0 0 0 2px color-mix(in srgb, var(--mantine-color-teal-6) 25%, transparent)',
+                flexShrink: 0,
+              }}
+            />
+            <Text size="xs" fw={650} truncate>
+              Main Portfolio
+            </Text>
+          </Group>
+          <Button
+            size="compact-xs"
+            variant="light"
+            color="teal"
+            leftSection={<IconCamera size={13} />}
+            onClick={onOpenUpdate}
+            radius="md"
+          >
+            Snapshot
+          </Button>
         </Group>
       </Box>
 
@@ -524,22 +531,8 @@ export function Sidebar({
 
       <Divider my="xs" opacity={0.5} />
 
-      {/* Bottom section: Update CTA, Quick Search, User card, version */}
+      {/* Bottom section: Quick Search, User card, version */}
       <Stack gap="xs" px={2} pt={4}>
-        <Button
-          fullWidth
-          variant="filled"
-          color="teal"
-          size="sm"
-          radius="md"
-          leftSection={<IconArrowsExchange size={16} />}
-          onClick={onOpenUpdate}
-          style={{
-            boxShadow: '0 2px 8px color-mix(in srgb, var(--mantine-color-teal-6) 35%, transparent)',
-          }}
-        >
-          Update Situation
-        </Button>
 
         <button type="button" className="sidebar-search-btn" onClick={onOpenSearch}>
           <IconSearch size={14} style={{ opacity: 0.7 }} />
