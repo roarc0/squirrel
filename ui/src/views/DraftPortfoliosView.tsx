@@ -260,9 +260,9 @@ export function DraftPortfoliosView({
   return (
     <ViewShell>
       <SectionHeader
-        title="Portfolio Sandbox"
-        subtitle="Select a classic model portfolio or create custom draft allocations to experiment with target weights."
-        badge={<Badge color="violet" variant="light">Model Allocation Sandbox</Badge>}
+        title="Sandbox"
+        subtitle="Select a classic model portfolio or experiment with custom target allocations."
+        badge={<Badge color="violet" variant="light">Sandbox</Badge>}
         actions={
           <Group gap="xs" align="center" wrap="nowrap">
             <Combobox
@@ -309,11 +309,8 @@ export function DraftPortfoliosView({
                 </ScrollArea.Autosize>
               </Combobox.Dropdown>
             </Combobox>
-            <Button variant="light" color="teal" leftSection={<IconCamera size={14} />} onClick={handleSnapshotCurrentHoldings}>
-              Snapshot Real Holdings
-            </Button>
             <Button color="violet" leftSection={<IconPlus size={14} />} onClick={handleCreateNew}>
-              Create Custom Draft
+              Save Portfolio
             </Button>
           </Group>
         }

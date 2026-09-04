@@ -19,6 +19,7 @@ import {
   Title,
 } from '@mantine/core';
 import { api, type Holding, type Instrument, type Snapshot, type Summary } from '../api';
+import { useElementSize } from '@mantine/hooks';
 import { AllocationBar, PerformanceResult, useBackendRows } from '../App';
 import { Empty } from '../components/Empty';
 import { DataTable, TableAction, TableActions, type DataColumn } from '../DataTable';
@@ -399,38 +400,119 @@ function WealthChart({ snapshots, currency }: { snapshots: Snapshot[]; currency:
   const [range, setRange] = useState<ChartRange>('max');
   const [visible, setVisible] = useState<MetricKey[]>(metricKeys);
   const [hovered, setHovered] = useState<number>();
+  const { ref: containerRef, width: containerWidth } = useElementSize();
+  const chartWidth = Math.max(600, Math.round(containerWidth || 760));
+
   const shown = filterChartRange(snapshots, range);
   const active = metricKeys.filter(key => visible.includes(key));
   const scaleValues = (active.length ? active : metricKeys).flatMap(key => shown.map(metrics[key].value));
-  const geometry = chartGeometry(scaleValues);
-  const xPoints = chartGeometry(shown.map(() => 0), scaleValues).points;
+  const geometry = chartGeometry(scaleValues, undefined, true, chartWidth);
+  const xPoints = chartGeometry(shown.map(() => 0), scaleValues, true, chartWidth).points;
   const hoverIndex = hovered === undefined ? undefined : Math.min(hovered, shown.length - 1);
   const hoverX = hoverIndex === undefined ? 0 : xPoints[hoverIndex].x;
   const dates = [0, Math.floor((shown.length - 1) / 2), shown.length - 1].filter((index, position, all) => all.indexOf(index) === position);
 
-  return <Card className="metric" p="lg" radius="lg"><Stack gap="sm">
-    <Group justify="space-between" align="center" wrap="nowrap">
-      <Text fw={700}>Wealth over time</Text>
-      <SegmentedControl size="xs" value={range} onChange={value => setRange(value as ChartRange)} data={['1w', '2w', '1m', '3m', '6m', '1y', '3y', '5y', 'max']} />
-    </Group>
-    <Group gap="xs" role="group" aria-label="Chart series">
-      {metricKeys.map(key => <Button key={key} size="compact-xs" variant={visible.includes(key) ? 'light' : 'subtle'} color={metrics[key].color} aria-pressed={visible.includes(key)} style={{ opacity: visible.includes(key) ? 1 : 0.45 }} leftSection={<Box w={14} h={2} bg={`${metrics[key].color}.5`} />} onClick={() => setVisible(current => current.includes(key) ? current.filter(item => item !== key) : [...current, key])}>{metrics[key].label}</Button>)}
-    </Group>
-    <svg className="wealth-chart" viewBox="0 0 760 260" role="img" tabIndex={0} aria-label={hoverIndex === undefined ? 'Wealth history. Hover or use arrow keys to inspect snapshots.' : `${shown[hoverIndex].observed_on}: ${active.map(key => `${metrics[key].label} ${money(metrics[key].value(shown[hoverIndex]), currency)}`).join(', ')}`} style={{ cursor: 'crosshair' }} onPointerMove={event => { const bounds = event.currentTarget.getBoundingClientRect(); setHovered(nearestChartIndex((event.clientX - bounds.left) / bounds.width * 760, shown.length)); }} onPointerLeave={() => setHovered(undefined)} onFocus={() => setHovered(current => current ?? shown.length - 1)} onBlur={() => setHovered(undefined)} onKeyDown={event => { if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return; event.preventDefault(); setHovered(current => Math.min(shown.length - 1, Math.max(0, (current ?? shown.length - 1) + (event.key === 'ArrowLeft' ? -1 : 1)))); }}>
-      {active.length === 0 ? <text x="407" y="130" textAnchor="middle">Enable a series to show it</text> : <>
-        {[0, 1, 2, 3].map(index => { const ratio = index / 3; const y = 24 + ratio * 196; const value = geometry.high - ratio * (geometry.high - geometry.low); return <g key={index}><line x1="74" x2="740" y1={y} y2={y} stroke="currentColor" opacity="0.12" /><text x="66" y={y + 4} textAnchor="end">{compactMoney(value, currency)}</text></g>; })}
-        {active.map(key => { const values = shown.map(metrics[key].value); const series = chartGeometry(values, scaleValues); const points = series.points.map(point => `${point.x},${point.y}`).join(' '); return <g key={key}><polyline points={points} fill="none" stroke={`var(--mantine-color-${metrics[key].color}-5)`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />{series.points.map((point, index) => <circle key={shown[index].observed_on} cx={point.x} cy={point.y} r="3" fill="var(--mantine-color-body)" stroke={`var(--mantine-color-${metrics[key].color}-5)`} strokeWidth="2"><title>{`${metrics[key].label} · ${shown[index].observed_on}: ${money(values[index], currency)}`}</title></circle>)}</g>; })}
-        {dates.map(index => <text key={index} x={xPoints[index].x} y="248" textAnchor={shown.length === 1 ? 'middle' : index === 0 ? 'start' : index === shown.length - 1 ? 'end' : 'middle'}>{new Date(`${shown[index].observed_on}T00:00:00`).toLocaleDateString()}</text>)}
-        {hoverIndex !== undefined && <>
-          <line x1={hoverX} x2={hoverX} y1="24" y2="220" stroke="currentColor" strokeDasharray="4 4" opacity="0.45" />
-          {active.map(key => { const point = chartGeometry(shown.map(metrics[key].value), scaleValues).points[hoverIndex]; return <circle key={key} cx={point.x} cy={point.y} r="5" fill="var(--mantine-color-body)" stroke={`var(--mantine-color-${metrics[key].color}-5)`} strokeWidth="2" />; })}
-          <g transform={`translate(${hoverX > 520 ? hoverX - 212 : hoverX + 12} 32)`} style={{ pointerEvents: 'none' }}>
-            <rect width="200" height={32 + active.length * 20} rx="8" fill="var(--mantine-color-body)" stroke="currentColor" strokeOpacity="0.25" />
-            <text x="12" y="20" style={{ fontWeight: 700 }}>{new Date(`${shown[hoverIndex].observed_on}T00:00:00`).toLocaleDateString(undefined, { dateStyle: 'medium' })}</text>
-            {active.map((key, index) => <g key={key}><line x1="12" x2="24" y1={42 + index * 20} y2={42 + index * 20} stroke={`var(--mantine-color-${metrics[key].color}-5)`} strokeWidth="2" /><text x="30" y={46 + index * 20}>{metrics[key].label}: {money(metrics[key].value(shown[hoverIndex]), currency)}</text></g>)}
-          </g>
-        </>}
-      </>}
-    </svg>
-  </Stack></Card>;
+  return (
+    <Card className="metric" p="lg" radius="lg">
+      <Stack gap="sm" ref={containerRef}>
+        <Group justify="space-between" align="center" wrap="nowrap">
+          <Text fw={700}>Wealth over time</Text>
+          <SegmentedControl size="xs" value={range} onChange={value => setRange(value as ChartRange)} data={['1w', '2w', '1m', '3m', '6m', '1y', '3y', '5y', 'max']} />
+        </Group>
+        <Group gap="xs" role="group" aria-label="Chart series">
+          {metricKeys.map(key => (
+            <Button
+              key={key}
+              size="compact-xs"
+              variant={visible.includes(key) ? 'light' : 'subtle'}
+              color={metrics[key].color}
+              aria-pressed={visible.includes(key)}
+              style={{ opacity: visible.includes(key) ? 1 : 0.45 }}
+              leftSection={<Box w={14} h={2} bg={`${metrics[key].color}.5`} />}
+              onClick={() => setVisible(current => current.includes(key) ? current.filter(item => item !== key) : [...current, key])}
+            >
+              {metrics[key].label}
+            </Button>
+          ))}
+        </Group>
+        <svg
+          className="wealth-chart"
+          viewBox={`0 0 ${chartWidth} 260`}
+          role="img"
+          tabIndex={0}
+          aria-label={hoverIndex === undefined ? 'Wealth history. Hover or use arrow keys to inspect snapshots.' : `${shown[hoverIndex].observed_on}: ${active.map(key => `${metrics[key].label} ${money(metrics[key].value(shown[hoverIndex]), currency)}`).join(', ')}`}
+          style={{ width: '100%', height: 260, display: 'block', cursor: 'crosshair' }}
+          onPointerMove={event => {
+            const bounds = event.currentTarget.getBoundingClientRect();
+            setHovered(nearestChartIndex(((event.clientX - bounds.left) / bounds.width) * chartWidth, shown.length, chartWidth));
+          }}
+          onPointerLeave={() => setHovered(undefined)}
+          onFocus={() => setHovered(current => current ?? shown.length - 1)}
+          onBlur={() => setHovered(undefined)}
+          onKeyDown={event => {
+            if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+            event.preventDefault();
+            setHovered(current => Math.min(shown.length - 1, Math.max(0, (current ?? shown.length - 1) + (event.key === 'ArrowLeft' ? -1 : 1))));
+          }}
+        >
+          {active.length === 0 ? (
+            <text x={chartWidth / 2} y="130" textAnchor="middle">Enable a series to show it</text>
+          ) : (
+            <>
+              {[0, 1, 2, 3].map(index => {
+                const ratio = index / 3;
+                const y = 24 + ratio * 196;
+                const value = geometry.high - ratio * (geometry.high - geometry.low);
+                return (
+                  <g key={index}>
+                    <line x1="74" x2={chartWidth - 20} y1={y} y2={y} stroke="currentColor" opacity="0.12" />
+                    <text x="66" y={y + 4} textAnchor="end">{compactMoney(value, currency)}</text>
+                  </g>
+                );
+              })}
+              {active.map(key => {
+                const values = shown.map(metrics[key].value);
+                const series = chartGeometry(values, scaleValues, true, chartWidth);
+                const points = series.points.map(point => `${point.x},${point.y}`).join(' ');
+                return (
+                  <g key={key}>
+                    <polyline points={points} fill="none" stroke={`var(--mantine-color-${metrics[key].color}-5)`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    {series.points.map((point, index) => (
+                      <circle key={shown[index].observed_on} cx={point.x} cy={point.y} r="3" fill="var(--mantine-color-body)" stroke={`var(--mantine-color-${metrics[key].color}-5)`} strokeWidth="2">
+                        <title>{`${metrics[key].label} · ${shown[index].observed_on}: ${money(values[index], currency)}`}</title>
+                      </circle>
+                    ))}
+                  </g>
+                );
+              })}
+              {dates.map(index => (
+                <text key={index} x={xPoints[index].x} y="248" textAnchor={shown.length === 1 ? 'middle' : index === 0 ? 'start' : index === shown.length - 1 ? 'end' : 'middle'}>
+                  {new Date(`${shown[index].observed_on}T00:00:00`).toLocaleDateString()}
+                </text>
+              ))}
+              {hoverIndex !== undefined && (
+                <>
+                  <line x1={hoverX} x2={hoverX} y1="24" y2="220" stroke="currentColor" strokeDasharray="4 4" opacity="0.45" />
+                  {active.map(key => {
+                    const point = chartGeometry(shown.map(metrics[key].value), scaleValues, true, chartWidth).points[hoverIndex];
+                    return <circle key={key} cx={point.x} cy={point.y} r="5" fill="var(--mantine-color-body)" stroke={`var(--mantine-color-${metrics[key].color}-5)`} strokeWidth="2" />;
+                  })}
+                  <g transform={`translate(${hoverX > chartWidth - 230 ? hoverX - 212 : hoverX + 12} 32)`} style={{ pointerEvents: 'none' }}>
+                    <rect width="200" height={32 + active.length * 20} rx="8" fill="var(--mantine-color-body)" stroke="currentColor" strokeOpacity="0.25" />
+                    <text x="12" y="20" style={{ fontWeight: 700 }}>{new Date(`${shown[hoverIndex].observed_on}T00:00:00`).toLocaleDateString(undefined, { dateStyle: 'medium' })}</text>
+                    {active.map((key, index) => (
+                      <g key={key}>
+                        <line x1="12" x2="24" y1={42 + index * 20} y2={42 + index * 20} stroke={`var(--mantine-color-${metrics[key].color}-5)`} strokeWidth="2" />
+                        <text x="30" y={46 + index * 20}>{metrics[key].label}: {money(metrics[key].value(shown[hoverIndex]), currency)}</text>
+                      </g>
+                    ))}
+                  </g>
+                </>
+              )}
+            </>
+          )}
+        </svg>
+      </Stack>
+    </Card>
+  );
 }

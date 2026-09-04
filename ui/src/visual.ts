@@ -48,14 +48,27 @@ export function filterChartRange<T extends { observed_on: string }>(items: T[], 
   return items.filter(item => Date.parse(toIso(item.observed_on)) >= cutoffTime);
 }
 
-export function chartGeometry(values: number[], scaleValues = values, floorAtZero = true) {
-  const minimum = Math.min(...scaleValues); const maximum = Math.max(...scaleValues); const padding = Math.max((maximum - minimum) * 0.08, Math.abs(maximum) * 0.01, 1); const low = floorAtZero ? Math.max(0, minimum - padding) : minimum - padding; const high = maximum + padding;
-  return { low, high, points: values.map((value, index) => ({ x: values.length === 1 ? 407 : 74 + index * 666 / (values.length - 1), y: 24 + (high - value) / (high - low) * 196 })) };
+export function chartGeometry(values: number[], scaleValues = values, floorAtZero = true, width = 760) {
+  const minimum = Math.min(...scaleValues);
+  const maximum = Math.max(...scaleValues);
+  const padding = Math.max((maximum - minimum) * 0.08, Math.abs(maximum) * 0.01, 1);
+  const low = floorAtZero ? Math.max(0, minimum - padding) : minimum - padding;
+  const high = maximum + padding;
+  const plotWidth = width - 94;
+  return {
+    low,
+    high,
+    points: values.map((value, index) => ({
+      x: values.length === 1 ? 74 + plotWidth / 2 : 74 + (index * plotWidth) / (values.length - 1),
+      y: 24 + ((high - value) / (high - low)) * 196,
+    })),
+  };
 }
 
-export function nearestChartIndex(x: number, count: number) {
+export function nearestChartIndex(x: number, count: number, width = 760) {
   if (count < 2) return 0;
-  return Math.min(count - 1, Math.max(0, Math.round((x - 74) / 666 * (count - 1))));
+  const plotWidth = width - 94;
+  return Math.min(count - 1, Math.max(0, Math.round(((x - 74) / plotWidth) * (count - 1))));
 }
 
 export function chartTickIndexes(total: number, limit = 7) {

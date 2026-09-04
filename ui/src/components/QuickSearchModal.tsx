@@ -224,7 +224,7 @@ export function QuickSearchModal({
       {
         id: 'nav-drafts',
         category: 'Navigation',
-        title: 'Portfolio Sandbox (Drafts)',
+        title: 'Sandbox (Drafts)',
         subtitle: 'Simulate rebalancing scenarios and draft allocation models',
         icon: <IconFlask size={18} color="var(--mantine-color-violet-6)" />,
         keywords: ['sandbox', 'drafts', 'simulation', 'rebalancing', 'model'],
@@ -276,10 +276,10 @@ export function QuickSearchModal({
       {
         id: 'nav-consultant',
         category: 'Navigation',
-        title: 'Portfolio Copilot',
+        title: 'Portfolio Advisor',
         subtitle: 'Interactive portfolio intelligence, allocation audits & advice',
         icon: <IconRobot size={18} color="var(--mantine-color-indigo-6)" />,
-        keywords: ['copilot', 'advisor', 'ai consultant', 'intelligence', 'advice'],
+        keywords: ['advisor', 'strategist', 'ai consultant', 'intelligence', 'advice'],
         href: '/consultant',
         onSelect: () => {
           onSwitchTab('consultant');

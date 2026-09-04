@@ -169,7 +169,7 @@ export function Sidebar({
     { key: 'investments', label: 'Investments', icon: <IconBriefcase size={18} />, href: '/investments' },
     { key: 'instruments', label: 'Instruments', icon: <IconCompass size={18} />, href: '/instruments' },
     { key: 'market', label: 'Market Context', icon: <IconActivity size={18} />, href: '/market' },
-    { key: 'consultant', label: 'Portfolio Copilot', icon: <IconRobot size={18} />, href: '/consultant', badge: 'AI', badgeColor: 'teal' },
+    { key: 'consultant', label: 'Portfolio Advisor', icon: <IconRobot size={18} />, href: '/consultant', badge: 'AI', badgeColor: 'teal' },
     ...(enableBtp
       ? [{ key: 'btp', label: 'BTP Rank', icon: <IconFileCertificate size={18} />, href: '/btp' }]
       : []),

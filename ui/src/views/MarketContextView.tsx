@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Anchor, Badge, Button, Card, Group, Loader, Paper, Progress, SegmentedControl, SimpleGrid, Stack, Text } from '@mantine/core';
+import { useElementSize } from '@mantine/hooks';
 import { IconActivity, IconArrowDownRight, IconArrowUpRight, IconExternalLink, IconRefresh, IconShieldCheck } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 
@@ -538,13 +539,17 @@ function MarketChart({
     return showZeroBaseline ? [...vals, 0] : vals;
   }, [filteredObservations, showZeroBaseline]);
 
+  const { ref: containerRef, width: containerWidth } = useElementSize();
+  const chartWidth = Math.max(600, Math.round(containerWidth || 760));
+  const plotWidth = chartWidth - 94;
+
   if (scaleValues.length === 0) return null;
 
-  const scale = chartGeometry(scaleValues, scaleValues, false);
+  const scale = chartGeometry(scaleValues, scaleValues, false, chartWidth);
   const dates = [...new Set(filteredObservations.map(obs => obs.observed_on))].sort();
   if (dates.length === 0) return null;
 
-  const getX = (index: number) => (dates.length === 1 ? 407 : 74 + (index * 666) / (dates.length - 1));
+  const getX = (index: number) => (dates.length === 1 ? 74 + plotWidth / 2 : 74 + (index * plotWidth) / (dates.length - 1));
   const getY = (value: number) => 24 + ((scale.high - value) / (scale.high - scale.low)) * 196;
 
   const xPoints = dates.map((_, index) => ({ x: getX(index), y: 0 }));
@@ -592,7 +597,7 @@ function MarketChart({
   };
 
   return (
-    <Paper withBorder radius="lg" p="lg">
+    <Paper withBorder radius="lg" p="lg" ref={containerRef}>
       <Group justify="space-between" mb="sm">
         <Text fw={700}>{title}</Text>
         <SegmentedControl
@@ -612,14 +617,14 @@ function MarketChart({
       </Group>
       <svg
         className="wealth-chart"
-        viewBox="0 0 760 260"
+        viewBox={`0 0 ${chartWidth} 260`}
         role="img"
         tabIndex={0}
         aria-label={hoverDate ? `${formatDate(hoverDate, true)}: ${series.map(item => `${item.label} ${item.itemsMap.has(hoverDate) ? formatValue(item.itemsMap.get(hoverDate)!, item.unit) : 'N/A'}`).join(', ')}` : `${title} from ${formatDate(dates[0], true)} to ${formatDate(dates.at(-1)!, true)}.`}
-        style={{ cursor: 'crosshair' }}
+        style={{ width: '100%', height: 260, display: 'block', cursor: 'crosshair' }}
         onPointerMove={event => {
           const bounds = event.currentTarget.getBoundingClientRect();
-          setHovered(nearestChartIndex(((event.clientX - bounds.left) / bounds.width) * 760, dates.length));
+          setHovered(nearestChartIndex(((event.clientX - bounds.left) / bounds.width) * chartWidth, dates.length, chartWidth));
         }}
         onPointerLeave={() => setHovered(undefined)}
         onFocus={() => setHovered(current => current ?? dates.length - 1)}
@@ -632,7 +637,7 @@ function MarketChart({
       >
         {/* Shaded Deflation Zone (< 0%) if zero baseline is active */}
         {showZeroBaseline && zeroY !== null && zeroY < 220 && (
-          <rect x="74" y={zeroY} width="666" height={Math.max(0, Math.min(220 - zeroY, 196))} fill="var(--mantine-color-red-filled)" opacity="0.06" />
+          <rect x="74" y={zeroY} width={plotWidth} height={Math.max(0, Math.min(220 - zeroY, 196))} fill="var(--mantine-color-red-filled)" opacity="0.06" />
         )}
         {[0, 1, 2, 3, 4].map(index => {
           const ratio = index / 4;
@@ -641,7 +646,7 @@ function MarketChart({
           if (showZeroBaseline && zeroY !== null && Math.abs(y - zeroY) < 8) return null;
           return (
             <g key={index}>
-              <line x1="74" x2="740" y1={y} y2={y} stroke="currentColor" opacity="0.12" />
+              <line x1="74" x2={chartWidth - 20} y1={y} y2={y} stroke="currentColor" opacity="0.12" />
               <text x="66" y={y + 4} textAnchor="end">{formatValue(value)}</text>
             </g>
           );
@@ -649,7 +654,7 @@ function MarketChart({
         {/* Explicit 0.0% Line & Axis Label */}
         {showZeroBaseline && zeroY !== null && zeroY >= 24 && zeroY <= 220 && (
           <g>
-            <line x1="74" x2="740" y1={zeroY} y2={zeroY} stroke="var(--mantine-color-red-6)" strokeDasharray="4 4" strokeWidth="1.5" opacity="0.75" />
+            <line x1="74" x2={chartWidth - 20} y1={zeroY} y2={zeroY} stroke="var(--mantine-color-red-6)" strokeDasharray="4 4" strokeWidth="1.5" opacity="0.75" />
             <text x="66" y={zeroY + 4} textAnchor="end" fill="var(--mantine-color-red-6)" style={{ fontWeight: 700 }}>0.0%</text>
           </g>
         )}
@@ -681,7 +686,7 @@ function MarketChart({
               const y = getY(val);
               return <circle key={item.code} cx={hoverX} cy={y} r="5" fill="var(--mantine-color-body)" stroke={`var(--mantine-color-${item.color}-5)`} strokeWidth="2" />;
             })}
-            <g transform={`translate(${hoverX > 520 ? hoverX - 202 : hoverX + 12}, 32)`} style={{ pointerEvents: 'none' }}>
+            <g transform={`translate(${hoverX > chartWidth - 220 ? hoverX - 202 : hoverX + 12}, 32)`} style={{ pointerEvents: 'none' }}>
               <rect width="190" height={24 + series.length * 22} rx="8" fill="var(--mantine-color-body)" stroke="currentColor" strokeOpacity="0.25" />
               <text x="12" y="20" style={{ fontWeight: 700 }}>{formatDate(hoverDate, true)}</text>
               {series.map((item, index) => {

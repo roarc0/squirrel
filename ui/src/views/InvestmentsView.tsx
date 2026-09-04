@@ -649,7 +649,7 @@ export function InvestmentsView({
           },
           {
             value: 'sandbox',
-            label: 'Portfolio Sandbox',
+            label: 'Sandbox',
             icon: <IconFlask size={16} />,
           },
         ]}
