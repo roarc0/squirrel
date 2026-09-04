@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   IconChartPie,
   IconBuildingBank,
@@ -478,6 +478,12 @@ export default function App() {
   }
 
   const diagnosticsCount = data.summary.diagnostics?.length ?? 0;
+  const latestSnapshotDate = useMemo(() => {
+    if (!data?.snapshots || data.snapshots.length === 0) return undefined;
+    const sorted = [...data.snapshots].sort((a, b) => a.observed_on.localeCompare(b.observed_on));
+    return sorted[sorted.length - 1]?.observed_on;
+  }, [data?.snapshots]);
+
   return (
     <div className="app-layout">
       <Sidebar
@@ -500,6 +506,7 @@ export default function App() {
         enableBtp={Boolean(profile.enable_btp_ranks)}
         squirrelIcon={<SquirrelIcon size={26} />}
         squirrelBrandLogo={<SquirrelBrandLogo size={24} />}
+        latestSnapshotDate={latestSnapshotDate}
       />
 
       <div className="app-main-content">

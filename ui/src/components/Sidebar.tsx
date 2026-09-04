@@ -122,6 +122,40 @@ export interface SidebarProps {
   enableBtp: boolean;
   squirrelIcon: React.ReactNode;
   squirrelBrandLogo: React.ReactNode;
+  latestSnapshotDate?: string;
+}
+
+export function formatRelativeSnapshot(dateStr?: string): { label: string; tooltip: string } {
+  if (!dateStr) {
+    return { label: 'No snapshot', tooltip: 'No snapshots recorded yet' };
+  }
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const snapshotDate = new Date(year, month, day);
+      const today = new Date();
+      const todayMid = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const diffMs = todayMid.getTime() - snapshotDate.getTime();
+      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+      let label = '';
+      if (diffDays <= 0) label = 'Today';
+      else if (diffDays === 1) label = 'Yesterday';
+      else if (diffDays < 7) label = `${diffDays}d ago`;
+      else if (diffDays < 30) label = `${Math.max(1, Math.round(diffDays / 7))}w ago`;
+      else if (diffDays < 365) label = `${Math.max(1, Math.round(diffDays / 30))}mo ago`;
+      else label = `${Math.max(1, Math.round(diffDays / 365))}y ago`;
+
+      const formatted = snapshotDate.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+      return { label, tooltip: `Last snapshot: ${formatted}` };
+    }
+  } catch {
+    /* fallback */
+  }
+  return { label: dateStr, tooltip: `Last snapshot: ${dateStr}` };
 }
 
 export function formatUserName(user: AuthUser | null) {
@@ -155,7 +189,9 @@ export function Sidebar({
   enableBtp,
   squirrelIcon,
   squirrelBrandLogo,
+  latestSnapshotDate,
 }: SidebarProps) {
+  const snapshotInfo = formatRelativeSnapshot(latestSnapshotDate);
   const userName = formatUserName(currentUser);
   const userSubtitle = currentUser?.is_admin
     ? 'Admin'
@@ -359,7 +395,7 @@ export function Sidebar({
 
         {/* Tools in collapsed state */}
         <Stack gap={6} align="center" my={2}>
-          <Tooltip label="Snapshot" position="right" withArrow offset={14}>
+          <Tooltip label={snapshotInfo.tooltip ? `${snapshotInfo.tooltip} · Snapshot` : 'Snapshot'} position="right" withArrow offset={14}>
             <ActionIcon variant="light" color="teal" size="md" radius="md" onClick={onOpenUpdate} aria-label="Snapshot">
               <IconCamera size={17} />
             </ActionIcon>
@@ -490,21 +526,23 @@ export function Sidebar({
             boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
           }}
         >
-          <Box style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-            <Box
-              w={8}
-              h={8}
-              style={{
-                borderRadius: '50%',
-                background: 'var(--mantine-color-teal-6)',
-                boxShadow: '0 0 0 2px color-mix(in srgb, var(--mantine-color-teal-6) 25%, transparent)',
-                flexShrink: 0,
-              }}
-            />
-            <Text size="xs" fw={650} truncate style={{ lineHeight: 1 }}>
-              Main Portfolio
-            </Text>
-          </Box>
+          <Tooltip label={snapshotInfo.tooltip} position="top" withArrow>
+            <Box style={{ display: 'flex', alignItems: 'center', gap: 7, flex: 1, minWidth: 0, cursor: 'default' }}>
+              <Box
+                w={7}
+                h={7}
+                style={{
+                  borderRadius: '50%',
+                  background: 'var(--mantine-color-teal-6)',
+                  boxShadow: '0 0 0 2px color-mix(in srgb, var(--mantine-color-teal-6) 25%, transparent)',
+                  flexShrink: 0,
+                }}
+              />
+              <Text size="xs" c="dimmed" fw={600} truncate style={{ lineHeight: 1 }}>
+                {snapshotInfo.label}
+              </Text>
+            </Box>
+          </Tooltip>
           <Button
             size="compact-xs"
             variant="light"
