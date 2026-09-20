@@ -220,7 +220,7 @@ func (s *Store) ListInstrumentsForEnrichment(ctx context.Context, mode string) (
 	}
 	result := instruments[:0]
 	for _, instrument := range instruments {
-		if ((mode == "missing" || mode == "discover") && instrument.DataStatus == portfolio.InstrumentStatusCatalog) || (mode == "oldest" && instrument.DataStatus == portfolio.InstrumentStatusEnriched) {
+		if ((mode == "missing" || mode == "discover") && instrument.DataStatus == portfolio.InstrumentStatusCatalog) || mode == "oldest" {
 			result = append(result, instrument)
 		}
 	}
