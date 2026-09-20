@@ -83,7 +83,7 @@ type InstrumentServiceClient interface {
 	ListInstruments(context.Context, *connect.Request[v1.ListInstrumentsRequest]) (*connect.Response[v1.ListInstrumentsResponse], error)
 	// Search the 4,000+ ETF catalog by ISIN, ticker, name, or index.
 	SearchInstruments(context.Context, *connect.Request[v1.SearchInstrumentsRequest]) (*connect.Response[v1.SearchInstrumentsResponse], error)
-	// Sync the latest instrument catalog list from justETF.
+	// Sync the latest instrument catalog list.
 	SyncInstrumentCatalog(context.Context, *connect.Request[v1.SyncInstrumentCatalogRequest]) (*connect.Response[v1.SyncInstrumentCatalogResponse], error)
 	// Enrich catalog items with TER, AUM, tracking error, and replication profile data.
 	EnrichInstrumentCatalog(context.Context, *connect.Request[v1.EnrichInstrumentCatalogRequest]) (*connect.Response[v1.EnrichInstrumentCatalogResponse], error)
@@ -301,7 +301,7 @@ type InstrumentServiceHandler interface {
 	ListInstruments(context.Context, *connect.Request[v1.ListInstrumentsRequest]) (*connect.Response[v1.ListInstrumentsResponse], error)
 	// Search the 4,000+ ETF catalog by ISIN, ticker, name, or index.
 	SearchInstruments(context.Context, *connect.Request[v1.SearchInstrumentsRequest]) (*connect.Response[v1.SearchInstrumentsResponse], error)
-	// Sync the latest instrument catalog list from justETF.
+	// Sync the latest instrument catalog list.
 	SyncInstrumentCatalog(context.Context, *connect.Request[v1.SyncInstrumentCatalogRequest]) (*connect.Response[v1.SyncInstrumentCatalogResponse], error)
 	// Enrich catalog items with TER, AUM, tracking error, and replication profile data.
 	EnrichInstrumentCatalog(context.Context, *connect.Request[v1.EnrichInstrumentCatalogRequest]) (*connect.Response[v1.EnrichInstrumentCatalogResponse], error)

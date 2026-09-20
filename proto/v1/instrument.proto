@@ -52,9 +52,9 @@ message Instrument {
   optional int64 tracking_error_bps = 22;
   // Whether the fund is a UCITS-compliant European regulated fund.
   bool ucits = 23;
-  // Source profile URL on justETF.
+  // Source URL for the instrument profile.
   optional string source_url = 24;
-  // ISO timestamp of last justETF refresh.
+  // ISO timestamp of last catalog refresh.
   optional string refreshed_at = 25;
 }
 
@@ -242,7 +242,7 @@ service InstrumentService {
   rpc ListInstruments(ListInstrumentsRequest) returns (ListInstrumentsResponse);
   // Search the 4,000+ ETF catalog by ISIN, ticker, name, or index.
   rpc SearchInstruments(SearchInstrumentsRequest) returns (SearchInstrumentsResponse);
-  // Sync the latest instrument catalog list from justETF.
+  // Sync the latest instrument catalog list.
   rpc SyncInstrumentCatalog(SyncInstrumentCatalogRequest) returns (SyncInstrumentCatalogResponse);
   // Enrich catalog items with TER, AUM, tracking error, and replication profile data.
   rpc EnrichInstrumentCatalog(EnrichInstrumentCatalogRequest) returns (EnrichInstrumentCatalogResponse);

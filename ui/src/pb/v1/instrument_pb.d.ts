@@ -174,7 +174,7 @@ export declare class Instrument extends Message<Instrument> {
   ucits: boolean;
 
   /**
-   * Source profile URL on justETF.
+   * Source URL for the instrument profile.
    *
    * @generated from field: optional string source_url = 24;
    */
@@ -186,11 +186,6 @@ export declare class Instrument extends Message<Instrument> {
    * @generated from field: optional string refreshed_at = 25;
    */
   refreshedAt?: string;
-
-  /**
-   * ISO timestamp of last detailed profile enrichment.
-   *
-   */
 
   constructor(data?: PartialMessage<Instrument>);
 

@@ -116,7 +116,7 @@ func ValidateInstrument(instrument Instrument) error {
 	return nil
 }
 
-// ClassifyInstrument derives a deliberately small set of comparison fields from justETF data.
+// ClassifyInstrument derives a deliberately small set of comparison fields from catalog data.
 func ClassifyInstrument(instrument *Instrument) {
 	if instrument.InstrumentType == "" {
 		instrument.InstrumentType = InferInstrumentType(instrument.Name)

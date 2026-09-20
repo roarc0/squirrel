@@ -37,7 +37,7 @@ export declare const InstrumentService: {
       readonly kind: MethodKind.Unary,
     },
     /**
-     * Sync the latest instrument catalog list from justETF.
+     * Sync the latest instrument catalog list.
      *
      * @generated from rpc v1.InstrumentService.SyncInstrumentCatalog
      */
