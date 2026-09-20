@@ -20,6 +20,7 @@ export function useContinuousRefresh() {
             ...incoming,
             ticker: incoming.ticker || prev?.ticker || '',
             isin: incoming.isin || prev?.isin || '',
+            refreshedToday: incoming.refreshedToday || prev?.refreshedToday || 0,
             hasError: incoming.hasError,
           }));
         }

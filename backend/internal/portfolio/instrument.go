@@ -58,7 +58,6 @@ type Instrument struct {
 	UCITS                 bool   `json:"ucits"`
 	SourceURL             string `json:"source_url,omitempty"`
 	RefreshedAt           string `json:"refreshed_at,omitempty"`
-	EnrichedAt            string `json:"enriched_at,omitempty"`
 }
 
 func ValidateInstrument(instrument Instrument) error {
@@ -107,11 +106,7 @@ func ValidateInstrument(instrument Instrument) error {
 			return errors.New("refreshed_at must use RFC3339")
 		}
 	}
-	if instrument.EnrichedAt != "" {
-		if _, err := time.Parse(time.RFC3339, instrument.EnrichedAt); err != nil {
-			return errors.New("enriched_at must use RFC3339")
-		}
-	}
+
 	if instrument.SourceURL != "" {
 		source, err := url.Parse(instrument.SourceURL)
 		if err != nil || (source.Scheme != "http" && source.Scheme != "https") || source.Host == "" {

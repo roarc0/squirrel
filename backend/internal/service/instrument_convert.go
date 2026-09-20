@@ -53,9 +53,6 @@ func instrumentToProto(inst portfolio.Instrument) *portv1.Instrument {
 	if inst.RefreshedAt != "" {
 		res.RefreshedAt = &inst.RefreshedAt
 	}
-	if inst.EnrichedAt != "" {
-		res.EnrichedAt = &inst.EnrichedAt
-	}
 	return res
 }
 
@@ -109,9 +106,6 @@ func instrumentFromProto(p *portv1.Instrument) portfolio.Instrument {
 	}
 	if p.RefreshedAt != nil {
 		res.RefreshedAt = *p.RefreshedAt
-	}
-	if p.EnrichedAt != nil {
-		res.EnrichedAt = *p.EnrichedAt
 	}
 	return res
 }

@@ -74,7 +74,6 @@ func (c *Client) fetchProfile(ctx context.Context, client *http.Client, isin str
 		UCITS:           strings.EqualFold(tableValue(doc, "UCITS compliance"), "Yes"),
 		SourceURL:       profileURL,
 		RefreshedAt:     now,
-		EnrichedAt:      now,
 	}
 	portfolio.ClassifyInstrument(&etf)
 	if etf.ISIN != isin {

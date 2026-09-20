@@ -102,10 +102,10 @@ func (s *Server) ListInstruments(ctx context.Context, req *connect.Request[portv
 			"trackingError":  func(a, b portfolio.Instrument) int { return compareOptional(a.TrackingErrorBPS, b.TrackingErrorBPS) },
 			"ucits":          func(a, b portfolio.Instrument) int { return cmp.Compare(boolInt(a.UCITS), boolInt(b.UCITS)) },
 			"starred":        func(a, b portfolio.Instrument) int { return cmp.Compare(boolInt(a.Starred), boolInt(b.Starred)) },
-			"enriched":       func(a, b portfolio.Instrument) int { return cmp.Compare(a.EnrichedAt, b.EnrichedAt) },
-			"enriched_at":    func(a, b portfolio.Instrument) int { return cmp.Compare(a.EnrichedAt, b.EnrichedAt) },
-			"enrichedAt":     func(a, b portfolio.Instrument) int { return cmp.Compare(a.EnrichedAt, b.EnrichedAt) },
-			"last_refreshed": func(a, b portfolio.Instrument) int { return cmp.Compare(a.EnrichedAt, b.EnrichedAt) },
+			"enriched":       func(a, b portfolio.Instrument) int { return cmp.Compare(a.RefreshedAt, b.RefreshedAt) },
+			"enriched_at":    func(a, b portfolio.Instrument) int { return cmp.Compare(a.RefreshedAt, b.RefreshedAt) },
+			"enrichedAt":     func(a, b portfolio.Instrument) int { return cmp.Compare(a.RefreshedAt, b.RefreshedAt) },
+			"last_refreshed": func(a, b portfolio.Instrument) int { return cmp.Compare(a.RefreshedAt, b.RefreshedAt) },
 		}
 		if err := sortSlice(sortField, instruments, columns); err != nil {
 			return nil, connect.NewError(connect.CodeInvalidArgument, err)

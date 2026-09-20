@@ -15,7 +15,7 @@ import (
 var ErrNotFound = errors.New("record not found")
 
 func (s *Store) ListInstruments(ctx context.Context) ([]portfolio.Instrument, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, isin, name, ticker, instrument_type, provider, index_name, investment_focus, asset_class, strategy, currency_hedged, starred, data_status, distribution, replication, domicile, fund_currency, ter_bps, fund_size_million, inception_date, tracking_difference_bps, tracking_error_bps, ucits, source_url, refreshed_at, enriched_at FROM instruments ORDER BY starred DESC, fund_size_million DESC, name, isin`)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, isin, name, ticker, instrument_type, provider, index_name, investment_focus, asset_class, strategy, currency_hedged, starred, data_status, distribution, replication, domicile, fund_currency, ter_bps, fund_size_million, inception_date, tracking_difference_bps, tracking_error_bps, ucits, source_url, refreshed_at FROM instruments ORDER BY starred DESC, fund_size_million DESC, name, isin`)
 	if err != nil {
 		return nil, err
 	}
@@ -24,7 +24,7 @@ func (s *Store) ListInstruments(ctx context.Context) ([]portfolio.Instrument, er
 	for rows.Next() {
 		var instrument portfolio.Instrument
 		var trackingDifference, trackingError sql.NullInt64
-		if err := rows.Scan(&instrument.ID, &instrument.ISIN, &instrument.Name, &instrument.Ticker, &instrument.InstrumentType, &instrument.Provider, &instrument.IndexName, &instrument.InvestmentFocus, &instrument.AssetClass, &instrument.Strategy, &instrument.CurrencyHedged, &instrument.Starred, &instrument.DataStatus, &instrument.Distribution, &instrument.Replication, &instrument.Domicile, &instrument.FundCurrency, &instrument.TERBPS, &instrument.FundSizeMillion, &instrument.InceptionDate, &trackingDifference, &trackingError, &instrument.UCITS, &instrument.SourceURL, &instrument.RefreshedAt, &instrument.EnrichedAt); err != nil {
+		if err := rows.Scan(&instrument.ID, &instrument.ISIN, &instrument.Name, &instrument.Ticker, &instrument.InstrumentType, &instrument.Provider, &instrument.IndexName, &instrument.InvestmentFocus, &instrument.AssetClass, &instrument.Strategy, &instrument.CurrencyHedged, &instrument.Starred, &instrument.DataStatus, &instrument.Distribution, &instrument.Replication, &instrument.Domicile, &instrument.FundCurrency, &instrument.TERBPS, &instrument.FundSizeMillion, &instrument.InceptionDate, &trackingDifference, &trackingError, &instrument.UCITS, &instrument.SourceURL, &instrument.RefreshedAt); err != nil {
 			return nil, err
 		}
 		if trackingDifference.Valid {
@@ -89,8 +89,8 @@ func (s *Store) SaveInstrument(ctx context.Context, instrument *portfolio.Instru
 		instrument.RefreshedAt = now
 	}
 	return s.db.QueryRowContext(ctx, `
-		INSERT INTO instruments (isin, name, ticker, instrument_type, provider, index_name, investment_focus, asset_class, strategy, currency_hedged, starred, data_status, distribution, replication, domicile, fund_currency, ter_bps, fund_size_million, inception_date, tracking_difference_bps, tracking_error_bps, ucits, source_url, refreshed_at, enriched_at, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO instruments (isin, name, ticker, instrument_type, provider, index_name, investment_focus, asset_class, strategy, currency_hedged, starred, data_status, distribution, replication, domicile, fund_currency, ter_bps, fund_size_million, inception_date, tracking_difference_bps, tracking_error_bps, ucits, source_url, refreshed_at, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(isin) DO UPDATE SET name=excluded.name, ticker=excluded.ticker,
 		instrument_type=CASE WHEN instruments.data_status='enriched' AND excluded.data_status='catalog' THEN instruments.instrument_type ELSE excluded.instrument_type END,
 		provider=CASE WHEN instruments.data_status='enriched' AND excluded.data_status='catalog' THEN instruments.provider ELSE excluded.provider END,
@@ -105,10 +105,10 @@ func (s *Store) SaveInstrument(ctx context.Context, instrument *portfolio.Instru
 		fund_size_million=excluded.fund_size_million, inception_date=excluded.inception_date,
 		tracking_difference_bps=CASE WHEN instruments.data_status='enriched' AND excluded.data_status='catalog' THEN instruments.tracking_difference_bps ELSE excluded.tracking_difference_bps END,
 		tracking_error_bps=CASE WHEN instruments.data_status='enriched' AND excluded.data_status='catalog' THEN instruments.tracking_error_bps ELSE excluded.tracking_error_bps END, ucits=excluded.ucits,
-		source_url=excluded.source_url, refreshed_at=excluded.refreshed_at,
-		enriched_at=CASE WHEN excluded.enriched_at='' OR (instruments.data_status='enriched' AND excluded.data_status='catalog') THEN instruments.enriched_at ELSE excluded.enriched_at END,
+		source_url=excluded.source_url,
+		refreshed_at=CASE WHEN instruments.data_status='enriched' AND excluded.data_status='catalog' THEN instruments.refreshed_at ELSE excluded.refreshed_at END,
 		updated_at=excluded.updated_at
-		RETURNING id, starred, enriched_at`, instrument.ISIN, instrument.Name, instrument.Ticker, instrument.InstrumentType, instrument.Provider, instrument.IndexName, instrument.InvestmentFocus, instrument.AssetClass, instrument.Strategy, instrument.CurrencyHedged, instrument.Starred, instrument.DataStatus, instrument.Distribution, instrument.Replication, instrument.Domicile, instrument.FundCurrency, instrument.TERBPS, instrument.FundSizeMillion, instrument.InceptionDate, instrument.TrackingDifferenceBPS, instrument.TrackingErrorBPS, instrument.UCITS, instrument.SourceURL, instrument.RefreshedAt, instrument.EnrichedAt, now, now).Scan(&instrument.ID, &instrument.Starred, &instrument.EnrichedAt)
+		RETURNING id, starred`, instrument.ISIN, instrument.Name, instrument.Ticker, instrument.InstrumentType, instrument.Provider, instrument.IndexName, instrument.InvestmentFocus, instrument.AssetClass, instrument.Strategy, instrument.CurrencyHedged, instrument.Starred, instrument.DataStatus, instrument.Distribution, instrument.Replication, instrument.Domicile, instrument.FundCurrency, instrument.TERBPS, instrument.FundSizeMillion, instrument.InceptionDate, instrument.TrackingDifferenceBPS, instrument.TrackingErrorBPS, instrument.UCITS, instrument.SourceURL, instrument.RefreshedAt, now, now).Scan(&instrument.ID, &instrument.Starred)
 }
 
 func (s *Store) SaveInstrumentCatalogBatch(ctx context.Context, instruments []portfolio.Instrument) (int, error) {
@@ -122,14 +122,16 @@ func (s *Store) SaveInstrumentCatalogBatch(ctx context.Context, instruments []po
 	defer tx.Rollback()
 	now := time.Now().UTC().Format(time.RFC3339)
 	stmt, err := tx.PrepareContext(ctx, `
-		INSERT INTO instruments (isin, name, ticker, instrument_type, provider, index_name, investment_focus, asset_class, strategy, currency_hedged, starred, data_status, distribution, replication, domicile, fund_currency, ter_bps, fund_size_million, inception_date, tracking_difference_bps, tracking_error_bps, ucits, source_url, refreshed_at, enriched_at, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO instruments (isin, name, ticker, instrument_type, provider, index_name, investment_focus, asset_class, strategy, currency_hedged, starred, data_status, distribution, replication, domicile, fund_currency, ter_bps, fund_size_million, inception_date, tracking_difference_bps, tracking_error_bps, ucits, source_url, refreshed_at, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(isin) DO UPDATE SET name=excluded.name, ticker=excluded.ticker,
 		instrument_type=CASE WHEN instruments.data_status='enriched' THEN instruments.instrument_type ELSE excluded.instrument_type END,
 		distribution=excluded.distribution, replication=excluded.replication,
 		domicile=excluded.domicile, fund_currency=excluded.fund_currency, ter_bps=excluded.ter_bps,
 		fund_size_million=excluded.fund_size_million, inception_date=excluded.inception_date,
-		ucits=excluded.ucits, source_url=excluded.source_url, refreshed_at=excluded.refreshed_at, updated_at=excluded.updated_at`)
+		ucits=excluded.ucits, source_url=excluded.source_url,
+		refreshed_at=CASE WHEN instruments.data_status='enriched' THEN instruments.refreshed_at ELSE excluded.refreshed_at END,
+		updated_at=excluded.updated_at`)
 	if err != nil {
 		return 0, err
 	}
@@ -150,7 +152,7 @@ func (s *Store) SaveInstrumentCatalogBatch(ctx context.Context, instruments []po
 		if err := portfolio.ValidateInstrument(*inst); err != nil {
 			continue
 		}
-		if _, err := stmt.ExecContext(ctx, inst.ISIN, inst.Name, inst.Ticker, inst.InstrumentType, inst.Provider, inst.IndexName, inst.InvestmentFocus, inst.AssetClass, inst.Strategy, inst.CurrencyHedged, inst.Starred, inst.DataStatus, inst.Distribution, inst.Replication, inst.Domicile, inst.FundCurrency, inst.TERBPS, inst.FundSizeMillion, inst.InceptionDate, inst.TrackingDifferenceBPS, inst.TrackingErrorBPS, inst.UCITS, inst.SourceURL, now, "", now, now); err != nil {
+		if _, err := stmt.ExecContext(ctx, inst.ISIN, inst.Name, inst.Ticker, inst.InstrumentType, inst.Provider, inst.IndexName, inst.InvestmentFocus, inst.AssetClass, inst.Strategy, inst.CurrencyHedged, inst.Starred, inst.DataStatus, inst.Distribution, inst.Replication, inst.Domicile, inst.FundCurrency, inst.TERBPS, inst.FundSizeMillion, inst.InceptionDate, inst.TrackingDifferenceBPS, inst.TrackingErrorBPS, inst.UCITS, inst.SourceURL, now, now, now); err != nil {
 			return 0, err
 		}
 		saved++
@@ -227,7 +229,7 @@ func (s *Store) ListInstrumentsForEnrichment(ctx context.Context, mode string) (
 	}
 	if mode == "oldest" {
 		slices.SortStableFunc(result, func(a, b portfolio.Instrument) int {
-			if value := cmp.Compare(a.EnrichedAt, b.EnrichedAt); value != 0 {
+			if value := cmp.Compare(a.RefreshedAt, b.RefreshedAt); value != 0 {
 				return value
 			}
 			return strings.Compare(a.ISIN, b.ISIN)

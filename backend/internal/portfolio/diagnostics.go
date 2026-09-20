@@ -173,8 +173,8 @@ func EvaluateDiagnostics(accounts []Account, holdings []Holding, instruments []I
 					HoldingID: h.ID,
 					ISIN:      inst.ISIN,
 				})
-			} else if inst.EnrichedAt != "" {
-				if parsed, err := time.Parse(time.RFC3339, inst.EnrichedAt); err == nil {
+			} else if inst.RefreshedAt != "" {
+				if parsed, err := time.Parse(time.RFC3339, inst.RefreshedAt); err == nil {
 					if now.Sub(parsed) > 30*24*time.Hour {
 						results = append(results, Diagnostic{
 							ID:        fmt.Sprintf("stale_days_%s", inst.ISIN),

@@ -78,16 +78,17 @@ func (s *Server) startContinuousRefresh(ctx context.Context) {
 				continue
 			}
 
+			count, _ := s.store.CountRefreshedToday(ctx)
 			tick := &portv1.RefreshTick{
-				Ticker:  inst.Ticker,
-				Isin:    inst.ISIN,
-				Enabled: true,
-				Phase:   "refreshing",
+				Ticker:         inst.Ticker,
+				Isin:           inst.ISIN,
+				Enabled:        true,
+				Phase:          "refreshing",
+				RefreshedToday: count,
 			}
 			s.refresh.broadcast(tick)
 
 			enrichErr := s.enrichInstrument(ctx, inst.ISIN)
-			count, _ := s.store.CountRefreshedToday(ctx)
 			tick.RefreshedToday = count
 
 			if enrichErr != nil {
