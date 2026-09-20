@@ -52,7 +52,7 @@ func TestStoreRoundTrip(t *testing.T) {
 		t.Fatalf("expected archived Broker and active preferred Savings: err=%v accounts=%+v", err, accounts)
 	}
 
-	instrument := portfolio.Instrument{ISIN: "ie00b4l5y983", Name: "World ETF", Provider: "Provider", InvestmentFocus: "Equity, World", AssetClass: "equity", Strategy: "broad", Distribution: portfolio.DistributionAccumulating, Replication: portfolio.ReplicationPhysicalFull, FundCurrency: "eur", TERBPS: 20, EnrichedAt: "2026-08-21T12:00:00Z"}
+	instrument := portfolio.Instrument{ISIN: "ie00b4l5y983", Name: "World ETF", Provider: "Provider", InvestmentFocus: "Equity, World", AssetClass: "equity", Strategy: "broad", Distribution: portfolio.DistributionAccumulating, Replication: portfolio.ReplicationPhysicalFull, FundCurrency: "eur", TERBPS: 20, RefreshedAt: "2026-08-21T12:00:00Z"}
 	if err := s.SaveInstrument(ctx, &instrument); err != nil {
 		t.Fatal(err)
 	}
@@ -73,12 +73,12 @@ func TestStoreRoundTrip(t *testing.T) {
 	catalog := instrument
 	catalog.Provider, catalog.InvestmentFocus, catalog.AssetClass, catalog.Strategy = "", "", "", ""
 	catalog.DataStatus, catalog.TERBPS = portfolio.InstrumentStatusCatalog, 10
-	catalog.EnrichedAt = ""
+	catalog.RefreshedAt = ""
 	if err := s.SaveInstrument(ctx, &catalog); err != nil {
 		t.Fatal(err)
 	}
 	instruments, err = s.ListInstruments(ctx)
-	if err != nil || !instruments[0].Starred || instruments[0].DataStatus != portfolio.InstrumentStatusEnriched || instruments[0].Provider != "Provider" || instruments[0].InvestmentFocus != "Equity, World" || instruments[0].TERBPS != 10 || instruments[0].EnrichedAt != "2026-08-21T12:00:00Z" {
+	if err != nil || !instruments[0].Starred || instruments[0].DataStatus != portfolio.InstrumentStatusEnriched || instruments[0].Provider != "Provider" || instruments[0].InvestmentFocus != "Equity, World" || instruments[0].TERBPS != 10 || instruments[0].RefreshedAt != "2026-08-21T12:00:00Z" {
 		t.Fatalf("catalog refresh downgraded enriched data: err=%v instruments=%+v", err, instruments)
 	}
 	holding := portfolio.Holding{AccountID: account.ID, InstrumentID: instrument.ID, InvestedMinor: 1_000_000, ValueMinor: 1_100_000, TaxBPS: 2600, PlannedBPS: 6000}
@@ -140,7 +140,7 @@ func TestMigratesLegacyDatabase(t *testing.T) {
 	defer s.Close()
 	var version int64
 	var errVersion error
-	if version, errVersion = goose.GetDBVersion(s.db); errVersion != nil || version != 8 {
+	if version, errVersion = goose.GetDBVersion(s.db); errVersion != nil || version != 9 {
 		t.Fatalf("migration version=%d err=%v", version, errVersion)
 	}
 }

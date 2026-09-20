@@ -190,9 +190,7 @@ export declare class Instrument extends Message<Instrument> {
   /**
    * ISO timestamp of last detailed profile enrichment.
    *
-   * @generated from field: optional string enriched_at = 26;
    */
-  enrichedAt?: string;
 
   constructor(data?: PartialMessage<Instrument>);
 

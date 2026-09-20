@@ -64,7 +64,7 @@ func TestLookupByTicker(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if etf.ISIN != "IE00BK5BQT80" || etf.Ticker != "VWCE" || etf.Provider != "Vanguard" || etf.IndexName != "FTSE All-World" || etf.InvestmentFocus != "Equity, World" || etf.AssetClass != "equity" || etf.Strategy != "broad" || etf.DataStatus != portfolio.InstrumentStatusEnriched || etf.EnrichedAt == "" || etf.CurrencyHedged || etf.Distribution != portfolio.DistributionAccumulating || etf.Replication != portfolio.ReplicationSampling || etf.Domicile != "IE" || etf.FundCurrency != "USD" || etf.TERBPS != 14 || etf.FundSizeMillion != 48_874 || etf.InceptionDate != "2019-07-23" || !etf.UCITS {
+	if etf.ISIN != "IE00BK5BQT80" || etf.Ticker != "VWCE" || etf.Provider != "Vanguard" || etf.IndexName != "FTSE All-World" || etf.InvestmentFocus != "Equity, World" || etf.AssetClass != "equity" || etf.Strategy != "broad" || etf.DataStatus != portfolio.InstrumentStatusEnriched || etf.RefreshedAt == "" || etf.CurrencyHedged || etf.Distribution != portfolio.DistributionAccumulating || etf.Replication != portfolio.ReplicationSampling || etf.Domicile != "IE" || etf.FundCurrency != "USD" || etf.TERBPS != 14 || etf.FundSizeMillion != 48_874 || etf.InceptionDate != "2019-07-23" || !etf.UCITS {
 		t.Fatalf("unexpected ETF: %+v", etf)
 	}
 	results, err := client.Search(context.Background(), "world")

@@ -38,7 +38,6 @@ export const Instrument = /*@__PURE__*/ proto3.makeMessageType(
     { no: 23, name: "ucits", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 24, name: "source_url", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
     { no: 25, name: "refreshed_at", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
-    { no: 26, name: "enriched_at", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
   ],
 );
 

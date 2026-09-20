@@ -54,10 +54,8 @@ message Instrument {
   bool ucits = 23;
   // Source profile URL on justETF.
   optional string source_url = 24;
-  // ISO timestamp of last catalog refresh.
+  // ISO timestamp of last justETF refresh.
   optional string refreshed_at = 25;
-  // ISO timestamp of last detailed profile enrichment.
-  optional string enriched_at = 26;
 }
 
 // InstrumentAlternative suggests cheaper or better-performing ETFs matching the same index exposure.
