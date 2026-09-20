@@ -334,6 +334,7 @@ export function InvestmentsView({
   const { confirmDelete, modal: confirmDeleteModal } = useConfirmDelete();
   const [driftThresholdBps, setDriftThresholdBps] = useState(1000);
   const [refreshingISIN, setRefreshingISIN] = useState<string | null>(null);
+  const [showTax, setShowTax] = useState(false);
   const table = useBackendRows('/api/holdings', holdings, 'value', 'desc');
   const activeAccounts = accounts.filter(account => !account.archived); const activeAccountIDs = new Set(activeAccounts.map(account => account.id));
   const accountMap = new Map<number, Account>(accounts.map(a => [a.id, a]));
@@ -369,7 +370,7 @@ export function InvestmentsView({
   const ready = activeAccounts.length > 0 && instruments.length > 0;
   const activeHoldings = table.rows.filter(holding => activeAccountIDs.has(holding.account_id));
   const visibleHoldings = activeHoldings.filter(holding => accountIDs.length === 0 || accountIDs.includes(String(holding.account_id)));
-  const displayedHoldings = visibleHoldings.filter(holding => !selectedAssetClass || holding.asset_class === selectedAssetClass);
+  const displayedHoldings = visibleHoldings.filter(holding => holding.value_minor !== 0 && (!selectedAssetClass || holding.asset_class === selectedAssetClass));
   const instMap = new Map<number, Instrument>(instruments.map(i => [i.id, i]));
   const totals = new Map<string, { value: number; invested: number; count: number; weightedTERNum: number; annualFeeDrag: number; classes: Map<string, number> }>();
   for (const holding of visibleHoldings) {
@@ -439,6 +440,11 @@ export function InvestmentsView({
           <Text size="xs" c="orange">-{money(annualDragMinor, holding.currency ?? 'EUR')}/yr</Text>
         </Stack>
       );
+    } },
+    { key: 'aum', label: 'Fund AUM', sortable: false, align: 'right', render: holding => {
+      const fundSize = instMap.get(holding.instrument_id)?.fund_size_million ?? 0;
+      if (!fundSize) return <Text c="dimmed">—</Text>;
+      return <Text size="sm" c="dimmed">{fundSize >= 1000 ? `€${(fundSize / 1000).toFixed(1)}bn` : `€${fundSize}m`}</Text>;
     } },
     { key: 'change', label: 'Gain / loss', sortable: true, align: 'right', render: holding => { if (holding.invested_minor === 0) return <Text c="dimmed">—</Text>; const change = holding.value_minor - holding.invested_minor; return <Stack gap={1} align="flex-end"><Text fw={650} c={change >= 0 ? 'teal' : 'red'}>{money(change, holding.currency ?? 'EUR')}</Text><Text size="xs" c="dimmed">{change >= 0 ? '+' : ''}{(change / holding.invested_minor * 100).toFixed(1)}%</Text></Stack>; } },
     { key: 'tax', label: 'Tax', sortable: true, align: 'right', render: holding => percent(holding.tax_bps) },
@@ -807,12 +813,13 @@ export function InvestmentsView({
                                 return (
                                   <Table.Tr key={item.holding.id}>
                                     <Table.Td>
-                                      <Group gap={6} wrap="nowrap">
-                                        {item.ticker ? <TickerBadge ticker={item.ticker} /> : null}
-                                        <Text size="xs" fw={600} truncate style={{ flex: 1, minWidth: 0 }} title={item.instrumentName}>
-                                          {item.instrumentName}
-                                        </Text>
-                                      </Group>
+                                      <Stack gap={2}>
+                                        <Text size="xs" fw={600} lh={1.3}>{item.instrumentName}</Text>
+                                        <Group gap={6} align="center">
+                                          {item.ticker && <TickerBadge ticker={item.ticker} />}
+                                          {item.isin && <ISINBadge isin={item.isin} />}
+                                        </Group>
+                                      </Stack>
                                     </Table.Td>
                                     <Table.Td style={{ textAlign: 'right' }}>
                                       <Text size="xs" c={item.terBps > 0 ? undefined : 'dimmed'}>{item.terBps > 0 ? percent(item.terBps) : '—'}</Text>
@@ -956,6 +963,9 @@ export function InvestmentsView({
                     onChange={setAccountIDs}
                   />
                 )}
+                <Button size="xs" variant={showTax ? 'light' : 'subtle'} color="gray" onClick={() => setShowTax(v => !v)}>
+                  {showTax ? 'Hide tax' : 'Show tax'}
+                </Button>
                 <Button disabled={!ready} onClick={() => open()}>Add investment</Button>
               </Group>
             }
@@ -1020,7 +1030,7 @@ export function InvestmentsView({
                 const accFeeDrag = Math.round(accTERNum / 10000);
                 const accGain = accValue - accInvested;
                 const accCurrency = acc.currency ?? currency;
-                const accColumns = columns.filter(c => c.key !== 'account');
+                const accColumns = columns.filter(c => c.key !== 'account' && (showTax || c.key !== 'tax'));
                 return (
                   <Card key={acc.id} className="metric" p="lg" radius="lg" withBorder>
                     <Group justify="space-between" align="start" mb="xs">
