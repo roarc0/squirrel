@@ -186,7 +186,7 @@ func (s *Server) StreamInstrumentCatalog(ctx context.Context, req *connect.Reque
 		progress.Current = &isin
 		progress.Processed++
 
-		if target.DataStatus == portfolio.InstrumentStatusCatalog && !target.UCITS {
+		if target.DataStatus == portfolio.InstrumentStatusCatalog && !target.UCITS && target.InstrumentType == portfolio.InstrumentTypeETF {
 			progress.Skipped++
 			continue
 		}

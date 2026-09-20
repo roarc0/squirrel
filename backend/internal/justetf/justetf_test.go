@@ -127,36 +127,40 @@ func profileFixture(isin, name, ticker, focus, ucits string) string {
 	</body></html>`, name, isin, ticker, index, focus, provider, ucits)
 }
 
-func TestCatalogUsesETFScreenAndKeepsOnlyUCITS(t *testing.T) {
+func TestCatalogIncludesETCsAndNonUCITS(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /en/search.html", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `<script>var etfsParams = 'search=ETFS&query='; var fetchCallbackUrl = '/catalog-results';</script>`)
 	})
 	mux.HandleFunc("POST /catalog-results", func(w http.ResponseWriter, r *http.Request) {
-		if r.FormValue("start") != "0" || r.FormValue("length") != "2" || r.Header.Get("Wicket-Ajax-BaseURL") != "en/search.html?search=ETFS" {
-			t.Fatalf("unexpected catalog request: form=%v headers=%v", r.Form, r.Header)
+		if r.Header.Get("Wicket-Ajax-BaseURL") != "en/search.html?search=ETFS" {
+			t.Fatalf("unexpected base URL: %s", r.Header.Get("Wicket-Ajax-BaseURL"))
 		}
-		fmt.Fprint(w, `{"recordsFiltered":2,"data":[
-			{"ticker":"VWCE","isin":"IE00BK5BQT80","name":"Vanguard FTSE All-World UCITS ETF (USD) Accumulating","distributionPolicy":"Accumulating","replicationMethod":"Optimized sampling","domicileCountry":"Ireland","fundCurrency":"USD<br />Hedged","ter":"0.22%","fundSize":"12,000","inceptionDate":"23.07.19"},
-			{"ticker":"GOLD","isin":"IE00B4ND3602","name":"Physical Gold ETC","distributionPolicy":"Accumulating","replicationMethod":"Physical","domicileCountry":"Ireland","fundCurrency":"USD","ter":"0.12%","fundSize":"1,000","inceptionDate":"23.07.19"}
+		fmt.Fprint(w, `{"recordsFiltered":3,"data":[
+			{"ticker":"VWCE","isin":"IE00BK5BQT80","name":"Vanguard FTSE All-World UCITS ETF (USD) Accumulating","distributionPolicy":"Accumulating","replicationMethod":"Optimized sampling","domicileCountry":"Ireland","fundCurrency":"USD Hedged","ter":"0.22%","fundSize":"12,000","inceptionDate":"23.07.19"},
+			{"ticker":"SGLD","isin":"IE00B579F325","name":"Invesco Physical Gold ETC","distributionPolicy":"Accumulating","replicationMethod":"Physical","domicileCountry":"Ireland","fundCurrency":"USD","ter":"0.12%","fundSize":"1,000","inceptionDate":"23.07.19"},
+			{"ticker":"ANON","isin":"LU0378449770","name":"Some New Fund","distributionPolicy":"","replicationMethod":"","domicileCountry":"Ireland","fundCurrency":"EUR","ter":"","fundSize":"","inceptionDate":""}
 		]}`)
 	})
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
 	client := &Client{baseURL: server.URL, timeout: time.Second}
-	etfs, total, err := client.Catalog(context.Background(), 2)
+	instruments, total, err := client.Catalog(context.Background(), 10)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if total != 2 || len(etfs) != 1 || etfs[0].DataStatus != portfolio.InstrumentStatusCatalog || !etfs[0].UCITS || etfs[0].FundCurrency != "USD" || !etfs[0].CurrencyHedged {
-		t.Fatalf("unexpected catalog: total=%d etfs=%+v", total, etfs)
+	if total != 3 || len(instruments) != 3 {
+		t.Fatalf("unexpected catalog: total=%d len=%d", total, len(instruments))
 	}
-	candidates, _, err := client.CatalogCandidates(context.Background(), 2)
-	if err != nil {
-		t.Fatal(err)
+	etf, etc, incomplete := instruments[0], instruments[1], instruments[2]
+	if !etf.UCITS || etf.FundCurrency != "USD" || !etf.CurrencyHedged || etf.DataStatus != portfolio.InstrumentStatusCatalog {
+		t.Fatalf("unexpected ETF: %+v", etf)
 	}
-	if len(candidates) != 2 || candidates[1].UCITS {
-		t.Fatalf("unexpected discovery candidates: %+v", candidates)
+	if etc.InstrumentType != portfolio.InstrumentTypeETC || etc.UCITS {
+		t.Fatalf("unexpected ETC: %+v", etc)
+	}
+	if incomplete.TERBPS != 0 || incomplete.FundSizeMillion != 0 || incomplete.InceptionDate != "" {
+		t.Fatalf("incomplete instrument should use zero values: %+v", incomplete)
 	}
 }

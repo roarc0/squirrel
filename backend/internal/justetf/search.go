@@ -44,7 +44,7 @@ func (c *Client) Search(ctx context.Context, query string) ([]portfolio.Instrume
 	if err != nil {
 		return nil, err
 	}
-	return c.catalogETFs(rows, false), nil
+	return c.catalogInstruments(rows), nil
 }
 
 func (c *Client) Lookup(ctx context.Context, query string) (portfolio.Instrument, error) {

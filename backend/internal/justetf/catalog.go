@@ -11,14 +11,6 @@ import (
 )
 
 func (c *Client) Catalog(ctx context.Context, limit int) ([]portfolio.Instrument, int, error) {
-	return c.catalog(ctx, limit, true)
-}
-
-func (c *Client) CatalogCandidates(ctx context.Context, limit int) ([]portfolio.Instrument, int, error) {
-	return c.catalog(ctx, limit, false)
-}
-
-func (c *Client) catalog(ctx context.Context, limit int, requireUCITSLabel bool) ([]portfolio.Instrument, int, error) {
 	if limit < 1 || limit > 4_000 {
 		return nil, 0, errors.New("catalog limit must be between 1 and 4000")
 	}
@@ -32,7 +24,7 @@ func (c *Client) catalog(ctx context.Context, limit int, requireUCITSLabel bool)
 			return nil, total, err
 		}
 		total = available
-		results = append(results, c.catalogETFs(rows, requireUCITSLabel)...)
+		results = append(results, c.catalogInstruments(rows)...)
 		if len(rows) == 0 || start+len(rows) >= available {
 			break
 		}
@@ -40,36 +32,41 @@ func (c *Client) catalog(ctx context.Context, limit int, requireUCITSLabel bool)
 	return results, total, nil
 }
 
-func (c *Client) catalogETFs(rows []searchRow, requireUCITSLabel bool) []portfolio.Instrument {
+func (c *Client) catalogInstruments(rows []searchRow) []portfolio.Instrument {
 	var results []portfolio.Instrument
 	now := time.Now().UTC().Format(time.RFC3339)
 	for _, row := range rows {
+		if !portfolio.ValidISIN(row.ISIN) || strings.TrimSpace(row.Name) == "" {
+			continue
+		}
+		currency := currencyCode(row.FundCurrency)
+		if len(currency) != 3 {
+			continue
+		}
+		ter, _ := percentBPS(row.TER)
+		size, _ := millions(row.FundSize)
+		started, _ := profileDate(row.InceptionDate)
 		name := strings.ToUpper(row.Name)
-		labelledUCITS := strings.Contains(name, "UCITS") && strings.Contains(name, "ETF")
-		if (requireUCITSLabel && !labelledUCITS) || !portfolio.ValidISIN(row.ISIN) {
-			continue
-		}
-		ter, terErr := percentBPS(row.TER)
-		size, sizeErr := millions(row.FundSize)
-		started, dateErr := profileDate(row.InceptionDate)
-		if terErr != nil || sizeErr != nil || dateErr != nil {
-			continue
-		}
 		etf := portfolio.Instrument{
-			ISIN: strings.ToUpper(row.ISIN), Name: row.Name, Ticker: strings.ToUpper(row.Ticker),
-			InstrumentType: portfolio.InferInstrumentType(row.Name),
-			DataStatus:     portfolio.InstrumentStatusCatalog,
-			CurrencyHedged: strings.Contains(strings.ToLower(row.FundCurrency), "hedged"),
-			Distribution:   distribution(row.DistributionPolicy), Replication: replication(row.ReplicationMethod),
-			Domicile: countryCode(row.DomicileCountry), FundCurrency: currencyCode(row.FundCurrency),
-			TERBPS: ter, FundSizeMillion: size, InceptionDate: started, UCITS: labelledUCITS,
-			SourceURL:   c.baseURL + "/en/etf-profile.html?isin=" + url.QueryEscape(row.ISIN),
-			RefreshedAt: now,
+			ISIN:            strings.ToUpper(row.ISIN),
+			Name:            row.Name,
+			Ticker:          strings.ToUpper(row.Ticker),
+			InstrumentType:  portfolio.InferInstrumentType(row.Name),
+			DataStatus:      portfolio.InstrumentStatusCatalog,
+			CurrencyHedged:  strings.Contains(strings.ToLower(row.FundCurrency), "hedged"),
+			Distribution:    distribution(row.DistributionPolicy),
+			Replication:     replication(row.ReplicationMethod),
+			Domicile:        countryCode(row.DomicileCountry),
+			FundCurrency:    currency,
+			TERBPS:          ter,
+			FundSizeMillion: size,
+			InceptionDate:   started,
+			UCITS:           strings.Contains(name, "UCITS"),
+			SourceURL:       c.baseURL + "/en/etf-profile.html?isin=" + url.QueryEscape(row.ISIN),
+			RefreshedAt:     now,
 		}
 		portfolio.ClassifyInstrument(&etf)
-		if portfolio.ValidateInstrument(etf) == nil {
-			results = append(results, etf)
-		}
+		results = append(results, etf)
 	}
 	return results
 }
