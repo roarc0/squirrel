@@ -164,7 +164,6 @@ export type Instrument = {
   ucits: boolean;
   source_url?: string;
   refreshed_at?: string;
-  enriched_at?: string;
 };
 
 export type InstrumentAlternative = {
@@ -299,7 +298,6 @@ function protoToInstrument(inst: any): Instrument {
     ucits: Boolean(inst.ucits),
     source_url: optStr(inst.sourceUrl),
     refreshed_at: optStr(inst.refreshedAt),
-    enriched_at: optStr(inst.enrichedAt),
   };
 }
 

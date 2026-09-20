@@ -11,6 +11,13 @@ function writeParam(key: string, value: string) {
   window.history.replaceState(null, '', url.toString());
 }
 
+export function useQueryParamInt(key: string, fallback: number): [number, (v: number) => void] {
+  const [str, setStr] = useQueryParam(key, String(fallback));
+  const value = parseInt(str, 10) || fallback;
+  const setValue = (v: number) => setStr(String(v));
+  return [value, setValue];
+}
+
 export function useQueryParam(key: string, fallback = ''): [string, (v: string) => void] {
   const [value, setValue] = useState(() => readParam(key) || fallback);
   useEffect(() => { writeParam(key, value === fallback ? '' : value); }, [key, value, fallback]);

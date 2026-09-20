@@ -53,7 +53,7 @@ import { confirmDelete as legacyConfirmDelete, instrumentLabels, label, percent 
 import { matchesExactFilters, pageBounds } from '../visual';
 import { useConfirmDelete } from '../components/ConfirmDeleteModal';
 import { useProfile, getProfile } from '../hooks/useProfile';
-import { useQueryParam, useQueryParamObject } from '../hooks/useQueryParam';
+import { useQueryParam, useQueryParamInt, useQueryParamObject } from '../hooks/useQueryParam';
 import { ViewShell } from '../components/ViewShell';
 import { SectionHeader } from '../components/SectionHeader';
 
@@ -103,7 +103,7 @@ export function InstrumentFinderView({ instruments, reload }: { instruments: Ins
   const [visibleColumns, setVisibleColumns] = useState<InstrumentColumn[]>(savedInstrumentColumns); const [columnsOpen, setColumnsOpen] = useState(false); const [filtersOpenRaw, setFiltersOpen] = useQueryParam('filters');
   const filtersOpen = filtersOpenRaw === '1';
   const [filters, setFilters] = useQueryParamObject('f', { issuer: '', type: '', assetClass: '', policy: '', replication: '', domicile: '', currency: '', ucits: '' } as InstrumentFilters);
-  const [similarity, setSimilarity] = useState(() => (new URLSearchParams(window.location.search).get('similarity') ?? '').toUpperCase()); const [alternatives, setAlternatives] = useState<InstrumentAlternative[]>([]); const [loadingAlternatives, setLoadingAlternatives] = useState(false); const [page, setPage] = useState(1); const [pageSize, setPageSize] = useState(50);
+  const [similarity, setSimilarity] = useState(() => (new URLSearchParams(window.location.search).get('similarity') ?? '').toUpperCase()); const [alternatives, setAlternatives] = useState<InstrumentAlternative[]>([]); const [loadingAlternatives, setLoadingAlternatives] = useState(false); const [page, setPage] = useQueryParamInt('page', 1); const [pageSize, setPageSize] = useQueryParamInt('pageSize', 50);
   const [indexQuery, setIndexQuery] = useState('');
   const [distribution, setDistribution] = useState(''); const [replication, setReplication] = useState(''); const [domicile, setDomicile] = useState('');
   const [maxTER, setMaxTER] = useState<Numeric>(''); const [minSize, setMinSize] = useState<Numeric>(100); const [minAge, setMinAge] = useState<Numeric>(3);
@@ -193,7 +193,7 @@ export function InstrumentFinderView({ instruments, reload }: { instruments: Ins
       case 'currency': return inst.fund_currency || '';
       case 'inception': return inst.inception_date || '';
       case 'tracking': return inst.tracking_difference_bps ?? 999999;
-      case 'enriched': return inst.enriched_at || '';
+      case 'enriched': return inst.refreshed_at || '';
       default: return 0;
     }
   };
@@ -298,7 +298,7 @@ export function InstrumentFinderView({ instruments, reload }: { instruments: Ins
     ...(show('currency') ? [{ key: 'currency', label: 'Currency', sortable: true, render: (item: RankedInstrument) => item.instrument.fund_currency || '—' }] : []),
     ...(show('inception') ? [{ key: 'inception', label: 'Inception', sortable: true, render: (item: RankedInstrument) => item.instrument.inception_date || '—' }] : []),
     ...(show('tracking') ? [{ key: 'tracking', label: 'Tracking', sortable: true, render: (item: RankedInstrument) => item.instrument.tracking_difference_bps === null && item.instrument.tracking_error_bps === null ? <Text c="dimmed">—</Text> : <Stack gap={1}><Text size="sm">Diff {item.instrument.tracking_difference_bps === null ? '—' : percent(item.instrument.tracking_difference_bps)}</Text><Text size="xs" c="dimmed">Error {item.instrument.tracking_error_bps === null ? '—' : percent(item.instrument.tracking_error_bps)}</Text></Stack> }] : []),
-    ...(show('enriched') ? [{ key: 'enriched', label: 'Last refreshed', sortable: true, render: (item: RankedInstrument) => <Text size="sm" c={item.instrument.enriched_at ? undefined : 'dimmed'}>{item.instrument.enriched_at ? new Date(item.instrument.enriched_at).toLocaleString() : '—'}</Text> }] : []),
+    ...(show('enriched') ? [{ key: 'enriched', label: 'Last refreshed', sortable: true, render: (item: RankedInstrument) => <Text size="sm" c={item.instrument.refreshed_at ? undefined : 'dimmed'}>{item.instrument.refreshed_at ? new Date(item.instrument.refreshed_at).toLocaleString() : '—'}</Text> }] : []),
     { key: 'actions', render: item => <TableActions><TableAction label={`Open ${item.instrument.isin} on justETF`} href={item.instrument.source_url} disabled={!item.instrument.source_url}><IconExternalLink size={14} /></TableAction><TableAction label={item.instrument.ucits && item.instrument.instrument_type === 'etf' ? `Find alternatives for ${item.instrument.isin}` : 'Alternatives are limited to comparable UCITS ETFs'} disabled={item.instrument.instrument_type !== 'etf' || item.instrument.data_status !== 'enriched' || !item.instrument.ucits || item.instrument.asset_class === 'other'} onClick={() => showAlternatives(item.instrument)}><IconArrowsExchange size={14} /></TableAction><TableAction label={`Refresh ${item.instrument.isin}`} disabled={lookingUp} onClick={() => void lookup(item.instrument.isin)}><IconRefresh size={14} /></TableAction><TableAction label={`Edit ${item.instrument.isin}`} onClick={() => open(item.instrument)}><IconPencil size={14} /></TableAction><TableAction label={`Delete ${item.instrument.isin}`} color="red" onClick={() => void remove(item.instrument)}><IconTrash size={14} /></TableAction></TableActions> },
   ];
   const [, setProfileField] = useProfile();
@@ -315,11 +315,11 @@ export function InstrumentFinderView({ instruments, reload }: { instruments: Ins
     return () => { active = false; };
   }, [similarity, similarTo?.id]);
   const staleCount = instruments.filter(i => {
-    if (i.data_status !== 'enriched' || !i.enriched_at) return false;
-    const parsed = new Date(i.enriched_at).getTime();
+    if (i.data_status !== 'enriched' || !i.refreshed_at) return false;
+    const parsed = new Date(i.refreshed_at).getTime();
     return Date.now() - parsed > 30 * 24 * 3600 * 1000;
   }).length;
-  const enrichedDates = instruments.map(i => i.enriched_at).filter((d): d is string => Boolean(d)).sort();
+  const enrichedDates = instruments.map(i => i.refreshed_at).filter((d): d is string => Boolean(d)).sort();
   const oldestRefreshDate = enrichedDates.length > 0 ? new Date(enrichedDates[0]).toLocaleDateString() : 'None';
 
   const [catalogToolsOpen, setCatalogToolsOpen] = useState(false);
