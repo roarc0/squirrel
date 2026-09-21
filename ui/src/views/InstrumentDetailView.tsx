@@ -202,7 +202,7 @@ export function InstrumentDetailView({
       const res = refresh
         ? await instrumentClient.refreshInstrumentPerformance({ isin })
         : await instrumentClient.getInstrumentPerformance({ isin });
-      setSeries((res.series ?? []).map(p => ({ date: p.date, change_bps: Number(p.changeBps) })));
+      setSeries((res.series ?? []).map((p: { date: string; changeBps: bigint | number | string }) => ({ date: p.date, change_bps: Number(p.changeBps) })));
       setFetchedAt(res.fetchedAt ?? '');
       setStatus('idle');
     } catch (e) {

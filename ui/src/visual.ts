@@ -29,7 +29,7 @@ export function performanceMood(percent: number) {
 
 export type ChartRange = '1w' | '2w' | '1m' | '3m' | '6m' | 'ytd' | '1y' | '3y' | '5y' | 'max';
 
-const chartRanges: Record<Exclude<ChartRange, 'max'>, { days?: number; months?: number }> = { '1w': { days: 7 }, '2w': { days: 14 }, '1m': { months: 1 }, '3m': { months: 3 }, '6m': { months: 6 }, '1y': { months: 12 }, '3y': { months: 36 }, '5y': { months: 60 } };
+const chartRanges: Record<Exclude<ChartRange, 'max' | 'ytd'>, { days?: number; months?: number }> = { '1w': { days: 7 }, '2w': { days: 14 }, '1m': { months: 1 }, '3m': { months: 3 }, '6m': { months: 6 }, '1y': { months: 12 }, '3y': { months: 36 }, '5y': { months: 60 } };
 
 export function filterChartRange<T extends { observed_on: string }>(items: T[], range: ChartRange) {
   if (range === 'max' || items.length === 0) return items;
