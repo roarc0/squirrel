@@ -1,0 +1,81 @@
+package service
+
+import (
+	"context"
+	"errors"
+
+	"connectrpc.com/connect"
+
+	"github.com/roarc0/squirrel/backend/internal/portfolio"
+	"github.com/roarc0/squirrel/backend/internal/store"
+	portv1 "github.com/roarc0/squirrel/proto/gen/go/v1"
+)
+
+func (s *Server) GetInstrumentPerformance(ctx context.Context, req *connect.Request[portv1.GetInstrumentPerformanceRequest]) (*connect.Response[portv1.GetInstrumentPerformanceResponse], error) {
+	isin := req.Msg.Isin
+
+	meta, err := s.store.GetPerformanceMeta(ctx, isin)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if errors.Is(err, store.ErrNotFound) {
+		points, fetchErr := s.justETF.FetchPerformance(ctx, isin)
+		if fetchErr != nil {
+			return nil, justETFConnectError(ctx, isin, fetchErr)
+		}
+		if saveErr := s.store.SavePerformance(ctx, isin, points); saveErr != nil {
+			return nil, connect.NewError(connect.CodeInternal, saveErr)
+		}
+		meta, err = s.store.GetPerformanceMeta(ctx, isin)
+		if err != nil {
+			return nil, connect.NewError(connect.CodeInternal, err)
+		}
+	}
+
+	points, err := s.store.GetPerformance(ctx, isin)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&portv1.GetInstrumentPerformanceResponse{
+		Series:     toProtoPerformancePoints(points),
+		FetchedAt:  meta.FetchedAt,
+		PointCount: int32(meta.PointCount),
+	}), nil
+}
+
+func (s *Server) RefreshInstrumentPerformance(ctx context.Context, req *connect.Request[portv1.RefreshInstrumentPerformanceRequest]) (*connect.Response[portv1.RefreshInstrumentPerformanceResponse], error) {
+	isin := req.Msg.Isin
+
+	points, err := s.justETF.FetchPerformance(ctx, isin)
+	if err != nil {
+		return nil, justETFConnectError(ctx, isin, err)
+	}
+
+	if err := s.store.SavePerformance(ctx, isin, points); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	meta, err := s.store.GetPerformanceMeta(ctx, isin)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&portv1.RefreshInstrumentPerformanceResponse{
+		Series:     toProtoPerformancePoints(points),
+		FetchedAt:  meta.FetchedAt,
+		PointCount: int32(meta.PointCount),
+	}), nil
+}
+
+func toProtoPerformancePoints(points []portfolio.PerformancePoint) []*portv1.PerformancePoint {
+	result := make([]*portv1.PerformancePoint, len(points))
+	for i, p := range points {
+		result[i] = &portv1.PerformancePoint{
+			Date:      p.Date,
+			ChangeBps: p.ChangeBPS,
+		}
+	}
+	return result
+}

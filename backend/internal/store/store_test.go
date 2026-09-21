@@ -140,7 +140,7 @@ func TestMigratesLegacyDatabase(t *testing.T) {
 	defer s.Close()
 	var version int64
 	var errVersion error
-	if version, errVersion = goose.GetDBVersion(s.db); errVersion != nil || version != 9 {
+	if version, errVersion = goose.GetDBVersion(s.db); errVersion != nil || version != 10 {
 		t.Fatalf("migration version=%d err=%v", version, errVersion)
 	}
 }

@@ -474,3 +474,14 @@ func ValidISIN(isin string) bool {
 	}
 	return sum%10 == 0
 }
+
+type PerformancePoint struct {
+	Date      string
+	ChangeBPS int64
+}
+
+type PerformanceMeta struct {
+	ISIN       string
+	FetchedAt  string
+	PointCount int
+}

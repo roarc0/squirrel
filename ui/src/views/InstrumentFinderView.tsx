@@ -93,7 +93,7 @@ const productLabel = (instrument: Instrument) => instrument.instrument_type === 
 const policyChip = (instrument: Instrument) => <Tooltip label={instrument.distribution === 'accumulating' ? 'Accumulating' : 'Distributing'}><Chip>{instrument.distribution === 'accumulating' ? 'Acc' : 'Dist'}</Chip></Tooltip>;
 type CatalogRow = RankedInstrument & { similarity?: InstrumentAlternative };
 
-export function InstrumentFinderView({ instruments, reload }: { instruments: Instrument[]; reload: () => Promise<void> }) {
+export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { instruments: Instrument[]; reload: () => Promise<void>; onOpenDetail?: (isin: string) => void }) {
   const [opened, setOpened] = useState(false); const [editing, setEditing] = useState<Instrument>(); const [ranked, setRanked] = useState<RankedInstrument[]>([]); const [error, setError] = useState('');
   const { confirmDelete, modal: confirmDeleteModal } = useConfirmDelete();
   const [lookupQuery, setLookupQuery] = useState(''); const [lookingUp, setLookingUp] = useState(false);
@@ -283,7 +283,7 @@ export function InstrumentFinderView({ instruments, reload }: { instruments: Ins
         </Stack>
       ) : '—',
     }] : []),
-    { key: 'name', label: 'Instrument', sortable: true, render: item => <><Text size="sm" fw={600} lh={1.3}>{item.instrument.name}</Text><Group gap={5} mt={3}><Chip size="xs">{productLabel(item.instrument)}</Chip>{item.instrument.ticker && <TickerBadge ticker={item.instrument.ticker} />}</Group></> },
+    { key: 'name', label: 'Instrument', sortable: true, render: item => <><Text size="sm" fw={600} lh={1.3} style={onOpenDetail ? { cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 } : undefined} onClick={onOpenDetail ? () => onOpenDetail(item.instrument.isin) : undefined}>{item.instrument.name}</Text><Group gap={5} mt={3}><Chip size="xs">{productLabel(item.instrument)}</Chip>{item.instrument.ticker && <TickerBadge ticker={item.instrument.ticker} />}</Group></> },
     ...(show('ticker') ? [{ key: 'ticker', label: 'Ticker', sortable: true, render: (item: CatalogRow) => <TickerBadge ticker={item.instrument.ticker} /> }] : []),
     ...(show('isin') ? [{ key: 'isin', label: 'ISIN', sortable: true, render: (item: CatalogRow) => <ISINBadge isin={item.instrument.isin} /> }] : []),
     ...(show('type') ? [{ key: 'type', label: 'Type', sortable: true, render: (item: RankedInstrument) => <Chip>{instrumentLabels[item.instrument.instrument_type]}</Chip> }] : []),

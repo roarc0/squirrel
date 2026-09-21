@@ -207,6 +207,31 @@ message ImportInstrumentsResponse {
   repeated Instrument instruments = 1;
 }
 
+message PerformancePoint {
+  string date = 1;
+  int64 change_bps = 2;
+}
+
+message GetInstrumentPerformanceRequest {
+  string isin = 1;
+}
+
+message GetInstrumentPerformanceResponse {
+  repeated PerformancePoint series = 1;
+  string fetched_at = 2;
+  int32 point_count = 3;
+}
+
+message RefreshInstrumentPerformanceRequest {
+  string isin = 1;
+}
+
+message RefreshInstrumentPerformanceResponse {
+  repeated PerformancePoint series = 1;
+  string fetched_at = 2;
+  int32 point_count = 3;
+}
+
 message DeleteInstrumentRequest {
   int64 id = 1;
 }
@@ -266,4 +291,8 @@ service InstrumentService {
   rpc SetContinuousRefresh(SetContinuousRefreshRequest) returns (SetContinuousRefreshResponse);
   // Stream real-time ticks from the continuous background ETF refresh loop.
   rpc WatchContinuousRefresh(WatchContinuousRefreshRequest) returns (stream RefreshTick);
+  // Get historical daily performance series for an instrument (fetches from justETF on first call).
+  rpc GetInstrumentPerformance(GetInstrumentPerformanceRequest) returns (GetInstrumentPerformanceResponse);
+  // Re-fetch and replace performance data from justETF for an instrument.
+  rpc RefreshInstrumentPerformance(RefreshInstrumentPerformanceRequest) returns (RefreshInstrumentPerformanceResponse);
 }

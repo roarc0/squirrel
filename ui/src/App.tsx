@@ -79,6 +79,7 @@ import { OverviewView } from './views/OverviewView';
 import { AccountsView } from './views/AccountsView';
 import { InvestmentsView } from './views/InvestmentsView';
 import { InstrumentFinderView } from './views/InstrumentFinderView';
+import { InstrumentDetailView } from './views/InstrumentDetailView';
 import { DiagnosticsView } from './views/DiagnosticsView';
 import { AIConsultantView } from './views/AIConsultantView';
 import { DraftPortfoliosView } from './views/DraftPortfoliosView';
@@ -657,7 +658,20 @@ export default function App() {
                 onSubtabChange={(subtab) => handleSubtabChange('investments', subtab)}
               />
             </Tabs.Panel>
-            <Tabs.Panel value="instruments" className="tab-content"><InstrumentFinder instruments={data.instruments} reload={load} /></Tabs.Panel>
+            <Tabs.Panel value="instruments" className="tab-content">
+              {route.subtab && /^[A-Z]{2}[A-Z0-9]{10}$/.test(route.subtab)
+                ? <InstrumentDetailView
+                    isin={route.subtab}
+                    instrument={data.instruments.find(i => i.isin === route.subtab)}
+                    onBack={() => handleSubtabChange('instruments', '')}
+                  />
+                : <InstrumentFinderView
+                    instruments={data.instruments}
+                    reload={load}
+                    onOpenDetail={isin => handleSubtabChange('instruments', isin)}
+                  />
+              }
+            </Tabs.Panel>
             <Tabs.Panel value="market" className="tab-content"><MarketContextView rates={data.rates} reload={load} /></Tabs.Panel>
             <Tabs.Panel value="diagnostics" className="tab-content">
               <Overview

@@ -27,7 +27,7 @@ export function performanceMood(percent: number) {
   return { emoji: '🚀', label: 'Excellent' };
 }
 
-export type ChartRange = '1w' | '2w' | '1m' | '3m' | '6m' | '1y' | '3y' | '5y' | 'max';
+export type ChartRange = '1w' | '2w' | '1m' | '3m' | '6m' | 'ytd' | '1y' | '3y' | '5y' | 'max';
 
 const chartRanges: Record<Exclude<ChartRange, 'max'>, { days?: number; months?: number }> = { '1w': { days: 7 }, '2w': { days: 14 }, '1m': { months: 1 }, '3m': { months: 3 }, '6m': { months: 6 }, '1y': { months: 12 }, '3y': { months: 36 }, '5y': { months: 60 } };
 

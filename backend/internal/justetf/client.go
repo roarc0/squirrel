@@ -28,6 +28,9 @@ type Client struct {
 	profileInterval time.Duration
 	profileMu       sync.Mutex
 	nextProfile     time.Time
+	chartInterval   time.Duration
+	chartMu         sync.Mutex
+	nextChart       time.Time
 }
 
 func New(profileInterval ...time.Duration) *Client {
@@ -35,7 +38,7 @@ func New(profileInterval ...time.Duration) *Client {
 	if len(profileInterval) > 0 {
 		interval = profileInterval[0]
 	}
-	return &Client{baseURL: defaultBaseURL, timeout: 20 * time.Second, profileInterval: interval}
+	return &Client{baseURL: defaultBaseURL, timeout: 20 * time.Second, profileInterval: interval, chartInterval: 1 * time.Second}
 }
 
 func newHTTPClient(timeout time.Duration) *http.Client {
@@ -71,6 +74,37 @@ func (c *Client) backOffProfiles(delay time.Duration) {
 	until := time.Now().Add(delay)
 	if c.nextProfile.Before(until) {
 		c.nextProfile = until
+	}
+}
+
+func (c *Client) waitForChart(ctx context.Context) error {
+	if c.chartInterval <= 0 {
+		return nil
+	}
+	c.chartMu.Lock()
+	now := time.Now()
+	start := maxTime(now, c.nextChart)
+	c.nextChart = start.Add(c.chartInterval)
+	c.chartMu.Unlock()
+	if !start.After(now) {
+		return nil
+	}
+	timer := time.NewTimer(time.Until(start))
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func (c *Client) backOffChart(delay time.Duration) {
+	c.chartMu.Lock()
+	defer c.chartMu.Unlock()
+	until := time.Now().Add(delay)
+	if c.nextChart.Before(until) {
+		c.nextChart = until
 	}
 }
 

@@ -75,6 +75,12 @@ const (
 	// InstrumentServiceWatchContinuousRefreshProcedure is the fully-qualified name of the
 	// InstrumentService's WatchContinuousRefresh RPC.
 	InstrumentServiceWatchContinuousRefreshProcedure = "/v1.InstrumentService/WatchContinuousRefresh"
+	// InstrumentServiceGetInstrumentPerformanceProcedure is the fully-qualified name of the
+	// InstrumentService's GetInstrumentPerformance RPC.
+	InstrumentServiceGetInstrumentPerformanceProcedure = "/v1.InstrumentService/GetInstrumentPerformance"
+	// InstrumentServiceRefreshInstrumentPerformanceProcedure is the fully-qualified name of the
+	// InstrumentService's RefreshInstrumentPerformance RPC.
+	InstrumentServiceRefreshInstrumentPerformanceProcedure = "/v1.InstrumentService/RefreshInstrumentPerformance"
 )
 
 // InstrumentServiceClient is a client for the v1.InstrumentService service.
@@ -107,6 +113,10 @@ type InstrumentServiceClient interface {
 	SetContinuousRefresh(context.Context, *connect.Request[v1.SetContinuousRefreshRequest]) (*connect.Response[v1.SetContinuousRefreshResponse], error)
 	// Stream real-time ticks from the continuous background ETF refresh loop.
 	WatchContinuousRefresh(context.Context, *connect.Request[v1.WatchContinuousRefreshRequest]) (*connect.ServerStreamForClient[v1.RefreshTick], error)
+	// Get historical daily performance series for an instrument (fetches from justETF on first call).
+	GetInstrumentPerformance(context.Context, *connect.Request[v1.GetInstrumentPerformanceRequest]) (*connect.Response[v1.GetInstrumentPerformanceResponse], error)
+	// Re-fetch and replace performance data from justETF for an instrument.
+	RefreshInstrumentPerformance(context.Context, *connect.Request[v1.RefreshInstrumentPerformanceRequest]) (*connect.Response[v1.RefreshInstrumentPerformanceResponse], error)
 }
 
 // NewInstrumentServiceClient constructs a client for the v1.InstrumentService service. By default,
@@ -204,25 +214,39 @@ func NewInstrumentServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(instrumentServiceMethods.ByName("WatchContinuousRefresh")),
 			connect.WithClientOptions(opts...),
 		),
+		getInstrumentPerformance: connect.NewClient[v1.GetInstrumentPerformanceRequest, v1.GetInstrumentPerformanceResponse](
+			httpClient,
+			baseURL+InstrumentServiceGetInstrumentPerformanceProcedure,
+			connect.WithSchema(instrumentServiceMethods.ByName("GetInstrumentPerformance")),
+			connect.WithClientOptions(opts...),
+		),
+		refreshInstrumentPerformance: connect.NewClient[v1.RefreshInstrumentPerformanceRequest, v1.RefreshInstrumentPerformanceResponse](
+			httpClient,
+			baseURL+InstrumentServiceRefreshInstrumentPerformanceProcedure,
+			connect.WithSchema(instrumentServiceMethods.ByName("RefreshInstrumentPerformance")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // instrumentServiceClient implements InstrumentServiceClient.
 type instrumentServiceClient struct {
-	listInstruments           *connect.Client[v1.ListInstrumentsRequest, v1.ListInstrumentsResponse]
-	searchInstruments         *connect.Client[v1.SearchInstrumentsRequest, v1.SearchInstrumentsResponse]
-	syncInstrumentCatalog     *connect.Client[v1.SyncInstrumentCatalogRequest, v1.SyncInstrumentCatalogResponse]
-	enrichInstrumentCatalog   *connect.Client[v1.EnrichInstrumentCatalogRequest, v1.EnrichInstrumentCatalogResponse]
-	streamInstrumentCatalog   *connect.Client[v1.StreamInstrumentCatalogRequest, v1.EnrichmentProgress]
-	createInstrument          *connect.Client[v1.CreateInstrumentRequest, v1.CreateInstrumentResponse]
-	lookupInstrument          *connect.Client[v1.LookupInstrumentRequest, v1.LookupInstrumentResponse]
-	importInstruments         *connect.Client[v1.ImportInstrumentsRequest, v1.ImportInstrumentsResponse]
-	deleteInstrument          *connect.Client[v1.DeleteInstrumentRequest, v1.DeleteInstrumentResponse]
-	starInstrument            *connect.Client[v1.StarInstrumentRequest, v1.StarInstrumentResponse]
-	getInstrumentAlternatives *connect.Client[v1.GetInstrumentAlternativesRequest, v1.GetInstrumentAlternativesResponse]
-	rankInstruments           *connect.Client[v1.RankInstrumentsRequest, v1.RankInstrumentsResponse]
-	setContinuousRefresh      *connect.Client[v1.SetContinuousRefreshRequest, v1.SetContinuousRefreshResponse]
-	watchContinuousRefresh    *connect.Client[v1.WatchContinuousRefreshRequest, v1.RefreshTick]
+	listInstruments              *connect.Client[v1.ListInstrumentsRequest, v1.ListInstrumentsResponse]
+	searchInstruments            *connect.Client[v1.SearchInstrumentsRequest, v1.SearchInstrumentsResponse]
+	syncInstrumentCatalog        *connect.Client[v1.SyncInstrumentCatalogRequest, v1.SyncInstrumentCatalogResponse]
+	enrichInstrumentCatalog      *connect.Client[v1.EnrichInstrumentCatalogRequest, v1.EnrichInstrumentCatalogResponse]
+	streamInstrumentCatalog      *connect.Client[v1.StreamInstrumentCatalogRequest, v1.EnrichmentProgress]
+	createInstrument             *connect.Client[v1.CreateInstrumentRequest, v1.CreateInstrumentResponse]
+	lookupInstrument             *connect.Client[v1.LookupInstrumentRequest, v1.LookupInstrumentResponse]
+	importInstruments            *connect.Client[v1.ImportInstrumentsRequest, v1.ImportInstrumentsResponse]
+	deleteInstrument             *connect.Client[v1.DeleteInstrumentRequest, v1.DeleteInstrumentResponse]
+	starInstrument               *connect.Client[v1.StarInstrumentRequest, v1.StarInstrumentResponse]
+	getInstrumentAlternatives    *connect.Client[v1.GetInstrumentAlternativesRequest, v1.GetInstrumentAlternativesResponse]
+	rankInstruments              *connect.Client[v1.RankInstrumentsRequest, v1.RankInstrumentsResponse]
+	setContinuousRefresh         *connect.Client[v1.SetContinuousRefreshRequest, v1.SetContinuousRefreshResponse]
+	watchContinuousRefresh       *connect.Client[v1.WatchContinuousRefreshRequest, v1.RefreshTick]
+	getInstrumentPerformance     *connect.Client[v1.GetInstrumentPerformanceRequest, v1.GetInstrumentPerformanceResponse]
+	refreshInstrumentPerformance *connect.Client[v1.RefreshInstrumentPerformanceRequest, v1.RefreshInstrumentPerformanceResponse]
 }
 
 // ListInstruments calls v1.InstrumentService.ListInstruments.
@@ -295,6 +319,16 @@ func (c *instrumentServiceClient) WatchContinuousRefresh(ctx context.Context, re
 	return c.watchContinuousRefresh.CallServerStream(ctx, req)
 }
 
+// GetInstrumentPerformance calls v1.InstrumentService.GetInstrumentPerformance.
+func (c *instrumentServiceClient) GetInstrumentPerformance(ctx context.Context, req *connect.Request[v1.GetInstrumentPerformanceRequest]) (*connect.Response[v1.GetInstrumentPerformanceResponse], error) {
+	return c.getInstrumentPerformance.CallUnary(ctx, req)
+}
+
+// RefreshInstrumentPerformance calls v1.InstrumentService.RefreshInstrumentPerformance.
+func (c *instrumentServiceClient) RefreshInstrumentPerformance(ctx context.Context, req *connect.Request[v1.RefreshInstrumentPerformanceRequest]) (*connect.Response[v1.RefreshInstrumentPerformanceResponse], error) {
+	return c.refreshInstrumentPerformance.CallUnary(ctx, req)
+}
+
 // InstrumentServiceHandler is an implementation of the v1.InstrumentService service.
 type InstrumentServiceHandler interface {
 	// List saved instruments in the user catalog.
@@ -325,6 +359,10 @@ type InstrumentServiceHandler interface {
 	SetContinuousRefresh(context.Context, *connect.Request[v1.SetContinuousRefreshRequest]) (*connect.Response[v1.SetContinuousRefreshResponse], error)
 	// Stream real-time ticks from the continuous background ETF refresh loop.
 	WatchContinuousRefresh(context.Context, *connect.Request[v1.WatchContinuousRefreshRequest], *connect.ServerStream[v1.RefreshTick]) error
+	// Get historical daily performance series for an instrument (fetches from justETF on first call).
+	GetInstrumentPerformance(context.Context, *connect.Request[v1.GetInstrumentPerformanceRequest]) (*connect.Response[v1.GetInstrumentPerformanceResponse], error)
+	// Re-fetch and replace performance data from justETF for an instrument.
+	RefreshInstrumentPerformance(context.Context, *connect.Request[v1.RefreshInstrumentPerformanceRequest]) (*connect.Response[v1.RefreshInstrumentPerformanceResponse], error)
 }
 
 // NewInstrumentServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -418,6 +456,18 @@ func NewInstrumentServiceHandler(svc InstrumentServiceHandler, opts ...connect.H
 		connect.WithSchema(instrumentServiceMethods.ByName("WatchContinuousRefresh")),
 		connect.WithHandlerOptions(opts...),
 	)
+	instrumentServiceGetInstrumentPerformanceHandler := connect.NewUnaryHandler(
+		InstrumentServiceGetInstrumentPerformanceProcedure,
+		svc.GetInstrumentPerformance,
+		connect.WithSchema(instrumentServiceMethods.ByName("GetInstrumentPerformance")),
+		connect.WithHandlerOptions(opts...),
+	)
+	instrumentServiceRefreshInstrumentPerformanceHandler := connect.NewUnaryHandler(
+		InstrumentServiceRefreshInstrumentPerformanceProcedure,
+		svc.RefreshInstrumentPerformance,
+		connect.WithSchema(instrumentServiceMethods.ByName("RefreshInstrumentPerformance")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/v1.InstrumentService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case InstrumentServiceListInstrumentsProcedure:
@@ -448,6 +498,10 @@ func NewInstrumentServiceHandler(svc InstrumentServiceHandler, opts ...connect.H
 			instrumentServiceSetContinuousRefreshHandler.ServeHTTP(w, r)
 		case InstrumentServiceWatchContinuousRefreshProcedure:
 			instrumentServiceWatchContinuousRefreshHandler.ServeHTTP(w, r)
+		case InstrumentServiceGetInstrumentPerformanceProcedure:
+			instrumentServiceGetInstrumentPerformanceHandler.ServeHTTP(w, r)
+		case InstrumentServiceRefreshInstrumentPerformanceProcedure:
+			instrumentServiceRefreshInstrumentPerformanceHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -511,4 +565,12 @@ func (UnimplementedInstrumentServiceHandler) SetContinuousRefresh(context.Contex
 
 func (UnimplementedInstrumentServiceHandler) WatchContinuousRefresh(context.Context, *connect.Request[v1.WatchContinuousRefreshRequest], *connect.ServerStream[v1.RefreshTick]) error {
 	return connect.NewError(connect.CodeUnimplemented, errors.New("v1.InstrumentService.WatchContinuousRefresh is not implemented"))
+}
+
+func (UnimplementedInstrumentServiceHandler) GetInstrumentPerformance(context.Context, *connect.Request[v1.GetInstrumentPerformanceRequest]) (*connect.Response[v1.GetInstrumentPerformanceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.InstrumentService.GetInstrumentPerformance is not implemented"))
+}
+
+func (UnimplementedInstrumentServiceHandler) RefreshInstrumentPerformance(context.Context, *connect.Request[v1.RefreshInstrumentPerformanceRequest]) (*connect.Response[v1.RefreshInstrumentPerformanceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.InstrumentService.RefreshInstrumentPerformance is not implemented"))
 }
