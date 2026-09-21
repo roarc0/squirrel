@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -16,9 +18,43 @@ func (c *Client) FetchPerformance(ctx context.Context, isin string) ([]portfolio
 	if err := c.waitForChart(ctx); err != nil {
 		return nil, err
 	}
-	client := newHTTPClient(c.timeout)
-	chartURL := c.baseURL + "/api/etfs/" + url.PathEscape(isin) + "/performance-chart?valuesType=RELATIVE_CHANGE&currency=EUR&reduceData=false&includeDividends=true"
-	body, err := get(ctx, client, chartURL)
+	httpClient := newHTTPClient(c.timeout)
+	chartURL := c.baseURL + "/api/etfs/" + url.PathEscape(isin) + "/performance-chart?valuesType=RELATIVE_CHANGE&currency=EUR&locale=en&reduceData=false&includeDividends=true"
+
+	parsedURL, err := url.Parse(chartURL)
+	if err != nil {
+		return nil, err
+	}
+
+	// Warm request: establishes the XSRF-TOKEN cookie (response is always 400 on first hit).
+	if warmReq, err2 := http.NewRequestWithContext(ctx, http.MethodGet, chartURL, nil); err2 == nil {
+		requestHeaders(warmReq)
+		if warmResp, err2 := httpClient.Do(warmReq); err2 == nil {
+			io.Copy(io.Discard, warmResp.Body) //nolint:errcheck
+			warmResp.Body.Close()
+		}
+	}
+
+	// Read XSRF token planted by the warm request.
+	var xsrfToken string
+	for _, cookie := range httpClient.Jar.Cookies(parsedURL) {
+		if cookie.Name == "XSRF-TOKEN" {
+			xsrfToken = cookie.Value
+			break
+		}
+	}
+
+	// Actual request — cookie jar sends XSRF-TOKEN cookie, header mirrors it.
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, chartURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	requestHeaders(req)
+	if xsrfToken != "" {
+		req.Header.Set("X-XSRF-TOKEN", xsrfToken)
+	}
+
+	body, err := do(httpClient, req)
 	if err != nil {
 		if errors.Is(err, ErrRateLimited) {
 			c.backOffChart(2 * time.Minute)
