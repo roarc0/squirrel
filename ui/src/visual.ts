@@ -34,6 +34,10 @@ const chartRanges: Record<Exclude<ChartRange, 'max' | 'ytd'>, { days?: number; m
 export function filterChartRange<T extends { observed_on: string }>(items: T[], range: ChartRange) {
   if (range === 'max' || items.length === 0) return items;
   const toIso = (d: string) => (d.length === 7 ? `${d}-01T00:00:00Z` : d.endsWith('Z') ? d : `${d}T00:00:00Z`);
+  if (range === 'ytd') {
+    const jan1 = new Date(Date.UTC(new Date().getUTCFullYear(), 0, 1)).getTime();
+    return items.filter(item => Date.parse(toIso(item.observed_on)) >= jan1);
+  }
   const lastIso = toIso(items.at(-1)!.observed_on);
   const cutoff = new Date(lastIso);
   const offset = chartRanges[range];
