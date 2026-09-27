@@ -324,6 +324,61 @@ export const ImportInstrumentsResponse = /*@__PURE__*/ proto3.makeMessageType(
 );
 
 /**
+ * @generated from message v1.PerformancePoint
+ */
+export const PerformancePoint = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.PerformancePoint",
+  () => [
+    { no: 1, name: "date", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "change_bps", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+  ],
+);
+
+/**
+ * @generated from message v1.GetInstrumentPerformanceRequest
+ */
+export const GetInstrumentPerformanceRequest = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.GetInstrumentPerformanceRequest",
+  () => [
+    { no: 1, name: "isin", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ],
+);
+
+/**
+ * @generated from message v1.GetInstrumentPerformanceResponse
+ */
+export const GetInstrumentPerformanceResponse = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.GetInstrumentPerformanceResponse",
+  () => [
+    { no: 1, name: "series", kind: "message", T: PerformancePoint, repeated: true },
+    { no: 2, name: "fetched_at", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "point_count", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+  ],
+);
+
+/**
+ * @generated from message v1.RefreshInstrumentPerformanceRequest
+ */
+export const RefreshInstrumentPerformanceRequest = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.RefreshInstrumentPerformanceRequest",
+  () => [
+    { no: 1, name: "isin", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ],
+);
+
+/**
+ * @generated from message v1.RefreshInstrumentPerformanceResponse
+ */
+export const RefreshInstrumentPerformanceResponse = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.RefreshInstrumentPerformanceResponse",
+  () => [
+    { no: 1, name: "series", kind: "message", T: PerformancePoint, repeated: true },
+    { no: 2, name: "fetched_at", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "point_count", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+  ],
+);
+
+/**
  * @generated from message v1.DeleteInstrumentRequest
  */
 export const DeleteInstrumentRequest = /*@__PURE__*/ proto3.makeMessageType(

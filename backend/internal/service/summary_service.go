@@ -170,16 +170,6 @@ func (s *Server) GetGeoRadar(ctx context.Context, req *connect.Request[portv1.Ge
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	instrumentsList, err := s.store.ListInstruments(ctx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
-	instrumentsMap := make(map[int64]portfolio.Instrument, len(instrumentsList))
-	for _, inst := range instrumentsList {
-		instrumentsMap[inst.ID] = inst
-	}
-
 	metrics, err := s.store.ListMarketMetrics(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -194,7 +184,18 @@ func (s *Server) GetGeoRadar(ctx context.Context, req *connect.Request[portv1.Ge
 			break
 		}
 	}
-	if eurUsdRate <= 0 {
+	needsUSD := false
+	for _, account := range accounts {
+		if !account.Archived && account.Currency == "USD" && account.BalanceMinor > 0 && req.Msg.GetIncludeCash() {
+			needsUSD = true
+		}
+	}
+	for _, holding := range holdings {
+		if holding.Currency == "USD" {
+			needsUSD = true
+		}
+	}
+	if eurUsdRate <= 0 && needsUSD {
 		market, err := s.ecb.FetchEURUSD(ctx, 1)
 		if err != nil {
 			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("EUR/USD market data unavailable: %w", err))
@@ -210,7 +211,7 @@ func (s *Server) GetGeoRadar(ctx context.Context, req *connect.Request[portv1.Ge
 	}
 
 	includeCash := req.Msg.GetIncludeCash()
-	radar := portfolio.CalculateGeoRadar(accounts, holdings, instrumentsMap, eurUsdRate, includeCash)
+	radar := portfolio.CalculateGeoRadar(accounts, holdings, eurUsdRate, includeCash)
 
 	res := &portv1.GetGeoRadarResponse{
 		CurrentEurUsdRate:       radar.CurrentEURUSDRate,

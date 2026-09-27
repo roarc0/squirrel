@@ -1,3 +1,4 @@
+import { holdingPatch } from './utils/holdingPatch';
 import { createPromiseClient } from '@connectrpc/connect';
 import type { Interceptor } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-web';
@@ -498,19 +499,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
       if (method === 'PUT') {
         const res = await holdingClient.updateHolding({
           id,
-          holding: {
-            id,
-            accountId: bigint(bodyData.account_id),
-            instrumentId: bigint(bodyData.instrument_id),
-            investedMinor: bigint(bodyData.invested_minor),
-            valueMinor: bigint(bodyData.value_minor),
-            taxBps: bigint(bodyData.tax_bps),
-            plannedBps: bigint(bodyData.planned_bps),
-            isPac: Boolean(bodyData.is_pac),
-            pacBps: bigint(bodyData.pac_bps),
-            pacFrequency: bodyData.pac_frequency || 'monthly',
-            notes: bodyData.notes ?? '',
-          } as any,
+          holding: { ...holdingPatch(bodyData), id } as any,
         });
         return protoToHolding(res.holding) as unknown as T;
       }
@@ -967,7 +956,7 @@ export type AIConfigResponse = {
 };
 
 export async function getAIConfig(): Promise<AIConfigResponse> {
-  const res = await fetch('/api/config/ai');
+  const res = await fetch('/api/config/ai', { headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {} });
   if (!res.ok) throw new Error(`getAIConfig: ${res.status}`);
   return res.json();
 }
@@ -981,7 +970,7 @@ export async function updateAIConfig(patch: {
 }): Promise<AIConfigResponse> {
   const res = await fetch('/api/config/ai', {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}) },
     body: JSON.stringify(patch),
   });
   if (!res.ok) {
@@ -992,6 +981,8 @@ export async function updateAIConfig(patch: {
 }
 
 export type BtpBond = {
+  analytics_available: boolean;
+  analytics_note: string;
   isin: string;
   name: string;
   bond_type: string;
@@ -1026,6 +1017,8 @@ export async function listBtps(params?: { query?: string; bondType?: string; sta
     btps: (res.btps ?? []).map((b: any) => ({
       isin: b.isin ?? '',
       name: b.name ?? '',
+      analytics_available: Boolean(b.analyticsAvailable),
+      analytics_note: b.analyticsNote ?? '',
       bond_type: b.bondType ?? '',
       price: num(b.price),
       coupon: num(b.coupon),

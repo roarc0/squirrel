@@ -497,3 +497,57 @@ func mustOpenStore(t *testing.T) *store.Store {
 	}
 	return data
 }
+
+func TestActiveAllocationsAndIndependentContributionEdits(t *testing.T) {
+	data, err := store.Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer data.Close()
+	ctx := context.Background()
+	active := portfolio.Account{Name: "Active", Currency: "EUR"}
+	archived := portfolio.Account{Name: "Archived", Currency: "EUR", Archived: true}
+	for _, account := range []*portfolio.Account{&active, &archived} {
+		if err := data.SaveAccount(ctx, account, ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	inst := portfolio.Instrument{ISIN: "IE00B4L5Y983", Name: "World", Distribution: "accumulating", Replication: "physical_full", FundCurrency: "EUR"}
+	if err := data.SaveInstrument(ctx, &inst); err != nil {
+		t.Fatal(err)
+	}
+	holding := portfolio.Holding{AccountID: active.ID, InstrumentID: inst.ID, ValueMinor: 10000, InvestedMinor: 9000, PlannedBPS: 10000, PACBPS: 6000, Notes: "keep"}
+	if err := data.SaveHolding(ctx, &holding); err != nil {
+		t.Fatal(err)
+	}
+	if err := data.SaveHolding(ctx, &portfolio.Holding{AccountID: archived.ID, InstrumentID: inst.ID, ValueMinor: 10000}); err != nil {
+		t.Fatal(err)
+	}
+	hs, err := data.ListHoldings(ctx, "")
+	if err != nil || len(hs) != 1 || hs[0].ActualBPS != 10000 {
+		t.Fatalf("archived holdings distort allocations: %+v, %v", hs, err)
+	}
+	// Upserting an existing 60% PAC must not count it twice.
+	upsert := holding
+	upsert.ID = 0
+	if err := data.SaveHolding(ctx, &upsert); err != nil || upsert.ID != holding.ID {
+		t.Fatalf("PAC upsert: %v", err)
+	}
+	srv := &Server{store: data, baseCurrency: "EUR"}
+	_, err = srv.UpdateHolding(ctx, connect.NewRequest(&portv1.UpdateHoldingRequest{Id: holding.ID, Holding: &portv1.HoldingPatch{PlannedBps: proto.Int64(5000)}}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := data.GetHolding(ctx, holding.ID, "")
+	if err != nil || got.PACBPS != 6000 || got.PlannedBPS != 5000 || got.ValueMinor != 10000 || got.Notes != "keep" {
+		t.Fatalf("target edit changed other fields: %+v, %v", got, err)
+	}
+	_, err = srv.UpdateHolding(ctx, connect.NewRequest(&portv1.UpdateHoldingRequest{Id: holding.ID, Holding: &portv1.HoldingPatch{PacBps: proto.Int64(0)}}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err = data.GetHolding(ctx, holding.ID, "")
+	if err != nil || got.IsPAC || got.PACBPS != 0 || got.PlannedBPS != 5000 {
+		t.Fatalf("stopping PAC changed target: %+v, %v", got, err)
+	}
+}

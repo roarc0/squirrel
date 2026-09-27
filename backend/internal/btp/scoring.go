@@ -74,7 +74,7 @@ func FitYieldCurve(btps []BTP) ([3]float64, bool) {
 	type pt struct{ x, y float64 }
 	var pts []pt
 	for _, b := range btps {
-		if b.IsTraded && b.DurationMod > 0.1 && b.YTMNet > 0.01 && b.MaturityYears > 0.1 {
+		if b.AnalyticsAvailable && b.IsTraded && b.DurationMod > 0.1 && b.YTMNet > 0.01 && b.MaturityYears > 0.1 {
 			pts = append(pts, pt{b.DurationMod, b.YTMNet})
 		}
 	}
@@ -250,7 +250,7 @@ func ComputeAdvancedScores(btps []BTP, cfg ScoringConfig) []BTP {
 
 	var fixBonds, zcBonds, otherBonds []BTP
 	for _, b := range btps {
-		if !b.IsTraded || b.YTMNet <= 0 || b.MaturityYears <= 0.1 || b.DurationMod <= 0 {
+		if !b.AnalyticsAvailable || !b.IsTraded || b.YTMNet <= 0 || b.MaturityYears <= 0.1 || b.DurationMod <= 0 {
 			continue
 		}
 		switch b.BondType {

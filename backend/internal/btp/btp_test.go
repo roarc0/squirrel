@@ -3,6 +3,7 @@ package btp
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -43,6 +44,11 @@ func TestCalculateMetricsAndScores(t *testing.T) {
 	}
 
 	b.CalculateMetrics(0.125, refTime)
+	if b.AnalyticsAvailable || b.YTMNet != 0 || b.Score != 0 {
+		t.Fatal("coupon bond without a schedule must not expose analytics")
+	}
+	b.Name, b.BondType, b.Coupon = "BTP ZC", BondTypeZeroCoupon, 0
+	b.CalculateMetrics(0.125, refTime)
 
 	if !b.IsTraded {
 		t.Fatalf("expected BTP to be traded")
@@ -82,4 +88,36 @@ func TestScraper(t *testing.T) {
 		t.Fatalf("expected BTPs from ScrapeAll, got 0")
 	}
 	t.Logf("Successfully scraped %d BTPs", len(btps))
+}
+
+func TestZeroCouponUsesExactMaturityAndGrossDuration(t *testing.T) {
+	ref := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	b := BTP{Name: "Zero", BondType: BondTypeZeroCoupon, Price: 95, Coupon: 0, ExpiryDate: "01/01/2027"}
+	b.CalculateMetrics(0.125, ref)
+	years := 365.0 / 365.25
+	expectedYield := (math.Pow(100.0/95, 1/years) - 1) * 100
+	if !b.AnalyticsAvailable || math.Abs(b.YTMGross-expectedYield) > 0.005 {
+		t.Fatalf("incorrect yield: %+v", b)
+	}
+	expectedDuration := years / (1 + expectedYield/100)
+	if math.Abs(b.DurationMod-expectedDuration) > 0.005 {
+		t.Fatalf("duration not based on gross yield: %+v", b)
+	}
+	firstYield := b.YTMGross
+	b.CalculateMetrics(0, ref.AddDate(0, 3, 0))
+	if b.YTMGross == firstYield || b.YTMGross != b.YTMNet {
+		t.Fatal("exact timing and zero tax must be respected")
+	}
+	for _, kind := range []BondType{BondTypeFixed, BondTypeValore, BondTypeFutura, BondTypeItalia, BondTypeInflation, BondTypeFloating} {
+		b.BondType, b.Score, b.YTMNet = kind, 99, 20
+		b.CalculateMetrics(0.125, ref)
+		if b.AnalyticsAvailable || b.Score != 0 || b.YTMNet != 0 || b.TierRank != "N/A" {
+			t.Fatalf("unsupported analytics survive: %+v", b)
+		}
+	}
+	b.BondType = BondTypeZeroCoupon
+	b.CalculateMetrics(0.125, ref.AddDate(2, 0, 0))
+	if b.IsTraded || b.AnalyticsAvailable {
+		t.Fatal("matured bond must not be ranked")
+	}
 }

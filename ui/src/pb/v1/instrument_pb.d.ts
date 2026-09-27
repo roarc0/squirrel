@@ -999,6 +999,151 @@ export declare class ImportInstrumentsResponse extends Message<ImportInstruments
 }
 
 /**
+ * @generated from message v1.PerformancePoint
+ */
+export declare class PerformancePoint extends Message<PerformancePoint> {
+  /**
+   * @generated from field: string date = 1;
+   */
+  date: string;
+
+  /**
+   * @generated from field: int64 change_bps = 2;
+   */
+  changeBps: bigint;
+
+  constructor(data?: PartialMessage<PerformancePoint>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.PerformancePoint";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): PerformancePoint;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): PerformancePoint;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): PerformancePoint;
+
+  static equals(a: PerformancePoint | PlainMessage<PerformancePoint> | undefined, b: PerformancePoint | PlainMessage<PerformancePoint> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.GetInstrumentPerformanceRequest
+ */
+export declare class GetInstrumentPerformanceRequest extends Message<GetInstrumentPerformanceRequest> {
+  /**
+   * @generated from field: string isin = 1;
+   */
+  isin: string;
+
+  constructor(data?: PartialMessage<GetInstrumentPerformanceRequest>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.GetInstrumentPerformanceRequest";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetInstrumentPerformanceRequest;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetInstrumentPerformanceRequest;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetInstrumentPerformanceRequest;
+
+  static equals(a: GetInstrumentPerformanceRequest | PlainMessage<GetInstrumentPerformanceRequest> | undefined, b: GetInstrumentPerformanceRequest | PlainMessage<GetInstrumentPerformanceRequest> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.GetInstrumentPerformanceResponse
+ */
+export declare class GetInstrumentPerformanceResponse extends Message<GetInstrumentPerformanceResponse> {
+  /**
+   * @generated from field: repeated v1.PerformancePoint series = 1;
+   */
+  series: PerformancePoint[];
+
+  /**
+   * @generated from field: string fetched_at = 2;
+   */
+  fetchedAt: string;
+
+  /**
+   * @generated from field: int32 point_count = 3;
+   */
+  pointCount: number;
+
+  constructor(data?: PartialMessage<GetInstrumentPerformanceResponse>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.GetInstrumentPerformanceResponse";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetInstrumentPerformanceResponse;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetInstrumentPerformanceResponse;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetInstrumentPerformanceResponse;
+
+  static equals(a: GetInstrumentPerformanceResponse | PlainMessage<GetInstrumentPerformanceResponse> | undefined, b: GetInstrumentPerformanceResponse | PlainMessage<GetInstrumentPerformanceResponse> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.RefreshInstrumentPerformanceRequest
+ */
+export declare class RefreshInstrumentPerformanceRequest extends Message<RefreshInstrumentPerformanceRequest> {
+  /**
+   * @generated from field: string isin = 1;
+   */
+  isin: string;
+
+  constructor(data?: PartialMessage<RefreshInstrumentPerformanceRequest>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.RefreshInstrumentPerformanceRequest";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RefreshInstrumentPerformanceRequest;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RefreshInstrumentPerformanceRequest;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RefreshInstrumentPerformanceRequest;
+
+  static equals(a: RefreshInstrumentPerformanceRequest | PlainMessage<RefreshInstrumentPerformanceRequest> | undefined, b: RefreshInstrumentPerformanceRequest | PlainMessage<RefreshInstrumentPerformanceRequest> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.RefreshInstrumentPerformanceResponse
+ */
+export declare class RefreshInstrumentPerformanceResponse extends Message<RefreshInstrumentPerformanceResponse> {
+  /**
+   * @generated from field: repeated v1.PerformancePoint series = 1;
+   */
+  series: PerformancePoint[];
+
+  /**
+   * @generated from field: string fetched_at = 2;
+   */
+  fetchedAt: string;
+
+  /**
+   * @generated from field: int32 point_count = 3;
+   */
+  pointCount: number;
+
+  constructor(data?: PartialMessage<RefreshInstrumentPerformanceResponse>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.RefreshInstrumentPerformanceResponse";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RefreshInstrumentPerformanceResponse;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RefreshInstrumentPerformanceResponse;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RefreshInstrumentPerformanceResponse;
+
+  static equals(a: RefreshInstrumentPerformanceResponse | PlainMessage<RefreshInstrumentPerformanceResponse> | undefined, b: RefreshInstrumentPerformanceResponse | PlainMessage<RefreshInstrumentPerformanceResponse> | undefined): boolean;
+}
+
+/**
  * @generated from message v1.DeleteInstrumentRequest
  */
 export declare class DeleteInstrumentRequest extends Message<DeleteInstrumentRequest> {

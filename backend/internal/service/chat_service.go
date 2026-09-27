@@ -482,7 +482,7 @@ func (s *Server) aiAPIKey(requestKey, requestedEndpoint, resolvedEndpoint string
 	configuredEndpoint := strings.TrimRight(strings.TrimSpace(s.config.AIEndpoint), "/")
 	cfgAPIKey := s.config.AIAPIKey
 	s.configMu.RUnlock()
-	if requestedEndpoint == "" || resolvedEndpoint == configuredEndpoint {
+	if resolvedEndpoint == configuredEndpoint {
 		return cfgAPIKey
 	}
 	return ""

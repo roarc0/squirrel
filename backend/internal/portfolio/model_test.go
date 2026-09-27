@@ -83,3 +83,12 @@ func TestClassifyInstrument(t *testing.T) {
 		t.Fatalf("catalog bond classified as %q", catalog.AssetClass)
 	}
 }
+
+func TestAlternativesRespectHedgingForSameIndex(t *testing.T) {
+	selected := Instrument{ID: 1, ISIN: "IE00B4L5Y983", Name: "World", InstrumentType: "etf", DataStatus: "enriched", UCITS: true, AssetClass: "equity", IndexName: "World", Distribution: "accumulating", Replication: "physical_full", TERBPS: 20, FundSizeMillion: 100}
+	candidate := selected
+	candidate.ID, candidate.ISIN, candidate.TERBPS, candidate.CurrencyHedged = 2, "IE00B579F325", 10, true
+	if got := FindInstrumentAlternatives(selected, []Instrument{candidate}, time.Now()); len(got) != 0 {
+		t.Fatalf("different hedge classified as a strict peer: %+v", got)
+	}
+}

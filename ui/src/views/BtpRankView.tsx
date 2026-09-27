@@ -168,6 +168,7 @@ export function BtpRankView() {
 
   const sortedBtps = useMemo(() => {
     return [...btps].sort((a, b) => {
+      if (['duration', 'ytm_net', 'total_return', 'score'].includes(sortKey) && a.analytics_available !== b.analytics_available) return a.analytics_available ? -1 : 1;
       let aVal: any = a[sortKey as keyof BtpBond];
       let bVal: any = b[sortKey as keyof BtpBond];
 
@@ -210,13 +211,13 @@ export function BtpRankView() {
   );
 
   const topYield = useMemo(() => {
-    if (btps.length === 0) return 0;
-    return Math.max(...btps.map(b => b.ytm_net));
+    const eligible = btps.filter(b => b.analytics_available);
+    return eligible.length ? Math.max(...eligible.map(b => b.ytm_net)) : null;
   }, [btps]);
 
   const topScored = useMemo(() => {
     if (btps.length === 0) return null;
-    return [...btps].sort((a, b) => b.score - a.score)[0];
+    return btps.filter(b => b.analytics_available && b.score > 0).sort((a, b) => b.score - a.score)[0] ?? null;
   }, [btps]);
 
   const columns: DataColumn<BtpBond>[] = [
@@ -308,7 +309,7 @@ export function BtpRankView() {
       label: 'Mod. Duration',
       sortable: true,
       align: 'right',
-      render: btp => (
+      render: btp => !btp.analytics_available ? <Text size="xs" c="dimmed" title={btp.analytics_note}>Unavailable</Text> : (
         <Stack gap={1} align="flex-end">
           <Text size="sm">{btp.duration_mod.toFixed(2)}</Text>
           <Text size="xs" c="dimmed">
@@ -322,7 +323,7 @@ export function BtpRankView() {
       label: 'Net YTM',
       sortable: true,
       align: 'right',
-      render: btp => (
+      render: btp => !btp.analytics_available ? <Text size="xs" c="dimmed" title={btp.analytics_note}>Unavailable</Text> : (
         <Stack gap={1} align="flex-end">
           <Text fw={750} c="teal" size="sm">
             {btp.ytm_net.toFixed(2)}%
@@ -339,6 +340,7 @@ export function BtpRankView() {
       sortable: true,
       align: 'right',
       render: btp => {
+        if (!btp.analytics_available) return <Text size="xs" c="dimmed" title={btp.analytics_note}>Unavailable</Text>;
         const ann = btp.maturity_years > 0 ? (btp.total_return_net / btp.maturity_years).toFixed(1) : '0.0';
         return (
           <Stack gap={1} align="flex-end">
@@ -357,7 +359,7 @@ export function BtpRankView() {
       label: 'Score & Tier',
       sortable: true,
       align: 'right',
-      render: btp => (
+      render: btp => !btp.analytics_available ? <Text size="xs" c="dimmed" title={btp.analytics_note}>Unavailable</Text> : (
         <Group gap={6} justify="end" align="center">
           <Badge color={tierColor(btp.tier_rank)} variant="filled" size="md">
             Tier {btp.tier_rank}
@@ -373,8 +375,8 @@ export function BtpRankView() {
       label: '',
       align: 'right',
       render: btp => (
-        <Tooltip label="Inspect Cedole & Cashflow Simulation" withArrow>
-          <ActionIcon aria-label="Inspect coupon and cashflow simulation" color="blue" variant="light" onClick={() => setSelectedBtp(btp)}>
+        <Tooltip label="Inspect bond details" withArrow>
+          <ActionIcon aria-label="Inspect bond details" color="blue" variant="light" onClick={() => setSelectedBtp(btp)}>
             <IconEye size={16} />
           </ActionIcon>
         </Tooltip>
@@ -386,7 +388,7 @@ export function BtpRankView() {
     <ViewShell error={error}>
       <SectionHeader
         title="BTP Rank"
-        subtitle="Italian Government Bonds (BTP) yield curve analytics, duration risk, net return, and 6-factor composite scoring."
+        subtitle="Bond quotes and zero-coupon return estimates. Coupon-bond analytics require verified payment and settlement details."
         badge={
           <Badge color="blue" variant="light" leftSection={<IconFileCertificate size={12} />}>
             BTP Analytics Plugin
@@ -407,11 +409,12 @@ export function BtpRankView() {
                   { key: 'coupon', label: 'Coupon %' },
                   { key: 'expiry_date', label: 'Maturity Date' },
                   { key: 'maturity_years', label: 'Maturity (Years)' },
-                  { key: 'duration_mod', label: 'Mod Duration' },
-                  { key: 'ytm_net', label: 'Net YTM %' },
-                  { key: 'total_return_net', label: 'Total Net Return %' },
-                  { key: 'score', label: 'Score' },
+                  { key: 'duration_mod', label: 'Mod Duration', getValue: b => b.analytics_available ? b.duration_mod : '' },
+                  { key: 'ytm_net', label: 'Net YTM %', getValue: b => b.analytics_available ? b.ytm_net : '' },
+                  { key: 'total_return_net', label: 'Total Net Return %', getValue: b => b.analytics_available ? b.total_return_net : '' },
+                  { key: 'score', label: 'Score', getValue: b => b.analytics_available ? b.score : '' },
                   { key: 'tier_rank', label: 'Tier' },
+                  { key: 'analytics_note', label: 'Calculation assumptions / availability' },
                 ])
               }
             >
@@ -447,11 +450,11 @@ export function BtpRankView() {
           <Group justify="space-between" align="start">
             <Box>
               <Text size="xs" c="dimmed">Top Net Yield (YTM)</Text>
-              <Text size="xl" fw={800} c="teal">{topYield.toFixed(2)}%</Text>
+              <Text size="xl" fw={800} c="teal">{topYield === null ? '—' : `${topYield.toFixed(2)}%`}</Text>
             </Box>
             <IconTrendingUp size={24} color="var(--mantine-color-teal-6)" />
           </Group>
-          <Text size="xs" c="dimmed" mt={4}>Italian Sovereign 12.5% Tax Rate</Text>
+          <Text size="xs" c="dimmed" mt={4}>Zero-coupon estimates · 12.5% tax · fees excluded</Text>
         </Card>
 
         <Card className="metric" p="md" radius="lg">

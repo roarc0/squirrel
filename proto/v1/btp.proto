@@ -27,6 +27,8 @@ message BtpBond {
   bool is_traded = 19;
   string scraped_at = 20;
   bool is_starred = 21;
+  bool analytics_available = 22;
+  string analytics_note = 23;
 }
 
 message ListBtpsRequest {

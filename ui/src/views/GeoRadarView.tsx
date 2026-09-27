@@ -6,6 +6,7 @@ import { getGeoRadar, type GeoRadarResult } from '../api';
 import { SectionHeader } from '../components/SectionHeader';
 import { ViewShell } from '../components/ViewShell';
 import { chipColor } from '../visual';
+import { money } from '../utils/format';
 
 export function GeoRadarSection() {
   const [data, setData] = useState<GeoRadarResult | null>(null);
@@ -45,7 +46,7 @@ export function GeoRadarSection() {
       <Group justify="space-between" align="center" wrap="wrap">
         <Group gap="xs" align="center">
           <Badge color="blue" variant="light" leftSection={<IconWorldLatitude size={12} />}>
-            {data ? `EUR/USD ${data.current_eur_usd_rate.toFixed(4)}` : 'FX Data'}
+            {data?.current_eur_usd_rate ? `EUR/USD ${data.current_eur_usd_rate.toFixed(4)}` : 'EUR valuation'}
           </Badge>
           {data?.current_eur_usd_observed_on && (
             <Text size="xs" c="dimmed">
@@ -119,13 +120,13 @@ export function GeoRadarSection() {
                 {data.currencies.map(c => (
                   <Card key={`${c.currency}_${c.is_hedged}`} withBorder radius="md" p="md">
                     <Group justify="space-between" align="flex-start">
-                      <Text fw={700} fz="md">{c.currency} {c.is_hedged && <Badge size="xs" color="teal">Hedged</Badge>}</Text>
+                      <Text fw={700} fz="md">{c.currency === 'UNKNOWN' ? 'Unknown' : c.currency} {c.is_hedged && <Badge size="xs" color="teal">Hedged</Badge>}</Text>
                       <Badge color={chipColor(c.currency || 'other')} variant="light">{c.percentage.toFixed(1)}%</Badge>
                     </Group>
-                    <Text fz="1.6rem" fw={800} mt="xs">€{(c.value_minor / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}</Text>
+                    <Text fz="1.6rem" fw={800} mt="xs">{money(c.value_minor, 'EUR')}</Text>
                     {c.fx_impact_5pct_minor > 0 && (
                       <Text size="xs" c="dimmed" mt={4}>
-                        ±5% FX shift: €{(c.fx_impact_5pct_minor / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        ±5% FX shift: {money(c.fx_impact_5pct_minor, 'EUR')}
                       </Text>
                     )}
                   </Card>
@@ -142,10 +143,10 @@ export function GeoRadarSection() {
                         <Text fw={700} size="sm">USD / EUR FX Sensitivity Simulator</Text>
                       </Group>
                       <Badge size="lg" color={simulatedImpactMinor > 0 ? 'teal' : simulatedImpactMinor < 0 ? 'red' : 'blue'} variant="light">
-                        {simulatedImpactMinor >= 0 ? `+€${(simulatedImpactMinor / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : `-€${(Math.abs(simulatedImpactMinor) / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}`} ({fxShiftPct > 0 ? `+${fxShiftPct}%` : `${fxShiftPct}%`})
+                        {money(simulatedImpactMinor, 'EUR')} ({fxShiftPct > 0 ? `+${fxShiftPct}%` : `${fxShiftPct}%`})
                       </Badge>
                     </Group>
-                    <Text size="xs" c="dimmed">Simulate how a shift in the US Dollar against Euro impacts your total wealth in Euros:</Text>
+                    <Text size="xs" c="dimmed">Estimated change in known USD cash valued in EUR; investment currency exposure is unavailable:</Text>
                     <Slider
                       color="blue"
                       value={fxShiftPct}
@@ -179,7 +180,7 @@ export function GeoRadarSection() {
                       <Text fw={700}>{r.region}</Text>
                       <Badge color={chipColor(r.region || 'other')} variant="light">{r.percentage.toFixed(1)}%</Badge>
                     </Group>
-                    <Text fz="1.6rem" fw={800} mt="xs">€{(r.value_minor / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}</Text>
+                    <Text fz="1.6rem" fw={800} mt="xs">{money(r.value_minor, 'EUR')}</Text>
                     <Progress value={r.percentage} color={chipColor(r.region || 'other')} size="xs" mt="sm" radius="xl" />
                   </Card>
                 ))}
@@ -214,7 +215,7 @@ export function GeoRadarSection() {
                       </Table.Td>
                       <Table.Td><Text size="sm" c="dimmed">{c.region}</Text></Table.Td>
                       <Table.Td style={{ textAlign: 'right', fontWeight: 700 }}>
-                        €{(c.value_minor / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        {money(c.value_minor, 'EUR')}
                       </Table.Td>
                       <Table.Td style={{ textAlign: 'right' }}>
                         <Group justify="flex-end" gap="xs">

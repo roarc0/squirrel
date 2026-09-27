@@ -21,7 +21,7 @@ func NewInterceptor(secret string) *Interceptor {
 
 func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-		ctx, err := i.authenticate(ctx, req.Header())
+		ctx, err := i.Authenticate(ctx, req.Header())
 		if err != nil {
 			return nil, err
 		}
@@ -35,7 +35,7 @@ func (i *Interceptor) WrapStreamingClient(next connect.StreamingClientFunc) conn
 
 func (i *Interceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
 	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
-		ctx, err := i.authenticate(ctx, conn.RequestHeader())
+		ctx, err := i.Authenticate(ctx, conn.RequestHeader())
 		if err != nil {
 			return err
 		}
@@ -43,7 +43,8 @@ func (i *Interceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) co
 	}
 }
 
-func (i *Interceptor) authenticate(ctx context.Context, h http.Header) (context.Context, error) {
+// Authenticate validates the same session for RPC and REST requests.
+func (i *Interceptor) Authenticate(ctx context.Context, h http.Header) (context.Context, error) {
 	if _, ok := UserFromContext(ctx); ok {
 		return ctx, nil
 	}

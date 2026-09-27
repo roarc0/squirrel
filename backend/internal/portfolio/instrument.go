@@ -205,7 +205,7 @@ func FindInstrumentAlternatives(selected Instrument, instruments []Instrument, a
 			continue
 		}
 		match := ""
-		if selectedIndex != "" && comparisonKey(candidate.IndexName) == selectedIndex {
+		if selectedIndex != "" && comparisonKey(candidate.IndexName) == selectedIndex && candidate.CurrencyHedged == selected.CurrencyHedged {
 			match = "exact_index"
 		} else if selectedFocus != "" && comparisonKey(candidate.InvestmentFocus) == selectedFocus && candidate.Strategy == selected.Strategy && candidate.CurrencyHedged == selected.CurrencyHedged {
 			match = "same_exposure"

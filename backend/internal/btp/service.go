@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"log"
 	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 
@@ -37,11 +38,24 @@ func (s *Service) ListBtps(ctx context.Context, req *connect.Request[portv1.List
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	targetYear := int(req.Msg.GetTargetMaturityYear())
-	if targetYear > 0 {
-		cfg := ScoringConfig{TargetMaturityYear: targetYear}
-		btps = ComputeAdvancedScores(btps, cfg)
+	// Recompute old cached analytics under the current rules, using the quote date.
+	for i := range btps {
+		observed, err := time.ParseInLocation(time.DateTime, btps[i].ScrapedAt, time.Local)
+		if err != nil {
+			observed, err = time.Parse(time.RFC3339, btps[i].ScrapedAt)
+		}
+		if err != nil {
+			btps[i].CalculateMetrics(0.125, time.Now())
+			btps[i].AnalyticsAvailable = false
+			btps[i].AnalyticsNote = "Analytics unavailable: quote date is missing or invalid."
+		} else {
+			btps[i].CalculateMetrics(0.125, observed)
+		}
+		if expiry, err := time.Parse("02/01/2006", btps[i].ExpiryDate); err != nil || !expiry.After(time.Now()) {
+			btps[i].CalculateMetrics(0.125, time.Now())
+		}
 	}
+	btps = ComputeAdvancedScores(btps, ScoringConfig{TargetMaturityYear: int(req.Msg.GetTargetMaturityYear())})
 
 	query := strings.ToLower(strings.TrimSpace(req.Msg.GetQuery()))
 	bondTypeFilter := strings.TrimSpace(req.Msg.GetBondType())
@@ -64,27 +78,29 @@ func (s *Service) ListBtps(ctx context.Context, req *connect.Request[portv1.List
 		}
 
 		filtered = append(filtered, &portv1.BtpBond{
-			Isin:             b.ISIN,
-			Name:             b.Name,
-			BondType:         string(b.BondType),
-			Price:            b.Price,
-			Coupon:           b.Coupon,
-			ExpiryDate:       b.ExpiryDate,
-			MaturityYears:    b.MaturityYears,
-			DurationMac:      b.DurationMac,
-			DurationMod:      b.DurationMod,
-			RateHikeImpact:   b.RateHikeImpact,
-			SimpleYieldNet:   b.SimpleYieldNet,
-			SimpleYieldGross: b.SimpleYieldGross,
-			YtmGross:         b.YTMGross,
-			YtmNet:           b.YTMNet,
-			TotalReturnNet:   b.TotalReturnNet,
-			TotalReturnGross: b.TotalReturnGross,
-			Score:            b.Score,
-			TierRank:         b.TierRank,
-			IsTraded:         b.IsTraded,
-			ScrapedAt:        b.ScrapedAt,
-			IsStarred:        b.IsStarred,
+			Isin:               b.ISIN,
+			Name:               b.Name,
+			BondType:           string(b.BondType),
+			Price:              b.Price,
+			Coupon:             b.Coupon,
+			ExpiryDate:         b.ExpiryDate,
+			MaturityYears:      b.MaturityYears,
+			DurationMac:        b.DurationMac,
+			DurationMod:        b.DurationMod,
+			RateHikeImpact:     b.RateHikeImpact,
+			SimpleYieldNet:     b.SimpleYieldNet,
+			SimpleYieldGross:   b.SimpleYieldGross,
+			YtmGross:           b.YTMGross,
+			YtmNet:             b.YTMNet,
+			TotalReturnNet:     b.TotalReturnNet,
+			TotalReturnGross:   b.TotalReturnGross,
+			Score:              b.Score,
+			TierRank:           b.TierRank,
+			IsTraded:           b.IsTraded,
+			ScrapedAt:          b.ScrapedAt,
+			IsStarred:          b.IsStarred,
+			AnalyticsAvailable: b.AnalyticsAvailable,
+			AnalyticsNote:      b.AnalyticsNote,
 		})
 	}
 

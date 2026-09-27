@@ -34,6 +34,8 @@ export const BtpBond = /*@__PURE__*/ proto3.makeMessageType(
     { no: 19, name: "is_traded", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 20, name: "scraped_at", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 21, name: "is_starred", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 22, name: "analytics_available", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 23, name: "analytics_note", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ],
 );
 

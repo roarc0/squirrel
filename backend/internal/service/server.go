@@ -116,7 +116,7 @@ func NewWithConfig(data *store.Store, cfg config.Config, configPath string, prof
 	mux.Handle("/mcp", mcpHandler)
 	mux.Handle("/mcp/", mcpHandler)
 
-	// AI config REST endpoints (no auth interceptor — local only)
+	// AI config REST endpoints authenticate with the same session as RPCs.
 	mux.HandleFunc("GET /api/config/ai", s.handleGetAIConfig)
 	mux.HandleFunc("PATCH /api/config/ai", s.handlePatchAIConfig)
 

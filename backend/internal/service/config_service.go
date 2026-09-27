@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/roarc0/squirrel/backend/internal/auth"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -19,7 +21,31 @@ type aiConfigResponse struct {
 	HasAPIKey   bool   `json:"has_api_key"`
 }
 
+func (s *Server) authorizeAIConfig(w http.ResponseWriter, r *http.Request) bool {
+	s.configMu.RLock()
+	secret, admin := s.config.Auth.SessionSecret, s.config.Auth.AdminGoogleID
+	s.configMu.RUnlock()
+	if secret == "" {
+		return true
+	}
+	ctx, err := auth.NewInterceptor(secret).Authenticate(r.Context(), r.Header)
+	if err != nil {
+		http.Error(w, "authentication required", http.StatusUnauthorized)
+		return false
+	}
+	if r.Method != http.MethodGet {
+		if err := auth.RequireAdmin(ctx, admin); err != nil {
+			http.Error(w, "admin only", http.StatusForbidden)
+			return false
+		}
+	}
+	return true
+}
+
 func (s *Server) handleGetAIConfig(w http.ResponseWriter, r *http.Request) {
+	if !s.authorizeAIConfig(w, r) {
+		return
+	}
 	s.configMu.RLock()
 	resp := aiConfigResponse{
 		Provider:    s.config.AIProvider,
@@ -35,6 +61,9 @@ func (s *Server) handleGetAIConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handlePatchAIConfig(w http.ResponseWriter, r *http.Request) {
+	if !s.authorizeAIConfig(w, r) {
+		return
+	}
 	body, err := io.ReadAll(io.LimitReader(r.Body, 64<<10))
 	if err != nil {
 		http.Error(w, "read body: "+err.Error(), http.StatusBadRequest)
@@ -53,44 +82,49 @@ func (s *Server) handlePatchAIConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if patch.Endpoint != nil {
+		endpoint := strings.TrimRight(strings.TrimSpace(*patch.Endpoint), "/")
+		parsed, err := validateHTTPSOrLoopbackURL(endpoint)
+		if err != nil || len(endpoint) > 2048 || parsed.RawQuery != "" || parsed.Fragment != "" {
+			http.Error(w, "invalid AI endpoint", http.StatusBadRequest)
+			return
+		}
+		patch.Endpoint = &endpoint
+	}
+	if patch.ContextSize != nil && (*patch.ContextSize <= 0 || *patch.ContextSize > int(maxAIContextSize)) {
+		http.Error(w, "invalid context size", http.StatusBadRequest)
+		return
+	}
 	s.configMu.Lock()
+	defer s.configMu.Unlock()
+	next := s.config
 	if patch.Provider != nil {
-		s.config.AIProvider = *patch.Provider
+		next.AIProvider = *patch.Provider
 	}
 	if patch.Endpoint != nil {
-		s.config.AIEndpoint = *patch.Endpoint
+		if *patch.Endpoint != strings.TrimRight(strings.TrimSpace(next.AIEndpoint), "/") {
+			next.AIAPIKey = ""
+		}
+		next.AIEndpoint = *patch.Endpoint
 	}
 	if patch.Model != nil {
-		s.config.AIModel = *patch.Model
+		next.AIModel = *patch.Model
 	}
 	if patch.APIKey != nil && *patch.APIKey != "" {
-		s.config.AIAPIKey = *patch.APIKey
+		next.AIAPIKey = *patch.APIKey
 	}
-	if patch.ContextSize != nil && *patch.ContextSize > 0 {
-		s.config.AIContextSize = *patch.ContextSize
+	if patch.ContextSize != nil {
+		next.AIContextSize = *patch.ContextSize
 	}
-	resp := aiConfigResponse{
-		Provider:    s.config.AIProvider,
-		Endpoint:    s.config.AIEndpoint,
-		Model:       s.config.AIModel,
-		ContextSize: s.config.AIContextSize,
-		HasAPIKey:   s.config.AIAPIKey != "",
-	}
-	// Capture values needed for YAML write while still under lock.
-	configPath := s.configPath
-	provider := s.config.AIProvider
-	endpoint := s.config.AIEndpoint
-	model := s.config.AIModel
-	apiKey := s.config.AIAPIKey
-	contextSize := s.config.AIContextSize
-	s.configMu.Unlock()
-
-	if configPath != "" {
-		if err := patchAIConfigYAML(configPath, provider, endpoint, model, apiKey, contextSize); err != nil {
+	if s.configPath != "" {
+		if err := patchAIConfigYAML(s.configPath, next.AIProvider, next.AIEndpoint, next.AIModel, next.AIAPIKey, next.AIContextSize); err != nil {
 			http.Error(w, "write config: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
+	s.config.AIProvider, s.config.AIEndpoint, s.config.AIModel = next.AIProvider, next.AIEndpoint, next.AIModel
+	s.config.AIAPIKey, s.config.AIContextSize = next.AIAPIKey, next.AIContextSize
+	resp := aiConfigResponse{Provider: next.AIProvider, Endpoint: next.AIEndpoint, Model: next.AIModel, ContextSize: next.AIContextSize, HasAPIKey: next.AIAPIKey != ""}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(resp)
@@ -132,10 +166,7 @@ func patchAIConfigYAML(path, provider, endpoint, model, apiKey string, contextSi
 		{"ai_model", model},
 		{"ai_context_size", contextSize},
 	}
-	// Only write API key if non-empty (to avoid overwriting with blank).
-	if apiKey != "" {
-		updates = append(updates, kv{"ai_api_key", apiKey})
-	}
+	updates = append(updates, kv{"ai_api_key", apiKey})
 
 	for _, u := range updates {
 		setMappingKey(mapping, u.key, u.val)

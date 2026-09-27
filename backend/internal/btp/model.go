@@ -1,6 +1,7 @@
 package btp
 
 import (
+	"fmt"
 	"math"
 	"strings"
 	"time"
@@ -66,27 +67,29 @@ func DetectBondType(name string, coupon float64) BondType {
 }
 
 type BTP struct {
-	ISIN             string   `json:"isin"`
-	Name             string   `json:"name"`
-	BondType         BondType `json:"bond_type"`
-	Price            float64  `json:"price"`
-	Coupon           float64  `json:"coupon"`
-	ExpiryDate       string   `json:"expiry_date"`
-	MaturityYears    float64  `json:"maturity_years"`
-	DurationMac      float64  `json:"duration_mac"`
-	DurationMod      float64  `json:"duration_mod"`
-	RateHikeImpact   float64  `json:"rate_hike_impact"`
-	SimpleYieldNet   float64  `json:"simple_yield_net"`
-	SimpleYieldGross float64  `json:"simple_yield_gross"`
-	YTMGross         float64  `json:"ytm_gross"`
-	YTMNet           float64  `json:"ytm_net"`
-	TotalReturnNet   float64  `json:"total_return_net"`
-	TotalReturnGross float64  `json:"total_return_gross"`
-	Score            float64  `json:"score"`
-	TierRank         string   `json:"tier_rank"`
-	IsTraded         bool     `json:"is_traded"`
-	ScrapedAt        string   `json:"scraped_at"`
-	IsStarred        bool     `json:"is_starred"`
+	ISIN               string   `json:"isin"`
+	Name               string   `json:"name"`
+	BondType           BondType `json:"bond_type"`
+	Price              float64  `json:"price"`
+	Coupon             float64  `json:"coupon"`
+	ExpiryDate         string   `json:"expiry_date"`
+	MaturityYears      float64  `json:"maturity_years"`
+	DurationMac        float64  `json:"duration_mac"`
+	DurationMod        float64  `json:"duration_mod"`
+	RateHikeImpact     float64  `json:"rate_hike_impact"`
+	SimpleYieldNet     float64  `json:"simple_yield_net"`
+	SimpleYieldGross   float64  `json:"simple_yield_gross"`
+	YTMGross           float64  `json:"ytm_gross"`
+	YTMNet             float64  `json:"ytm_net"`
+	TotalReturnNet     float64  `json:"total_return_net"`
+	TotalReturnGross   float64  `json:"total_return_gross"`
+	Score              float64  `json:"score"`
+	TierRank           string   `json:"tier_rank"`
+	IsTraded           bool     `json:"is_traded"`
+	ScrapedAt          string   `json:"scraped_at"`
+	AnalyticsAvailable bool     `json:"analytics_available"`
+	AnalyticsNote      string   `json:"analytics_note"`
+	IsStarred          bool     `json:"is_starred"`
 }
 
 type ScoringConfig struct {
@@ -105,62 +108,39 @@ func (b *BTP) CalculateMetrics(taxRate float64, referenceTime time.Time) {
 		referenceTime = time.Now()
 	}
 
+	// Clear derived values even when recalculating records from an older cache.
+	b.MaturityYears, b.DurationMac, b.DurationMod, b.RateHikeImpact = 0, 0, 0, 0
+	b.SimpleYieldNet, b.SimpleYieldGross, b.YTMGross, b.YTMNet = 0, 0, 0, 0
+	b.TotalReturnNet, b.TotalReturnGross, b.Score = 0, 0, 0
+	b.TierRank, b.AnalyticsAvailable, b.IsTraded = "N/A", false, false
+	b.AnalyticsNote = "Analytics unavailable: the quote is invalid or the bond has matured."
 	expiry, err := time.Parse("02/01/2006", b.ExpiryDate)
-	if err != nil {
-		b.MaturityYears = 0
-		b.SimpleYieldNet = 0
-		b.SimpleYieldGross = 0
-		b.IsTraded = false
+	if err != nil || !expiry.After(referenceTime) || b.Price <= 0 || math.IsNaN(b.Price) || math.IsInf(b.Price, 0) {
 		return
 	}
-
-	durationDays := expiry.Sub(referenceTime).Hours() / 24.0
-	if durationDays <= 0 {
-		b.MaturityYears = 0.01
-	} else {
-		b.MaturityYears = math.Max(0.01, math.Round((durationDays/365.25)*100)/100)
-	}
-
-	if b.Price <= 0 {
-		b.IsTraded = false
-		b.SimpleYieldNet = 0
-		b.SimpleYieldGross = 0
-		b.Score = 0
-		b.TierRank = "F"
-		return
-	}
-
+	b.MaturityYears = expiry.Sub(referenceTime).Hours() / (24 * 365.25)
 	b.IsTraded = true
-	if taxRate <= 0 {
-		taxRate = 0.125
+	b.AnalyticsNote = "Yield and cash-flow calculations unavailable: verified payment schedule, settlement and accrued interest are missing."
+	if b.BondType != BondTypeZeroCoupon || b.Coupon != 0 || taxRate < 0 || taxRate > 1 || math.IsNaN(taxRate) {
+		return
 	}
-
-	netCoupon := b.Coupon * (1.0 - taxRate)
-	annualCapitalGain := (100.0 - b.Price) / b.MaturityYears
-
-	var netCapitalGain float64
-	if annualCapitalGain > 0 {
-		netCapitalGain = annualCapitalGain * (1.0 - taxRate)
-	} else {
-		netCapitalGain = annualCapitalGain
+	// Zero coupons have a single dated payment; no coupon schedule or accrued coupon is inferred.
+	netRedemption := 100 - math.Max(0, 100-b.Price)*taxRate
+	grossYield := math.Pow(100/b.Price, 1/b.MaturityYears) - 1
+	netYield := math.Pow(netRedemption/b.Price, 1/b.MaturityYears) - 1
+	if math.IsNaN(grossYield) || math.IsInf(grossYield, 0) || math.IsNaN(netYield) || math.IsInf(netYield, 0) {
+		return
 	}
-
-	netYield := ((netCoupon + netCapitalGain) / b.Price) * 100.0
-	grossYield := ((b.Coupon + annualCapitalGain) / b.Price) * 100.0
-
-	b.SimpleYieldNet = sanitizeFloatValue(netYield, 2)
-	b.SimpleYieldGross = sanitizeFloatValue(grossYield, 2)
-
-	totalCouponGross := b.Coupon * b.MaturityYears
-	totalCapGross := 100.0 - b.Price
-	b.TotalReturnGross = sanitizeFloatValue(((totalCouponGross+totalCapGross)/b.Price)*100.0, 2)
-
-	totalCouponNet := netCoupon * b.MaturityYears
-	totalCapNet := netCapitalGain * b.MaturityYears
-	b.TotalReturnNet = sanitizeFloatValue(((totalCouponNet+totalCapNet)/b.Price)*100.0, 2)
-
-	b.YTMGross, b.YTMNet = CalculateCompoundYTM(b.Price, b.Coupon, b.MaturityYears, taxRate)
-	b.DurationMac, b.DurationMod, b.RateHikeImpact = CalculateDuration(b.Price, b.Coupon, b.MaturityYears, b.YTMNet)
+	b.AnalyticsAvailable = true
+	b.AnalyticsNote = fmt.Sprintf("Zero-coupon estimate at the quote date: redemption at 100, annual effective yield, ACT/365.25, %.2f%% tax; excludes fees and settlement lag.", taxRate*100)
+	b.YTMGross, b.YTMNet = sanitizeFloatValue(grossYield*100, 2), sanitizeFloatValue(netYield*100, 2)
+	b.DurationMac = sanitizeFloatValue(b.MaturityYears, 2)
+	b.DurationMod = sanitizeFloatValue(b.MaturityYears/(1+grossYield), 2)
+	b.RateHikeImpact = sanitizeFloatValue(-b.MaturityYears/(1+grossYield), 1)
+	b.TotalReturnGross = sanitizeFloatValue((100/b.Price-1)*100, 2)
+	b.TotalReturnNet = sanitizeFloatValue((netRedemption/b.Price-1)*100, 2)
+	b.SimpleYieldGross = sanitizeFloatValue(b.TotalReturnGross/b.MaturityYears, 2)
+	b.SimpleYieldNet = sanitizeFloatValue(b.TotalReturnNet/b.MaturityYears, 2)
 }
 
 func sanitizeFloatValue(val float64, decimals int) float64 {

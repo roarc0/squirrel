@@ -117,6 +117,16 @@ export declare class BtpBond extends Message<BtpBond> {
    */
   isStarred: boolean;
 
+  /**
+   * @generated from field: bool analytics_available = 22;
+   */
+  analyticsAvailable: boolean;
+
+  /**
+   * @generated from field: string analytics_note = 23;
+   */
+  analyticsNote: string;
+
   constructor(data?: PartialMessage<BtpBond>);
 
   static readonly runtime: typeof proto3;

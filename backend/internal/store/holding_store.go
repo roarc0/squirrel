@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"time"
@@ -16,7 +17,7 @@ func (s *Store) ListHoldings(ctx context.Context, userID string) ([]portfolio.Ho
 		FROM holdings h
 		JOIN accounts a ON a.id = h.account_id
 		JOIN instruments i ON i.id = h.instrument_id
-		WHERE a.user_id = ?
+		WHERE a.user_id = ? AND a.archived = 0
 		ORDER BY h.is_pac DESC, h.value_minor DESC, i.name`, userID)
 	if err != nil {
 		return nil, err
@@ -76,14 +77,17 @@ func (s *Store) SaveHolding(ctx context.Context, holding *portfolio.Holding) err
 		return err
 	}
 
-	if holding.PACBPS > 0 {
-		holding.IsPAC = true
+	holding.IsPAC = holding.PACBPS > 0
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
 	}
+	defer tx.Rollback()
 
 	// Validate DB constraint: total PAC allocation percentage for an account cannot exceed 100% (10,000 bps)
 	if holding.PACBPS > 0 {
 		var currentSum int64
-		if err := s.db.QueryRowContext(ctx, `SELECT COALESCE(SUM(pac_bps), 0) FROM holdings WHERE account_id = ? AND id != ?`, holding.AccountID, holding.ID).Scan(&currentSum); err != nil {
+		if err := tx.QueryRowContext(ctx, `SELECT COALESCE(SUM(pac_bps), 0) FROM holdings WHERE account_id = ? AND id != ? AND instrument_id != ?`, holding.AccountID, holding.ID, holding.InstrumentID).Scan(&currentSum); err != nil {
 			return err
 		}
 		if currentSum+holding.PACBPS > 10_000 {
@@ -100,27 +104,33 @@ func (s *Store) SaveHolding(ctx context.Context, holding *portfolio.Holding) err
 		holding.PACFrequency = "monthly"
 	}
 	if holding.ID == 0 {
-		return s.db.QueryRowContext(ctx, `
+		err := tx.QueryRowContext(ctx, `
 			INSERT INTO holdings (account_id, instrument_id, invested_minor, value_minor, tax_bps, planned_bps, is_pac, pac_bps, pac_frequency, notes, updated_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(account_id, instrument_id) DO UPDATE SET invested_minor=excluded.invested_minor,
 				value_minor=excluded.value_minor, tax_bps=excluded.tax_bps, planned_bps=excluded.planned_bps,
 				is_pac=excluded.is_pac, pac_bps=excluded.pac_bps, pac_frequency=excluded.pac_frequency, notes=excluded.notes, updated_at=excluded.updated_at
 			RETURNING id`, holding.AccountID, holding.InstrumentID, holding.InvestedMinor, holding.ValueMinor, holding.TaxBPS, holding.PlannedBPS, isPacInt, holding.PACBPS, holding.PACFrequency, holding.Notes, now).Scan(&holding.ID)
+		if err != nil {
+			return err
+		}
+		return tx.Commit()
 	}
 	// Guard against moving to an (account, instrument) pair that already exists.
 	var conflict int64
-	if err := s.db.QueryRowContext(ctx, `SELECT id FROM holdings WHERE account_id=? AND instrument_id=? AND id!=?`, holding.AccountID, holding.InstrumentID, holding.ID).Scan(&conflict); err == nil {
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM holdings WHERE account_id=? AND instrument_id=? AND id!=?`, holding.AccountID, holding.InstrumentID, holding.ID).Scan(&conflict); err == nil {
 		return fmt.Errorf("a holding for this instrument already exists in this account — delete the duplicate first")
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return err
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE holdings SET account_id=?, instrument_id=?, invested_minor=?, value_minor=?, tax_bps=?, planned_bps=?, is_pac=?, pac_bps=?, pac_frequency=?, notes=?, updated_at=? WHERE id=?`, holding.AccountID, holding.InstrumentID, holding.InvestedMinor, holding.ValueMinor, holding.TaxBPS, holding.PlannedBPS, isPacInt, holding.PACBPS, holding.PACFrequency, holding.Notes, now, holding.ID)
+	result, err := tx.ExecContext(ctx, `UPDATE holdings SET account_id=?, instrument_id=?, invested_minor=?, value_minor=?, tax_bps=?, planned_bps=?, is_pac=?, pac_bps=?, pac_frequency=?, notes=?, updated_at=? WHERE id=?`, holding.AccountID, holding.InstrumentID, holding.InvestedMinor, holding.ValueMinor, holding.TaxBPS, holding.PlannedBPS, isPacInt, holding.PACBPS, holding.PACFrequency, holding.Notes, now, holding.ID)
 	if err != nil {
 		return err
 	}
 	if changed, _ := result.RowsAffected(); changed == 0 {
 		return errors.New("holding not found")
 	}
-	return nil
+	return tx.Commit()
 }
 
 func (s *Store) DeleteHolding(ctx context.Context, id int64, userID string) error {

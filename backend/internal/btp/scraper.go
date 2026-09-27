@@ -122,7 +122,7 @@ func (s *Scraper) ScrapePage(ctx context.Context, page int) ([]BTP, error) {
 	}
 
 	var btps []BTP
-	nowStr := time.Now().Format("2006-01-02 15:04:05")
+	nowStr := time.Now().UTC().Format(time.RFC3339)
 
 	// Match #GridView1 tr, table.GridView tr, or fallback table tr
 	selectors := []string{"#GridView1 tr", "table.GridView tr", "table tr"}

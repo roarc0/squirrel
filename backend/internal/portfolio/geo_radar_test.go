@@ -1,38 +1,43 @@
 package portfolio
 
 import (
+	"math"
 	"testing"
 )
 
-func TestCalculateGeoRadar(t *testing.T) {
-	accounts := []Account{
-		{ID: 1, BalanceMinor: 100_000, Currency: "EUR"}, // €1,000 cash
+func TestGeoRadarUsesEURValuesAndUnknownExposures(t *testing.T) {
+	accounts := []Account{{ID: 1, Currency: "EUR", BalanceMinor: 10000}, {ID: 2, Currency: "USD", BalanceMinor: 10000}, {ID: 3, Currency: "EUR", BalanceMinor: 999999, Archived: true}, {ID: 4, Currency: "GBP", BalanceMinor: 999999}}
+	result := CalculateGeoRadar(accounts, nil, 2, true)
+	var usd CurrencyExposureItem
+	for _, item := range result.Currencies {
+		if item.Currency == "USD" {
+			usd = item
+		}
 	}
-	instruments := map[int64]Instrument{
-		10: {ID: 10, ISIN: "IE00B4L5Y983", Name: "iShares Core MSCI World UCITS ETF", FundCurrency: "USD"},
-		20: {ID: 20, ISIN: "IT0005436693", Name: "BTP 2037", FundCurrency: "EUR"},
+	if usd.ValueMinor != 5000 || math.Abs(usd.Percentage-100.0/3) > 0.0001 || usd.FXImpact5PctMinor != 250 {
+		t.Fatalf("incorrect converted exposure: %+v", usd)
 	}
-	holdings := []Holding{
-		{ID: 1, AccountID: 1, InstrumentID: 10, ValueMinor: 1_000_000}, // €10,000 MSCI World
-		{ID: 2, AccountID: 1, InstrumentID: 20, ValueMinor: 4_000_000}, // €40,000 BTP Italy
+	if len(result.Countries) != 1 || result.Countries[0].CountryCode != "UNKNOWN" || result.Countries[0].ValueMinor != 15000 {
+		t.Fatalf("invented geography or included archived assets: %+v", result.Countries)
 	}
-
-	result := CalculateGeoRadar(accounts, holdings, instruments, 1.08, true)
-
-	if len(result.Countries) == 0 {
-		t.Fatal("expected countries exposure, got empty")
+	excluded := false
+	for _, d := range result.Diagnostics {
+		if d.ID == "fx-excluded-GBP" {
+			excluded = true
+		}
 	}
-	if len(result.Currencies) == 0 {
-		t.Fatal("expected currencies exposure, got empty")
+	if !excluded {
+		t.Fatal("unsupported currency excluded silently")
 	}
-
-	// Italy should be top country due to €40k BTP + €1k cash
-	if result.Countries[0].CountryCode != "IT" {
-		t.Errorf("expected top country IT, got %s", result.Countries[0].CountryCode)
+	holdings := []Holding{{AccountID: 1, ValueMinor: 10000}, {AccountID: 3, ValueMinor: 999999}}
+	result = CalculateGeoRadar(accounts, holdings, 2, false)
+	if len(result.Currencies) != 1 || result.Currencies[0].Currency != "UNKNOWN" || result.Currencies[0].ValueMinor != 10000 || result.Currencies[0].FXImpact5PctMinor != 0 {
+		t.Fatalf("invented investment currency exposure: %+v", result)
 	}
-
-	// EUR should be top currency
-	if result.Currencies[0].Currency != "EUR" {
-		t.Errorf("expected top currency EUR, got %s", result.Currencies[0].Currency)
+	for _, rate := range []float64{0, -1, math.NaN(), math.Inf(1)} {
+		result = CalculateGeoRadar(accounts[:2], nil, rate, true)
+		if len(result.Currencies) != 1 || result.Currencies[0].Currency != "EUR" || result.Currencies[0].ValueMinor != 10000 {
+			t.Fatalf("invalid FX rate was used: %+v", result)
+		}
 	}
 }

@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { CreateInstrumentRequest, CreateInstrumentResponse, DeleteInstrumentRequest, DeleteInstrumentResponse, EnrichInstrumentCatalogRequest, EnrichInstrumentCatalogResponse, EnrichmentProgress, GetInstrumentAlternativesRequest, GetInstrumentAlternativesResponse, ImportInstrumentsRequest, ImportInstrumentsResponse, ListInstrumentsRequest, ListInstrumentsResponse, LookupInstrumentRequest, LookupInstrumentResponse, RankInstrumentsRequest, RankInstrumentsResponse, RefreshTick, SearchInstrumentsRequest, SearchInstrumentsResponse, SetContinuousRefreshRequest, SetContinuousRefreshResponse, StarInstrumentRequest, StarInstrumentResponse, StreamInstrumentCatalogRequest, SyncInstrumentCatalogRequest, SyncInstrumentCatalogResponse, WatchContinuousRefreshRequest } from "./instrument_pb.js";
+import { CreateInstrumentRequest, CreateInstrumentResponse, DeleteInstrumentRequest, DeleteInstrumentResponse, EnrichInstrumentCatalogRequest, EnrichInstrumentCatalogResponse, EnrichmentProgress, GetInstrumentAlternativesRequest, GetInstrumentAlternativesResponse, GetInstrumentPerformanceRequest, GetInstrumentPerformanceResponse, ImportInstrumentsRequest, ImportInstrumentsResponse, ListInstrumentsRequest, ListInstrumentsResponse, LookupInstrumentRequest, LookupInstrumentResponse, RankInstrumentsRequest, RankInstrumentsResponse, RefreshInstrumentPerformanceRequest, RefreshInstrumentPerformanceResponse, RefreshTick, SearchInstrumentsRequest, SearchInstrumentsResponse, SetContinuousRefreshRequest, SetContinuousRefreshResponse, StarInstrumentRequest, StarInstrumentResponse, StreamInstrumentCatalogRequest, SyncInstrumentCatalogRequest, SyncInstrumentCatalogResponse, WatchContinuousRefreshRequest } from "./instrument_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -167,6 +167,28 @@ export declare const InstrumentService: {
       readonly I: typeof WatchContinuousRefreshRequest,
       readonly O: typeof RefreshTick,
       readonly kind: MethodKind.ServerStreaming,
+    },
+    /**
+     * Get historical daily performance series for an instrument (fetches from justETF on first call).
+     *
+     * @generated from rpc v1.InstrumentService.GetInstrumentPerformance
+     */
+    readonly getInstrumentPerformance: {
+      readonly name: "GetInstrumentPerformance",
+      readonly I: typeof GetInstrumentPerformanceRequest,
+      readonly O: typeof GetInstrumentPerformanceResponse,
+      readonly kind: MethodKind.Unary,
+    },
+    /**
+     * Re-fetch and replace performance data from justETF for an instrument.
+     *
+     * @generated from rpc v1.InstrumentService.RefreshInstrumentPerformance
+     */
+    readonly refreshInstrumentPerformance: {
+      readonly name: "RefreshInstrumentPerformance",
+      readonly I: typeof RefreshInstrumentPerformanceRequest,
+      readonly O: typeof RefreshInstrumentPerformanceResponse,
+      readonly kind: MethodKind.Unary,
     },
   }
 };

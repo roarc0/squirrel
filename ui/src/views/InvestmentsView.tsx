@@ -40,6 +40,7 @@ import { GeoRadarSection } from './GeoRadarView';
 import { DraftPortfoliosView } from './DraftPortfoliosView';
 import { SubnavTabs } from '../components/SubnavTabs';
 import { AllocationBar, PerformanceResult, useBackendRows } from '../App';
+import { suggestedPacShares } from '../utils/contributions';
 import { copyToClipboard } from '../utils/copyToClipboard';
 import { Chip, ISINBadge, TickerBadge } from '../Chip';
 import { Empty } from '../components/Empty';
@@ -54,7 +55,7 @@ type Numeric = string | number;
 const n = (value: Numeric | undefined) => (value === '' || value === undefined ? 0 : Number(value));
 const minor = (value: Numeric | undefined) => Math.round(n(value) * 100);
 const bps = (value: Numeric | undefined) => Math.round(n(value) * 100);
-const strategyBps = (holding: Holding) => holding.planned_bps || holding.pac_bps || 0;
+const strategyBps = (holding: Holding) => holding.planned_bps;
 
 type HoldingDraft = {
   accountID: string;
@@ -101,15 +102,18 @@ function PacAmountEditor({ account, currency, onSaved }: { account: Account; cur
 function InlinePlannedBpsEditor({
   holding,
   onSaved,
+  field = 'planned_bps',
 }: {
   holding: Holding;
+  field?: 'planned_bps' | 'pac_bps';
   onSaved: () => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState<number | string>('');
   const [saving, setSaving] = useState(false);
 
-  const plannedBps = strategyBps(holding);
+  const plannedBps = holding[field] ?? 0;
+  const allocationLabel = field === 'planned_bps' ? 'Target allocation' : 'PAC share';
 
   const start = (e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -127,12 +131,12 @@ function InlinePlannedBpsEditor({
       const newBps = Math.round(Number(value) * 100);
       await api(`/api/holdings/${holding.id}`, {
         method: 'PUT',
-        body: JSON.stringify({ ...holding, planned_bps: newBps, pac_bps: newBps, is_pac: newBps > 0 }),
+        body: JSON.stringify({ [field]: newBps }),
       });
       notifications.show({
         color: 'teal',
-        title: 'Planned allocation updated',
-        message: `${holding.instrument_name} target set to ${Number(value).toFixed(2)}%`,
+        title: `${allocationLabel} updated`,
+        message: `${holding.instrument_name} ${allocationLabel.toLowerCase()} set to ${Number(value).toFixed(2)}%`,
       });
       setEditing(false);
       await onSaved();
@@ -158,8 +162,8 @@ function InlinePlannedBpsEditor({
         <Badge color="teal" size="sm" variant="light" style={{ cursor: 'pointer' }}>
           {percent(plannedBps)}
         </Badge>
-        <Tooltip label="Edit planned allocation" position="top" withArrow>
-          <ActionIcon aria-label="Edit planned allocation" size={18} variant="subtle" color="gray" onClick={start}>
+        <Tooltip label={`Edit ${allocationLabel.toLowerCase()}`} position="top" withArrow>
+          <ActionIcon aria-label={`Edit ${allocationLabel.toLowerCase()}`} size={18} variant="subtle" color="gray" onClick={start}>
             <IconPencil size={11} />
           </ActionIcon>
         </Tooltip>
@@ -170,7 +174,7 @@ function InlinePlannedBpsEditor({
   return (
     <Group gap={4} wrap="nowrap" align="center" justify="end" onClick={e => e.stopPropagation()}>
       <NumberInput
-        aria-label="Planned allocation"
+        aria-label={allocationLabel}
         size="xs"
         w={72}
         min={0}
@@ -360,7 +364,7 @@ export function InvestmentsView({
     try {
       await api(`/api/holdings/${holding.id}`, {
         method: 'PUT',
-        body: JSON.stringify({ ...holding, planned_bps: 0, pac_bps: 0, is_pac: false }),
+        body: JSON.stringify({ pac_bps: 0 }),
       });
       await reload();
     } catch (cause) {
@@ -388,7 +392,7 @@ export function InvestmentsView({
     summary.classes.set(assetClass, (summary.classes.get(assetClass) ?? 0) + holding.value_minor);
     totals.set(currency, summary);
   }
-  const actualBPS = (holding: Holding) => { const total = totals.get(holding.currency ?? 'EUR')?.value ?? 0; return total > 0 ? Math.round(holding.value_minor * 10_000 / total) : 0; };
+  const actualBPS = (holding: Holding) => holding.actual_bps;
   const columns: DataColumn<Holding>[] = [
     { key: 'account', label: 'Account', sortable: true, render: holding => <><Text fw={650}>{holding.account_name}</Text><Text size="xs" c="dimmed">{holding.currency}</Text></> },
     {
@@ -415,7 +419,7 @@ export function InvestmentsView({
     },
     { key: 'type', label: 'Type', sortable: true, render: holding => <Chip>{instrumentLabels[holding.instrument_type ?? 'other']}</Chip> },
     { key: 'asset_class', label: 'Asset class', sortable: true, render: holding => <Chip>{label(holding.asset_class || 'other')}</Chip> },
-    { key: 'actual', label: 'Actual %', sortable: true, align: 'right', render: holding => <Text fw={650}>{percent(actualBPS(holding))}</Text> },
+    { key: 'actual', label: 'Portfolio % (currency)', sortable: true, align: 'right', render: holding => <Text fw={650}>{percent(actualBPS(holding))}</Text> },
     {
       key: 'value',
       label: 'Current value',
@@ -453,11 +457,11 @@ export function InvestmentsView({
 
   const visibleAccounts = activeAccounts.filter(account => accountIDs.length === 0 || accountIDs.includes(String(account.id)));
   const plannedHoldings = visibleHoldings
-    .filter(h => strategyBps(h) > 0)
     .sort((a, b) => strategyBps(b) - strategyBps(a));
 
   const totalMonthlyContributionMinor = visibleAccounts.reduce((sum, account) => sum + (account.pac_amount_minor ?? 0), 0);
   const currency = visibleHoldings[0]?.currency ?? visibleAccounts[0]?.currency ?? 'EUR';
+  const mixedCurrencies = new Set(visibleAccounts.map(a => a.currency)).size > 1;
 
   let totalPlannedBps = 0;
   let totalPlannedTERNum = 0;
@@ -468,7 +472,7 @@ export function InvestmentsView({
     const acc = accountMap.get(h.account_id);
     const inst = instMap.get(h.instrument_id);
     const plannedBps = strategyBps(h);
-    const itemMonthlyMinor = Math.round(((acc?.pac_amount_minor ?? 0) * plannedBps) / 10000);
+    const itemMonthlyMinor = Math.round(((acc?.pac_amount_minor ?? 0) * (h.pac_bps ?? 0)) / 10000);
     const itemYearlyMinor = itemMonthlyMinor * 12;
     const terBps = h.ter_bps ?? inst?.ter_bps ?? 0;
     const annualDragMinor = Math.round((itemYearlyMinor * terBps) / 10000);
@@ -493,7 +497,7 @@ export function InvestmentsView({
   const plannedWeightedTERBps = totalPlannedBps > 0 ? totalPlannedTERNum / totalPlannedBps : 0;
   const plannedByAccount = new Map<number, number>();
   planItems.forEach(item => {
-    plannedByAccount.set(item.holding.account_id, (plannedByAccount.get(item.holding.account_id) ?? 0) + item.plannedBps);
+    plannedByAccount.set(item.holding.account_id, (plannedByAccount.get(item.holding.account_id) ?? 0) + (item.holding.pac_bps ?? 0));
   });
 
   return (
@@ -549,7 +553,7 @@ export function InvestmentsView({
         <Stack gap="md">
           <SectionHeader
             title="Investment Allocation Strategy"
-            subtitle="Set how each account is split across investments, with an optional monthly contribution for PAC/DCA investing."
+            subtitle="Targets refer to your active portfolio within each currency. PAC shares independently split each account’s monthly contribution."
             actions={
               <Group gap="sm" align="center" wrap="wrap">
                 {activeAccounts.length > 0 && (
@@ -581,7 +585,7 @@ export function InvestmentsView({
             }
           />
 
-          <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
+          {mixedCurrencies ? <Text size="sm" c="dimmed">Contributions are shown separately per account below; currencies are not combined.</Text> : <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
             <Card className="metric" p="md" radius="lg">
               <Text size="xs" c="dimmed">Monthly Contribution</Text>
               <Text size="xl" fw={800} c="teal" mt={4}>{money(totalMonthlyContributionMinor, currency)}/mo</Text>
@@ -605,7 +609,7 @@ export function InvestmentsView({
               )}
               {totalMonthlyContributionMinor === 0 && <Text size="xs" c="dimmed" mt={4}>Set a monthly amount below</Text>}
             </Card>
-          </SimpleGrid>
+          </SimpleGrid>}
 
           {visibleAccounts.length === 0 ? (
             <Empty
@@ -632,81 +636,22 @@ export function InvestmentsView({
                 const accountTotalValue = accHoldings.reduce((sum, h) => sum + h.value_minor, 0);
                 const accountTotalInvested = accHoldings.reduce((sum, h) => sum + h.invested_minor, 0);
                 const accPlanTERNum = accountPlannedHoldings.reduce((sum, item) => sum + item.plannedBps * item.terBps, 0);
-                const accWeightedTERBps = allocatedBps > 0 ? accPlanTERNum / allocatedBps : 0;
+                const accountTargetBps = accountPlannedHoldings.reduce((sum, item) => sum + item.plannedBps, 0);
+                const accWeightedTERBps = accountTargetBps > 0 ? accPlanTERNum / accountTargetBps : 0;
                 const accAnnualFeeDragMinor = accountPlannedHoldings.reduce((sum, item) => sum + Math.round((item.itemMonthlyMinor * 12 * item.terBps) / 10000), 0);
 
                 // Drift computation
                 const driftMap = new Map(accountPlannedHoldings.map(item => {
-                  const actualAccBps = accountTotalValue > 0
-                    ? Math.round(item.holding.value_minor * 10000 / accountTotalValue)
-                    : 0;
+                  const actualAccBps = actualBPS(item.holding);
                   return [item.holding.id, { actualAccBps, driftBps: actualAccBps - item.plannedBps }];
                 }));
                 const maxAbsDrift = accountPlannedHoldings.length > 0
-                  ? Math.max(...accountPlannedHoldings.map(item => Math.abs(driftMap.get(item.holding.id)!.driftBps)))
+                  ? Math.max(...accountPlannedHoldings.map(item => (item.plannedBps > 0 ? Math.abs(driftMap.get(item.holding.id)!.driftBps) : 0)))
                   : 0;
                 const hasDrift = maxAbsDrift >= driftThresholdBps;
 
-                // Suggested PAC (5% step granularity):
-                // 1. Overweight (drift >= +threshold) → 0 PAC
-                // 2. Remaining: weight = planned + excess underweight deficit, normalized to totalPlanBps
-                // 3. Round each to nearest 5% (500 bps); fix sum; keep planned if no 5%-step change
-                const suggestedPacMap = new Map<number, number>();
-                if (hasDrift) {
-                  const STEP = 500;
-                  const totalPlanBps = accountPlannedHoldings.reduce((sum, item) => sum + item.plannedBps, 0);
-                  const overweightIds = new Set(
-                    accountPlannedHoldings
-                      .filter(item => (driftMap.get(item.holding.id)?.driftBps ?? 0) >= driftThresholdBps)
-                      .map(item => item.holding.id),
-                  );
-                  const nonOverweight = accountPlannedHoldings.filter(item => !overweightIds.has(item.holding.id));
-                  const totalWeight = nonOverweight.reduce((sum, item) => {
-                    const d = driftMap.get(item.holding.id)?.driftBps ?? 0;
-                    return sum + item.plannedBps + Math.max(0, -d - driftThresholdBps);
-                  }, 0);
-
-                  // Continuous values before rounding
-                  const continuous = new Map<number, number>();
-                  accountPlannedHoldings.forEach(item => {
-                    if (overweightIds.has(item.holding.id)) {
-                      continuous.set(item.holding.id, 0);
-                    } else {
-                      const d = driftMap.get(item.holding.id)?.driftBps ?? 0;
-                      const w = item.plannedBps + Math.max(0, -d - driftThresholdBps);
-                      continuous.set(item.holding.id, totalWeight > 0 ? w / totalWeight * totalPlanBps : item.plannedBps);
-                    }
-                  });
-
-                  // Round each to nearest STEP
-                  const rounded = new Map<number, number>();
-                  accountPlannedHoldings.forEach(item => {
-                    rounded.set(item.holding.id, Math.round((continuous.get(item.holding.id) ?? 0) / STEP) * STEP);
-                  });
-
-                  // Fix rounding sum error: prefer most-underweight non-overweight positions when adding,
-                  // most-overweight when subtracting — avoids boosting already-high positions
-                  const roundedSum = [...rounded.values()].reduce((a, b) => a + b, 0);
-                  let diff = totalPlanBps - roundedSum;
-                  if (diff !== 0) {
-                    const adjustable = accountPlannedHoldings
-                      .filter(item => !overweightIds.has(item.holding.id))
-                      .map(item => ({ id: item.holding.id, drift: driftMap.get(item.holding.id)?.driftBps ?? 0 }))
-                      .sort((a, b) => diff > 0 ? a.drift - b.drift : b.drift - a.drift);
-                    for (const { id } of adjustable) {
-                      if (diff === 0) break;
-                      const adj = diff > 0 ? STEP : -STEP;
-                      rounded.set(id, (rounded.get(id) ?? 0) + adj);
-                      diff -= adj;
-                    }
-                  }
-
-                  // Only apply if the rounded value differs from planned by at least one STEP
-                  accountPlannedHoldings.forEach(item => {
-                    const r = rounded.get(item.holding.id) ?? item.plannedBps;
-                    suggestedPacMap.set(item.holding.id, Math.abs(r - item.plannedBps) >= STEP ? r : item.plannedBps);
-                  });
-                }
+                const portfolioValue = activeHoldings.filter(h => h.currency === acc.currency).reduce((sum, h) => sum + h.value_minor, 0);
+                const suggestedPacMap = suggestedPacShares(accountPlannedHoldings.map(item => item.holding), portfolioValue, acc.pac_amount_minor ?? 0);
 
                 return (
                   <Card key={acc.id} className="metric" p="lg" radius="lg" withBorder>
@@ -731,7 +676,7 @@ export function InvestmentsView({
 
                     <Box my="xs">
                       <Group justify="space-between" align="baseline" mb={4}>
-                        <Text size="xs" c="dimmed">Strategy Allocation</Text>
+                        <Text size="xs" c="dimmed">Monthly PAC Allocation</Text>
                         <Text size="xs" fw={700} c={over ? 'red' : full ? 'teal' : 'dimmed'}>
                           {(acc.pac_amount_minor ?? 0) > 0 ? `${money(allocatedMonthlyMinor, acc.currency ?? currency)} / ${money(acc.pac_amount_minor ?? 0, acc.currency ?? currency)} · ` : ''}{((allocatedBps / 100)).toFixed(2)}% assigned
                         </Text>
@@ -795,8 +740,9 @@ export function InvestmentsView({
                                 <Table.Th style={{ width: hasDrift ? '19%' : '22%' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Instrument</Text></Table.Th>
                                 <Table.Th style={{ width: '7%', textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">TER</Text></Table.Th>
                                 <Table.Th style={{ width: '8%', textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">AUM</Text></Table.Th>
-                                <Table.Th style={{ width: '10%', textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Planned</Text></Table.Th>
-                                <Table.Th style={{ width: '10%', textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Actual / Drift</Text></Table.Th>
+                                <Table.Th style={{ width: '10%', textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Portfolio Target</Text></Table.Th>
+                                <Table.Th style={{ width: '10%', textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Portfolio % / Drift</Text></Table.Th>
+                                <Table.Th style={{ textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed">PAC Share</Text></Table.Th>
                                 <Table.Th style={{ width: '9%', textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Monthly</Text></Table.Th>
                                 {hasDrift && <Table.Th style={{ width: '9%', textAlign: 'right' }}><Text size="xs" fw={700} c="orange" tt="uppercase">Suggested PAC</Text></Table.Th>}
                                 <Table.Th style={{ width: '8%', textAlign: 'right' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Value</Text></Table.Th>
@@ -845,6 +791,9 @@ export function InvestmentsView({
                                       </Stack>
                                     </Table.Td>
                                     <Table.Td style={{ textAlign: 'right' }}>
+                                      <InlinePlannedBpsEditor holding={item.holding} field="pac_bps" onSaved={reload} />
+                                    </Table.Td>
+                                    <Table.Td style={{ textAlign: 'right' }}>
                                       <Text size="xs" fw={700} c={item.itemMonthlyMinor > 0 ? 'teal' : 'dimmed'}>
                                         {item.itemMonthlyMinor > 0 ? `${money(item.itemMonthlyMinor, acc.currency ?? currency)}/mo` : '—'}
                                       </Text>
@@ -852,7 +801,7 @@ export function InvestmentsView({
                                     {hasDrift && (
                                       <Table.Td style={{ textAlign: 'right' }}>
                                         <Stack gap={1} align="flex-end">
-                                          <Text size="xs" fw={700} c={suggestedBps < item.plannedBps ? 'orange' : suggestedBps > item.plannedBps ? 'blue' : 'dimmed'}>
+                                          <Text size="xs" fw={700} c={suggestedBps < (item.holding.pac_bps ?? 0) ? 'orange' : suggestedBps > (item.holding.pac_bps ?? 0) ? 'blue' : 'dimmed'}>
                                             {(suggestedBps / 100).toFixed(1)}%
                                           </Text>
                                           {(acc.pac_amount_minor ?? 0) > 0 && (
@@ -913,18 +862,18 @@ export function InvestmentsView({
                             <Group gap="xs" mb={6}>
                               <IconAlertTriangle size={13} color="var(--mantine-color-orange-6)" />
                               <Text size="xs" fw={700} c="orange">
-                                Drift detected — max {(maxAbsDrift / 100).toFixed(1)}% · Suggested PAC to steer back to target
+                                Drift detected — max {(maxAbsDrift / 100).toFixed(1)}% · Contribution-only preview; unapplied cash stays unallocated
                               </Text>
                             </Group>
                             <Group gap="xs" wrap="wrap">
                               {accountPlannedHoldings.map(item => {
                                 const suggested = suggestedPacMap.get(item.holding.id) ?? item.plannedBps;
                                 const suggestedMonthly = Math.round(((acc.pac_amount_minor ?? 0) * suggested) / 10000);
-                                const changed = suggested !== item.plannedBps;
+                                const changed = suggested !== (item.holding.pac_bps ?? 0);
                                 return (
                                   <Badge
                                     key={item.holding.id}
-                                    color={suggested < item.plannedBps ? 'orange' : suggested > item.plannedBps ? 'blue' : 'gray'}
+                                    color={suggested < (item.holding.pac_bps ?? 0) ? 'orange' : suggested > (item.holding.pac_bps ?? 0) ? 'blue' : 'gray'}
                                     variant={changed ? 'light' : 'subtle'}
                                   >
                                     {item.ticker ?? (item.instrumentName ?? '').split(' ')[0]}: {(suggested / 100).toFixed(1)}%
@@ -1101,8 +1050,6 @@ function HoldingModal({ opened, close, holding, accounts, instruments, taxRates,
         value_minor: value,
         planned_bps: plannedBpsVal,
         tax_bps: bps(form.tax),
-        is_pac: plannedBpsVal > 0,
-        pac_bps: plannedBpsVal,
         pac_frequency: holding?.pac_frequency || 'monthly',
         notes: form.notes,
       };
@@ -1117,5 +1064,5 @@ function HoldingModal({ opened, close, holding, accounts, instruments, taxRates,
     }
   };
 
-  return <Modal opened={opened} onClose={close} title={holding ? 'Edit investment' : 'Add investment'}><Stack><Select searchable required label="Account" value={form.accountID} data={accounts.map(item => ({ value: String(item.id), label: `${item.name} · ${item.type}${item.preferred ? ' · default' : ''} · ${item.currency}` }))} onChange={value => setForm({ ...form, accountID: value ?? '' })} /><Select searchable required label="Instrument" nothingFoundMessage="No ticker, name, or ISIN match" value={form.instrumentID} data={instruments.map(item => ({ value: String(item.id), label: [item.ticker, item.name, instrumentLabels[item.instrument_type], item.isin].filter(Boolean).join(' · ') }))} onChange={value => setForm({ ...form, instrumentID: value ?? '' })} /><SimpleGrid cols={2}><NumberInput label="Current value" min={0} decimalScale={2} value={form.value} onChange={value => setForm({ ...form, value })} /><NumberInput label="Planned allocation (%)" min={0} max={100} decimalScale={2} value={form.planned} onChange={value => setForm({ ...form, planned: value })} /><NumberInput label="Since buy gain / loss (optional)" placeholder="Example: -0.85" decimalScale={2} value={form.sinceBuy} onChange={value => setForm({ ...form, sinceBuy: value })} /><NumberInput label="Applicable tax (%)" min={0} max={100} decimalScale={2} value={form.tax} onChange={value => setForm({ ...form, tax: value })} /></SimpleGrid><Textarea label="Notes & Context for AI Assistant" placeholder="e.g. Core global equity allocation for long-term wealth accumulation..." rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.currentTarget.value })} /><Text size="xs" c="dimmed">A planned allocation lets you add an investment before the first purchase.</Text><Select label="Tax preset" data={taxRates.map(item => ({ value: String(item.rate_bps), label: `${item.label} (${percent(item.rate_bps)})` }))} onChange={value => value && setForm({ ...form, tax: Number(value) / 100 })} /><Group justify="end"><Button loading={saving} onClick={() => void save()}>Save investment</Button></Group></Stack></Modal>;
+  return <Modal opened={opened} onClose={close} title={holding ? 'Edit investment' : 'Add investment'}><Stack><Select searchable required label="Account" value={form.accountID} data={accounts.map(item => ({ value: String(item.id), label: `${item.name} · ${item.type}${item.preferred ? ' · default' : ''} · ${item.currency}` }))} onChange={value => setForm({ ...form, accountID: value ?? '' })} /><Select searchable required label="Instrument" nothingFoundMessage="No ticker, name, or ISIN match" value={form.instrumentID} data={instruments.map(item => ({ value: String(item.id), label: [item.ticker, item.name, instrumentLabels[item.instrument_type], item.isin].filter(Boolean).join(' · ') }))} onChange={value => setForm({ ...form, instrumentID: value ?? '' })} /><SimpleGrid cols={2}><NumberInput label="Current value" min={0} decimalScale={2} value={form.value} onChange={value => setForm({ ...form, value })} /><NumberInput label="Portfolio target within currency (%)" min={0} max={100} decimalScale={2} value={form.planned} onChange={value => setForm({ ...form, planned: value })} /><NumberInput label="Since buy gain / loss (optional)" placeholder="Example: -0.85" decimalScale={2} value={form.sinceBuy} onChange={value => setForm({ ...form, sinceBuy: value })} /><NumberInput label="Applicable tax (%)" min={0} max={100} decimalScale={2} value={form.tax} onChange={value => setForm({ ...form, tax: value })} /></SimpleGrid><Textarea label="Notes & Context for AI Assistant" placeholder="e.g. Core global equity allocation for long-term wealth accumulation..." rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.currentTarget.value })} /><Text size="xs" c="dimmed">A planned allocation lets you add an investment before the first purchase.</Text><Select label="Tax preset" data={taxRates.map(item => ({ value: String(item.rate_bps), label: `${item.label} (${percent(item.rate_bps)})` }))} onChange={value => value && setForm({ ...form, tax: Number(value) / 100 })} /><Group justify="end"><Button loading={saving} onClick={() => void save()}>Save investment</Button></Group></Stack></Modal>;
 }
