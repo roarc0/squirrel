@@ -3,6 +3,8 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/roarc0/squirrel/backend/internal/portfolio"
@@ -36,17 +38,24 @@ func (s *Store) GetPerformance(ctx context.Context, isin string) ([]portfolio.Pe
 }
 
 func (s *Store) SavePerformance(ctx context.Context, isin string, points []portfolio.PerformancePoint) error {
+	if !portfolio.ValidISIN(isin) {
+		return errors.New("invalid ISIN")
+	}
+	if len(points) == 0 {
+		return errors.New("performance response contains no points")
+	}
+	for _, p := range points {
+		if _, err := time.Parse(time.DateOnly, p.Date); err != nil {
+			return fmt.Errorf("invalid performance date %q: %w", p.Date, err)
+		}
+	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	if _, err := tx.ExecContext(ctx, `DELETE FROM instrument_performance WHERE isin = ?`, isin); err != nil {
-		return err
-	}
-
-	stmt, err := tx.PrepareContext(ctx, `INSERT INTO instrument_performance (isin, date, change_bps) VALUES (?, ?, ?)`)
+	stmt, err := tx.PrepareContext(ctx, `INSERT INTO instrument_performance (isin, date, change_bps) VALUES (?, ?, ?) ON CONFLICT(isin, date) DO NOTHING`)
 	if err != nil {
 		return err
 	}
@@ -60,9 +69,9 @@ func (s *Store) SavePerformance(ctx context.Context, isin string, points []portf
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, err = tx.ExecContext(ctx,
-		`INSERT INTO instrument_performance_meta (isin, fetched_at, point_count) VALUES (?, ?, ?)
+		`INSERT INTO instrument_performance_meta (isin, fetched_at, point_count) SELECT ?, ?, COUNT(*) FROM instrument_performance WHERE isin = ?
 		 ON CONFLICT(isin) DO UPDATE SET fetched_at = excluded.fetched_at, point_count = excluded.point_count`,
-		isin, now, len(points))
+		isin, now, isin)
 	if err != nil {
 		return err
 	}

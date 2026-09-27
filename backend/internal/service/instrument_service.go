@@ -271,9 +271,6 @@ func (s *Server) LookupInstrument(ctx context.Context, req *connect.Request[port
 		isin = results[0].ISIN
 	}
 	if err := s.enrichInstrument(ctx, isin); err != nil {
-		if existing, dbErr := s.store.GetInstrumentByISIN(ctx, isin); dbErr == nil {
-			return connect.NewResponse(&portv1.LookupInstrumentResponse{Instrument: instrumentToProto(existing)}), nil
-		}
 		return nil, justETFConnectError(ctx, isin, err)
 	}
 	saved, err := s.store.GetInstrumentByISIN(ctx, isin)

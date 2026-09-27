@@ -120,25 +120,81 @@ func (b *BTP) CalculateMetrics(taxRate float64, referenceTime time.Time) {
 	}
 	b.MaturityYears = expiry.Sub(referenceTime).Hours() / (24 * 365.25)
 	b.IsTraded = true
-	b.AnalyticsNote = "Yield and cash-flow calculations unavailable: verified payment schedule, settlement and accrued interest are missing."
-	if b.BondType != BondTypeZeroCoupon || b.Coupon != 0 || taxRate < 0 || taxRate > 1 || math.IsNaN(taxRate) {
+	if taxRate < 0 || taxRate > 1 || math.IsNaN(taxRate) || b.Coupon < 0 || math.IsNaN(b.Coupon) || math.IsInf(b.Coupon, 0) {
 		return
 	}
-	// Zero coupons have a single dated payment; no coupon schedule or accrued coupon is inferred.
+	b.AnalyticsNote = "This bond needs its issue-specific step-up, indexation or floating-rate schedule; a fixed-coupon yield would be misleading."
+	if b.BondType != BondTypeFixed && b.BondType != BondTypeZeroCoupon {
+		return
+	}
+	if b.BondType == BondTypeZeroCoupon && b.Coupon != 0 {
+		return
+	}
+
+	// Estimate regular fixed coupons from maturity, retaining fractional time to
+	// the next payment. Quote-date valuation excludes settlement lag and fees.
+	var dates []time.Time
+	accrued := 0.0
+	if b.Coupon > 0 {
+		for months := 0; ; months += 6 {
+			month := time.Date(expiry.Year(), expiry.Month()-time.Month(months), 1, 0, 0, 0, 0, time.UTC)
+			day := min(expiry.Day(), month.AddDate(0, 1, -1).Day())
+			date := time.Date(month.Year(), month.Month(), day, 0, 0, 0, 0, time.UTC)
+			if !date.After(referenceTime) {
+				next := dates[len(dates)-1]
+				accrued = b.Coupon / 2 * referenceTime.Sub(date).Hours() / next.Sub(date).Hours()
+				break
+			}
+			dates = append(dates, date)
+		}
+	} else {
+		dates = []time.Time{expiry}
+	}
+	grossCost, netCost := b.Price+accrued, b.Price+accrued*(1-taxRate)
 	netRedemption := 100 - math.Max(0, 100-b.Price)*taxRate
-	grossYield := math.Pow(100/b.Price, 1/b.MaturityYears) - 1
-	netYield := math.Pow(netRedemption/b.Price, 1/b.MaturityYears) - 1
-	if math.IsNaN(grossYield) || math.IsInf(grossYield, 0) || math.IsNaN(netYield) || math.IsInf(netYield, 0) {
+	presentValue := func(yield, coupon, redemption float64) (pv, weighted float64) {
+		for i, date := range dates {
+			years := date.Sub(referenceTime).Hours() / (24 * 365.25)
+			amount := coupon
+			if i == 0 {
+				amount += redemption
+			}
+			discounted := amount / math.Pow(1+yield, years)
+			pv += discounted
+			weighted += years * discounted
+		}
 		return
 	}
+	solve := func(cost, coupon, redemption float64) float64 {
+		lo, hi := -0.999999, 1.0
+		for pv, _ := presentValue(hi, coupon, redemption); pv > cost && hi < 1e12; pv, _ = presentValue(hi, coupon, redemption) {
+			hi *= 2
+		}
+		for range 100 {
+			mid := (lo + hi) / 2
+			pv, _ := presentValue(mid, coupon, redemption)
+			if pv > cost {
+				lo = mid
+			} else {
+				hi = mid
+			}
+		}
+		return (lo + hi) / 2
+	}
+	grossYield := solve(grossCost, b.Coupon/2, 100)
+	netYield := solve(netCost, b.Coupon/2*(1-taxRate), netRedemption)
+	pv, weighted := presentValue(grossYield, b.Coupon/2, 100)
 	b.AnalyticsAvailable = true
-	b.AnalyticsNote = fmt.Sprintf("Zero-coupon estimate at the quote date: redemption at 100, annual effective yield, ACT/365.25, %.2f%% tax; excludes fees and settlement lag.", taxRate*100)
+	b.AnalyticsNote = fmt.Sprintf("Estimate at the quote date: regular semiannual coupons inferred from maturity, estimated accrued interest, redemption at 100, annual effective yield (ACT/365.25), %.2f%% tax. Excludes fees, settlement lag, irregular coupons and tax credits.", taxRate*100)
+	if b.Coupon == 0 {
+		b.AnalyticsNote = fmt.Sprintf("Zero-coupon estimate at the quote date: redemption at 100, annual effective yield (ACT/365.25), %.2f%% tax; excludes fees and settlement lag.", taxRate*100)
+	}
 	b.YTMGross, b.YTMNet = sanitizeFloatValue(grossYield*100, 2), sanitizeFloatValue(netYield*100, 2)
-	b.DurationMac = sanitizeFloatValue(b.MaturityYears, 2)
-	b.DurationMod = sanitizeFloatValue(b.MaturityYears/(1+grossYield), 2)
-	b.RateHikeImpact = sanitizeFloatValue(-b.MaturityYears/(1+grossYield), 1)
-	b.TotalReturnGross = sanitizeFloatValue((100/b.Price-1)*100, 2)
-	b.TotalReturnNet = sanitizeFloatValue((netRedemption/b.Price-1)*100, 2)
+	b.DurationMac = sanitizeFloatValue(weighted/pv, 2)
+	b.DurationMod = sanitizeFloatValue(weighted/pv/(1+grossYield), 2)
+	b.RateHikeImpact = sanitizeFloatValue(-weighted/pv/(1+grossYield), 1)
+	b.TotalReturnGross = sanitizeFloatValue(((100+float64(len(dates))*b.Coupon/2)/grossCost-1)*100, 2)
+	b.TotalReturnNet = sanitizeFloatValue(((netRedemption+float64(len(dates))*b.Coupon/2*(1-taxRate))/netCost-1)*100, 2)
 	b.SimpleYieldGross = sanitizeFloatValue(b.TotalReturnGross/b.MaturityYears, 2)
 	b.SimpleYieldNet = sanitizeFloatValue(b.TotalReturnNet/b.MaturityYears, 2)
 }

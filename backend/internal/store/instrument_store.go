@@ -88,27 +88,37 @@ func (s *Store) SaveInstrument(ctx context.Context, instrument *portfolio.Instru
 	if instrument.RefreshedAt == "" {
 		instrument.RefreshedAt = now
 	}
-	return s.db.QueryRowContext(ctx, `
+	err := s.db.QueryRowContext(ctx, `
 		INSERT INTO instruments (isin, name, ticker, instrument_type, provider, index_name, investment_focus, asset_class, strategy, currency_hedged, starred, data_status, distribution, replication, domicile, fund_currency, ter_bps, fund_size_million, inception_date, tracking_difference_bps, tracking_error_bps, ucits, source_url, refreshed_at, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(isin) DO UPDATE SET name=excluded.name, ticker=excluded.ticker,
-		instrument_type=CASE WHEN instruments.data_status='enriched' AND excluded.data_status='catalog' THEN instruments.instrument_type ELSE excluded.instrument_type END,
-		provider=CASE WHEN instruments.data_status='enriched' AND excluded.data_status='catalog' THEN instruments.provider ELSE excluded.provider END,
-		index_name=CASE WHEN instruments.data_status='enriched' AND excluded.data_status='catalog' THEN instruments.index_name ELSE excluded.index_name END,
-		investment_focus=CASE WHEN instruments.data_status='enriched' AND excluded.data_status='catalog' THEN instruments.investment_focus ELSE excluded.investment_focus END,
-		asset_class=CASE WHEN instruments.data_status='enriched' AND excluded.data_status='catalog' THEN instruments.asset_class ELSE excluded.asset_class END,
-		strategy=CASE WHEN instruments.data_status='enriched' AND excluded.data_status='catalog' THEN instruments.strategy ELSE excluded.strategy END,
-		currency_hedged=CASE WHEN instruments.data_status='enriched' AND excluded.data_status='catalog' THEN instruments.currency_hedged ELSE excluded.currency_hedged END,
-		data_status=CASE WHEN instruments.data_status='enriched' AND excluded.data_status='catalog' THEN instruments.data_status ELSE excluded.data_status END,
+		instrument_type=excluded.instrument_type,
+		provider=excluded.provider,
+		index_name=excluded.index_name,
+		investment_focus=excluded.investment_focus,
+		asset_class=excluded.asset_class,
+		strategy=excluded.strategy,
+		currency_hedged=excluded.currency_hedged,
+		data_status=excluded.data_status,
 		distribution=excluded.distribution, replication=excluded.replication,
 		domicile=excluded.domicile, fund_currency=excluded.fund_currency, ter_bps=excluded.ter_bps,
 		fund_size_million=excluded.fund_size_million, inception_date=excluded.inception_date,
-		tracking_difference_bps=CASE WHEN instruments.data_status='enriched' AND excluded.data_status='catalog' THEN instruments.tracking_difference_bps ELSE excluded.tracking_difference_bps END,
-		tracking_error_bps=CASE WHEN instruments.data_status='enriched' AND excluded.data_status='catalog' THEN instruments.tracking_error_bps ELSE excluded.tracking_error_bps END, ucits=excluded.ucits,
+		tracking_difference_bps=excluded.tracking_difference_bps,
+		tracking_error_bps=excluded.tracking_error_bps, ucits=excluded.ucits,
 		source_url=excluded.source_url,
-		refreshed_at=CASE WHEN instruments.data_status='enriched' AND excluded.data_status='catalog' THEN instruments.refreshed_at ELSE excluded.refreshed_at END,
+		refreshed_at=excluded.refreshed_at,
 		updated_at=excluded.updated_at
+		WHERE instruments.data_status <> 'enriched' OR excluded.data_status <> 'catalog'
 		RETURNING id, starred`, instrument.ISIN, instrument.Name, instrument.Ticker, instrument.InstrumentType, instrument.Provider, instrument.IndexName, instrument.InvestmentFocus, instrument.AssetClass, instrument.Strategy, instrument.CurrencyHedged, instrument.Starred, instrument.DataStatus, instrument.Distribution, instrument.Replication, instrument.Domicile, instrument.FundCurrency, instrument.TERBPS, instrument.FundSizeMillion, instrument.InceptionDate, instrument.TrackingDifferenceBPS, instrument.TrackingErrorBPS, instrument.UCITS, instrument.SourceURL, instrument.RefreshedAt, now, now).Scan(&instrument.ID, &instrument.Starred)
+	if errors.Is(err, sql.ErrNoRows) {
+		stored, readErr := s.GetInstrumentByISIN(ctx, instrument.ISIN)
+		if readErr != nil {
+			return readErr
+		}
+		*instrument = stored
+		return nil
+	}
+	return err
 }
 
 func (s *Store) SaveInstrumentCatalogBatch(ctx context.Context, instruments []portfolio.Instrument) (int, error) {
@@ -125,13 +135,13 @@ func (s *Store) SaveInstrumentCatalogBatch(ctx context.Context, instruments []po
 		INSERT INTO instruments (isin, name, ticker, instrument_type, provider, index_name, investment_focus, asset_class, strategy, currency_hedged, starred, data_status, distribution, replication, domicile, fund_currency, ter_bps, fund_size_million, inception_date, tracking_difference_bps, tracking_error_bps, ucits, source_url, refreshed_at, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(isin) DO UPDATE SET name=excluded.name, ticker=excluded.ticker,
-		instrument_type=CASE WHEN instruments.data_status='enriched' THEN instruments.instrument_type ELSE excluded.instrument_type END,
+		instrument_type=excluded.instrument_type,
 		distribution=excluded.distribution, replication=excluded.replication,
 		domicile=excluded.domicile, fund_currency=excluded.fund_currency, ter_bps=excluded.ter_bps,
 		fund_size_million=excluded.fund_size_million, inception_date=excluded.inception_date,
 		ucits=excluded.ucits, source_url=excluded.source_url,
-		refreshed_at=CASE WHEN instruments.data_status='enriched' THEN instruments.refreshed_at ELSE excluded.refreshed_at END,
-		updated_at=excluded.updated_at`)
+		refreshed_at=excluded.refreshed_at,
+		updated_at=excluded.updated_at WHERE instruments.data_status <> 'enriched'`)
 	if err != nil {
 		return 0, err
 	}
@@ -240,7 +250,7 @@ func (s *Store) ListInstrumentsForEnrichment(ctx context.Context, mode string) (
 
 func (s *Store) CountRefreshedToday(ctx context.Context) (int32, error) {
 	var count int32
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM instruments WHERE refreshed_at >= datetime('now', '-24 hours')`).Scan(&count)
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM instruments WHERE data_status='enriched' AND julianday(refreshed_at) >= julianday('now', '-24 hours')`).Scan(&count)
 	return count, err
 }
 

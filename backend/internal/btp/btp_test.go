@@ -44,8 +44,8 @@ func TestCalculateMetricsAndScores(t *testing.T) {
 	}
 
 	b.CalculateMetrics(0.125, refTime)
-	if b.AnalyticsAvailable || b.YTMNet != 0 || b.Score != 0 {
-		t.Fatal("coupon bond without a schedule must not expose analytics")
+	if !b.AnalyticsAvailable || b.YTMNet <= 0 {
+		t.Fatal("regular fixed coupon estimates must be available")
 	}
 	b.Name, b.BondType, b.Coupon = "BTP ZC", BondTypeZeroCoupon, 0
 	b.CalculateMetrics(0.125, refTime)
@@ -108,7 +108,7 @@ func TestZeroCouponUsesExactMaturityAndGrossDuration(t *testing.T) {
 	if b.YTMGross == firstYield || b.YTMGross != b.YTMNet {
 		t.Fatal("exact timing and zero tax must be respected")
 	}
-	for _, kind := range []BondType{BondTypeFixed, BondTypeValore, BondTypeFutura, BondTypeItalia, BondTypeInflation, BondTypeFloating} {
+	for _, kind := range []BondType{BondTypeValore, BondTypeFutura, BondTypeItalia, BondTypeInflation, BondTypeFloating} {
 		b.BondType, b.Score, b.YTMNet = kind, 99, 20
 		b.CalculateMetrics(0.125, ref)
 		if b.AnalyticsAvailable || b.Score != 0 || b.YTMNet != 0 || b.TierRank != "N/A" {
@@ -119,5 +119,27 @@ func TestZeroCouponUsesExactMaturityAndGrossDuration(t *testing.T) {
 	b.CalculateMetrics(0.125, ref.AddDate(2, 0, 0))
 	if b.IsTraded || b.AnalyticsAvailable {
 		t.Fatal("matured bond must not be ranked")
+	}
+}
+
+func TestFixedCouponDatedEstimates(t *testing.T) {
+	ref := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	b := BTP{Price: 100, Coupon: 4, BondType: BondTypeFixed, ExpiryDate: "01/01/2031"}
+	b.CalculateMetrics(0, ref)
+	// At par on a coupon date, a 4% semiannual coupon is ~4.04% annual effective.
+	if !b.AnalyticsAvailable || math.Abs(b.YTMGross-4.04) > 0.01 || b.YTMNet != b.YTMGross || b.TotalReturnGross != 20 {
+		t.Fatalf("incorrect par coupon estimate: %+v", b)
+	}
+	// A bond one month from redemption still pays a whole final coupon. The
+	// purchaser pays accrued interest, so that coupon is not a windfall.
+	b.ExpiryDate = "01/07/2026"
+	b.CalculateMetrics(0, time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC))
+	if !b.AnalyticsAvailable || b.YTMGross < 3.9 || b.YTMGross > 4.1 || b.TotalReturnGross > 0.4 {
+		t.Fatalf("fractional period/accrual calculation incorrect: %+v", b)
+	}
+	b = BTP{ISIN: "IT0005425233", Price: 53.84, Coupon: 1.7, BondType: BondTypeFixed, ExpiryDate: "01/09/2051"}
+	b.CalculateMetrics(0.125, time.Date(2026, 9, 27, 0, 0, 0, 0, time.UTC))
+	if !b.AnalyticsAvailable || b.YTMGross < 4 || b.YTMGross > 6 || b.YTMNet >= b.YTMGross || b.DurationMod <= 10 {
+		t.Fatalf("reported fixed BTP regression: %+v", b)
 	}
 }

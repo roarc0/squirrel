@@ -346,6 +346,14 @@ export default function App() {
   const [quickSearchOpened, setQuickSearchOpened] = useState(false);
   const [mobileNavOpened, setMobileNavOpened] = useState(false);
   const { tick: refreshTick, toggle: handleToggleRefresh } = useContinuousRefresh();
+  useEffect(() => {
+    if (refreshTick?.phase !== 'waiting' || refreshTick.hasError) return;
+    let active = true;
+    api<Instrument[]>('/api/instruments').then(instruments => {
+      if (active) setData(current => current ? { ...current, instruments: instruments ?? [] } : current);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [refreshTick]);
   const isMobile = useMediaQuery('(max-width: 48em)');
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     return localStorage.getItem('squirrel.sidebarCollapsed') === 'true';

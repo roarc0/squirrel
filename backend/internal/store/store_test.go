@@ -78,7 +78,7 @@ func TestStoreRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	instruments, err = s.ListInstruments(ctx)
-	if err != nil || !instruments[0].Starred || instruments[0].DataStatus != portfolio.InstrumentStatusEnriched || instruments[0].Provider != "Provider" || instruments[0].InvestmentFocus != "Equity, World" || instruments[0].TERBPS != 10 || instruments[0].RefreshedAt != "2026-08-21T12:00:00Z" {
+	if err != nil || !instruments[0].Starred || instruments[0].DataStatus != portfolio.InstrumentStatusEnriched || instruments[0].Provider != "Provider" || instruments[0].InvestmentFocus != "Equity, World" || instruments[0].TERBPS != 12 || instruments[0].RefreshedAt != "2026-08-21T12:00:00Z" {
 		t.Fatalf("catalog refresh downgraded enriched data: err=%v instruments=%+v", err, instruments)
 	}
 	holding := portfolio.Holding{AccountID: account.ID, InstrumentID: instrument.ID, InvestedMinor: 1_000_000, ValueMinor: 1_100_000, TaxBPS: 2600, PlannedBPS: 6000}

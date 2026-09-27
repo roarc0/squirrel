@@ -145,7 +145,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
       setRanked([]); await reload();
     } catch (cause) {
       if (cause instanceof Error && (cause.name === 'AbortError' || cause.message.includes('canceled'))) { setNotice('Refresh stopped. Completed profiles were saved; the next run will resume from the remaining or oldest records.'); setRanked([]); await reload(); }
-      else setError(cause instanceof Error ? cause.message : String(cause));
+      else { setError(cause instanceof Error ? cause.message : String(cause)); setRanked([]); await reload(); }
     } finally { setStreamController(current => current === controller ? undefined : current); }
   };
   const showAlternatives = (instrument: Instrument) => setSimilarityFilter(instrument.isin);
@@ -289,7 +289,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
     ...(show('type') ? [{ key: 'type', label: 'Type', sortable: true, render: (item: RankedInstrument) => <Chip>{instrumentLabels[item.instrument.instrument_type]}</Chip> }] : []),
     ...(show('issuer') ? [{ key: 'issuer', label: 'Issuer', sortable: true, render: (item: RankedInstrument) => item.instrument.provider || '—' }] : []),
     ...(show('assetClass') ? [{ key: 'asset_class', label: 'Asset class', sortable: true, render: (item: RankedInstrument) => item.instrument.asset_class ? <Chip>{label(item.instrument.asset_class)}</Chip> : '—' }] : []),
-    ...(show('exposure') ? [{ key: 'exposure', label: 'Exposure', sortable: true, render: (item: RankedInstrument) => <><Text size="sm">{item.instrument.index_name || item.instrument.investment_focus || 'Profile not refreshed'}</Text><Group gap={4} mt={4}><Chip size="xs">{item.instrument.data_status === 'enriched' ? 'Refreshed' : 'Awaiting refresh'}</Chip>{item.instrument.asset_class && <Chip size="xs">{label(item.instrument.asset_class)}</Chip>}{item.instrument.currency_hedged && <Chip size="xs">Hedged</Chip>}</Group></> }] : []),
+    ...(show('exposure') ? [{ key: 'exposure', label: 'Exposure', sortable: true, render: (item: RankedInstrument) => <><Text size="sm">{item.instrument.index_name || item.instrument.investment_focus || (item.instrument.data_status === 'enriched' ? 'Exposure details unavailable' : 'Profile not refreshed')}</Text><Group gap={4} mt={4}><Chip size="xs">{item.instrument.data_status === 'enriched' ? 'Refreshed' : 'Awaiting refresh'}</Chip>{item.instrument.asset_class && <Chip size="xs">{label(item.instrument.asset_class)}</Chip>}{item.instrument.currency_hedged && <Chip size="xs">Hedged</Chip>}</Group></> }] : []),
     ...(show('policy') ? [{ key: 'policy', label: 'Policy', sortable: true, render: (item: RankedInstrument) => policyChip(item.instrument) }] : []),
     ...(show('replication') ? [{ key: 'replication', label: 'Replication', sortable: true, render: (item: CatalogRow) => <ReplicationChip value={item.instrument.replication} size="xs" /> }] : []),
     ...(show('ter') ? [{ key: 'ter', label: 'TER', sortable: true, render: (item: RankedInstrument) => percent(item.instrument.ter_bps) }] : []),
@@ -298,7 +298,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
     ...(show('currency') ? [{ key: 'currency', label: 'Currency', sortable: true, render: (item: RankedInstrument) => item.instrument.fund_currency || '—' }] : []),
     ...(show('inception') ? [{ key: 'inception', label: 'Inception', sortable: true, render: (item: RankedInstrument) => item.instrument.inception_date || '—' }] : []),
     ...(show('tracking') ? [{ key: 'tracking', label: 'Tracking', sortable: true, render: (item: RankedInstrument) => item.instrument.tracking_difference_bps === null && item.instrument.tracking_error_bps === null ? <Text c="dimmed">—</Text> : <Stack gap={1}><Text size="sm">Diff {item.instrument.tracking_difference_bps === null ? '—' : percent(item.instrument.tracking_difference_bps)}</Text><Text size="xs" c="dimmed">Error {item.instrument.tracking_error_bps === null ? '—' : percent(item.instrument.tracking_error_bps)}</Text></Stack> }] : []),
-    ...(show('enriched') ? [{ key: 'enriched', label: 'Last refreshed', sortable: true, render: (item: RankedInstrument) => <Text size="sm" c={item.instrument.refreshed_at ? undefined : 'dimmed'}>{item.instrument.refreshed_at ? new Date(item.instrument.refreshed_at).toLocaleString() : '—'}</Text> }] : []),
+    ...(show('enriched') ? [{ key: 'enriched', label: 'Last refreshed', sortable: true, render: (item: RankedInstrument) => <Text size="sm" c={item.instrument.data_status === 'enriched' && item.instrument.refreshed_at ? undefined : 'dimmed'}>{item.instrument.data_status === 'enriched' && item.instrument.refreshed_at ? new Date(item.instrument.refreshed_at).toLocaleString() : '—'}</Text> }] : []),
     { key: 'actions', render: item => <TableActions><TableAction label={`Open ${item.instrument.isin} on justETF`} href={item.instrument.source_url} disabled={!item.instrument.source_url}><IconExternalLink size={14} /></TableAction><TableAction label={item.instrument.ucits && item.instrument.instrument_type === 'etf' ? `Find alternatives for ${item.instrument.isin}` : 'Alternatives are limited to comparable UCITS ETFs'} disabled={item.instrument.instrument_type !== 'etf' || item.instrument.data_status !== 'enriched' || !item.instrument.ucits || item.instrument.asset_class === 'other'} onClick={() => showAlternatives(item.instrument)}><IconArrowsExchange size={14} /></TableAction><TableAction label={`Refresh ${item.instrument.isin}`} disabled={lookingUp} onClick={() => void lookup(item.instrument.isin)}><IconRefresh size={14} /></TableAction><TableAction label={`Edit ${item.instrument.isin}`} onClick={() => open(item.instrument)}><IconPencil size={14} /></TableAction><TableAction label={`Delete ${item.instrument.isin}`} color="red" onClick={() => void remove(item.instrument)}><IconTrash size={14} /></TableAction></TableActions> },
   ];
   const [, setProfileField] = useProfile();
@@ -319,7 +319,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
     const parsed = new Date(i.refreshed_at).getTime();
     return Date.now() - parsed > 30 * 24 * 3600 * 1000;
   }).length;
-  const enrichedDates = instruments.map(i => i.refreshed_at).filter((d): d is string => Boolean(d)).sort();
+  const enrichedDates = instruments.filter(i => i.data_status === 'enriched').map(i => i.refreshed_at).filter((d): d is string => Boolean(d)).sort();
   const oldestRefreshDate = enrichedDates.length > 0 ? new Date(enrichedDates[0]).toLocaleDateString() : 'None';
 
   const [catalogToolsOpen, setCatalogToolsOpen] = useState(false);

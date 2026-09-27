@@ -211,7 +211,15 @@ func (s *Server) GetGeoRadar(ctx context.Context, req *connect.Request[portv1.Ge
 	}
 
 	includeCash := req.Msg.GetIncludeCash()
-	radar := portfolio.CalculateGeoRadar(accounts, holdings, eurUsdRate, includeCash)
+	instruments, err := s.store.ListInstruments(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	byID := make(map[int64]portfolio.Instrument, len(instruments))
+	for _, inst := range instruments {
+		byID[inst.ID] = inst
+	}
+	radar := portfolio.CalculateGeoRadar(accounts, holdings, byID, eurUsdRate, includeCash)
 
 	res := &portv1.GetGeoRadarResponse{
 		CurrentEurUsdRate:       radar.CurrentEURUSDRate,

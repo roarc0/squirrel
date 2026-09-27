@@ -146,7 +146,7 @@ export function GeoRadarSection() {
                         {money(simulatedImpactMinor, 'EUR')} ({fxShiftPct > 0 ? `+${fxShiftPct}%` : `${fxShiftPct}%`})
                       </Badge>
                     </Group>
-                    <Text size="xs" c="dimmed">Estimated change in known USD cash valued in EUR; investment currency exposure is unavailable:</Text>
+                    <Text size="xs" c="dimmed">Estimated change in USD cash and modeled USD investment exposure, valued in EUR:</Text>
                     <Slider
                       color="blue"
                       value={fxShiftPct}
@@ -240,7 +240,7 @@ export function GeoRadarView() {
     <ViewShell>
       <SectionHeader
         title="Geographic & Currency Risk Radar"
-        subtitle="Look through your ETFs and holdings to see your real country breakdown, underlying currency exposure, and FX sensitivity."
+        subtitle="Estimated country and currency exposure using index proxies, with unknown holdings shown separately."
       />
       <GeoRadarSection />
     </ViewShell>

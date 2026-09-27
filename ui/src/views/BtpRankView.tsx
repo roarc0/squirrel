@@ -388,7 +388,7 @@ export function BtpRankView() {
     <ViewShell error={error}>
       <SectionHeader
         title="BTP Rank"
-        subtitle="Bond quotes and zero-coupon return estimates. Coupon-bond analytics require verified payment and settlement details."
+        subtitle="Bond quotes, estimated fixed-coupon yields and comparative rankings. Open a bond for calculation assumptions."
         badge={
           <Badge color="blue" variant="light" leftSection={<IconFileCertificate size={12} />}>
             BTP Analytics Plugin
@@ -454,7 +454,7 @@ export function BtpRankView() {
             </Box>
             <IconTrendingUp size={24} color="var(--mantine-color-teal-6)" />
           </Group>
-          <Text size="xs" c="dimmed" mt={4}>Zero-coupon estimates · 12.5% tax · fees excluded</Text>
+          <Text size="xs" c="dimmed" mt={4}>Estimated returns · 12.5% tax · fees excluded</Text>
         </Card>
 
         <Card className="metric" p="md" radius="lg">

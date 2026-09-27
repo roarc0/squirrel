@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"connectrpc.com/connect"
 
@@ -12,7 +13,10 @@ import (
 )
 
 func (s *Server) GetInstrumentPerformance(ctx context.Context, req *connect.Request[portv1.GetInstrumentPerformanceRequest]) (*connect.Response[portv1.GetInstrumentPerformanceResponse], error) {
-	isin := req.Msg.Isin
+	isin := strings.ToUpper(strings.TrimSpace(req.Msg.Isin))
+	if !portfolio.ValidISIN(isin) {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid ISIN"))
+	}
 
 	meta, err := s.store.GetPerformanceMeta(ctx, isin)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
@@ -46,7 +50,10 @@ func (s *Server) GetInstrumentPerformance(ctx context.Context, req *connect.Requ
 }
 
 func (s *Server) RefreshInstrumentPerformance(ctx context.Context, req *connect.Request[portv1.RefreshInstrumentPerformanceRequest]) (*connect.Response[portv1.RefreshInstrumentPerformanceResponse], error) {
-	isin := req.Msg.Isin
+	isin := strings.ToUpper(strings.TrimSpace(req.Msg.Isin))
+	if !portfolio.ValidISIN(isin) {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid ISIN"))
+	}
 
 	points, err := s.justETF.FetchPerformance(ctx, isin)
 	if err != nil {
@@ -62,6 +69,10 @@ func (s *Server) RefreshInstrumentPerformance(ctx context.Context, req *connect.
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
+	points, err = s.store.GetPerformance(ctx, isin)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 	return connect.NewResponse(&portv1.RefreshInstrumentPerformanceResponse{
 		Series:     toProtoPerformancePoints(points),
 		FetchedAt:  meta.FetchedAt,

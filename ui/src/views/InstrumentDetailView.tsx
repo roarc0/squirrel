@@ -360,9 +360,10 @@ export function InstrumentDetailView({
       {/* Chart card */}
       <Card withBorder p="md" radius="md">
         <Text fw={600} mb="sm">Historical Performance (EUR, total return incl. dividends)</Text>
+        {status === 'error' && series.length > 0 && <Text c="red" size="sm" mb="sm">Refresh failed; showing saved data. {errorMsg}</Text>}
         {status === 'loading' ? (
           <Skeleton height={300} radius="sm" />
-        ) : status === 'error' ? (
+        ) : status === 'error' && series.length === 0 ? (
           <Stack align="center" py="xl" gap="xs">
             <Text c="red" size="sm">{errorMsg || 'Could not load performance data'}</Text>
             <Button size="xs" variant="light" onClick={() => void load(false)}>Retry</Button>
@@ -375,9 +376,10 @@ export function InstrumentDetailView({
         ) : (
           <PerformanceChart points={series} />
         )}
-        {fetchedAt && status === 'idle' && series.length > 0 && (
+        {fetchedAt && status !== 'loading' && series.length > 0 && (
           <Text size="xs" c="dimmed" mt="xs">
-            Data as of {new Date(fetchedAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}
+            Latest observation {series[series.length - 1].date}
+            {' · '}Last fetched {new Date(fetchedAt).toLocaleString()}
             {' · '}{series.length.toLocaleString()} data points
           </Text>
         )}

@@ -66,7 +66,7 @@ func (c *Client) FetchPerformance(ctx context.Context, isin string) ([]portfolio
 		Series []struct {
 			Date  string `json:"date"`
 			Value struct {
-				Raw float64 `json:"raw"`
+				Raw *float64 `json:"raw"`
 			} `json:"value"`
 		} `json:"series"`
 	}
@@ -76,9 +76,12 @@ func (c *Client) FetchPerformance(ctx context.Context, isin string) ([]portfolio
 
 	points := make([]portfolio.PerformancePoint, 0, len(resp.Series))
 	for _, s := range resp.Series {
+		if s.Value.Raw == nil || *s.Value.Raw < -100 || math.Abs(*s.Value.Raw) >= float64(math.MaxInt64)/100 {
+			return nil, errors.New("justETF returned an invalid performance value")
+		}
 		points = append(points, portfolio.PerformancePoint{
 			Date:      s.Date,
-			ChangeBPS: int64(math.Round(s.Value.Raw * 100)),
+			ChangeBPS: int64(math.Round(*s.Value.Raw * 100)),
 		})
 	}
 	return points, nil
