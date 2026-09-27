@@ -1,11 +1,9 @@
 package store
 
 import (
-	"cmp"
 	"context"
 	"database/sql"
 	"errors"
-	"slices"
 	"strings"
 	"time"
 
@@ -224,28 +222,43 @@ func (s *Store) ListInstrumentsToEnrich(ctx context.Context, limit int) ([]portf
 }
 
 func (s *Store) ListInstrumentsForEnrichment(ctx context.Context, mode string) ([]portfolio.Instrument, error) {
+	if mode != "missing" && mode != "oldest" && mode != "discover" {
+		return nil, errors.New("enrichment mode must be missing, discover, or oldest")
+	}
 	instruments, err := s.ListInstruments(ctx)
 	if err != nil {
 		return nil, err
 	}
-	result := instruments[:0]
+	byISIN := make(map[string]portfolio.Instrument, len(instruments))
 	for _, instrument := range instruments {
-		if ((mode == "missing" || mode == "discover") && instrument.DataStatus == portfolio.InstrumentStatusCatalog) || mode == "oldest" {
+		byISIN[instrument.ISIN] = instrument
+	}
+	// Failed attempts stay pending, but cool down so another product can progress.
+	// Catalog sync timestamps never take priority over missing profile data.
+	rows, err := s.db.QueryContext(ctx, `SELECT isin FROM instruments
+		WHERE (? = 'oldest' OR data_status = 'catalog')
+		AND (last_refresh_attempt_at = '' OR julianday(last_refresh_attempt_at) <= julianday('now', '-5 minutes'))
+		ORDER BY (data_status = 'catalog') DESC, last_refresh_attempt_at, refreshed_at, isin`, mode)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []portfolio.Instrument
+	for rows.Next() {
+		var isin string
+		if err := rows.Scan(&isin); err != nil {
+			return nil, err
+		}
+		if instrument, ok := byISIN[isin]; ok {
 			result = append(result, instrument)
 		}
 	}
-	if mode != "missing" && mode != "oldest" && mode != "discover" {
-		return nil, errors.New("enrichment mode must be missing, discover, or oldest")
-	}
-	if mode == "oldest" {
-		slices.SortStableFunc(result, func(a, b portfolio.Instrument) int {
-			if value := cmp.Compare(a.RefreshedAt, b.RefreshedAt); value != 0 {
-				return value
-			}
-			return strings.Compare(a.ISIN, b.ISIN)
-		})
-	}
-	return result, nil
+	return result, rows.Err()
+}
+
+func (s *Store) RecordInstrumentRefreshAttempt(ctx context.Context, isin string) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE instruments SET last_refresh_attempt_at=? WHERE isin=?`, time.Now().UTC().Format(time.RFC3339), isin)
+	return err
 }
 
 func (s *Store) CountRefreshedToday(ctx context.Context) (int32, error) {
@@ -254,7 +267,7 @@ func (s *Store) CountRefreshedToday(ctx context.Context) (int32, error) {
 	return count, err
 }
 
-func (s *Store) OldestEnrichedInstrument(ctx context.Context) (*portfolio.Instrument, error) {
+func (s *Store) NextInstrumentToRefresh(ctx context.Context) (*portfolio.Instrument, error) {
 	instruments, err := s.ListInstrumentsForEnrichment(ctx, "oldest")
 	if err != nil || len(instruments) == 0 {
 		return nil, err

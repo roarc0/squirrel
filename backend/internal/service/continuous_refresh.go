@@ -2,19 +2,21 @@ package service
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/roarc0/squirrel/backend/internal/justetf"
 	portv1 "github.com/roarc0/squirrel/proto/gen/go/v1"
 )
 
 const (
-	refreshInterval    = 10 * time.Second
-	backoffBase        = 30 * time.Second
-	backoffMax         = 5 * time.Minute
+	refreshInterval = time.Second
+	backoffBase     = 30 * time.Second
+	backoffMax      = 5 * time.Minute
 )
 
 type refreshState struct {
@@ -47,8 +49,9 @@ func (rs *refreshState) broadcast(tick *portv1.RefreshTick) {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	for ch := range rs.subs {
+		copy := *tick
 		select {
-		case ch <- tick:
+		case ch <- &copy:
 		default:
 		}
 	}
@@ -72,7 +75,7 @@ func (s *Server) startContinuousRefresh(ctx context.Context) {
 				continue
 			}
 
-			inst, err := s.store.OldestEnrichedInstrument(ctx)
+			inst, err := s.store.NextInstrumentToRefresh(ctx)
 			if err != nil || inst == nil {
 				timer.Reset(refreshInterval)
 				continue
@@ -95,7 +98,10 @@ func (s *Server) startContinuousRefresh(ctx context.Context) {
 			if enrichErr != nil {
 				slog.WarnContext(ctx, "continuous refresh failed", "isin", inst.ISIN, "error", enrichErr)
 				consecutiveErrors++
-				backoff := backoffBase * time.Duration(consecutiveErrors)
+				backoff := refreshInterval
+				if errors.Is(enrichErr, justetf.ErrRateLimited) {
+					backoff = backoffBase * time.Duration(consecutiveErrors)
+				}
 				if backoff > backoffMax {
 					backoff = backoffMax
 				}

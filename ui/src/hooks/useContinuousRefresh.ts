@@ -9,23 +9,25 @@ export function useContinuousRefresh() {
   useEffect(() => {
     const abortController = new AbortController();
 
-    if (localStorage.getItem(STORAGE_KEY) === 'true') {
-      setContinuousRefresh(true).catch(() => {});
-    }
-
     (async () => {
-      try {
-        for await (const incoming of watchContinuousRefresh({ signal: abortController.signal })) {
-          setTick(prev => ({
-            ...incoming,
-            ticker: incoming.ticker || prev?.ticker || '',
-            isin: incoming.isin || prev?.isin || '',
-            refreshedToday: incoming.refreshedToday || prev?.refreshedToday || 0,
-            hasError: incoming.hasError,
-          }));
+      while (!abortController.signal.aborted) {
+        try {
+          if (localStorage.getItem(STORAGE_KEY) === 'true') {
+            await setContinuousRefresh(true);
+          }
+          for await (const incoming of watchContinuousRefresh({ signal: abortController.signal })) {
+            setTick(prev => ({
+              ...incoming,
+              ticker: incoming.ticker || prev?.ticker || '',
+              isin: incoming.isin || prev?.isin || '',
+            }));
+          }
+        } catch {
+          // Reconnect after backend restarts; the browser preference resumes the worker.
         }
-      } catch {
-        // stream closed or aborted
+        if (!abortController.signal.aborted) {
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
       }
     })();
 

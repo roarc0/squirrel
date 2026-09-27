@@ -12,6 +12,7 @@ import (
 
 	"connectrpc.com/connect"
 
+	"github.com/roarc0/squirrel/backend/internal/justetf"
 	"github.com/roarc0/squirrel/backend/internal/portfolio"
 	"github.com/roarc0/squirrel/backend/internal/store"
 	portv1 "github.com/roarc0/squirrel/proto/gen/go/v1"
@@ -186,17 +187,17 @@ func (s *Server) StreamInstrumentCatalog(ctx context.Context, req *connect.Reque
 		progress.Current = &isin
 		progress.Processed++
 
-		if target.DataStatus == portfolio.InstrumentStatusCatalog && !target.UCITS && target.InstrumentType == portfolio.InstrumentTypeETF {
-			progress.Skipped++
-			continue
-		}
-
 		if err := s.enrichInstrument(ctx, target.ISIN); err != nil {
 			progress.Failed++
 			errMsg := fmt.Sprintf("Failed to refresh %s: %v", target.ISIN, err)
 			progress.Error = &errMsg
-			_ = stream.Send(progress)
-			return connect.NewError(connect.CodeInternal, err)
+			if sendErr := stream.Send(progress); sendErr != nil {
+				return sendErr
+			}
+			if ctx.Err() != nil || errors.Is(err, justetf.ErrRateLimited) {
+				return justETFConnectError(ctx, target.ISIN, err)
+			}
+			continue
 		}
 
 		progress.Enriched++
@@ -207,6 +208,7 @@ func (s *Server) StreamInstrumentCatalog(ctx context.Context, req *connect.Reque
 	}
 
 	progress.Current = nil
+	progress.Error = nil
 	progress.Phase = "done"
 	progress.Done = true
 	return stream.Send(progress)
@@ -364,6 +366,9 @@ func (s *Server) RankInstruments(ctx context.Context, req *connect.Request[portv
 func (s *Server) enrichInstrument(ctx context.Context, isin string) error {
 	existing, err := s.store.GetInstrumentByISIN(ctx, isin)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return err
+	}
+	if err := s.store.RecordInstrumentRefreshAttempt(ctx, isin); err != nil {
 		return err
 	}
 	profile, err := s.justETF.Lookup(ctx, isin)
