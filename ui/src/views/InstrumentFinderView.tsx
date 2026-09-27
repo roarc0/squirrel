@@ -89,7 +89,7 @@ function savedInstrumentColumns(): InstrumentColumn[] {
 }
 
 const replicationLabel = (value: Instrument['replication']) => ({ physical_full: 'Physical full', physical_sampling: 'Physical sampling', synthetic: 'Synthetic' })[value];
-const productLabel = (instrument: Instrument) => instrument.instrument_type === 'etf' ? `${instrument.ucits ? 'UCITS' : 'Non-UCITS'} ETF` : instrument.instrument_type === 'etc' || instrument.instrument_type === 'etn' ? `Non-UCITS ${instrumentLabels[instrument.instrument_type]}` : instrumentLabels[instrument.instrument_type];
+const productLabel = (instrument: Instrument) => instrument.instrument_type === 'etf' ? `${instrument.ucits ? 'UCITS' : 'Non-UCITS'} ETF` : instrument.instrument_type === 'etc' || instrument.instrument_type === 'etn' || instrument.instrument_type === 'etp' ? `Non-UCITS ${instrumentLabels[instrument.instrument_type]}` : instrumentLabels[instrument.instrument_type];
 const policyChip = (instrument: Instrument) => <Tooltip label={instrument.distribution === 'accumulating' ? 'Accumulating' : 'Distributing'}><Chip>{instrument.distribution === 'accumulating' ? 'Acc' : 'Dist'}</Chip></Tooltip>;
 type CatalogRow = RankedInstrument & { similarity?: InstrumentAlternative };
 

@@ -31,9 +31,7 @@ func (s *Store) ListInstruments(ctx context.Context) ([]portfolio.Instrument, er
 		if trackingError.Valid {
 			instrument.TrackingErrorBPS = &trackingError.Int64
 		}
-		if inferred := portfolio.InferInstrumentType(instrument.Name); instrument.InstrumentType == portfolio.InstrumentTypeETF && inferred != portfolio.InstrumentTypeETF {
-			instrument.InstrumentType = inferred
-		}
+		instrument.InstrumentType = portfolio.ResolveInstrumentType(instrument.Name, instrument.InstrumentType)
 		instruments = append(instruments, instrument)
 	}
 	return instruments, rows.Err()
@@ -71,9 +69,7 @@ func (s *Store) SaveInstrument(ctx context.Context, instrument *portfolio.Instru
 	instrument.Name = strings.TrimSpace(instrument.Name)
 	instrument.Ticker = strings.ToUpper(strings.TrimSpace(instrument.Ticker))
 	instrument.InstrumentType = strings.ToLower(strings.TrimSpace(instrument.InstrumentType))
-	if instrument.InstrumentType == "" {
-		instrument.InstrumentType = portfolio.InferInstrumentType(instrument.Name)
-	}
+	instrument.InstrumentType = portfolio.ResolveInstrumentType(instrument.Name, instrument.InstrumentType)
 	instrument.Domicile = strings.ToUpper(strings.TrimSpace(instrument.Domicile))
 	instrument.FundCurrency = strings.ToUpper(strings.TrimSpace(instrument.FundCurrency))
 	if instrument.DataStatus == "" {
@@ -151,9 +147,7 @@ func (s *Store) SaveInstrumentCatalogBatch(ctx context.Context, instruments []po
 		inst.Name = strings.TrimSpace(inst.Name)
 		inst.Ticker = strings.ToUpper(strings.TrimSpace(inst.Ticker))
 		inst.InstrumentType = strings.ToLower(strings.TrimSpace(inst.InstrumentType))
-		if inst.InstrumentType == "" {
-			inst.InstrumentType = portfolio.InferInstrumentType(inst.Name)
-		}
+		inst.InstrumentType = portfolio.ResolveInstrumentType(inst.Name, inst.InstrumentType)
 		inst.Domicile = strings.ToUpper(strings.TrimSpace(inst.Domicile))
 		inst.FundCurrency = strings.ToUpper(strings.TrimSpace(inst.FundCurrency))
 		inst.DataStatus = portfolio.InstrumentStatusCatalog

@@ -41,7 +41,7 @@ export declare class Instrument extends Message<Instrument> {
   ticker?: string;
 
   /**
-   * Instrument type: "etf", "etc", "etn", "fund", "stock", "bond", "crypto", "commodity", "real_estate".
+   * Instrument type: "etf", "etc", "etn", "etp", "fund", "stock", "bond", "crypto", "commodity", "real_estate".
    *
    * @generated from field: string instrument_type = 5;
    */

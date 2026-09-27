@@ -76,18 +76,26 @@ func TestLookupByTicker(t *testing.T) {
 	}
 }
 
-func TestLookupAllowsNonUCITSETC(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprint(w, profileFixture("IE00B579F325", "Invesco Physical Gold ETC", "SGLD", "Commodities, Gold", "No"))
-	}))
-	defer server.Close()
-	client := &Client{baseURL: server.URL, timeout: time.Second}
-	etf, err := client.Lookup(context.Background(), "IE00B579F325")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if etf.UCITS || etf.InstrumentType != portfolio.InstrumentTypeETC || etf.AssetClass != "commodity" || etf.Name != "Invesco Physical Gold ETC" {
-		t.Fatalf("unexpected non-UCITS product: %+v", etf)
+func TestLookupAllowsNonUCITSProducts(t *testing.T) {
+	for _, tc := range []struct{ name, isin, kind, focus, asset string }{
+		{"Invesco Physical Gold ETC", "IE00B579F325", portfolio.InstrumentTypeETC, "Commodities, Gold", "commodity"},
+		{"Bitcoin ETN", "IE00B579F325", portfolio.InstrumentTypeETN, "Cryptocurrency", "crypto"},
+		{"21shares Aave ETP", "CH1135202120", portfolio.InstrumentTypeETP, "Cryptocurrency", "crypto"},
+	} {
+		t.Run(tc.kind, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				fmt.Fprint(w, profileFixture(tc.isin, tc.name, "TEST", tc.focus, "No"))
+			}))
+			defer server.Close()
+			client := &Client{baseURL: server.URL, timeout: time.Second}
+			inst, err := client.Lookup(context.Background(), tc.isin)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if inst.UCITS || inst.InstrumentType != tc.kind || inst.AssetClass != tc.asset || inst.Name != tc.name {
+				t.Fatalf("incorrect non-UCITS classification: %+v", inst)
+			}
+		})
 	}
 }
 

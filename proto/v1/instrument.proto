@@ -14,7 +14,7 @@ message Instrument {
   string name = 3;
   // Ticker symbol (e.g. "SWDA", "EUNL").
   optional string ticker = 4;
-  // Instrument type: "etf", "etc", "etn", "fund", "stock", "bond", "crypto", "commodity", "real_estate".
+  // Instrument type: "etf", "etc", "etn", "etp", "fund", "stock", "bond", "crypto", "commodity", "real_estate".
   string instrument_type = 5;
   // Fund provider or manager (e.g. "iShares", "Vanguard", "Xtrackers", "Amundi", "Invesco").
   optional string provider = 6;

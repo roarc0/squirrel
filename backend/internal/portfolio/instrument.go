@@ -21,6 +21,7 @@ const (
 	InstrumentStatusCatalog  = "catalog"
 	InstrumentStatusEnriched = "enriched"
 	InstrumentTypeETF        = "etf"
+	InstrumentTypeETP        = "etp"
 	InstrumentTypeETC        = "etc"
 	InstrumentTypeETN        = "etn"
 	InstrumentTypeFund       = "fund"
@@ -69,7 +70,7 @@ func ValidateInstrument(instrument Instrument) error {
 		return errors.New("instrument name is required")
 	}
 	if instrument.InstrumentType != "" && !slices.Contains([]string{
-		InstrumentTypeETF, InstrumentTypeETC, InstrumentTypeETN, InstrumentTypeFund,
+		InstrumentTypeETF, InstrumentTypeETC, InstrumentTypeETN, InstrumentTypeETP, InstrumentTypeFund,
 		InstrumentTypeStock, InstrumentTypeBond, InstrumentTypeCrypto, InstrumentTypeCommodity,
 		InstrumentTypeRealEstate, InstrumentTypeOther,
 	}, instrument.InstrumentType) {
@@ -118,9 +119,7 @@ func ValidateInstrument(instrument Instrument) error {
 
 // ClassifyInstrument derives a deliberately small set of comparison fields from catalog data.
 func ClassifyInstrument(instrument *Instrument) {
-	if instrument.InstrumentType == "" {
-		instrument.InstrumentType = InferInstrumentType(instrument.Name)
-	}
+	instrument.InstrumentType = ResolveInstrumentType(instrument.Name, instrument.InstrumentType)
 	focus := strings.TrimSpace(instrument.InvestmentFocus)
 	text := strings.ToLower(strings.Join([]string{instrument.Name, instrument.IndexName, focus}, " "))
 	first, _, _ := strings.Cut(focus, ",")
@@ -166,6 +165,16 @@ func ClassifyInstrument(instrument *Instrument) {
 	}
 }
 
+// ResolveInstrumentType corrects legacy ETF defaults and generic ETP labels,
+// while preserving explicitly supplied narrower types and other asset wrappers.
+func ResolveInstrumentType(name, current string) string {
+	inferred := InferInstrumentType(name)
+	if current == "" || current == InstrumentTypeETF && inferred != InstrumentTypeETF || current == InstrumentTypeETP && (inferred == InstrumentTypeETC || inferred == InstrumentTypeETN) {
+		return inferred
+	}
+	return current
+}
+
 func InferInstrumentType(name string) string {
 	words := strings.FieldsFunc(strings.ToUpper(name), func(r rune) bool { return r < 'A' || r > 'Z' })
 	if slices.Contains(words, "ETC") {
@@ -173,6 +182,9 @@ func InferInstrumentType(name string) string {
 	}
 	if slices.Contains(words, "ETN") {
 		return InstrumentTypeETN
+	}
+	if slices.Contains(words, "ETP") && !slices.Contains(words, "ETF") {
+		return InstrumentTypeETP
 	}
 	return InstrumentTypeETF
 }

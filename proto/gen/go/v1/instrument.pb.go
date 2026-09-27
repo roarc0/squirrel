@@ -32,7 +32,7 @@ type Instrument struct {
 	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	// Ticker symbol (e.g. "SWDA", "EUNL").
 	Ticker *string `protobuf:"bytes,4,opt,name=ticker,proto3,oneof" json:"ticker,omitempty"`
-	// Instrument type: "etf", "etc", "etn", "fund", "stock", "bond", "crypto", "commodity", "real_estate".
+	// Instrument type: "etf", "etc", "etn", "etp", "fund", "stock", "bond", "crypto", "commodity", "real_estate".
 	InstrumentType string `protobuf:"bytes,5,opt,name=instrument_type,json=instrumentType,proto3" json:"instrument_type,omitempty"`
 	// Fund provider or manager (e.g. "iShares", "Vanguard", "Xtrackers", "Amundi", "Invesco").
 	Provider *string `protobuf:"bytes,6,opt,name=provider,proto3,oneof" json:"provider,omitempty"`

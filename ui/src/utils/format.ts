@@ -49,6 +49,7 @@ export const investedMoney = (invested: number, current: number, currency: strin
 
 export const instrumentLabels: Record<InstrumentType, string> = {
   etf: 'ETF',
+  etp: 'ETP',
   etc: 'ETC',
   etn: 'ETN',
   fund: 'Fund',

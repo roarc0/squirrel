@@ -137,7 +137,7 @@ export type Summary = {
   diagnostics?: Diagnostic[];
 };
 
-export type InstrumentType = 'etf' | 'etc' | 'etn' | 'fund' | 'stock' | 'bond' | 'crypto' | 'commodity' | 'real_estate' | 'other';
+export type InstrumentType = 'etf' | 'etc' | 'etn' | 'etp' | 'fund' | 'stock' | 'bond' | 'crypto' | 'commodity' | 'real_estate' | 'other';
 
 export type Instrument = {
   id: number;

@@ -436,9 +436,7 @@ func (s *Store) RestoreBackup(ctx context.Context, userID string, backupData []b
 				if inst.Name == "" {
 					inst.Name = inst.ISIN
 				}
-				if inst.InstrumentType == "" {
-					inst.InstrumentType = portfolio.InstrumentTypeETF
-				}
+				inst.InstrumentType = portfolio.ResolveInstrumentType(inst.Name, inst.InstrumentType)
 				if inst.FundCurrency == "" {
 					inst.FundCurrency = "EUR"
 				}

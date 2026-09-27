@@ -1,7 +1,7 @@
 const knownColors: Record<string, string> = {
   cash: 'teal', equity: 'blue', bond: 'indigo', mixed: 'violet', other: 'gray',
   commodity: 'yellow', monetary: 'cyan', 'real estate': 'grape', crypto: 'orange',
-  etf: 'blue', 'ucits etf': 'blue', 'non-ucits etf': 'blue', etc: 'yellow', 'non-ucits etc': 'yellow', etn: 'orange', 'non-ucits etn': 'orange',
+  etp: 'grape', 'non-ucits etp': 'grape', etf: 'blue', 'ucits etf': 'blue', 'non-ucits etf': 'blue', etc: 'yellow', 'non-ucits etc': 'yellow', etn: 'orange', 'non-ucits etn': 'orange',
   fund: 'violet', stock: 'blue', bank: 'cyan', broker: 'violet', acc: 'teal', dist: 'orange',
   refreshed: 'teal', 'awaiting refresh': 'gray', archived: 'gray', hedged: 'cyan', default: 'teal', rate: 'green', tax: 'red',
   'strictly better': 'green', 'same index': 'blue', 'same exposure': 'violet', score: 'teal',

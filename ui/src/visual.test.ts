@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { compactMoney, localDateISO, setHideBalancesState } from './utils/format.ts';
+import { compactMoney, instrumentLabels, localDateISO, setHideBalancesState } from './utils/format.ts';
 import { chartGeometry, chartTickIndexes, chipColor, filterChartRange, matchesExactFilters, nearestChartIndex, pageBounds, performanceMood } from './visual.ts';
 
 test('financial labels use semantic colors and unknown labels stay stable', () => {
+  assert.equal(instrumentLabels.etp, 'ETP');
+  assert.equal(instrumentLabels.etc, 'ETC');
+  assert.equal(instrumentLabels.etn, 'ETN');
+  assert.equal(chipColor('ETP'), 'grape');
   assert.equal(chipColor('Cash'), 'teal');
   assert.equal(chipColor('Bond'), 'indigo');
   assert.equal(chipColor('Custom label'), chipColor('custom label'));
