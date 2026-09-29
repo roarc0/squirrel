@@ -4,7 +4,7 @@ import { copyToClipboard } from './utils/copyToClipboard';
 
 export { chipColor } from './visual';
 
-export function Chip({ children, colorKey, className, ...props }: Omit<BadgeProps, 'children' | 'color'> & { children: string; colorKey?: string }) {
+export function Chip({ children, colorKey, className, ...props }: Omit<BadgeProps, 'children' | 'color'> & { children: string; colorKey?: string; onClick?: (event: React.MouseEvent<HTMLDivElement>) => void }) {
   return <Badge {...props} className={['stable-chip', className].filter(Boolean).join(' ')} color={chipColor(colorKey ?? children)} variant={props.variant ?? 'light'}>{children}</Badge>;
 }
 

@@ -161,7 +161,7 @@ export function useBackendRows<T>(endpoint: string, source: T[], initialSort = '
       setSort(key); setDirection(next); setSortError('');
     } catch (cause) { setSortError(cause instanceof Error ? cause.message : String(cause)); }
   };
-  return { rows, sort, direction, sortError, sortRows };
+  return { rows, setRows, sort, direction, sortError, sortRows };
 }
 
 export function SquirrelIcon({ size = 26, className }: { size?: number; className?: string }) {

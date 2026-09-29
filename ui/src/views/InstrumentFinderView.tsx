@@ -74,17 +74,37 @@ const instrumentColumns: { value: InstrumentColumn; label: string }[] = [
   { value: 'replication', label: 'Replication' }, { value: 'ter', label: 'TER' }, { value: 'size', label: 'Size' }, { value: 'domicile', label: 'Domicile' },
   { value: 'currency', label: 'Currency' }, { value: 'inception', label: 'Inception' }, { value: 'tracking', label: 'Tracking' }, { value: 'enriched', label: 'Last refreshed' },
 ];
-const defaultInstrumentColumns: InstrumentColumn[] = ['ticker', 'isin', 'type', 'issuer', 'exposure', 'policy', 'replication', 'ter', 'size'];
+const defaultInstrumentColumns: InstrumentColumn[] = [
+  'ticker',
+  'isin',
+  'type',
+  'issuer',
+  'assetClass',
+  'exposure',
+  'policy',
+  'replication',
+  'ter',
+  'size',
+];
 
 function savedInstrumentColumns(): InstrumentColumn[] {
   // Read from profile cache first, fall back to legacy localStorage
   const profileJson = getProfile().instrument_columns_json;
-  const raw = profileJson || localStorage.getItem('squirrel.instrumentColumns.v2');
+  const raw = profileJson || localStorage.getItem('squirrel.instrumentColumns.v3') || localStorage.getItem('squirrel.instrumentColumns.v2');
   try {
     if (!raw) return defaultInstrumentColumns;
     const saved = JSON.parse(raw) as string[];
     const valid = saved.filter((value): value is InstrumentColumn => instrumentColumns.some(column => column.value === value));
-    return valid.length ? valid : defaultInstrumentColumns;
+    if (!valid.length) return defaultInstrumentColumns;
+    if (!valid.includes('assetClass')) {
+      const exposureIdx = valid.indexOf('exposure');
+      if (exposureIdx >= 0) {
+        valid.splice(exposureIdx, 0, 'assetClass');
+      } else {
+        valid.push('assetClass');
+      }
+    }
+    return valid;
   } catch { return defaultInstrumentColumns; }
 }
 
@@ -149,7 +169,53 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
     } finally { setStreamController(current => current === controller ? undefined : current); }
   };
   const showAlternatives = (instrument: Instrument) => setSimilarityFilter(instrument.isin);
-  const star = async (instrument: Instrument) => { try { await api(`/api/instruments/${encodeURIComponent(instrument.isin)}/star`, { method: 'PUT', body: JSON.stringify({ starred: !instrument.starred }) }); setRanked([]); setError(''); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } };
+  const star = async (instrument: Instrument) => {
+    const nextStarred = !instrument.starred;
+    catalog.setRows(current =>
+      current.map(i => (i.id === instrument.id ? { ...i, starred: nextStarred } : i))
+    );
+    if (ranked.length > 0) {
+      setRanked(current =>
+        current.map(r =>
+          r.instrument.id === instrument.id
+            ? { ...r, instrument: { ...r.instrument, starred: nextStarred } }
+            : r
+        )
+      );
+    }
+    if (alternatives.length > 0) {
+      setAlternatives(current =>
+        current.map(a =>
+          a.instrument.id === instrument.id
+            ? { ...a, instrument: { ...a.instrument, starred: nextStarred } }
+            : a
+        )
+      );
+    }
+    const found = instruments.find(i => i.id === instrument.id);
+    if (found) {
+      found.starred = nextStarred;
+    }
+
+    try {
+      await api(`/api/instruments/${encodeURIComponent(instrument.isin)}/star`, {
+        method: 'PUT',
+        body: JSON.stringify({ starred: nextStarred }),
+      });
+    } catch (cause) {
+      catalog.setRows(current =>
+        current.map(i => (i.id === instrument.id ? { ...i, starred: !nextStarred } : i))
+      );
+      if (found) {
+        found.starred = !nextStarred;
+      }
+      notifications.show({
+        color: 'red',
+        title: 'Failed to update star',
+        message: cause instanceof Error ? cause.message : String(cause),
+      });
+    }
+  };
   const remove = (instrument: Instrument) => {
     confirmDelete('instrument', `${instrument.ticker || instrument.name} · ${instrument.isin}`, async () => {
       try { await api(`/api/instruments/${instrument.id}`, { method: 'DELETE' }); setRanked([]); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
@@ -162,11 +228,13 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
   const issuerOptions = [...new Set(instruments.flatMap(instrument => instrument.provider ? [instrument.provider] : []))].sort();
   const domicileOptions = [...new Set(instruments.flatMap(instrument => instrument.domicile ? [instrument.domicile] : []))].sort();
   const currencyOptions = [...new Set(instruments.map(instrument => instrument.fund_currency).filter(Boolean))].sort();
+  const standardAssetClasses = ['equity', 'bond', 'commodity', 'real_estate', 'monetary', 'crypto', 'mixed', 'other'];
+  const assetClassOptions = Array.from(new Set([...standardAssetClasses, ...instruments.flatMap(instrument => instrument.asset_class ? [instrument.asset_class] : [])])).sort().map(value => ({ value, label: label(value) }));
   const similarTo = instruments.find(instrument => instrument.isin === similarity);
   const rows: CatalogRow[] = similarity ? alternatives.map(item => ({ instrument: item.instrument, total: -1, cost: 0, tracking_difference: 0, tracking_error: 0, size: 0, age: 0, similarity: item })) : ranked.length > 0 ? ranked : catalog.rows.map(instrument => ({ instrument, total: -1, cost: 0, tracking_difference: 0, tracking_error: 0, size: 0, age: 0 }));
   const query = localQuery.trim().toLowerCase();
   const matchingRows = rows.filter(({ instrument }) =>
-    (!query || [instrument.name, instrument.ticker, instrument.isin, instrument.provider, instrument.index_name, instrument.investment_focus, instrument.asset_class, instrument.instrument_type].some(value => value?.toLowerCase().includes(query))) &&
+    (!query || [instrument.name, instrument.ticker, instrument.isin, instrument.provider, instrument.index_name, instrument.investment_focus, instrument.asset_class, label(instrument.asset_class ?? ''), instrument.instrument_type].some(value => value?.toLowerCase().includes(query))) &&
     matchesExactFilters({ issuer: instrument.provider ?? '', type: instrument.instrument_type, assetClass: instrument.asset_class ?? '', policy: instrument.distribution, replication: instrument.replication, domicile: instrument.domicile ?? '', currency: instrument.fund_currency, ucits: instrument.ucits }, filters));
   const [localSortKey, setLocalSortKey] = useState<string>('');
   const [localSortDir, setLocalSortDir] = useState<SortDirection>('asc');
@@ -288,8 +356,43 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
     ...(show('isin') ? [{ key: 'isin', label: 'ISIN', sortable: true, render: (item: CatalogRow) => <ISINBadge isin={item.instrument.isin} /> }] : []),
     ...(show('type') ? [{ key: 'type', label: 'Type', sortable: true, render: (item: RankedInstrument) => <Chip>{instrumentLabels[item.instrument.instrument_type]}</Chip> }] : []),
     ...(show('issuer') ? [{ key: 'issuer', label: 'Issuer', sortable: true, render: (item: RankedInstrument) => item.instrument.provider || '—' }] : []),
-    ...(show('assetClass') ? [{ key: 'asset_class', label: 'Asset class', sortable: true, render: (item: RankedInstrument) => item.instrument.asset_class ? <Chip>{label(item.instrument.asset_class)}</Chip> : '—' }] : []),
-    ...(show('exposure') ? [{ key: 'exposure', label: 'Exposure', sortable: true, render: (item: RankedInstrument) => <><Text size="sm">{item.instrument.index_name || item.instrument.investment_focus || (item.instrument.data_status === 'enriched' ? 'Exposure details unavailable' : 'Profile not refreshed')}</Text><Group gap={4} mt={4}><Chip size="xs">{item.instrument.data_status === 'enriched' ? 'Refreshed' : 'Awaiting refresh'}</Chip>{item.instrument.asset_class && <Chip size="xs">{label(item.instrument.asset_class)}</Chip>}{item.instrument.currency_hedged && <Chip size="xs">Hedged</Chip>}</Group></> }] : []),
+    ...(show('assetClass') ? [{
+      key: 'asset_class',
+      label: 'Asset class',
+      sortable: true,
+      render: (item: RankedInstrument) => item.instrument.asset_class ? (
+        <Tooltip label={`Filter by ${label(item.instrument.asset_class)}`} position="top" withArrow>
+          <Box style={{ display: 'inline-block' }}>
+            <Chip
+              colorKey={item.instrument.asset_class}
+              style={{ cursor: 'pointer' }}
+              onClick={() =>
+                setFilters(current => ({
+                  ...current,
+                  assetClass: current.assetClass === item.instrument.asset_class ? '' : (item.instrument.asset_class ?? ''),
+                }))
+              }
+            >
+              {label(item.instrument.asset_class)}
+            </Chip>
+          </Box>
+        </Tooltip>
+      ) : <Text c="dimmed">—</Text>,
+    }] : []),
+    ...(show('exposure') ? [{
+      key: 'exposure',
+      label: 'Exposure',
+      sortable: true,
+      render: (item: RankedInstrument) => (
+        <>
+          <Text size="sm">{item.instrument.index_name || item.instrument.investment_focus || (item.instrument.data_status === 'enriched' ? 'Exposure details unavailable' : 'Profile not refreshed')}</Text>
+          <Group gap={4} mt={4}>
+            <Chip size="xs">{item.instrument.data_status === 'enriched' ? 'Refreshed' : 'Awaiting refresh'}</Chip>
+            {item.instrument.currency_hedged && <Chip size="xs">Hedged</Chip>}
+          </Group>
+        </>
+      ),
+    }] : []),
     ...(show('policy') ? [{ key: 'policy', label: 'Policy', sortable: true, render: (item: RankedInstrument) => policyChip(item.instrument) }] : []),
     ...(show('replication') ? [{ key: 'replication', label: 'Replication', sortable: true, render: (item: CatalogRow) => <ReplicationChip value={item.instrument.replication} size="xs" /> }] : []),
     ...(show('ter') ? [{ key: 'ter', label: 'TER', sortable: true, render: (item: RankedInstrument) => percent(item.instrument.ter_bps) }] : []),
@@ -415,10 +518,130 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
             </Button>
           </Group>
         </Group>
+        {activeFilterCount > 0 && (
+          <Group gap="xs" align="center" mb="sm" wrap="wrap">
+            <Text size="xs" c="dimmed">Active filters:</Text>
+            {filters.assetClass && (
+              <Badge
+                size="sm"
+                variant="light"
+                color="teal"
+                style={{ cursor: 'pointer' }}
+                rightSection="✕"
+                onClick={() => setFilters(current => ({ ...current, assetClass: '' }))}
+              >
+                Asset class: {label(filters.assetClass)}
+              </Badge>
+            )}
+            {filters.issuer && (
+              <Badge
+                size="sm"
+                variant="light"
+                color="blue"
+                style={{ cursor: 'pointer' }}
+                rightSection="✕"
+                onClick={() => setFilters(current => ({ ...current, issuer: '' }))}
+              >
+                Issuer: {filters.issuer}
+              </Badge>
+            )}
+            {filters.type && (
+              <Badge
+                size="sm"
+                variant="light"
+                color="grape"
+                style={{ cursor: 'pointer' }}
+                rightSection="✕"
+                onClick={() => setFilters(current => ({ ...current, type: '' }))}
+              >
+                Type: {instrumentLabels[filters.type as InstrumentType] ?? filters.type}
+              </Badge>
+            )}
+            {filters.policy && (
+              <Badge
+                size="sm"
+                variant="light"
+                color="indigo"
+                style={{ cursor: 'pointer' }}
+                rightSection="✕"
+                onClick={() => setFilters(current => ({ ...current, policy: '' }))}
+              >
+                Policy: {label(filters.policy)}
+              </Badge>
+            )}
+            {filters.replication && (
+              <Badge
+                size="sm"
+                variant="light"
+                color="cyan"
+                style={{ cursor: 'pointer' }}
+                rightSection="✕"
+                onClick={() => setFilters(current => ({ ...current, replication: '' }))}
+              >
+                Replication: {label(filters.replication)}
+              </Badge>
+            )}
+            {filters.domicile && (
+              <Badge
+                size="sm"
+                variant="light"
+                color="gray"
+                style={{ cursor: 'pointer' }}
+                rightSection="✕"
+                onClick={() => setFilters(current => ({ ...current, domicile: '' }))}
+              >
+                Domicile: {filters.domicile}
+              </Badge>
+            )}
+            {filters.currency && (
+              <Badge
+                size="sm"
+                variant="light"
+                color="gray"
+                style={{ cursor: 'pointer' }}
+                rightSection="✕"
+                onClick={() => setFilters(current => ({ ...current, currency: '' }))}
+              >
+                Currency: {filters.currency}
+              </Badge>
+            )}
+            {filters.ucits && (
+              <Badge
+                size="sm"
+                variant="light"
+                color="green"
+                style={{ cursor: 'pointer' }}
+                rightSection="✕"
+                onClick={() => setFilters(current => ({ ...current, ucits: '' }))}
+              >
+                {filters.ucits === 'true' ? 'UCITS only' : 'Non-UCITS only'}
+              </Badge>
+            )}
+            <Button
+              size="compact-xs"
+              variant="subtle"
+              color="gray"
+              onClick={() =>
+                setFilters({
+                  issuer: '',
+                  type: '',
+                  assetClass: '',
+                  policy: '',
+                  replication: '',
+                  domicile: '',
+                  currency: '',
+                  ucits: '',
+                })
+              }
+            >
+              Clear all
+            </Button>
+          </Group>
+        )}
         {filtersOpen && <Card withBorder padding="sm" mb="sm"><SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
           <Select size="xs" searchable clearable label="Issuer" placeholder="All issuers" value={filters.issuer || null} data={issuerOptions} onChange={value => setFilters(current => ({ ...current, issuer: value === null ? '' : String(value) }))} />
           <Select size="xs" clearable label="Instrument type" placeholder="All types" value={filters.type || null} data={Object.entries(instrumentLabels).map(([value, itemLabel]) => ({ value, label: itemLabel }))} onChange={value => setFilters(current => ({ ...current, type: value ?? '' }))} />
-          <Select size="xs" clearable label="Asset class" placeholder="All classes" value={filters.assetClass || null} data={[...new Set(instruments.flatMap(instrument => instrument.asset_class ? [instrument.asset_class] : []))].sort().map(value => ({ value, label: label(value) }))} onChange={value => setFilters(current => ({ ...current, assetClass: value === null ? '' : String(value) }))} />
+          <Select size="xs" searchable clearable label="Asset class" placeholder="All classes" value={filters.assetClass || null} data={assetClassOptions} onChange={value => setFilters(current => ({ ...current, assetClass: value === null ? '' : String(value) }))} />
           <Select size="xs" clearable label="Policy" placeholder="Any policy" value={filters.policy || null} data={[{ value: 'accumulating', label: 'Accumulating' }, { value: 'distributing', label: 'Distributing' }]} onChange={value => setFilters(current => ({ ...current, policy: value ?? '' }))} />
           <Select size="xs" clearable label="Replication" placeholder="Any method" value={filters.replication || null} data={[{ value: 'physical_full', label: 'Physical full' }, { value: 'physical_sampling', label: 'Physical sampling' }, { value: 'synthetic', label: 'Synthetic' }]} onChange={value => setFilters(current => ({ ...current, replication: value ?? '' }))} />
           <Select size="xs" searchable clearable label="Domicile" placeholder="All domiciles" value={filters.domicile || null} data={domicileOptions} onChange={value => setFilters(current => ({ ...current, domicile: value === null ? '' : String(value) }))} />
