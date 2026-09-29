@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { Instrument } from './api.ts';
-import { compactMoney, instrumentLabels, localDateISO, setHideBalancesState } from './utils/format.ts';
-import { builtInPresets, defaultRankFilters, matchesRankFilters } from './utils/rankFilters.ts';
+import { compactMoney, instrumentLabels, localDateISO, relativeDate, setHideBalancesState } from './utils/format.ts';
+import { builtInPresets, computeInstrumentScore, defaultFilters, defaultRankFilters, matchesFilters, matchesRankFilters, parseSearchTerms } from './utils/rankFilters.ts';
 import { chartGeometry, chartTickIndexes, chipColor, filterChartRange, matchesExactFilters, nearestChartIndex, pageBounds, performanceMood } from './visual.ts';
 
 test('financial labels use semantic colors and unknown labels stay stable', () => {
@@ -170,4 +170,212 @@ test('built-in presets provide valid filter configurations', () => {
   assert.deepEqual(coreWorld.filters.assetClasses, ['equity']);
 });
 
+test('computeInstrumentScore calculates ETF score and returns null for non-enriched or non-UCITS', () => {
+  const enrichedUCITS: Partial<Instrument> = {
+    instrument_type: 'etf',
+    data_status: 'enriched',
+    ucits: true,
+    ter_bps: 20,
+    fund_size_million: 1000,
+    inception_date: '2019-01-01',
+    tracking_difference_bps: 5,
+    tracking_error_bps: 8,
+  };
+  const nonUCITS: Partial<Instrument> = {
+    ...enrichedUCITS,
+    ucits: false,
+  };
+  const nonEnriched: Partial<Instrument> = {
+    ...enrichedUCITS,
+    data_status: 'catalog',
+  };
+
+  const asOf = new Date('2024-01-01').getTime();
+  const score = computeInstrumentScore(enrichedUCITS, asOf);
+  assert.ok(score !== null && score > 70 && score <= 100);
+  assert.equal(computeInstrumentScore(nonUCITS, asOf), null);
+  assert.equal(computeInstrumentScore(nonEnriched, asOf), null);
+});
+
+test('matchesFilters supports query search, max TER, min size, and ucits status', () => {
+  const testETF: Partial<Instrument> = {
+    name: 'Vanguard FTSE All-World UCITS ETF (USD) Accumulating',
+    ticker: 'VWCE',
+    isin: 'IE00BK5BQT80',
+    provider: 'Vanguard',
+    instrument_type: 'etf',
+    data_status: 'enriched',
+    ucits: true,
+    asset_class: 'equity',
+    distribution: 'accumulating',
+    ter_bps: 22,
+    fund_size_million: 12000,
+  };
+
+  // Text search on ticker or name
+  assert.equal(matchesFilters(testETF, { ...defaultFilters, query: 'VWCE' }), true);
+  assert.equal(matchesFilters(testETF, { ...defaultFilters, query: 'ftse' }), true);
+  assert.equal(matchesFilters(testETF, { ...defaultFilters, query: 'ishares' }), false);
+
+  // Max TER
+  assert.equal(matchesFilters(testETF, { ...defaultFilters, maxTER: 0.25 }), true);
+  assert.equal(matchesFilters(testETF, { ...defaultFilters, maxTER: 0.20 }), false);
+
+  // Min size
+  assert.equal(matchesFilters(testETF, { ...defaultFilters, minSize: 5000 }), true);
+  assert.equal(matchesFilters(testETF, { ...defaultFilters, minSize: 20000 }), false);
+
+  // UCITS
+  assert.equal(matchesFilters(testETF, { ...defaultFilters, ucits: 'true' }), true);
+  assert.equal(matchesFilters(testETF, { ...defaultFilters, ucits: 'false' }), false);
+});
+
+test('matchesFilters supports explicit exclusion of options', () => {
+  const accETF: Partial<Instrument> = {
+    name: 'iShares Core MSCI World UCITS ETF',
+    ticker: 'SWDA',
+    isin: 'IE00B4L5Y983',
+    instrument_type: 'etf',
+    data_status: 'enriched',
+    ucits: true,
+    distribution: 'accumulating',
+    asset_class: 'equity',
+    replication: 'physical_full',
+  };
+  const distETF: Partial<Instrument> = {
+    ...accETF,
+    name: 'iShares MSCI World UCITS ETF (Dist)',
+    distribution: 'distributing',
+  };
+  const synthETF: Partial<Instrument> = {
+    ...accETF,
+    name: 'Invesco MSCI World UCITS ETF',
+    replication: 'synthetic',
+  };
+  const cryptoETP: Partial<Instrument> = {
+    ...accETF,
+    name: 'CoinShares Physical Bitcoin',
+    asset_class: 'crypto',
+  };
+
+  // Exclude distributing
+  const excludeDistFilters = { ...defaultFilters, excludeDistributions: ['distributing'] };
+  assert.equal(matchesFilters(accETF, excludeDistFilters), true);
+  assert.equal(matchesFilters(distETF, excludeDistFilters), false);
+
+  // Exclude synthetic replication
+  const excludeSynthFilters = { ...defaultFilters, excludeReplications: ['synthetic'] };
+  assert.equal(matchesFilters(accETF, excludeSynthFilters), true);
+  assert.equal(matchesFilters(synthETF, excludeSynthFilters), false);
+
+  // Exclude crypto asset class
+  const excludeCryptoFilters = { ...defaultFilters, excludeAssetClasses: ['crypto'] };
+  assert.equal(matchesFilters(accETF, excludeCryptoFilters), true);
+  assert.equal(matchesFilters(cryptoETP, excludeCryptoFilters), false);
+
+  // Include equity and exclude distributing simultaneously
+  const combined = { ...defaultFilters, assetClasses: ['equity'], excludeDistributions: ['distributing'] };
+  assert.equal(matchesFilters(accETF, combined), true);
+  assert.equal(matchesFilters(distETF, combined), false);
+  assert.equal(matchesFilters(cryptoETP, combined), false);
+});
+
+test('relativeDate formats timestamps into human-readable relative intervals', () => {
+  const base = new Date('2026-09-29T12:00:00Z').getTime();
+
+  assert.equal(relativeDate(undefined, base), '—');
+  assert.equal(relativeDate(null, base), '—');
+  assert.equal(relativeDate('invalid-date', base), '—');
+
+  // Just now (<60s)
+  assert.equal(relativeDate(new Date(base - 30 * 1000).toISOString(), base), 'just now');
+
+  // Minutes ago (<1h)
+  assert.equal(relativeDate(new Date(base - 5 * 60 * 1000).toISOString(), base), '5m ago');
+
+  // Hours ago (<24h)
+  assert.equal(relativeDate(new Date(base - 3 * 3600 * 1000).toISOString(), base), '3h ago');
+
+  // Yesterday (1 day)
+  assert.equal(relativeDate(new Date(base - 86400 * 1000).toISOString(), base), 'yesterday');
+
+  // Days ago (<30d)
+  assert.equal(relativeDate(new Date(base - 14 * 86400 * 1000).toISOString(), base), '14d ago');
+
+  // Months ago (<365d)
+  assert.equal(relativeDate(new Date(base - 90 * 86400 * 1000).toISOString(), base), '2mo ago');
+
+  // Years ago
+  assert.equal(relativeDate(new Date(base - 400 * 86400 * 1000).toISOString(), base), '1y 1mo ago');
+  assert.equal(relativeDate(new Date(base - 5 * 365 * 86400 * 1000).toISOString(), base), '5y ago');
+});
+
+test('matchesFilters supports strategy filtering, tracking diff, and tracking error', () => {
+  const broadETF: Partial<Instrument> = {
+    name: 'Vanguard FTSE All-World UCITS ETF',
+    strategy: 'broad',
+    tracking_difference_bps: 10, // 0.10%
+    tracking_error_bps: 8,       // 0.08%
+  };
+  const esgETF: Partial<Instrument> = {
+    name: 'iShares MSCI World SRI UCITS ETF',
+    strategy: 'esg',
+    tracking_difference_bps: 25, // 0.25%
+    tracking_error_bps: 30,      // 0.30%
+  };
+
+  // Strategy include
+  assert.equal(matchesFilters(broadETF, { ...defaultFilters, strategies: ['broad'] }), true);
+  assert.equal(matchesFilters(esgETF, { ...defaultFilters, strategies: ['broad'] }), false);
+
+  // Strategy exclude
+  assert.equal(matchesFilters(broadETF, { ...defaultFilters, excludeStrategies: ['esg'] }), true);
+  assert.equal(matchesFilters(esgETF, { ...defaultFilters, excludeStrategies: ['esg'] }), false);
+
+  // Max Tracking Diff % (broad has 0.10%, esg has 0.25%)
+  assert.equal(matchesFilters(broadETF, { ...defaultFilters, maxTrackingDiff: 0.15 }), true);
+  assert.equal(matchesFilters(esgETF, { ...defaultFilters, maxTrackingDiff: 0.15 }), false);
+
+  // Max Tracking Error % (broad has 0.08%, esg has 0.30%)
+  assert.equal(matchesFilters(broadETF, { ...defaultFilters, maxTrackingError: 0.10 }), true);
+  assert.equal(matchesFilters(esgETF, { ...defaultFilters, maxTrackingError: 0.10 }), false);
+});
+
+test('parseSearchTerms parses included and excluded keywords', () => {
+  assert.deepEqual(parseSearchTerms('msci -usa'), { includes: ['msci'], excludes: ['usa'] });
+  assert.deepEqual(parseSearchTerms('msci !usa'), { includes: ['msci'], excludes: ['usa'] });
+  assert.deepEqual(parseSearchTerms('msci -usa -china'), { includes: ['msci'], excludes: ['usa', 'china'] });
+  assert.deepEqual(parseSearchTerms('ftse world', 'china, em'), { includes: ['ftse', 'world'], excludes: ['china', 'em'] });
+  assert.deepEqual(parseSearchTerms(''), { includes: [], excludes: [] });
+});
+
+test('matchesFilters allows including keywords while excluding others', () => {
+  const msciWorld: Partial<Instrument> = {
+    name: 'Amundi MSCI World Minimum Volatility Advanced UCITS ETF Acc',
+    ticker: 'WMMV',
+    index_name: 'MSCI World Minimum Volatility Advanced Target',
+  };
+  const msciUSA: Partial<Instrument> = {
+    name: 'iShares MSCI USA UCITS ETF',
+    ticker: 'CSUS',
+    index_name: 'MSCI USA Index',
+  };
+  const ftseChina: Partial<Instrument> = {
+    name: 'Franklin FTSE China UCITS ETF',
+    ticker: 'FLXC',
+    index_name: 'FTSE China Index',
+  };
+
+  // User includes "msci" but excludes "usa" via inline query "msci -usa"
+  const inlineQuery = { ...defaultFilters, query: 'msci -usa' };
+  assert.equal(matchesFilters(msciWorld, inlineQuery), true);
+  assert.equal(matchesFilters(msciUSA, inlineQuery), false);
+  assert.equal(matchesFilters(ftseChina, inlineQuery), false);
+
+  // User includes "msci" but excludes "usa" via explicit excludeQuery
+  const explicitQuery = { ...defaultFilters, query: 'msci', excludeQuery: 'usa' };
+  assert.equal(matchesFilters(msciWorld, explicitQuery), true);
+  assert.equal(matchesFilters(msciUSA, explicitQuery), false);
+  assert.equal(matchesFilters(ftseChina, explicitQuery), false);
+});
 

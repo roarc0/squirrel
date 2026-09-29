@@ -1,9 +1,31 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActionIcon, Button, Card, Group, Skeleton, Stack, Text, TextInput, Tooltip } from '@mantine/core';
+import {
+  ActionIcon,
+  Badge,
+  Button,
+  Card,
+  Divider,
+  Group,
+  Paper,
+  SimpleGrid,
+  Skeleton,
+  Stack,
+  Text,
+  TextInput,
+  Tooltip,
+} from '@mantine/core';
 import { useElementSize } from '@mantine/hooks';
-import { IconArrowLeft, IconRefresh, IconX } from '@tabler/icons-react';
+import {
+  IconArrowLeft,
+  IconExternalLink,
+  IconRefresh,
+  IconX,
+} from '@tabler/icons-react';
 import { instrumentClient, type Instrument } from '../api';
 import { chartGeometry, nearestChartIndex } from '../visual';
+import { Chip, ISINBadge, ReplicationChip, TickerBadge } from '../Chip';
+import { instrumentLabels, label, relativeDate } from '../utils/format';
+import { computeInstrumentScore } from '../utils/rankFilters';
 
 type PerfPoint = { date: string; change_bps: number };
 type PeriodKey = '1m' | '3m' | '6m' | 'ytd' | '1y' | '3y' | '5y' | 'max';
@@ -233,7 +255,18 @@ function PerformanceChart({ points }: { points: PerfPoint[] }) {
   );
 }
 
-const DOMICILE_FLAGS: Record<string, string> = { IE: '🇮🇪', LU: '🇱🇺', DE: '🇩🇪', FR: '🇫🇷', GB: '🇬🇧', US: '🇺🇸', CH: '🇨🇭', NL: '🇳🇱', SE: '🇸🇪' };
+const DOMICILE_DATA: Record<string, { flag: string; name: string }> = {
+  IE: { flag: '🇮🇪', name: 'Ireland' },
+  LU: { flag: '🇱🇺', name: 'Luxembourg' },
+  DE: { flag: '🇩🇪', name: 'Germany' },
+  FR: { flag: '🇫🇷', name: 'France' },
+  GB: { flag: '🇬🇧', name: 'United Kingdom' },
+  US: { flag: '🇺🇸', name: 'United States' },
+  CH: { flag: '🇨🇭', name: 'Switzerland' },
+  NL: { flag: '🇳🇱', name: 'Netherlands' },
+  SE: { flag: '🇸🇪', name: 'Sweden' },
+  IT: { flag: '🇮🇹', name: 'Italy' },
+};
 
 function fmtTER(bps: number) { return `${(bps / 100).toFixed(2)}%`; }
 function fmtAUM(m: number) { return m >= 1000 ? `€${(m / 1000).toFixed(1)}b` : `€${m}m`; }
@@ -251,6 +284,8 @@ export function InstrumentDetailView({
   const [fetchedAt, setFetchedAt] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'refreshing' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
+
+  const score = instrument ? computeInstrumentScore(instrument) : null;
 
   const load = useCallback(async (refresh = false) => {
     setStatus(refresh ? 'refreshing' : 'loading');
@@ -289,73 +324,164 @@ export function InstrumentDetailView({
     );
   }
 
-  const distLabel = instrument.distribution === 'accumulating' ? 'Acc' : 'Dist';
+  const domicileInfo = instrument.domicile ? DOMICILE_DATA[instrument.domicile] : undefined;
+  const domicileText = domicileInfo ? `${domicileInfo.flag} ${domicileInfo.name} (${instrument.domicile})` : (instrument.domicile || '—');
 
   return (
     <Stack p="md" gap="md">
-      {/* Header */}
-      <Group justify="space-between" align="flex-start" wrap="nowrap">
-        <Group gap="sm" align="flex-start" style={{ minWidth: 0 }}>
-          <Button variant="subtle" size="compact-sm" leftSection={<IconArrowLeft size={14} />} onClick={onBack} px={6} style={{ flexShrink: 0 }}>
-            Back
-          </Button>
-          <Stack gap={2} style={{ minWidth: 0 }}>
-            <Group gap="xs" align="baseline" wrap="nowrap">
-              {instrument.ticker && <Text fw={800} size="xl" ff="monospace" style={{ flexShrink: 0 }}>{instrument.ticker}</Text>}
-              <Text fw={600} size="lg" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {instrument.name}
-              </Text>
-            </Group>
-            <Group gap={6} wrap="nowrap">
-              <Text size="xs" c="dimmed">{instrument.isin}</Text>
-              <Text size="xs" c="dimmed">·</Text>
-              <Text size="xs" c="dimmed">{instrument.instrument_type.toUpperCase()}</Text>
-              {instrument.ucits && <><Text size="xs" c="dimmed">·</Text><Text size="xs" c="dimmed">UCITS</Text></>}
-              <Text size="xs" c="dimmed">·</Text>
-              <Text size="xs" c="dimmed">{distLabel}</Text>
-            </Group>
-          </Stack>
-        </Group>
-        <Group gap="xs" style={{ flexShrink: 0 }}>
+      {/* Top action bar */}
+      <Group justify="space-between" align="center">
+        <Button
+          variant="subtle"
+          size="sm"
+          leftSection={<IconArrowLeft size={16} />}
+          onClick={onBack}
+          px={8}
+        >
+          Back to finder
+        </Button>
+        <Group gap="xs">
           {instrument.source_url && (
-            <Tooltip label="Open on justETF">
-              <ActionIcon variant="subtle" size="sm" component="a" href={instrument.source_url} target="_blank" rel="noopener noreferrer">
-                ↗
-              </ActionIcon>
+            <Tooltip label="Open profile on justETF" withArrow>
+              <Button
+                component="a"
+                href={instrument.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="default"
+                size="xs"
+                rightSection={<IconExternalLink size={13} />}
+              >
+                justETF
+              </Button>
             </Tooltip>
           )}
-          <Tooltip label={status === 'refreshing' ? 'Refreshing…' : 'Refresh performance data'}>
-            <ActionIcon variant="subtle" size="sm" loading={status === 'refreshing'} onClick={() => void load(true)}>
-              <IconRefresh size={14} />
+          <Tooltip label={status === 'refreshing' ? 'Refreshing performance…' : 'Refresh performance data'} withArrow>
+            <ActionIcon
+              variant="default"
+              size="md"
+              loading={status === 'refreshing'}
+              onClick={() => void load(true)}
+              aria-label="Refresh performance data"
+            >
+              <IconRefresh size={15} />
             </ActionIcon>
           </Tooltip>
         </Group>
       </Group>
 
-      {/* Key metrics strip */}
-      <Group gap="xl">
-        <Stack gap={0}><Text size="xs" c="dimmed">TER</Text><Text size="sm" fw={600}>{fmtTER(instrument.ter_bps)}</Text></Stack>
-        <Stack gap={0}><Text size="xs" c="dimmed">AUM</Text><Text size="sm" fw={600}>{fmtAUM(instrument.fund_size_million)}</Text></Stack>
-        <Stack gap={0}><Text size="xs" c="dimmed">Currency</Text><Text size="sm" fw={600}>{instrument.fund_currency}</Text></Stack>
-        {instrument.inception_date && (
-          <Stack gap={0}>
-            <Text size="xs" c="dimmed">Since</Text>
-            <Text size="sm" fw={600}>{new Date(`${instrument.inception_date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</Text>
-          </Stack>
-        )}
-        {instrument.domicile && (
-          <Stack gap={0}>
-            <Text size="xs" c="dimmed">Domicile</Text>
-            <Text size="sm" fw={600}>{DOMICILE_FLAGS[instrument.domicile] ?? ''} {instrument.domicile}</Text>
-          </Stack>
-        )}
-        {instrument.replication && (
-          <Stack gap={0}>
-            <Text size="xs" c="dimmed">Replication</Text>
-            <Text size="sm" fw={600} tt="capitalize">{instrument.replication.replace(/_/g, ' / ')}</Text>
-          </Stack>
-        )}
-      </Group>
+      {/* Main Header Banner Card with Clickable Chips */}
+      <Paper withBorder p="md" radius="md" style={{ backgroundColor: 'var(--mantine-color-body)' }}>
+        <Stack gap="sm">
+          <Group justify="space-between" align="flex-start" wrap="nowrap">
+            <Group gap="sm" align="center" wrap="wrap" style={{ minWidth: 0, flex: 1 }}>
+              {instrument.ticker && <TickerBadge ticker={instrument.ticker} size="lg" />}
+              <Text fw={700} size="xl" style={{ lineHeight: 1.25 }}>
+                {instrument.name}
+              </Text>
+            </Group>
+            {score !== null && (
+              <Tooltip label={`Composite ETF Score: ${score.toFixed(1)} / 100 · based on TER, tracking diff, fund size, and history`} withArrow>
+                <Badge size="lg" variant="filled" color="grape" style={{ flexShrink: 0, height: 28, fontSize: 13 }}>
+                  Score {score.toFixed(1)}
+                </Badge>
+              </Tooltip>
+            )}
+          </Group>
+
+          {/* Chips Row: Clickable ISINBadge, Type, Asset Class, Policy, Replication, UCITS, Hedged */}
+          <Group gap={6} wrap="wrap" align="center">
+            <ISINBadge isin={instrument.isin} size="sm" />
+            <Chip size="sm">{instrumentLabels[instrument.instrument_type] || instrument.instrument_type.toUpperCase()}</Chip>
+            {instrument.asset_class && (
+              <Chip size="sm" colorKey={instrument.asset_class}>
+                {label(instrument.asset_class)}
+              </Chip>
+            )}
+            <Chip size="sm" colorKey={instrument.distribution === 'accumulating' ? 'teal' : 'orange'}>
+              {instrument.distribution === 'accumulating' ? 'Accumulating (Acc)' : 'Distributing (Dist)'}
+            </Chip>
+            {instrument.replication && (
+              <ReplicationChip value={instrument.replication} size="sm" />
+            )}
+            {instrument.strategy && (
+              <Badge size="sm" variant="light" color="indigo">
+                {label(instrument.strategy)}
+              </Badge>
+            )}
+            <Badge size="sm" variant="light" color={instrument.ucits ? 'teal' : 'gray'}>
+              {instrument.ucits ? 'UCITS Compliant' : 'Non-UCITS'}
+            </Badge>
+            {instrument.currency_hedged && (
+              <Badge size="sm" variant="light" color="blue">
+                Hedged
+              </Badge>
+            )}
+            {instrument.refreshed_at && (
+              <Tooltip label={`Last refreshed: ${new Date(instrument.refreshed_at).toLocaleString()}`} withArrow>
+                <Badge size="sm" variant="outline" color="gray">
+                  Refreshed {relativeDate(instrument.refreshed_at)}
+                </Badge>
+              </Tooltip>
+            )}
+          </Group>
+        </Stack>
+      </Paper>
+
+      {/* Hero Key Metrics Strip */}
+      <SimpleGrid cols={{ base: 2, sm: 3, md: 6 }} spacing="sm">
+        <Paper withBorder p="xs" radius="sm" ta="center">
+          <Text size="11px" c="dimmed" tt="uppercase" fw={600}>TER</Text>
+          <Text size="lg" fw={700} c="teal">{fmtTER(instrument.ter_bps)}</Text>
+        </Paper>
+
+        <Paper withBorder p="xs" radius="sm" ta="center">
+          <Text size="11px" c="dimmed" tt="uppercase" fw={600}>Fund Size</Text>
+          <Text size="lg" fw={700}>{fmtAUM(instrument.fund_size_million)}</Text>
+        </Paper>
+
+        <Paper withBorder p="xs" radius="sm" ta="center">
+          <Text size="11px" c="dimmed" tt="uppercase" fw={600}>Currency</Text>
+          <Text size="lg" fw={700}>{instrument.fund_currency}</Text>
+        </Paper>
+
+        <Paper withBorder p="xs" radius="sm" ta="center">
+          <Text size="11px" c="dimmed" tt="uppercase" fw={600}>Inception</Text>
+          {instrument.inception_date ? (
+            <Tooltip label={`Incepted: ${instrument.inception_date}`} withArrow>
+              <div>
+                <Text size="sm" fw={700}>{new Date(`${instrument.inception_date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</Text>
+                <Text size="10px" c="dimmed">{relativeDate(instrument.inception_date)}</Text>
+              </div>
+            </Tooltip>
+          ) : (
+            <Text size="lg" fw={700} c="dimmed">—</Text>
+          )}
+        </Paper>
+
+        <Paper withBorder p="xs" radius="sm" ta="center">
+          <Text size="11px" c="dimmed" tt="uppercase" fw={600}>Domicile</Text>
+          <Text size="sm" fw={700}>
+            {domicileInfo?.flag ?? '🌐'} {instrument.domicile || '—'}
+          </Text>
+          {domicileInfo && <Text size="10px" c="dimmed" truncate>{domicileInfo.name}</Text>}
+        </Paper>
+
+        <Paper withBorder p="xs" radius="sm" ta="center">
+          <Text size="11px" c="dimmed" tt="uppercase" fw={600}>
+            {instrument.tracking_difference_bps !== null ? 'Tracking Diff' : 'Replication'}
+          </Text>
+          {instrument.tracking_difference_bps !== null ? (
+            <Text size="lg" fw={700} c={instrument.tracking_difference_bps > 0 ? 'orange' : 'teal'}>
+              {(instrument.tracking_difference_bps / 100).toFixed(2)}%
+            </Text>
+          ) : (
+            <Text size="sm" fw={700} tt="capitalize" truncate>
+              {instrument.replication ? instrument.replication.replace(/_/g, ' ') : '—'}
+            </Text>
+          )}
+        </Paper>
+      </SimpleGrid>
 
       {/* Chart card */}
       <Card withBorder p="md" radius="md">
@@ -385,30 +511,121 @@ export function InstrumentDetailView({
         )}
       </Card>
 
-      {/* Fund details */}
+      {/* Fund Internals & Details in Modern Cards Grid */}
       <Card withBorder p="md" radius="md">
-        <Text fw={600} mb="sm">Fund Details</Text>
-        <Stack gap="xs">
-          {instrument.index_name && <Group justify="space-between"><Text size="sm" c="dimmed">Index</Text><Text size="sm">{instrument.index_name}</Text></Group>}
-          {instrument.provider && <Group justify="space-between"><Text size="sm" c="dimmed">Provider</Text><Text size="sm">{instrument.provider}</Text></Group>}
-          {instrument.investment_focus && <Group justify="space-between"><Text size="sm" c="dimmed">Focus</Text><Text size="sm">{instrument.investment_focus}</Text></Group>}
-          {instrument.asset_class && <Group justify="space-between"><Text size="sm" c="dimmed">Asset Class</Text><Text size="sm" tt="capitalize">{instrument.asset_class}</Text></Group>}
-          {instrument.strategy && <Group justify="space-between"><Text size="sm" c="dimmed">Strategy</Text><Text size="sm" tt="capitalize">{instrument.strategy}</Text></Group>}
-          {instrument.tracking_difference_bps !== null && (
-            <Group justify="space-between">
-              <Text size="sm" c="dimmed">Tracking Diff (1Y)</Text>
-              <Text size="sm">{(instrument.tracking_difference_bps! / 100).toFixed(2)}%</Text>
-            </Group>
+        <Group justify="space-between" align="center" mb="md">
+          <Text fw={700} size="md">Fund Internals & Specifications</Text>
+          {instrument.data_status === 'enriched' && (
+            <Badge size="xs" variant="light" color="teal">Enriched Profile</Badge>
           )}
-          {instrument.tracking_error_bps !== null && (
-            <Group justify="space-between">
-              <Text size="sm" c="dimmed">Tracking Error (1Y)</Text>
-              <Text size="sm">{(instrument.tracking_error_bps! / 100).toFixed(2)}%</Text>
+        </Group>
+
+        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+          {/* Column 1: Investment Profile & Benchmark */}
+          <Stack gap="xs">
+            <Text size="xs" fw={700} c="dimmed" tt="uppercase">Benchmark & Classification</Text>
+            <Divider />
+
+            <Group justify="space-between" align="center">
+              <Text size="sm" c="dimmed">Tracked Index</Text>
+              <Text size="sm" fw={600} ta="right">{instrument.index_name || '—'}</Text>
             </Group>
-          )}
-          <Group justify="space-between"><Text size="sm" c="dimmed">Currency Hedged</Text><Text size="sm">{instrument.currency_hedged ? 'Yes' : 'No'}</Text></Group>
-          <Group justify="space-between"><Text size="sm" c="dimmed">UCITS</Text><Text size="sm">{instrument.ucits ? 'Yes' : 'No'}</Text></Group>
-        </Stack>
+
+            <Group justify="space-between" align="center">
+              <Text size="sm" c="dimmed">Provider / Issuer</Text>
+              <Text size="sm" fw={600} ta="right">{instrument.provider || '—'}</Text>
+            </Group>
+
+            <Group justify="space-between" align="center">
+              <Text size="sm" c="dimmed">Investment Focus</Text>
+              <Text size="sm" ta="right">{instrument.investment_focus || '—'}</Text>
+            </Group>
+
+            <Group justify="space-between" align="center">
+              <Text size="sm" c="dimmed">Asset Class</Text>
+              {instrument.asset_class ? (
+                <Chip size="sm" colorKey={instrument.asset_class}>{label(instrument.asset_class)}</Chip>
+              ) : <Text size="sm" c="dimmed">—</Text>}
+            </Group>
+
+            <Group justify="space-between" align="center">
+              <Text size="sm" c="dimmed">Strategy</Text>
+              {instrument.strategy ? (
+                <Badge size="sm" variant="light" color="indigo">{label(instrument.strategy)}</Badge>
+              ) : <Text size="sm" c="dimmed">—</Text>}
+            </Group>
+
+            <Group justify="space-between" align="center">
+              <Text size="sm" c="dimmed">Legal Wrapper</Text>
+              <Chip size="sm">{instrumentLabels[instrument.instrument_type] || instrument.instrument_type.toUpperCase()}</Chip>
+            </Group>
+          </Stack>
+
+          {/* Column 2: Mechanics, Structure & Quality */}
+          <Stack gap="xs">
+            <Text size="xs" fw={700} c="dimmed" tt="uppercase">Mechanics, Quality & Structure</Text>
+            <Divider />
+
+            <Group justify="space-between" align="center">
+              <Text size="sm" c="dimmed">Distribution Policy</Text>
+              <Group gap="xs">
+                <Chip size="sm" colorKey={instrument.distribution === 'accumulating' ? 'teal' : 'orange'}>
+                  {instrument.distribution === 'accumulating' ? 'Accumulating (Acc)' : 'Distributing (Dist)'}
+                </Chip>
+              </Group>
+            </Group>
+
+            <Group justify="space-between" align="center">
+              <Text size="sm" c="dimmed">Replication Method</Text>
+              <ReplicationChip value={instrument.replication} size="sm" />
+            </Group>
+
+            <Group justify="space-between" align="center">
+              <Text size="sm" c="dimmed">UCITS Compliant</Text>
+              <Badge size="sm" variant="light" color={instrument.ucits ? 'teal' : 'gray'}>
+                {instrument.ucits ? '✓ UCITS Compliant' : '✕ Non-UCITS'}
+              </Badge>
+            </Group>
+
+            <Group justify="space-between" align="center">
+              <Text size="sm" c="dimmed">Currency Hedged</Text>
+              <Badge size="sm" variant="light" color={instrument.currency_hedged ? 'blue' : 'gray'}>
+                {instrument.currency_hedged ? 'Hedged' : 'Unhedged'}
+              </Badge>
+            </Group>
+
+            <Group justify="space-between" align="center">
+              <Text size="sm" c="dimmed">Domicile</Text>
+              <Text size="sm" fw={500}>{domicileText}</Text>
+            </Group>
+
+            {instrument.tracking_difference_bps !== null && (
+              <Group justify="space-between" align="center">
+                <Tooltip label="Difference between fund return and index return over 1 year" withArrow>
+                  <Text size="sm" c="dimmed" style={{ cursor: 'help', textDecoration: 'underline dotted' }}>
+                    Tracking Difference (1Y)
+                  </Text>
+                </Tooltip>
+                <Text size="sm" fw={600}>
+                  {(instrument.tracking_difference_bps / 100).toFixed(2)}%
+                </Text>
+              </Group>
+            )}
+
+            {instrument.tracking_error_bps !== null && (
+              <Group justify="space-between" align="center">
+                <Tooltip label="Annualized volatility of excess returns relative to benchmark index" withArrow>
+                  <Text size="sm" c="dimmed" style={{ cursor: 'help', textDecoration: 'underline dotted' }}>
+                    Tracking Error (1Y)
+                  </Text>
+                </Tooltip>
+                <Text size="sm" fw={600}>
+                  {(instrument.tracking_error_bps / 100).toFixed(2)}%
+                </Text>
+              </Group>
+            )}
+          </Stack>
+        </SimpleGrid>
       </Card>
     </Stack>
   );

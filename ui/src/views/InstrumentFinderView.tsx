@@ -9,10 +9,10 @@ import {
   Card,
   Checkbox,
   Collapse,
+  Divider,
   Group,
   Loader,
   Modal,
-  MultiSelect,
   NumberInput,
   Pagination,
   Paper,
@@ -22,43 +22,58 @@ import {
   Stack,
   Text,
   TextInput,
-  Title,
   Tooltip,
 } from '@mantine/core';
 import {
   IconArrowsExchange,
+  IconBan,
+  IconCheck,
   IconColumns,
   IconDeviceFloppy,
   IconExternalLink,
   IconFilter,
+  IconFolder,
+  IconInfoCircle,
   IconPencil,
   IconRefresh,
+  IconSearch,
   IconStar,
   IconStarFilled,
   IconTrash,
+  IconX,
 } from '@tabler/icons-react';
-import { exportToCSV } from '../utils/exportCsv';
-import { copyToClipboard } from '../utils/copyToClipboard';
 import {
   api,
   instrumentClient,
   type Instrument,
   type InstrumentAlternative,
   type InstrumentType,
-  type RankedInstrument,
 } from '../api';
-import { useBackendRows } from '../App';
 import { Chip, ISINBadge, ReplicationChip, TickerBadge } from '../Chip';
 import { CompareModal } from '../CompareModal';
 import { Empty } from '../components/Empty';
 import { DataTable, TableAction, TableActions, type DataColumn, type SortDirection } from '../DataTable';
-import { confirmDelete as legacyConfirmDelete, instrumentLabels, label, percent } from '../utils/format';
-import { matchesExactFilters, pageBounds } from '../visual';
+import { confirmDelete as legacyConfirmDelete, instrumentLabels, label, percent, relativeDate } from '../utils/format';
+import { pageBounds } from '../visual';
 import { useConfirmDelete } from '../components/ConfirmDeleteModal';
 import { useProfile, getProfile } from '../hooks/useProfile';
-import { useQueryParam, useQueryParamInt, useQueryParamObject } from '../hooks/useQueryParam';
+import { useQueryParamInt } from '../hooks/useQueryParam';
 import { ViewShell } from '../components/ViewShell';
 import { SectionHeader } from '../components/SectionHeader';
+import { FacetFilterSelect, type FacetOption } from '../components/FacetFilterSelect';
+import {
+  builtInPresets,
+  computeInstrumentScore,
+  defaultFilters,
+  loadCustomPresets,
+  loadSavedFilters,
+  matchesFilters,
+  parseSearchTerms,
+  saveCustomPresets,
+  saveFilters,
+  type FilterPreset,
+  type InstrumentFilters,
+} from '../utils/rankFilters';
 
 type Numeric = string | number;
 const n = (value: Numeric | undefined) => (value === '' || value === undefined ? 0 : Number(value));
@@ -67,96 +82,120 @@ const bps = (value: Numeric | undefined) => Math.round(n(value) * 100);
 type InstrumentDraft = Omit<Instrument, 'id' | 'ter_bps' | 'fund_size_million' | 'tracking_difference_bps' | 'tracking_error_bps'> & { ter: Numeric; size: Numeric; trackingDifference: Numeric; trackingError: Numeric };
 const blankInstrument = (): InstrumentDraft => ({ isin: '', name: '', ticker: '', instrument_type: 'etf', provider: '', index_name: '', investment_focus: '', asset_class: '', strategy: 'broad', currency_hedged: false, starred: false, data_status: 'enriched', distribution: 'accumulating', replication: 'physical_full', domicile: 'IE', fund_currency: 'EUR', ter: 0.2, size: 0, inception_date: '', trackingDifference: '', trackingError: '', ucits: false, source_url: '' });
 
-type InstrumentColumn = 'ticker' | 'isin' | 'type' | 'issuer' | 'assetClass' | 'exposure' | 'policy' | 'replication' | 'ter' | 'size' | 'domicile' | 'currency' | 'inception' | 'tracking' | 'enriched';
-type InstrumentFilters = { issuer: string; type: string; assetClass: string; policy: string; replication: string; domicile: string; currency: string; ucits: string };
+type InstrumentColumn = 'ticker' | 'isin' | 'type' | 'issuer' | 'assetClass' | 'exposure' | 'policy' | 'replication' | 'ter' | 'size' | 'domicile' | 'currency' | 'inception' | 'tracking' | 'enriched' | 'score';
 type EnrichmentMode = 'missing' | 'discover' | 'oldest';
 type EnrichmentProgress = { mode: EnrichmentMode; phase: string; current?: string; processed: number; total: number; available?: number; enriched: number; skipped: number; failed: number; done: boolean; error?: string };
+
 const instrumentColumns: { value: InstrumentColumn; label: string }[] = [
-  { value: 'ticker', label: 'Ticker' }, { value: 'isin', label: 'ISIN' }, { value: 'type', label: 'Type' }, { value: 'issuer', label: 'Issuer' },
-  { value: 'assetClass', label: 'Asset class' }, { value: 'exposure', label: 'Exposure' }, { value: 'policy', label: 'Policy' },
-  { value: 'replication', label: 'Replication' }, { value: 'ter', label: 'TER' }, { value: 'size', label: 'Size' }, { value: 'domicile', label: 'Domicile' },
-  { value: 'currency', label: 'Currency' }, { value: 'inception', label: 'Inception' }, { value: 'tracking', label: 'Tracking' }, { value: 'enriched', label: 'Last refreshed' },
+  { value: 'ticker', label: 'Ticker' },
+  { value: 'isin', label: 'ISIN' },
+  { value: 'type', label: 'Type' },
+  { value: 'issuer', label: 'Issuer' },
+  { value: 'assetClass', label: 'Asset class' },
+  { value: 'exposure', label: 'Exposure' },
+  { value: 'policy', label: 'Policy' },
+  { value: 'replication', label: 'Replication' },
+  { value: 'ter', label: 'TER' },
+  { value: 'size', label: 'Size' },
+  { value: 'domicile', label: 'Domicile' },
+  { value: 'currency', label: 'Currency' },
+  { value: 'inception', label: 'Inception' },
+  { value: 'tracking', label: 'Tracking' },
+  { value: 'enriched', label: 'Last refreshed' },
+  { value: 'score', label: 'Score' },
 ];
+
 const defaultInstrumentColumns: InstrumentColumn[] = [
   'ticker',
-  'isin',
   'type',
-  'issuer',
   'assetClass',
-  'exposure',
   'policy',
   'replication',
   'ter',
   'size',
+  'enriched',
+  'score',
 ];
 
 function savedInstrumentColumns(): InstrumentColumn[] {
-  // Read from profile cache first, fall back to legacy localStorage
-  const profileJson = getProfile().instrument_columns_json;
-  const raw = profileJson || localStorage.getItem('squirrel.instrumentColumns.v3') || localStorage.getItem('squirrel.instrumentColumns.v2');
   try {
+    const raw = (typeof localStorage !== 'undefined' ? localStorage.getItem('squirrel.instrumentColumns.v6') : null) || getProfile().instrument_columns_json;
     if (!raw) return defaultInstrumentColumns;
     const saved = JSON.parse(raw) as string[];
     const valid = saved.filter((value): value is InstrumentColumn => instrumentColumns.some(column => column.value === value));
     if (!valid.length) return defaultInstrumentColumns;
-    if (!valid.includes('assetClass')) {
-      const exposureIdx = valid.indexOf('exposure');
-      if (exposureIdx >= 0) {
-        valid.splice(exposureIdx, 0, 'assetClass');
-      } else {
-        valid.push('assetClass');
-      }
-    }
     return valid;
   } catch { return defaultInstrumentColumns; }
 }
 
-const replicationLabel = (value: Instrument['replication']) => ({ physical_full: 'Physical full', physical_sampling: 'Physical sampling', synthetic: 'Synthetic' })[value];
-const productLabel = (instrument: Instrument) => instrument.instrument_type === 'etf' ? `${instrument.ucits ? 'UCITS' : 'Non-UCITS'} ETF` : instrument.instrument_type === 'etc' || instrument.instrument_type === 'etn' || instrument.instrument_type === 'etp' ? `Non-UCITS ${instrumentLabels[instrument.instrument_type]}` : instrumentLabels[instrument.instrument_type];
-const policyChip = (instrument: Instrument) => <Tooltip label={instrument.distribution === 'accumulating' ? 'Accumulating' : 'Distributing'}><Chip>{instrument.distribution === 'accumulating' ? 'Acc' : 'Dist'}</Chip></Tooltip>;
-type CatalogRow = RankedInstrument & { similarity?: InstrumentAlternative };
+const replicationLabel = (value: Instrument['replication']) => ({ physical_full: 'Physical full', physical_sampling: 'Physical sampling', synthetic: 'Synthetic' })[value] || value;
 
-import {
-  builtInPresets,
-  defaultRankFilters,
-  loadCustomPresets,
-  loadSavedRankFilters,
-  matchesRankFilters,
-  saveCustomPresets,
-  saveRankFilters,
-  type RankFilterState,
-  type RankPreset,
-} from '../utils/rankFilters';
+type CatalogRow = {
+  instrument: Instrument;
+  score: number | null;
+  similarity?: InstrumentAlternative;
+};
 
 export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { instruments: Instrument[]; reload: () => Promise<void>; onOpenDetail?: (isin: string) => void }) {
-  const [opened, setOpened] = useState(false); const [editing, setEditing] = useState<Instrument>(); const [ranked, setRanked] = useState<RankedInstrument[]>([]); const [error, setError] = useState('');
+  const [opened, setOpened] = useState(false);
+  const [editing, setEditing] = useState<Instrument>();
+  const [error, setError] = useState('');
   const { confirmDelete, modal: confirmDeleteModal } = useConfirmDelete();
-  const [lookupQuery, setLookupQuery] = useState(''); const [lookingUp, setLookingUp] = useState(false);
-  const [searchResults, setSearchResults] = useState<Instrument[]>([]); const [selected, setSelected] = useState<string[]>([]); const [searching, setSearching] = useState(false); const [importing, setImporting] = useState(false);
-  const [syncing, setSyncing] = useState(false); const [enriching, setEnriching] = useState(false); const [notice, setNotice] = useState(''); const [localQuery, setLocalQuery] = useQueryParam('q');
-  const [streamController, setStreamController] = useState<AbortController>(); const [streamProgress, setStreamProgress] = useState<EnrichmentProgress>();
-  const [visibleColumns, setVisibleColumns] = useState<InstrumentColumn[]>(savedInstrumentColumns); const [columnsOpen, setColumnsOpen] = useState(false); const [filtersOpenRaw, setFiltersOpen] = useQueryParam('filters');
-  const filtersOpen = filtersOpenRaw === '1';
-  const [filters, setFilters] = useQueryParamObject('f', { issuer: '', type: '', assetClass: '', policy: '', replication: '', domicile: '', currency: '', ucits: '' } as InstrumentFilters);
-  const [similarity, setSimilarity] = useState(() => (new URLSearchParams(window.location.search).get('similarity') ?? '').toUpperCase()); const [alternatives, setAlternatives] = useState<InstrumentAlternative[]>([]); const [loadingAlternatives, setLoadingAlternatives] = useState(false); const [page, setPage] = useQueryParamInt('page', 1); const [pageSize, setPageSize] = useQueryParamInt('pageSize', 50);
-  const [rankFilters, setRankFilters] = useState<RankFilterState>(loadSavedRankFilters);
-  const [customPresets, setCustomPresets] = useState<RankPreset[]>(loadCustomPresets);
+  const [lookupQuery, setLookupQuery] = useState('');
+  const [lookingUp, setLookingUp] = useState(false);
+  const [searchResults, setSearchResults] = useState<Instrument[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [enriching, setEnriching] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [streamController, setStreamController] = useState<AbortController>();
+  const [streamProgress, setStreamProgress] = useState<EnrichmentProgress>();
+
+  const [visibleColumns, setVisibleColumns] = useState<InstrumentColumn[]>(savedInstrumentColumns);
+  const [columnsOpen, setColumnsOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // Unified single filter state
+  const [filters, setFilters] = useState<InstrumentFilters>(loadSavedFilters);
+  const [customPresets, setCustomPresets] = useState<FilterPreset[]>(loadCustomPresets);
   const [activePresetId, setActivePresetId] = useState<string>('');
   const [savePresetOpened, setSavePresetOpened] = useState(false);
+  const [managePresetsOpened, setManagePresetsOpened] = useState(false);
   const [presetNameInput, setPresetNameInput] = useState('');
-  const [ranking, setRanking] = useState(false);
+  const [starVersion, setStarVersion] = useState(0);
 
-  const updateRankFilter = <K extends keyof RankFilterState>(key: K, value: RankFilterState[K]) => {
-    setRankFilters(curr => {
+  const [similarity, setSimilarity] = useState(() => (new URLSearchParams(window.location.search).get('similarity') ?? '').toUpperCase());
+  const [alternatives, setAlternatives] = useState<InstrumentAlternative[]>([]);
+  const [loadingAlternatives, setLoadingAlternatives] = useState(false);
+
+  const [page, setPage] = useQueryParamInt('page', 1);
+  const [pageSize, setPageSize] = useQueryParamInt('pageSize', 50);
+  const [localSortKey, setLocalSortKey] = useState<string>('');
+  const [localSortDir, setLocalSortDir] = useState<SortDirection>('asc');
+
+  const updateFilter = <K extends keyof InstrumentFilters>(key: K, value: InstrumentFilters[K]) => {
+    setFilters(curr => {
       const next = { ...curr, [key]: value };
-      saveRankFilters(next);
+      saveFilters(next);
       return next;
     });
+    setPage(1);
+  };
+
+  const updateFiltersBatch = (patch: Partial<InstrumentFilters>) => {
+    setFilters(curr => {
+      const next = { ...curr, ...patch };
+      saveFilters(next);
+      return next;
+    });
+    setPage(1);
   };
 
   const allPresets = useMemo(() => [...builtInPresets, ...customPresets], [customPresets]);
   const activePreset = allPresets.find(p => p.id === activePresetId);
-  const isPresetModified = activePreset ? JSON.stringify(activePreset.filters) !== JSON.stringify(rankFilters) : false;
+  const isPresetModified = activePreset ? JSON.stringify(activePreset.filters) !== JSON.stringify(filters) : false;
 
   const handleApplyPreset = (presetId: string | null) => {
     if (!presetId) {
@@ -166,8 +205,9 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
     const found = allPresets.find(p => p.id === presetId);
     if (found) {
       setActivePresetId(found.id);
-      setRankFilters(found.filters);
-      saveRankFilters(found.filters);
+      setFilters(found.filters);
+      saveFilters(found.filters);
+      setPage(1);
       notifications.show({
         color: 'teal',
         title: 'Preset applied',
@@ -176,28 +216,45 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
     }
   };
 
-  const handleResetRankFilters = () => {
-    setRankFilters(defaultRankFilters);
-    saveRankFilters(defaultRankFilters);
+  const handleUpdateActivePreset = () => {
+    if (!activePreset || activePreset.builtIn) return;
+    const updated = customPresets.map(p =>
+      p.id === activePreset.id ? { ...p, filters: { ...filters } } : p
+    );
+    setCustomPresets(updated);
+    saveCustomPresets(updated);
+    notifications.show({
+      color: 'teal',
+      title: 'Preset updated',
+      message: `Updated "${activePreset.name}" with current filter settings.`,
+    });
+  };
+
+  const handleResetFilters = () => {
+    setFilters(defaultFilters);
+    saveFilters(defaultFilters);
     setActivePresetId('');
+    setPage(1);
   };
 
   const handleSavePreset = (name: string) => {
     if (!name.trim()) return;
-    const newPreset: RankPreset = {
-      id: `custom-${Date.now()}`,
-      name: name.trim(),
+    const trimmed = name.trim();
+    const existing = customPresets.find(p => p.name.toLowerCase() === trimmed.toLowerCase());
+    const newPreset: FilterPreset = {
+      id: existing ? existing.id : `custom-${Date.now()}`,
+      name: trimmed,
       builtIn: false,
-      filters: { ...rankFilters },
+      filters: { ...filters },
     };
-    const updated = [...customPresets.filter(p => p.name.toLowerCase() !== name.trim().toLowerCase()), newPreset];
+    const updated = [...customPresets.filter(p => p.name.toLowerCase() !== trimmed.toLowerCase()), newPreset];
     setCustomPresets(updated);
     saveCustomPresets(updated);
     setActivePresetId(newPreset.id);
     notifications.show({
       color: 'teal',
       title: 'Preset saved',
-      message: `Filter preset "${name.trim()}" saved.`,
+      message: `Filter preset "${trimmed}" saved.`,
     });
   };
 
@@ -217,50 +274,97 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
     });
   };
 
-  const catalog = useBackendRows('/api/instruments', instruments);
   const setSimilarityFilter = (isin = '') => {
     const params = new URLSearchParams(window.location.search);
     if (isin) params.set('similarity', isin); else params.delete('similarity');
     window.history.pushState(null, '', `${window.location.pathname}${params.size ? `?${params}` : ''}${window.location.hash}`);
-    setSimilarity(isin); setRanked([]); setPage(1);
+    setSimilarity(isin);
+    setPage(1);
   };
-  const rank = async () => {
-    setRanking(true);
+
+  const lookup = async (query = lookupQuery) => {
+    if (!query.trim()) return;
+    setLookingUp(true);
     try {
-      const result = await api<RankedInstrument[]>('/api/instruments/rank', {
-        method: 'POST',
-        body: JSON.stringify({
-          index_query: rankFilters.indexQuery,
-          distribution: rankFilters.distributions.length === 1 ? rankFilters.distributions[0] : '',
-          distributions: rankFilters.distributions,
-          replications: rankFilters.replications,
-          domiciles: rankFilters.domiciles,
-          asset_classes: rankFilters.assetClasses,
-          fund_currencies: rankFilters.currencies,
-          providers: rankFilters.issuers,
-          currency_hedged: rankFilters.currencyHedged === 'hedged' ? true : rankFilters.currencyHedged === 'unhedged' ? false : null,
-          max_ter_bps: rankFilters.maxTER === '' ? null : bps(rankFilters.maxTER),
-          min_fund_size_million: n(rankFilters.minSize),
-          min_age_years: n(rankFilters.minAge),
-          weights: { cost: 35, tracking_difference: 30, tracking_error: 15, size: 15, age: 5 },
-        }),
-      });
-      setSimilarityFilter();
-      setRanked(result ?? []);
+      const inst = await api<Instrument>('/api/instruments/lookup', { method: 'POST', body: JSON.stringify({ query }) });
+      setLookupQuery('');
+      setError('');
+      await reload();
+      notifications.show({ color: 'teal', title: 'Profile refreshed', message: inst?.name ?? query });
+    } catch (cause) {
+      notifications.show({ color: 'red', title: 'Refresh failed', message: cause instanceof Error ? cause.message : String(cause) });
+      setError('');
+    } finally {
+      setLookingUp(false);
+    }
+  };
+
+  const search = async () => {
+    if (!lookupQuery.trim()) return;
+    setSearching(true);
+    try {
+      const result = await api<Instrument[]>(`/api/instruments/search?q=${encodeURIComponent(lookupQuery)}`);
+      setSearchResults(result ?? []);
+      setSelected((result ?? []).map(item => item.isin));
       setError('');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
-      setRanking(false);
+      setSearching(false);
     }
   };
-  const lookup = async (query = lookupQuery) => { if (!query.trim()) return; setLookingUp(true); try { const inst = await api<Instrument>('/api/instruments/lookup', { method: 'POST', body: JSON.stringify({ query }) }); setLookupQuery(''); setRanked([]); setError(''); await reload(); notifications.show({ color: 'teal', title: 'Profile refreshed', message: inst?.name ?? query }); } catch (cause) { notifications.show({ color: 'red', title: 'Refresh failed', message: cause instanceof Error ? cause.message : String(cause) }); setError(''); } finally { setLookingUp(false); } };
-  const search = async () => { if (!lookupQuery.trim()) return; setSearching(true); try { const result = await api<Instrument[]>(`/api/instruments/search?q=${encodeURIComponent(lookupQuery)}`); setSearchResults(result ?? []); setSelected((result ?? []).map(item => item.isin)); setError(''); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } finally { setSearching(false); } };
-  const importSelected = async () => { if (selected.length === 0) return; setImporting(true); try { await api<Instrument[]>('/api/instruments/import', { method: 'POST', body: JSON.stringify({ isins: selected }) }); setSearchResults([]); setSelected([]); setLookupQuery(''); setRanked([]); setError(''); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } finally { setImporting(false); } };
-  const syncCatalog = async () => { setSyncing(true); try { const result = await api<{ saved: number; available: number }>('/api/instruments/catalog/sync', { method: 'POST', body: JSON.stringify({ limit: 4000 }) }); setNotice(`Saved ${result.saved.toLocaleString()} instruments from ${result.available.toLocaleString()} screener results.`); setError(''); setRanked([]); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } finally { setSyncing(false); } };
-  const enrichCatalog = async () => { setEnriching(true); try { const result = await api<{ enriched: number; failed: number }>('/api/instruments/catalog/enrich', { method: 'POST', body: JSON.stringify({ limit: 20 }) }); setNotice(`Refreshed ${result.enriched} product profiles${result.failed ? `; ${result.failed} failed and can be retried` : ''}.`); setError(''); setRanked([]); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } finally { setEnriching(false); } };
+
+  const importSelected = async () => {
+    if (selected.length === 0) return;
+    setImporting(true);
+    try {
+      await api<Instrument[]>('/api/instruments/import', { method: 'POST', body: JSON.stringify({ isins: selected }) });
+      setSearchResults([]);
+      setSelected([]);
+      setLookupQuery('');
+      setError('');
+      await reload();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const syncCatalog = async () => {
+    setSyncing(true);
+    try {
+      const result = await api<{ saved: number; available: number }>('/api/instruments/catalog/sync', { method: 'POST', body: JSON.stringify({ limit: 4000 }) });
+      setNotice(`Saved ${result.saved.toLocaleString()} instruments from ${result.available.toLocaleString()} screener results.`);
+      setError('');
+      await reload();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const enrichCatalog = async () => {
+    setEnriching(true);
+    try {
+      const result = await api<{ enriched: number; failed: number }>('/api/instruments/catalog/enrich', { method: 'POST', body: JSON.stringify({ limit: 20 }) });
+      setNotice(`Refreshed ${result.enriched} product profiles${result.failed ? `; ${result.failed} failed and can be retried` : ''}.`);
+      setError('');
+      await reload();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setEnriching(false);
+    }
+  };
+
   const streamEnrichment = async (mode: EnrichmentMode) => {
-    const controller = new AbortController(); setStreamController(controller); setStreamProgress({ mode, phase: 'loading', processed: 0, total: 0, enriched: 0, skipped: 0, failed: 0, done: false }); setNotice(''); setError('');
+    const controller = new AbortController();
+    setStreamController(controller);
+    setStreamProgress({ mode, phase: 'loading', processed: 0, total: 0, enriched: 0, skipped: 0, failed: 0, done: false });
+    setNotice('');
+    setError('');
     try {
       let latest: EnrichmentProgress | undefined;
       for await (const res of instrumentClient.streamInstrumentCatalog({ mode }, { signal: controller.signal })) {
@@ -281,40 +385,29 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
         if (latest.error) setError(latest.error);
       }
       if (latest) setNotice(`Finished: ${latest.enriched} refreshed, ${latest.skipped} skipped, ${latest.failed} failed.`);
-      setRanked([]); await reload();
+      await reload();
     } catch (cause) {
-      if (cause instanceof Error && (cause.name === 'AbortError' || cause.message.includes('canceled'))) { setNotice('Refresh stopped. Completed profiles were saved; the next run will resume from the remaining or oldest records.'); setRanked([]); await reload(); }
-      else { setError(cause instanceof Error ? cause.message : String(cause)); setRanked([]); await reload(); }
-    } finally { setStreamController(current => current === controller ? undefined : current); }
+      if (cause instanceof Error && (cause.name === 'AbortError' || cause.message.includes('canceled'))) {
+        setNotice('Refresh stopped. Completed profiles were saved; the next run will resume from the remaining or oldest records.');
+        await reload();
+      } else {
+        setError(cause instanceof Error ? cause.message : String(cause));
+        await reload();
+      }
+    } finally {
+      setStreamController(current => current === controller ? undefined : current);
+    }
   };
+
   const showAlternatives = (instrument: Instrument) => setSimilarityFilter(instrument.isin);
+
   const star = async (instrument: Instrument) => {
     const nextStarred = !instrument.starred;
-    catalog.setRows(current =>
-      current.map(i => (i.id === instrument.id ? { ...i, starred: nextStarred } : i))
-    );
-    if (ranked.length > 0) {
-      setRanked(current =>
-        current.map(r =>
-          r.instrument.id === instrument.id
-            ? { ...r, instrument: { ...r.instrument, starred: nextStarred } }
-            : r
-        )
-      );
-    }
-    if (alternatives.length > 0) {
-      setAlternatives(current =>
-        current.map(a =>
-          a.instrument.id === instrument.id
-            ? { ...a, instrument: { ...a.instrument, starred: nextStarred } }
-            : a
-        )
-      );
-    }
     const found = instruments.find(i => i.id === instrument.id);
     if (found) {
       found.starred = nextStarred;
     }
+    setStarVersion(v => v + 1);
 
     try {
       await api(`/api/instruments/${encodeURIComponent(instrument.isin)}/star`, {
@@ -322,12 +415,10 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
         body: JSON.stringify({ starred: nextStarred }),
       });
     } catch (cause) {
-      catalog.setRows(current =>
-        current.map(i => (i.id === instrument.id ? { ...i, starred: !nextStarred } : i))
-      );
       if (found) {
         found.starred = !nextStarred;
       }
+      setStarVersion(v => v + 1);
       notifications.show({
         color: 'red',
         title: 'Failed to update star',
@@ -335,124 +426,43 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
       });
     }
   };
+
   const remove = (instrument: Instrument) => {
     confirmDelete('instrument', `${instrument.ticker || instrument.name} · ${instrument.isin}`, async () => {
-      try { await api(`/api/instruments/${instrument.id}`, { method: 'DELETE' }); setRanked([]); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+      try {
+        await api(`/api/instruments/${instrument.id}`, { method: 'DELETE' });
+        await reload();
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : String(cause));
+      }
     }, 'Remove its holdings first if this instrument is currently owned.');
   };
-  const open = (instrument?: Instrument) => { setEditing(instrument); setOpened(true); };
-  const refreshedCount = instruments.filter(instrument => instrument.data_status === 'enriched').length;
-  const rankableCount = instruments.filter(instrument => instrument.instrument_type === 'etf' && instrument.data_status === 'enriched' && instrument.ucits).length;
-  const nonUCITSCount = instruments.filter(instrument => !instrument.ucits).length;
-  const issuerOptions = [...new Set(instruments.flatMap(instrument => instrument.provider ? [instrument.provider] : []))].sort();
-  const domicileOptions = [...new Set(instruments.flatMap(instrument => instrument.domicile ? [instrument.domicile] : []))].sort();
-  const currencyOptions = [...new Set(instruments.map(instrument => instrument.fund_currency).filter(Boolean))].sort();
-  const standardAssetClasses = ['equity', 'bond', 'commodity', 'real_estate', 'monetary', 'crypto', 'mixed', 'other'];
-  const assetClassOptions = Array.from(new Set([...standardAssetClasses, ...instruments.flatMap(instrument => instrument.asset_class ? [instrument.asset_class] : [])])).sort().map(value => ({ value, label: label(value) }));
 
-  const replicationOptions = [
+  const open = (instrument?: Instrument) => { setEditing(instrument); setOpened(true); };
+
+  const refreshedCount = instruments.filter(instrument => instrument.data_status === 'enriched').length;
+  const nonUCITSCount = instruments.filter(instrument => !instrument.ucits).length;
+  const issuerOptions = useMemo(() => [...new Set(instruments.flatMap(instrument => instrument.provider ? [instrument.provider] : []))].sort(), [instruments]);
+  const domicileOptions = useMemo(() => [...new Set(instruments.flatMap(instrument => instrument.domicile ? [instrument.domicile] : []))].sort(), [instruments]);
+  const currencyOptions = useMemo(() => [...new Set(instruments.map(instrument => instrument.fund_currency).filter(Boolean))].sort(), [instruments]);
+  const standardAssetClasses = ['equity', 'bond', 'commodity', 'real_estate', 'monetary', 'crypto', 'mixed', 'other'];
+  const assetClassOptions: FacetOption[] = useMemo(() => Array.from(new Set([...standardAssetClasses, ...instruments.flatMap(instrument => instrument.asset_class ? [instrument.asset_class] : [])])).sort().map(value => ({ value, label: label(value) })), [instruments]);
+
+  const replicationOptions: FacetOption[] = [
     { value: 'physical_full', label: 'Physical full' },
     { value: 'physical_sampling', label: 'Physical sampling' },
     { value: 'synthetic', label: 'Synthetic' },
   ];
-  const distributionOptions = [
+  const distributionOptions: FacetOption[] = [
     { value: 'accumulating', label: 'Accumulating' },
     { value: 'distributing', label: 'Distributing' },
   ];
-
-  const matchingCount = useMemo(() => {
-    return instruments.filter(instrument => matchesRankFilters(instrument, rankFilters)).length;
-  }, [instruments, rankFilters]);
-
-  const activeCriteriaBadges: { key: string; label: string; color: string; onRemove: () => void }[] = [];
-  if (rankFilters.indexQuery) {
-    activeCriteriaBadges.push({
-      key: 'index',
-      label: `Index: "${rankFilters.indexQuery}"`,
-      color: 'blue',
-      onRemove: () => updateRankFilter('indexQuery', ''),
-    });
-  }
-  if (rankFilters.assetClasses.length > 0) {
-    activeCriteriaBadges.push({
-      key: 'assetClasses',
-      label: `Asset: ${rankFilters.assetClasses.map(label).join(', ')}`,
-      color: 'teal',
-      onRemove: () => updateRankFilter('assetClasses', []),
-    });
-  }
-  if (rankFilters.distributions.length > 0) {
-    activeCriteriaBadges.push({
-      key: 'distributions',
-      label: `Policy: ${rankFilters.distributions.map(d => d === 'accumulating' ? 'Acc' : 'Dist').join(', ')}`,
-      color: 'indigo',
-      onRemove: () => updateRankFilter('distributions', []),
-    });
-  }
-  if (rankFilters.replications.length > 0) {
-    activeCriteriaBadges.push({
-      key: 'replications',
-      label: `Replication: ${rankFilters.replications.map(r => r.replace('physical_', 'phys ')).join(', ')}`,
-      color: 'cyan',
-      onRemove: () => updateRankFilter('replications', []),
-    });
-  }
-  if (rankFilters.domiciles.length > 0) {
-    activeCriteriaBadges.push({
-      key: 'domiciles',
-      label: `Domiciles: ${rankFilters.domiciles.join(', ')}`,
-      color: 'gray',
-      onRemove: () => updateRankFilter('domiciles', []),
-    });
-  }
-  if (rankFilters.currencies.length > 0) {
-    activeCriteriaBadges.push({
-      key: 'currencies',
-      label: `Currencies: ${rankFilters.currencies.join(', ')}`,
-      color: 'grape',
-      onRemove: () => updateRankFilter('currencies', []),
-    });
-  }
-  if (rankFilters.issuers.length > 0) {
-    activeCriteriaBadges.push({
-      key: 'issuers',
-      label: `Issuers: ${rankFilters.issuers.join(', ')}`,
-      color: 'blue',
-      onRemove: () => updateRankFilter('issuers', []),
-    });
-  }
-  if (rankFilters.currencyHedged) {
-    activeCriteriaBadges.push({
-      key: 'hedged',
-      label: rankFilters.currencyHedged === 'hedged' ? 'Hedged only' : 'Unhedged only',
-      color: 'violet',
-      onRemove: () => updateRankFilter('currencyHedged', ''),
-    });
-  }
-  if (rankFilters.maxTER !== '') {
-    activeCriteriaBadges.push({
-      key: 'maxTER',
-      label: `Max TER: ${rankFilters.maxTER}%`,
-      color: 'orange',
-      onRemove: () => updateRankFilter('maxTER', ''),
-    });
-  }
-  if (rankFilters.minSize !== '' && Number(rankFilters.minSize) !== 100) {
-    activeCriteriaBadges.push({
-      key: 'minSize',
-      label: `Min size: €${rankFilters.minSize}m`,
-      color: 'yellow',
-      onRemove: () => updateRankFilter('minSize', 100),
-    });
-  }
-  if (rankFilters.minAge !== '' && Number(rankFilters.minAge) !== 3) {
-    activeCriteriaBadges.push({
-      key: 'minAge',
-      label: `Min age: ${rankFilters.minAge}y`,
-      color: 'pink',
-      onRemove: () => updateRankFilter('minAge', 3),
-    });
-  }
+  const strategyOptions: FacetOption[] = [
+    { value: 'broad', label: 'Broad / Core' },
+    { value: 'esg', label: 'ESG / Screened' },
+    { value: 'dividend', label: 'Dividend' },
+    { value: 'factor', label: 'Factor' },
+  ];
 
   const presetSelectOptions = [
     {
@@ -464,20 +474,257 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
       items: customPresets.map(p => ({ value: p.id, label: p.name })),
     }] : []),
   ];
+
   const similarTo = instruments.find(instrument => instrument.isin === similarity);
-  const rows: CatalogRow[] = similarity ? alternatives.map(item => ({ instrument: item.instrument, total: -1, cost: 0, tracking_difference: 0, tracking_error: 0, size: 0, age: 0, similarity: item })) : ranked.length > 0 ? ranked : catalog.rows.map(instrument => ({ instrument, total: -1, cost: 0, tracking_difference: 0, tracking_error: 0, size: 0, age: 0 }));
-  const query = localQuery.trim().toLowerCase();
-  const matchingRows = rows.filter(({ instrument }) =>
-    (!query || [instrument.name, instrument.ticker, instrument.isin, instrument.provider, instrument.index_name, instrument.investment_focus, instrument.asset_class, label(instrument.asset_class ?? ''), instrument.instrument_type].some(value => value?.toLowerCase().includes(query))) &&
-    matchesExactFilters({ issuer: instrument.provider ?? '', type: instrument.instrument_type, assetClass: instrument.asset_class ?? '', policy: instrument.distribution, replication: instrument.replication, domicile: instrument.domicile ?? '', currency: instrument.fund_currency, ucits: instrument.ucits }, filters));
-  const [localSortKey, setLocalSortKey] = useState<string>('');
-  const [localSortDir, setLocalSortDir] = useState<SortDirection>('asc');
-  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+
+  const rows: CatalogRow[] = useMemo(() => {
+    if (similarity) {
+      return alternatives.map(item => ({
+        instrument: item.instrument,
+        score: computeInstrumentScore(item.instrument),
+        similarity: item,
+      }));
+    }
+    return instruments.map(instrument => ({
+      instrument,
+      score: computeInstrumentScore(instrument),
+    }));
+  }, [instruments, similarity, alternatives, starVersion]);
+
+  const matchingRows = useMemo(() => {
+    if (similarity) return rows;
+    return rows.filter(({ instrument }) => matchesFilters(instrument, filters));
+  }, [rows, similarity, filters]);
+
+  const activeBadges: { key: string; label: string; color: string; onRemove: () => void }[] = [];
+  const { includes: searchIncludes, excludes: searchExcludes } = parseSearchTerms(filters.query, filters.excludeQuery);
+  if (searchIncludes.length > 0) {
+    activeBadges.push({
+      key: 'search-includes',
+      label: `Search: "${searchIncludes.join(' ')}"`,
+      color: 'blue',
+      onRemove: () => {
+        const negTerms = filters.query.trim().split(/\s+/).filter(t => (t.startsWith('-') || t.startsWith('!')) && t.length > 1);
+        updateFilter('query', negTerms.join(' '));
+      },
+    });
+  }
+  if (searchExcludes.length > 0) {
+    activeBadges.push({
+      key: 'search-excludes',
+      label: `Excl words: "${searchExcludes.join(', ')}"`,
+      color: 'red',
+      onRemove: () => {
+        const posTerms = filters.query.trim().split(/\s+/).filter(t => !(t.startsWith('-') || t.startsWith('!')));
+        updateFiltersBatch({
+          query: posTerms.join(' '),
+          excludeQuery: '',
+        });
+      },
+    });
+  }
+
+  // Include & Exclude badges
+  if (filters.assetClasses.length > 0) {
+    activeBadges.push({
+      key: 'assetClasses',
+      label: `Asset: ${filters.assetClasses.map(label).join(', ')}`,
+      color: 'teal',
+      onRemove: () => updateFilter('assetClasses', []),
+    });
+  }
+  if (filters.excludeAssetClasses.length > 0) {
+    activeBadges.push({
+      key: 'excludeAssetClasses',
+      label: `Asset: Excl ${filters.excludeAssetClasses.map(label).join(', ')}`,
+      color: 'red',
+      onRemove: () => updateFilter('excludeAssetClasses', []),
+    });
+  }
+
+  if (filters.distributions.length > 0) {
+    activeBadges.push({
+      key: 'distributions',
+      label: `Policy: ${filters.distributions.map(d => d === 'accumulating' ? 'Acc' : 'Dist').join(', ')}`,
+      color: 'indigo',
+      onRemove: () => updateFilter('distributions', []),
+    });
+  }
+  if (filters.excludeDistributions.length > 0) {
+    activeBadges.push({
+      key: 'excludeDistributions',
+      label: `Policy: Excl ${filters.excludeDistributions.map(d => d === 'accumulating' ? 'Acc' : 'Dist').join(', ')}`,
+      color: 'red',
+      onRemove: () => updateFilter('excludeDistributions', []),
+    });
+  }
+
+  if (filters.replications.length > 0) {
+    activeBadges.push({
+      key: 'replications',
+      label: `Replication: ${filters.replications.map(r => r.replace('physical_', 'phys ')).join(', ')}`,
+      color: 'cyan',
+      onRemove: () => updateFilter('replications', []),
+    });
+  }
+  if (filters.excludeReplications.length > 0) {
+    activeBadges.push({
+      key: 'excludeReplications',
+      label: `Replication: Excl ${filters.excludeReplications.map(r => r.replace('physical_', 'phys ')).join(', ')}`,
+      color: 'red',
+      onRemove: () => updateFilter('excludeReplications', []),
+    });
+  }
+
+  if (filters.strategies.length > 0) {
+    activeBadges.push({
+      key: 'strategies',
+      label: `Strategy: ${filters.strategies.map(label).join(', ')}`,
+      color: 'violet',
+      onRemove: () => updateFilter('strategies', []),
+    });
+  }
+  if (filters.excludeStrategies.length > 0) {
+    activeBadges.push({
+      key: 'excludeStrategies',
+      label: `Strategy: Excl ${filters.excludeStrategies.map(label).join(', ')}`,
+      color: 'red',
+      onRemove: () => updateFilter('excludeStrategies', []),
+    });
+  }
+
+  if (filters.domiciles.length > 0) {
+    activeBadges.push({
+      key: 'domiciles',
+      label: `Domicile: ${filters.domiciles.join(', ')}`,
+      color: 'gray',
+      onRemove: () => updateFilter('domiciles', []),
+    });
+  }
+  if (filters.excludeDomiciles.length > 0) {
+    activeBadges.push({
+      key: 'excludeDomiciles',
+      label: `Domicile: Excl ${filters.excludeDomiciles.join(', ')}`,
+      color: 'red',
+      onRemove: () => updateFilter('excludeDomiciles', []),
+    });
+  }
+
+  if (filters.currencies.length > 0) {
+    activeBadges.push({
+      key: 'currencies',
+      label: `Currency: ${filters.currencies.join(', ')}`,
+      color: 'grape',
+      onRemove: () => updateFilter('currencies', []),
+    });
+  }
+  if (filters.excludeCurrencies.length > 0) {
+    activeBadges.push({
+      key: 'excludeCurrencies',
+      label: `Currency: Excl ${filters.excludeCurrencies.join(', ')}`,
+      color: 'red',
+      onRemove: () => updateFilter('excludeCurrencies', []),
+    });
+  }
+
+  if (filters.issuers.length > 0) {
+    activeBadges.push({
+      key: 'issuers',
+      label: `Issuer: ${filters.issuers.join(', ')}`,
+      color: 'blue',
+      onRemove: () => updateFilter('issuers', []),
+    });
+  }
+  if (filters.excludeIssuers.length > 0) {
+    activeBadges.push({
+      key: 'excludeIssuers',
+      label: `Issuer: Excl ${filters.excludeIssuers.join(', ')}`,
+      color: 'red',
+      onRemove: () => updateFilter('excludeIssuers', []),
+    });
+  }
+
+  if (filters.types.length > 0) {
+    activeBadges.push({
+      key: 'types',
+      label: `Type: ${filters.types.map(t => instrumentLabels[t as InstrumentType] ?? t).join(', ')}`,
+      color: 'grape',
+      onRemove: () => updateFilter('types', []),
+    });
+  }
+  if (filters.excludeTypes.length > 0) {
+    activeBadges.push({
+      key: 'excludeTypes',
+      label: `Type: Excl ${filters.excludeTypes.map(t => instrumentLabels[t as InstrumentType] ?? t).join(', ')}`,
+      color: 'red',
+      onRemove: () => updateFilter('excludeTypes', []),
+    });
+  }
+
+  if (filters.ucits) {
+    activeBadges.push({
+      key: 'ucits',
+      label: filters.ucits === 'true' ? 'UCITS only' : 'Non-UCITS only',
+      color: 'green',
+      onRemove: () => updateFilter('ucits', ''),
+    });
+  }
+  if (filters.currencyHedged) {
+    activeBadges.push({
+      key: 'hedged',
+      label: filters.currencyHedged === 'hedged' ? 'Hedged only' : 'Unhedged only',
+      color: 'violet',
+      onRemove: () => updateFilter('currencyHedged', ''),
+    });
+  }
+  if (filters.maxTER !== '') {
+    activeBadges.push({
+      key: 'maxTER',
+      label: `Max TER: ${filters.maxTER}%`,
+      color: 'orange',
+      onRemove: () => updateFilter('maxTER', ''),
+    });
+  }
+  if (filters.minSize !== '') {
+    activeBadges.push({
+      key: 'minSize',
+      label: `Min size: €${filters.minSize}m`,
+      color: 'yellow',
+      onRemove: () => updateFilter('minSize', ''),
+    });
+  }
+  if (filters.minAge !== '') {
+    activeBadges.push({
+      key: 'minAge',
+      label: `Min age: ${filters.minAge}y`,
+      color: 'pink',
+      onRemove: () => updateFilter('minAge', ''),
+    });
+  }
+  if (filters.maxTrackingDiff !== '') {
+    activeBadges.push({
+      key: 'maxTrackingDiff',
+      label: `Max TD: ${filters.maxTrackingDiff}%`,
+      color: 'cyan',
+      onRemove: () => updateFilter('maxTrackingDiff', ''),
+    });
+  }
+  if (filters.maxTrackingError !== '') {
+    activeBadges.push({
+      key: 'maxTrackingError',
+      label: `Max TE: ${filters.maxTrackingError}%`,
+      color: 'teal',
+      onRemove: () => updateFilter('maxTrackingError', ''),
+    });
+  }
+
+  const activeFilterCount = activeBadges.length;
+
   const getRowSortValue = (row: CatalogRow, key: string): any => {
     const inst = row.instrument;
     switch (key) {
       case 'starred': return inst.starred ? 1 : 0;
-      case 'score': return row.total;
+      case 'score': return row.score ?? -999999;
       case 'similarity': return row.similarity?.better ? 2 : row.similarity?.match === 'exact_index' ? 1 : 0;
       case 'name': return (inst.name || '').toLowerCase();
       case 'ticker': return (inst.ticker || '').toLowerCase();
@@ -485,7 +732,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
       case 'type': return inst.instrument_type || '';
       case 'issuer': return (inst.provider || '').toLowerCase();
       case 'asset_class':
-      case 'assetClass': return inst.asset_class || '';
+      case 'assetClass': return (inst.asset_class || '').toLowerCase();
       case 'exposure': return (inst.index_name || inst.investment_focus || '').toLowerCase();
       case 'policy': return inst.distribution || '';
       case 'replication': return inst.replication || '';
@@ -499,29 +746,56 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
       default: return 0;
     }
   };
-  const sortedRows = [...matchingRows];
-  if ((ranked.length > 0 || similarity) && localSortKey) {
-    sortedRows.sort((a, b) => {
-      const valA = getRowSortValue(a, localSortKey);
-      const valB = getRowSortValue(b, localSortKey);
-      let comp = 0;
-      if (typeof valA === 'string' && typeof valB === 'string') {
-        comp = valA.localeCompare(valB);
-      } else {
-        comp = (valA ?? 0) < (valB ?? 0) ? -1 : (valA ?? 0) > (valB ?? 0) ? 1 : 0;
-      }
-      return localSortDir === 'desc' ? -comp : comp;
-    });
-  }
+
+  const sortedRows = useMemo(() => {
+    const list = [...matchingRows];
+    if (localSortKey) {
+      list.sort((a, b) => {
+        const valA = getRowSortValue(a, localSortKey);
+        const valB = getRowSortValue(b, localSortKey);
+        let comp = 0;
+        if (typeof valA === 'string' && typeof valB === 'string') {
+          comp = valA.localeCompare(valB);
+        } else {
+          comp = (valA ?? 0) < (valB ?? 0) ? -1 : (valA ?? 0) > (valB ?? 0) ? 1 : 0;
+        }
+        return localSortDir === 'desc' ? -comp : comp;
+      });
+    } else {
+      // Starred instruments automatically ordered at top when no column sort is selected
+      list.sort((a, b) => (b.instrument.starred ? 1 : 0) - (a.instrument.starred ? 1 : 0));
+    }
+    return list;
+  }, [matchingRows, localSortKey, localSortDir]);
+
   const bounds = pageBounds(sortedRows.length, page, pageSize);
   const visibleRows = sortedRows.slice(bounds.start, bounds.end);
+
+  const avgTer = useMemo(() => {
+    const withTer = matchingRows.filter(r => r.instrument.ter_bps > 0);
+    if (!withTer.length) return 0;
+    const sum = withTer.reduce((acc, r) => acc + r.instrument.ter_bps, 0);
+    return sum / withTer.length / 100;
+  }, [matchingRows]);
+
   const [selectedCompareISINs, setSelectedCompareISINs] = useState<string[]>([]);
   const [compareModalOpened, setCompareModalOpened] = useState(false);
   const selectedCompareInstruments = instruments.filter(i => selectedCompareISINs.includes(i.isin));
 
   const streamLabel = streamProgress?.mode === 'discover' ? 'Enriching missing profiles' : streamProgress?.mode === 'oldest' ? 'Refreshing oldest profiles first' : 'Refreshing missing profiles';
   const show = (column: InstrumentColumn) => visibleColumns.includes(column);
-  const toggleColumn = (column: InstrumentColumn) => setVisibleColumns(current => current.includes(column) ? current.filter(item => item !== column) : [...current, column]);
+  const toggleColumn = (column: InstrumentColumn) => {
+    setVisibleColumns(current => {
+      const next = current.includes(column) ? current.filter(item => item !== column) : [...current, column];
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('squirrel.instrumentColumns.v6', JSON.stringify(next));
+        }
+      } catch {}
+      return next;
+    });
+  };
+
   const searchColumns: DataColumn<Instrument>[] = [
     { key: 'select', render: item => <Checkbox aria-label={`Select ${item.name}`} checked={selected.includes(item.isin)} onChange={event => setSelected(current => event.currentTarget.checked ? [...current, item.isin] : current.filter(isin => isin !== item.isin))} /> },
     {
@@ -531,7 +805,6 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
         <>
           <Text fw={650}>{item.name}</Text>
           <Group gap={5} mt={3}>
-            <Chip size="xs">{productLabel(item)}</Chip>
             {item.ticker ? <TickerBadge ticker={item.ticker} /> : null}
             <ISINBadge isin={item.isin} />
             {item.domicile ? <Text size="xs" c="dimmed">{item.domicile}</Text> : null}
@@ -539,12 +812,13 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
         </>
       ),
     },
-    { key: 'policy', label: 'Policy', render: item => policyChip(item) },
+    { key: 'policy', label: 'Policy', render: item => <Chip>{item.distribution === 'accumulating' ? 'Acc' : 'Dist'}</Chip> },
     { key: 'replication', label: 'Replication', render: item => <ReplicationChip value={item.replication} size="xs" /> },
     { key: 'ter', label: 'TER', render: item => percent(item.ter_bps) },
     { key: 'size', label: 'Size', render: item => `${item.fund_size_million.toLocaleString()}m` },
     { key: 'actions', render: item => <TableActions><TableAction label={`Open ${item.isin} on justETF`} href={item.source_url} disabled={!item.source_url}><IconExternalLink size={14} /></TableAction></TableActions> },
   ];
+
   const catalogColumns: DataColumn<CatalogRow>[] = [
     {
       key: 'select_compare',
@@ -562,7 +836,22 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
       ),
     },
     { key: 'starred', sortable: true, render: item => <TableAction label={item.instrument.starred ? `Unstar ${item.instrument.isin}` : `Star ${item.instrument.isin}`} color="yellow" variant={item.instrument.starred ? 'light' : 'subtle'} onClick={() => void star(item.instrument)}>{item.instrument.starred ? <IconStarFilled size={14} /> : <IconStar size={14} />}</TableAction> },
-    ...(ranked.length > 0 ? [{ key: 'score', label: 'Score', sortable: true, render: (item: CatalogRow) => <Tooltip label={`Cost ${(item.cost * 100).toFixed(0)} · tracking diff ${(item.tracking_difference * 100).toFixed(0)} · tracking error ${(item.tracking_error * 100).toFixed(0)} · size ${(item.size * 100).toFixed(0)} · age ${(item.age * 100).toFixed(0)}`}><Chip size="lg" variant="filled" colorKey="Score">{item.total.toFixed(1)}</Chip></Tooltip> }] : []),
+    {
+      key: 'name',
+      label: 'Instrument',
+      sortable: true,
+      render: item => (
+        <Text
+          size="sm"
+          fw={600}
+          lh={1.3}
+          style={onOpenDetail ? { cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 } : undefined}
+          onClick={onOpenDetail ? () => onOpenDetail(item.instrument.isin) : undefined}
+        >
+          {item.instrument.name}
+        </Text>
+      ),
+    },
     ...(similarity ? [{
       key: 'similarity',
       label: 'Peer Group Analysis',
@@ -585,39 +874,25 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
         </Stack>
       ) : '—',
     }] : []),
-    { key: 'name', label: 'Instrument', sortable: true, render: item => <><Text size="sm" fw={600} lh={1.3} style={onOpenDetail ? { cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 } : undefined} onClick={onOpenDetail ? () => onOpenDetail(item.instrument.isin) : undefined}>{item.instrument.name}</Text><Group gap={5} mt={3}><Chip size="xs">{productLabel(item.instrument)}</Chip>{item.instrument.ticker && <TickerBadge ticker={item.instrument.ticker} />}</Group></> },
     ...(show('ticker') ? [{ key: 'ticker', label: 'Ticker', sortable: true, render: (item: CatalogRow) => <TickerBadge ticker={item.instrument.ticker} /> }] : []),
     ...(show('isin') ? [{ key: 'isin', label: 'ISIN', sortable: true, render: (item: CatalogRow) => <ISINBadge isin={item.instrument.isin} /> }] : []),
-    ...(show('type') ? [{ key: 'type', label: 'Type', sortable: true, render: (item: RankedInstrument) => <Chip>{instrumentLabels[item.instrument.instrument_type]}</Chip> }] : []),
-    ...(show('issuer') ? [{ key: 'issuer', label: 'Issuer', sortable: true, render: (item: RankedInstrument) => item.instrument.provider || '—' }] : []),
+    ...(show('type') ? [{ key: 'type', label: 'Type', sortable: true, render: (item: CatalogRow) => <Chip>{instrumentLabels[item.instrument.instrument_type]}</Chip> }] : []),
+    ...(show('issuer') ? [{ key: 'issuer', label: 'Issuer', sortable: true, render: (item: CatalogRow) => item.instrument.provider || '—' }] : []),
     ...(show('assetClass') ? [{
       key: 'asset_class',
       label: 'Asset class',
       sortable: true,
-      render: (item: RankedInstrument) => item.instrument.asset_class ? (
-        <Tooltip label={`Filter by ${label(item.instrument.asset_class)}`} position="top" withArrow>
-          <Box style={{ display: 'inline-block' }}>
-            <Chip
-              colorKey={item.instrument.asset_class}
-              style={{ cursor: 'pointer' }}
-              onClick={() =>
-                setFilters(current => ({
-                  ...current,
-                  assetClass: current.assetClass === item.instrument.asset_class ? '' : (item.instrument.asset_class ?? ''),
-                }))
-              }
-            >
-              {label(item.instrument.asset_class)}
-            </Chip>
-          </Box>
-        </Tooltip>
-      ) : <Text c="dimmed">—</Text>,
+      render: (item: CatalogRow) => {
+        const val = item.instrument.asset_class;
+        if (!val) return <Text c="dimmed">—</Text>;
+        return <Chip colorKey={val}>{label(val)}</Chip>;
+      },
     }] : []),
     ...(show('exposure') ? [{
       key: 'exposure',
       label: 'Exposure',
       sortable: true,
-      render: (item: RankedInstrument) => (
+      render: (item: CatalogRow) => (
         <>
           <Text size="sm">{item.instrument.index_name || item.instrument.investment_focus || (item.instrument.data_status === 'enriched' ? 'Exposure details unavailable' : 'Profile not refreshed')}</Text>
           <Group gap={4} mt={4}>
@@ -627,23 +902,76 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
         </>
       ),
     }] : []),
-    ...(show('policy') ? [{ key: 'policy', label: 'Policy', sortable: true, render: (item: RankedInstrument) => policyChip(item.instrument) }] : []),
-    ...(show('replication') ? [{ key: 'replication', label: 'Replication', sortable: true, render: (item: CatalogRow) => <ReplicationChip value={item.instrument.replication} size="xs" /> }] : []),
-    ...(show('ter') ? [{ key: 'ter', label: 'TER', sortable: true, render: (item: RankedInstrument) => percent(item.instrument.ter_bps) }] : []),
-    ...(show('size') ? [{ key: 'size', label: 'Size', sortable: true, render: (item: RankedInstrument) => `${item.instrument.fund_size_million.toLocaleString()}m` }] : []),
-    ...(show('domicile') ? [{ key: 'domicile', label: 'Domicile', sortable: true, render: (item: RankedInstrument) => item.instrument.domicile || '—' }] : []),
-    ...(show('currency') ? [{ key: 'currency', label: 'Currency', sortable: true, render: (item: RankedInstrument) => item.instrument.fund_currency || '—' }] : []),
-    ...(show('inception') ? [{ key: 'inception', label: 'Inception', sortable: true, render: (item: RankedInstrument) => item.instrument.inception_date || '—' }] : []),
-    ...(show('tracking') ? [{ key: 'tracking', label: 'Tracking', sortable: true, render: (item: RankedInstrument) => item.instrument.tracking_difference_bps === null && item.instrument.tracking_error_bps === null ? <Text c="dimmed">—</Text> : <Stack gap={1}><Text size="sm">Diff {item.instrument.tracking_difference_bps === null ? '—' : percent(item.instrument.tracking_difference_bps)}</Text><Text size="xs" c="dimmed">Error {item.instrument.tracking_error_bps === null ? '—' : percent(item.instrument.tracking_error_bps)}</Text></Stack> }] : []),
-    ...(show('enriched') ? [{ key: 'enriched', label: 'Last refreshed', sortable: true, render: (item: RankedInstrument) => <Text size="sm" c={item.instrument.data_status === 'enriched' && item.instrument.refreshed_at ? undefined : 'dimmed'}>{item.instrument.data_status === 'enriched' && item.instrument.refreshed_at ? new Date(item.instrument.refreshed_at).toLocaleString() : '—'}</Text> }] : []),
+    ...(show('policy') ? [{
+      key: 'policy',
+      label: 'Policy',
+      sortable: true,
+      render: (item: CatalogRow) => {
+        const val = item.instrument.distribution;
+        if (!val) return <Text c="dimmed">—</Text>;
+        return <Chip>{val === 'accumulating' ? 'Acc' : 'Dist'}</Chip>;
+      },
+    }] : []),
+    ...(show('replication') ? [{
+      key: 'replication',
+      label: 'Replication',
+      sortable: true,
+      render: (item: CatalogRow) => {
+        const val = item.instrument.replication;
+        if (!val) return <Text c="dimmed">—</Text>;
+        return <ReplicationChip value={val} size="xs" />;
+      },
+    }] : []),
+    ...(show('ter') ? [{ key: 'ter', label: 'TER', sortable: true, render: (item: CatalogRow) => percent(item.instrument.ter_bps) }] : []),
+    ...(show('size') ? [{ key: 'size', label: 'Size', sortable: true, render: (item: CatalogRow) => `${item.instrument.fund_size_million.toLocaleString()}m` }] : []),
+    ...(show('domicile') ? [{ key: 'domicile', label: 'Domicile', sortable: true, render: (item: CatalogRow) => item.instrument.domicile || '—' }] : []),
+    ...(show('currency') ? [{ key: 'currency', label: 'Currency', sortable: true, render: (item: CatalogRow) => item.instrument.fund_currency || '—' }] : []),
+    ...(show('inception') ? [{
+      key: 'inception',
+      label: 'Inception',
+      sortable: true,
+      render: (item: CatalogRow) => item.instrument.inception_date ? (
+        <Tooltip label={`Inception: ${new Date(item.instrument.inception_date).toLocaleDateString(undefined, { dateStyle: 'long' })} (${item.instrument.inception_date})`} withArrow>
+          <Text size="sm">{relativeDate(item.instrument.inception_date)}</Text>
+        </Tooltip>
+      ) : <Text c="dimmed">—</Text>,
+    }] : []),
+    ...(show('tracking') ? [{ key: 'tracking', label: 'Tracking', sortable: true, render: (item: CatalogRow) => item.instrument.tracking_difference_bps === null && item.instrument.tracking_error_bps === null ? <Text c="dimmed">—</Text> : <Stack gap={1}><Text size="sm">Diff {item.instrument.tracking_difference_bps === null ? '—' : percent(item.instrument.tracking_difference_bps)}</Text><Text size="xs" c="dimmed">Error {item.instrument.tracking_error_bps === null ? '—' : percent(item.instrument.tracking_error_bps)}</Text></Stack> }] : []),
+    ...(show('enriched') ? [{
+      key: 'enriched',
+      label: 'Last refreshed',
+      sortable: true,
+      render: (item: CatalogRow) => item.instrument.data_status === 'enriched' && item.instrument.refreshed_at ? (
+        <Tooltip label={`Refreshed: ${new Date(item.instrument.refreshed_at).toLocaleString()}`} withArrow>
+          <Text size="sm">{relativeDate(item.instrument.refreshed_at)}</Text>
+        </Tooltip>
+      ) : <Text size="sm" c="dimmed">—</Text>,
+    }] : []),
+    ...(show('score') ? [{
+      key: 'score',
+      label: 'Score',
+      sortable: true,
+      render: (item: CatalogRow) => item.score !== null ? (
+        <Tooltip label={`Composite ETF score: ${item.score.toFixed(1)} / 100 · based on cost, tracking diff, size, and age`}>
+          <Chip size="sm" variant="filled" colorKey="Score">{item.score.toFixed(1)}</Chip>
+        </Tooltip>
+      ) : <Text c="dimmed" size="xs">—</Text>,
+    }] : []),
     { key: 'actions', render: item => <TableActions><TableAction label={`Open ${item.instrument.isin} on justETF`} href={item.instrument.source_url} disabled={!item.instrument.source_url}><IconExternalLink size={14} /></TableAction><TableAction label={item.instrument.ucits && item.instrument.instrument_type === 'etf' ? `Find alternatives for ${item.instrument.isin}` : 'Alternatives are limited to comparable UCITS ETFs'} disabled={item.instrument.instrument_type !== 'etf' || item.instrument.data_status !== 'enriched' || !item.instrument.ucits || item.instrument.asset_class === 'other'} onClick={() => showAlternatives(item.instrument)}><IconArrowsExchange size={14} /></TableAction><TableAction label={`Refresh ${item.instrument.isin}`} disabled={lookingUp} onClick={() => void lookup(item.instrument.isin)}><IconRefresh size={14} /></TableAction><TableAction label={`Edit ${item.instrument.isin}`} onClick={() => open(item.instrument)}><IconPencil size={14} /></TableAction><TableAction label={`Delete ${item.instrument.isin}`} color="red" onClick={() => void remove(item.instrument)}><IconTrash size={14} /></TableAction></TableActions> },
   ];
+
   const [, setProfileField] = useProfile();
   useEffect(() => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('squirrel.instrumentColumns.v6', JSON.stringify(visibleColumns));
+      }
+    } catch {}
     setProfileField({ instrument_columns_json: JSON.stringify(visibleColumns) });
   }, [visibleColumns]);
+
   useEffect(() => () => streamController?.abort(), [streamController]);
-  useEffect(() => { setPage(1); }, [localQuery, filters, similarity, ranked, catalog.sort, catalog.direction, pageSize]);
+
   useEffect(() => {
     if (!similarity) { setAlternatives([]); setLoadingAlternatives(false); return; }
     if (!similarTo) { setAlternatives([]); setLoadingAlternatives(false); setError(`Similarity instrument ${similarity} is not in the local catalog`); return; }
@@ -651,6 +979,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
     void api<InstrumentAlternative[]>(`/api/instruments/${similarTo.id}/alternatives`).then(result => { if (active) { setAlternatives(result ?? []); setError(''); } }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : String(cause)); }).finally(() => { if (active) setLoadingAlternatives(false); });
     return () => { active = false; };
   }, [similarity, similarTo?.id]);
+
   const staleCount = instruments.filter(i => {
     if (i.data_status !== 'enriched' || !i.refreshed_at) return false;
     const parsed = new Date(i.refreshed_at).getTime();
@@ -662,521 +991,700 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
   const [catalogToolsOpen, setCatalogToolsOpen] = useState(false);
 
   return (
-    <ViewShell error={error || catalog.sortError}>
+    <ViewShell error={error}>
       <SectionHeader
         title="Instrument finder"
-        subtitle="Store investments of any type locally. justETF lookup and comparison remain focused on exchange-traded products."
+        subtitle="Search and filter the catalog of ETFs, ETCs, and other instruments."
         actions={
           <Group gap="sm">
-            <Button variant="light" color="gray" onClick={() => setCatalogToolsOpen(v => !v)}>{catalogToolsOpen ? 'Hide Catalog Tools ▲' : 'Catalog Tools & Search ▼'}</Button>
+            <Button variant="light" color="gray" onClick={() => setCatalogToolsOpen(v => !v)}>
+              {catalogToolsOpen ? 'Hide Catalog Tools ▲' : 'Catalog Tools & Search ▼'}
+            </Button>
             <Button onClick={() => open()}>Add instrument</Button>
           </Group>
         }
       />
       {notice && <Alert color="teal" withCloseButton onClose={() => setNotice('')}>{notice}</Alert>}
-    <Collapse expanded={catalogToolsOpen}>
-      <Stack gap="md">
-        <Paper className="metric" p="lg" radius="lg"><Group justify="space-between" align="end" wrap="wrap"><Box><Text fw={700}>Local catalog health</Text><Text size="sm" c="dimmed">{instruments.length.toLocaleString()} total · {refreshedCount.toLocaleString()} refreshed · {staleCount.toLocaleString()} stale (&gt;30d) · {nonUCITSCount.toLocaleString()} non-UCITS · Oldest refresh: {oldestRefreshDate}</Text></Box><Group wrap="wrap"><Button variant="light" loading={syncing} disabled={Boolean(streamController)} onClick={() => void syncCatalog()}>Sync catalog</Button><Button variant="light" disabled={Boolean(streamController)} onClick={() => void streamEnrichment('discover')}>Enrich missing</Button><Button variant="light" loading={enriching} disabled={Boolean(streamController) || refreshedCount === instruments.length} onClick={() => void enrichCatalog()}>Refresh next 20</Button><Button disabled={Boolean(streamController) || instruments.length === 0} onClick={() => void streamEnrichment(refreshedCount < instruments.length ? 'missing' : 'oldest')}>Refresh all</Button>{streamController && <Button color="red" variant="light" onClick={() => streamController.abort()}>Stop</Button>}</Group></Group><Text size="xs" c="dimmed" mt="xs">Sync pulls ETFs, ETCs, and ETNs from justETF. Missing profiles are refreshed first, including non-UCITS products. Individual failures do not stop the batch; retries wait five minutes. After missing profiles are complete, the queue starts from the oldest.</Text>
-          {streamProgress && <Box mt="md"><Group justify="space-between" mb={5}><Text size="sm" fw={650}>{streamLabel}</Text><Text size="sm" c="dimmed">{streamProgress.phase === 'loading' ? 'Loading screener…' : `${streamProgress.processed.toLocaleString()} / ${streamProgress.total.toLocaleString()}`}</Text></Group><Progress value={streamProgress.total ? streamProgress.processed / streamProgress.total * 100 : 0} animated={!streamProgress.done} striped={!streamProgress.done} /><Text size="xs" c="dimmed" mt={5}>{streamProgress.current ? `Current ${streamProgress.current} · ` : ''}{streamProgress.enriched} refreshed · {streamProgress.skipped} skipped · {streamProgress.failed} failed</Text></Box>}
-        </Paper>
-        <Paper className="metric" p="lg" radius="lg"><Group align="end" wrap="wrap"><TextInput style={{ flex: 1 }} label="Find products on justETF" placeholder="VWCE, SGLD, an ISIN, MSCI World…" value={lookupQuery} onChange={event => setLookupQuery(event.currentTarget.value)} onKeyDown={event => { if (event.key === 'Enter') void search(); }} /><Button variant="light" loading={searching} onClick={() => void search()}>Search many</Button><Button loading={lookingUp} onClick={() => void lookup()}>Load exact</Button></Group><Text size="xs" c="dimmed" mt="xs">Search and exact load accept UCITS ETFs and non-UCITS ETCs/ETNs. Non-UCITS products are clearly marked and excluded from ETF ranking.</Text></Paper>
-      </Stack>
-    </Collapse>
-    {searchResults.length > 0 && <DataTable rows={searchResults} columns={searchColumns} rowKey={item => item.isin} minWidth={850} toolbar={<Group justify="space-between" mb="sm"><Checkbox label={`Select all ${searchResults.length}`} checked={selected.length === searchResults.length} indeterminate={selected.length > 0 && selected.length < searchResults.length} onChange={event => setSelected(event.currentTarget.checked ? searchResults.map(item => item.isin) : [])} /><Button loading={importing} disabled={selected.length === 0} onClick={() => void importSelected()}>Import {selected.length} selected</Button></Group>} />}
-    <Paper className="metric" p="md" radius="lg">
-      <Group justify="space-between" align="center" mb="xs" wrap="wrap">
-        <Group gap="xs" align="center">
-          <Text fw={700} size="sm">ETF Screener & Ranking</Text>
-          <Badge size="sm" variant="light" color={matchingCount > 0 ? 'teal' : 'gray'}>
-            {matchingCount.toLocaleString()} / {rankableCount.toLocaleString()} UCITS ETFs match
-          </Badge>
-          {activePreset && (
-            <Badge size="sm" variant="outline" color={isPresetModified ? 'yellow' : 'blue'}>
-              {activePreset.name} {isPresetModified ? '(modified)' : ''}
-            </Badge>
-          )}
-        </Group>
-        <Group gap="xs" align="center">
-          <Select
-            size="xs"
-            w={200}
-            placeholder="Load preset…"
-            data={presetSelectOptions}
-            value={activePresetId || null}
-            onChange={handleApplyPreset}
-            clearable
-          />
-          {activePreset && !activePreset.builtIn && (
-            <Tooltip label={`Delete custom preset "${activePreset.name}"`}>
-              <ActionIcon
-                size="sm"
-                color="red"
-                variant="subtle"
-                onClick={() => handleDeleteCustomPreset(activePreset.id)}
-              >
-                <IconTrash size={14} />
-              </ActionIcon>
-            </Tooltip>
-          )}
-          <Button
-            size="xs"
-            variant="light"
-            leftSection={<IconDeviceFloppy size={14} />}
-            onClick={() => {
-              setPresetNameInput(activePreset ? `${activePreset.name} (Copy)` : '');
-              setSavePresetOpened(true);
-            }}
-          >
-            Save preset
-          </Button>
-          {(activeCriteriaBadges.length > 0 || rankFilters.minSize !== 100 || rankFilters.minAge !== 3) && (
-            <Button size="xs" variant="subtle" color="gray" onClick={handleResetRankFilters}>
-              Reset
-            </Button>
-          )}
-          <Button
-            size="xs"
-            color="teal"
-            onClick={() => void rank()}
-            loading={ranking}
-            disabled={matchingCount === 0}
-          >
-            Rank {matchingCount} ETFs
-          </Button>
-        </Group>
-      </Group>
 
-      <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 6 }} spacing="xs" verticalSpacing="xs">
-        <TextInput
-          size="xs"
-          label="Index / Name"
-          placeholder="e.g. MSCI World"
-          value={rankFilters.indexQuery}
-          onChange={e => updateRankFilter('indexQuery', e.currentTarget.value)}
-        />
-        <MultiSelect
-          size="xs"
-          label="Asset class"
-          placeholder="All classes"
-          searchable
-          clearable
-          data={assetClassOptions}
-          value={rankFilters.assetClasses}
-          onChange={vals => updateRankFilter('assetClasses', vals)}
-        />
-        <MultiSelect
-          size="xs"
-          label="Distribution"
-          placeholder="Any (Acc & Dist)"
-          clearable
-          data={distributionOptions}
-          value={rankFilters.distributions}
-          onChange={vals => updateRankFilter('distributions', vals)}
-        />
-        <MultiSelect
-          size="xs"
-          label="Replication"
-          placeholder="Any method"
-          clearable
-          data={replicationOptions}
-          value={rankFilters.replications}
-          onChange={vals => updateRankFilter('replications', vals)}
-        />
-        <MultiSelect
-          size="xs"
-          label="Domiciles"
-          placeholder="All domiciles"
-          searchable
-          clearable
-          data={domicileOptions}
-          value={rankFilters.domiciles}
-          onChange={vals => updateRankFilter('domiciles', vals)}
-        />
-        <MultiSelect
-          size="xs"
-          label="Fund currency"
-          placeholder="All currencies"
-          searchable
-          clearable
-          data={currencyOptions}
-          value={rankFilters.currencies}
-          onChange={vals => updateRankFilter('currencies', vals)}
-        />
-        <NumberInput
-          size="xs"
-          label="Max TER (%)"
-          placeholder="Any"
-          min={0}
-          step={0.05}
-          decimalScale={2}
-          value={rankFilters.maxTER}
-          onChange={val => updateRankFilter('maxTER', val)}
-        />
-        <NumberInput
-          size="xs"
-          label="Min size (€m)"
-          min={0}
-          step={50}
-          value={rankFilters.minSize}
-          onChange={val => updateRankFilter('minSize', val)}
-        />
-        <NumberInput
-          size="xs"
-          label="Min age (years)"
-          min={0}
-          step={1}
-          value={rankFilters.minAge}
-          onChange={val => updateRankFilter('minAge', val)}
-        />
-        <Select
-          size="xs"
-          label="Currency hedged"
-          placeholder="Any"
-          clearable
-          data={[
-            { value: 'hedged', label: 'Hedged only' },
-            { value: 'unhedged', label: 'Unhedged only' },
-          ]}
-          value={rankFilters.currencyHedged || null}
-          onChange={val => updateRankFilter('currencyHedged', val ?? '')}
-        />
-        <MultiSelect
-          size="xs"
-          label="Issuer / Provider"
-          placeholder="All issuers"
-          searchable
-          clearable
-          data={issuerOptions}
-          value={rankFilters.issuers}
-          onChange={vals => updateRankFilter('issuers', vals)}
-        />
-        <Paper withBorder p={4} radius="sm" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', minHeight: 46 }}>
-          <Group justify="space-between" gap={4} px={4}>
-            <Text size="xs" fw={600}>Matching:</Text>
-            <Badge size="xs" variant="filled" color={matchingCount > 0 ? 'teal' : 'gray'}>
-              {matchingCount.toLocaleString()}
-            </Badge>
-          </Group>
-          <Button
-            size="compact-xs"
-            color="teal"
-            fullWidth
-            mt={4}
-            onClick={() => void rank()}
-            loading={ranking}
-            disabled={matchingCount === 0}
-          >
-            Rank {matchingCount} ETFs
-          </Button>
-        </Paper>
-      </SimpleGrid>
+      <Collapse expanded={catalogToolsOpen}>
+        <Stack gap="md" mb="md">
+          <Paper className="metric" p="lg" radius="lg">
+            <Group justify="space-between" align="end" wrap="wrap">
+              <Box>
+                <Text fw={700}>Local catalog health</Text>
+                <Text size="sm" c="dimmed">
+                  {instruments.length.toLocaleString()} total · {refreshedCount.toLocaleString()} refreshed · {staleCount.toLocaleString()} stale (&gt;30d) · {nonUCITSCount.toLocaleString()} non-UCITS · Oldest refresh: {oldestRefreshDate}
+                </Text>
+              </Box>
+              <Group wrap="wrap">
+                <Button variant="light" loading={syncing} disabled={Boolean(streamController)} onClick={() => void syncCatalog()}>Sync catalog</Button>
+                <Button variant="light" disabled={Boolean(streamController)} onClick={() => void streamEnrichment('discover')}>Enrich missing</Button>
+                <Button variant="light" loading={enriching} disabled={Boolean(streamController) || refreshedCount === instruments.length} onClick={() => void enrichCatalog()}>Refresh next 20</Button>
+                <Button disabled={Boolean(streamController) || instruments.length === 0} onClick={() => void streamEnrichment(refreshedCount < instruments.length ? 'missing' : 'oldest')}>Refresh all</Button>
+                {streamController && <Button color="red" variant="light" onClick={() => streamController.abort()}>Stop</Button>}
+              </Group>
+            </Group>
+            <Text size="xs" c="dimmed" mt="xs">Sync pulls ETFs, ETCs, and ETNs from justETF. Missing profiles are refreshed first, including non-UCITS products.</Text>
+            {streamProgress && (
+              <Box mt="md">
+                <Group justify="space-between" mb={5}>
+                  <Text size="sm" fw={650}>{streamLabel}</Text>
+                  <Text size="sm" c="dimmed">{streamProgress.phase === 'loading' ? 'Loading screener…' : `${streamProgress.processed.toLocaleString()} / ${streamProgress.total.toLocaleString()}`}</Text>
+                </Group>
+                <Progress value={streamProgress.total ? streamProgress.processed / streamProgress.total * 100 : 0} animated={!streamProgress.done} striped={!streamProgress.done} />
+                <Text size="xs" c="dimmed" mt={5}>{streamProgress.current ? `Current ${streamProgress.current} · ` : ''}{streamProgress.enriched} refreshed · {streamProgress.skipped} skipped · {streamProgress.failed} failed</Text>
+              </Box>
+            )}
+          </Paper>
+          <Paper className="metric" p="lg" radius="lg">
+            <Group align="end" wrap="wrap">
+              <TextInput style={{ flex: 1 }} label="Find products on justETF" placeholder="VWCE, SGLD, an ISIN, MSCI World…" value={lookupQuery} onChange={event => setLookupQuery(event.currentTarget.value)} onKeyDown={event => { if (event.key === 'Enter') void search(); }} />
+              <Button variant="light" loading={searching} onClick={() => void search()}>Search many</Button>
+              <Button loading={lookingUp} onClick={() => void lookup()}>Load exact</Button>
+            </Group>
+          </Paper>
+        </Stack>
+      </Collapse>
 
-      {activeCriteriaBadges.length > 0 && (
-        <Group gap="xs" align="center" mt="xs" wrap="wrap">
-          <Text size="xs" c="dimmed">Active criteria:</Text>
-          {activeCriteriaBadges.map(badge => (
-            <Badge
-              key={badge.key}
-              size="sm"
-              variant="light"
-              color={badge.color}
-              style={{ cursor: 'pointer' }}
-              rightSection="✕"
-              onClick={badge.onRemove}
-            >
-              {badge.label}
-            </Badge>
-          ))}
-          <Button size="compact-xs" variant="subtle" color="gray" onClick={handleResetRankFilters}>
-            Clear criteria
-          </Button>
-        </Group>
+      {searchResults.length > 0 && (
+        <DataTable
+          rows={searchResults}
+          columns={searchColumns}
+          rowKey={item => item.isin}
+          minWidth={850}
+          toolbar={
+            <Group justify="space-between" mb="sm">
+              <Checkbox label={`Select all ${searchResults.length}`} checked={selected.length === searchResults.length} indeterminate={selected.length > 0 && selected.length < searchResults.length} onChange={event => setSelected(event.currentTarget.checked ? searchResults.map(item => item.isin) : [])} />
+              <Button loading={importing} disabled={selected.length === 0} onClick={() => void importSelected()}>Import {selected.length} selected</Button>
+            </Group>
+          }
+        />
       )}
-    </Paper>
-    <Modal
-      opened={savePresetOpened}
-      onClose={() => setSavePresetOpened(false)}
-      title="Save Screener Filter Preset"
-      size="sm"
-    >
-      <Stack gap="sm">
-        <TextInput
-          label="Preset name"
-          placeholder="e.g. European Equity Core"
-          value={presetNameInput}
-          onChange={e => setPresetNameInput(e.currentTarget.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter' && presetNameInput.trim()) {
-              handleSavePreset(presetNameInput);
-              setSavePresetOpened(false);
+
+      {similarity && (
+        <Alert color="blue" title={similarTo ? `Similar to ${similarTo.ticker || similarTo.name}` : `Similarity filter: ${similarity}`} withCloseButton onClose={() => setSimilarityFilter()} mb="sm">
+          {loadingAlternatives ? 'Loading comparable instruments…' : `${alternatives.length} comparable instruments · remove this filter to return to the full catalog.`}
+        </Alert>
+      )}
+
+      {loadingAlternatives ? (
+        <Group justify="center" p="xl"><Loader /></Group>
+      ) : rows.length === 0 ? (
+        <Empty title={similarity ? 'No comparable instruments' : 'No instrument data'} text={similarity ? 'Refresh more comparable profiles, then retry.' : 'Sync the justETF catalog, load one by ticker or ISIN, or add one manually.'} />
+      ) : (
+        <Stack gap="sm">
+          {selectedCompareISINs.length > 0 && (
+            <Paper p="sm" radius="lg" className="metric">
+              <Group justify="space-between" align="center">
+                <Group gap="xs">
+                  <Badge color="teal" size="md" variant="filled">{selectedCompareISINs.length} Selected</Badge>
+                  <Text fw={600} size="sm">Select 2 to 5 instruments to compare side-by-side</Text>
+                </Group>
+                <Group gap="xs">
+                  <Button
+                    size="xs"
+                    color="teal"
+                    disabled={selectedCompareISINs.length < 2 || selectedCompareISINs.length > 5}
+                    onClick={() => setCompareModalOpened(true)}
+                  >
+                    Compare {selectedCompareISINs.length} Selected Side-by-Side
+                  </Button>
+                  <Button size="xs" variant="default" onClick={() => setSelectedCompareISINs([])}>
+                    Clear Selection
+                  </Button>
+                </Group>
+              </Group>
+            </Paper>
+          )}
+
+          <DataTable
+            rows={visibleRows}
+            columns={catalogColumns}
+            rowKey={item => item.instrument.id}
+            minWidth={950}
+            sort={localSortKey}
+            direction={localSortDir}
+            onSort={(key, direction) => {
+              setLocalSortKey(key);
+              setLocalSortDir(direction);
+            }}
+            toolbar={
+              <Stack gap="xs" mb="sm">
+                <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+                  <Group gap="xs" style={{ flex: 1, minWidth: 260, maxWidth: 640 }}>
+                    <TextInput
+                      style={{ flex: 1, minWidth: 180 }}
+                      size="xs"
+                      placeholder="Search (e.g. 'msci -usa' to exclude)…"
+                      value={filters.query}
+                      onChange={e => updateFilter('query', e.currentTarget.value)}
+                      leftSection={<IconSearch size={14} style={{ opacity: 0.6 }} />}
+                      rightSection={filters.query ? (
+                        <ActionIcon size="xs" variant="subtle" color="gray" onClick={() => updateFilter('query', '')} aria-label="Clear search">
+                          <IconX size={11} />
+                        </ActionIcon>
+                      ) : (
+                        <Tooltip label='Tip: Type "-word" to exclude words, e.g. "msci -usa"' withArrow>
+                          <Box style={{ cursor: 'help', display: 'flex', alignItems: 'center', opacity: 0.4 }}>
+                            <IconInfoCircle size={12} />
+                          </Box>
+                        </Tooltip>
+                      )}
+                    />
+                    <TextInput
+                      style={{ width: 190 }}
+                      size="xs"
+                      placeholder="Exclude words (e.g. usa)…"
+                      value={filters.excludeQuery || ''}
+                      onChange={e => updateFilter('excludeQuery', e.currentTarget.value)}
+                      leftSection={<IconBan size={13} color="var(--mantine-color-red-6)" />}
+                      rightSection={filters.excludeQuery ? (
+                        <ActionIcon size="xs" variant="subtle" color="gray" onClick={() => updateFilter('excludeQuery', '')} aria-label="Clear excluded words">
+                          <IconX size={11} />
+                        </ActionIcon>
+                      ) : null}
+                    />
+                  </Group>
+                  <Group gap="xs" align="center" wrap="wrap">
+                    <Select
+                      size="xs"
+                      w={180}
+                      placeholder="Load preset…"
+                      data={presetSelectOptions}
+                      value={activePresetId || null}
+                      onChange={handleApplyPreset}
+                      clearable
+                    />
+
+                    {activePreset && !activePreset.builtIn && isPresetModified ? (
+                      <Group gap={4}>
+                        <Button
+                          size="xs"
+                          color="teal"
+                          variant="filled"
+                          leftSection={<IconDeviceFloppy size={14} />}
+                          onClick={handleUpdateActivePreset}
+                        >
+                          Update preset
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="default"
+                          onClick={() => {
+                            setPresetNameInput(`${activePreset.name} (Copy)`);
+                            setSavePresetOpened(true);
+                          }}
+                        >
+                          Save copy
+                        </Button>
+                      </Group>
+                    ) : (
+                      <Button
+                        size="xs"
+                        variant="light"
+                        leftSection={<IconDeviceFloppy size={14} />}
+                        onClick={() => {
+                          setPresetNameInput(activePreset ? `${activePreset.name} (Copy)` : '');
+                          setSavePresetOpened(true);
+                        }}
+                      >
+                        Save preset
+                      </Button>
+                    )}
+
+                    <Button
+                      size="xs"
+                      variant="subtle"
+                      color="gray"
+                      leftSection={<IconFolder size={14} />}
+                      onClick={() => setManagePresetsOpened(true)}
+                    >
+                      Presets ({customPresets.length})
+                    </Button>
+
+                    <Button
+                      size="xs"
+                      variant={filtersOpen ? 'filled' : 'light'}
+                      leftSection={<IconFilter size={14} />}
+                      onClick={() => setFiltersOpen(v => !v)}
+                    >
+                      Filters{activeFilterCount ? ` (${activeFilterCount})` : ''}
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant={columnsOpen ? 'filled' : 'light'}
+                      leftSection={<IconColumns size={14} />}
+                      onClick={() => setColumnsOpen(v => !v)}
+                    >
+                      Columns
+                    </Button>
+                    {activeFilterCount > 0 && (
+                      <Button size="xs" variant="subtle" color="gray" onClick={handleResetFilters}>
+                        Reset
+                      </Button>
+                    )}
+                  </Group>
+                </Group>
+
+                {activeBadges.length > 0 && (
+                  <Group gap="xs" align="center" wrap="wrap">
+                    <Text size="xs" c="dimmed">Active filters:</Text>
+                    {activeBadges.map(badge => (
+                      <Badge
+                        key={badge.key}
+                        size="sm"
+                        variant="light"
+                        color={badge.color}
+                        style={{ cursor: 'pointer' }}
+                        rightSection="✕"
+                        onClick={badge.onRemove}
+                      >
+                        {badge.label}
+                      </Badge>
+                    ))}
+                    <Button size="compact-xs" variant="subtle" color="gray" onClick={handleResetFilters}>
+                      Clear all
+                    </Button>
+                  </Group>
+                )}
+
+                <Collapse expanded={filtersOpen}>
+                  <Card withBorder padding="sm" radius="md">
+                    <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 5 }} spacing="xs" verticalSpacing="xs">
+                      {/* Row 1: Core ETF Attributes */}
+                      <FacetFilterSelect
+                        label="Asset class"
+                        placeholder="All classes"
+                        options={assetClassOptions}
+                        include={filters.assetClasses}
+                        exclude={filters.excludeAssetClasses}
+                        onChange={(inc, exc) => updateFiltersBatch({ assetClasses: inc, excludeAssetClasses: exc })}
+                        searchable
+                      />
+                      <FacetFilterSelect
+                        label="Distribution policy"
+                        placeholder="Any (Acc & Dist)"
+                        options={distributionOptions}
+                        include={filters.distributions}
+                        exclude={filters.excludeDistributions}
+                        onChange={(inc, exc) => updateFiltersBatch({ distributions: inc, excludeDistributions: exc })}
+                      />
+                      <FacetFilterSelect
+                        label="Replication"
+                        placeholder="Any method"
+                        options={replicationOptions}
+                        include={filters.replications}
+                        exclude={filters.excludeReplications}
+                        onChange={(inc, exc) => updateFiltersBatch({ replications: inc, excludeReplications: exc })}
+                      />
+                      <FacetFilterSelect
+                        label="Strategy"
+                        placeholder="Any strategy"
+                        options={strategyOptions}
+                        include={filters.strategies}
+                        exclude={filters.excludeStrategies}
+                        onChange={(inc, exc) => updateFiltersBatch({ strategies: inc, excludeStrategies: exc })}
+                      />
+                      <Select
+                        size="xs"
+                        label="Currency hedged"
+                        placeholder="Any"
+                        clearable
+                        data={[
+                          { value: 'hedged', label: 'Hedged only' },
+                          { value: 'unhedged', label: 'Unhedged only' },
+                        ]}
+                        value={filters.currencyHedged || null}
+                        onChange={val => updateFilter('currencyHedged', val ?? '')}
+                      />
+
+                      {/* Row 2: Performance, Size & Tracking */}
+                      <NumberInput
+                        size="xs"
+                        label="Max TER (%)"
+                        placeholder="Any"
+                        min={0}
+                        step={0.05}
+                        decimalScale={2}
+                        value={filters.maxTER}
+                        onChange={val => updateFilter('maxTER', val)}
+                      />
+                      <NumberInput
+                        size="xs"
+                        label="Min size (€m)"
+                        placeholder="Any"
+                        min={0}
+                        step={50}
+                        value={filters.minSize}
+                        onChange={val => updateFilter('minSize', val)}
+                      />
+                      <NumberInput
+                        size="xs"
+                        label="Min age (years)"
+                        placeholder="Any"
+                        min={0}
+                        step={1}
+                        value={filters.minAge}
+                        onChange={val => updateFilter('minAge', val)}
+                      />
+                      <NumberInput
+                        size="xs"
+                        label="Max tracking diff (%)"
+                        placeholder="Any"
+                        min={0}
+                        step={0.05}
+                        decimalScale={2}
+                        value={filters.maxTrackingDiff}
+                        onChange={val => updateFilter('maxTrackingDiff', val)}
+                      />
+                      <NumberInput
+                        size="xs"
+                        label="Max tracking error (%)"
+                        placeholder="Any"
+                        min={0}
+                        step={0.05}
+                        decimalScale={2}
+                        value={filters.maxTrackingError}
+                        onChange={val => updateFilter('maxTrackingError', val)}
+                      />
+
+                      {/* Row 3: Issuer, Domicile, Currency & Type */}
+                      <FacetFilterSelect
+                        label="Issuer / Provider"
+                        placeholder="All issuers"
+                        options={issuerOptions.map(i => ({ value: i, label: i }))}
+                        include={filters.issuers}
+                        exclude={filters.excludeIssuers}
+                        onChange={(inc, exc) => updateFiltersBatch({ issuers: inc, excludeIssuers: exc })}
+                        searchable
+                      />
+                      <FacetFilterSelect
+                        label="Domicile"
+                        placeholder="All domiciles"
+                        options={domicileOptions.map(d => ({ value: d, label: d }))}
+                        include={filters.domiciles}
+                        exclude={filters.excludeDomiciles}
+                        onChange={(inc, exc) => updateFiltersBatch({ domiciles: inc, excludeDomiciles: exc })}
+                        searchable
+                      />
+                      <FacetFilterSelect
+                        label="Fund currency"
+                        placeholder="All currencies"
+                        options={currencyOptions.map(c => ({ value: c, label: c }))}
+                        include={filters.currencies}
+                        exclude={filters.excludeCurrencies}
+                        onChange={(inc, exc) => updateFiltersBatch({ currencies: inc, excludeCurrencies: exc })}
+                        searchable
+                      />
+                      <FacetFilterSelect
+                        label="Instrument type"
+                        placeholder="All types"
+                        options={Object.entries(instrumentLabels).map(([val, itemLabel]) => ({ value: val, label: itemLabel }))}
+                        include={filters.types}
+                        exclude={filters.excludeTypes}
+                        onChange={(inc, exc) => updateFiltersBatch({ types: inc, excludeTypes: exc })}
+                      />
+                      <Select
+                        size="xs"
+                        label="UCITS status"
+                        placeholder="Any status"
+                        clearable
+                        data={[
+                          { value: 'true', label: 'UCITS only' },
+                          { value: 'false', label: 'Non-UCITS only' },
+                        ]}
+                        value={filters.ucits || null}
+                        onChange={val => updateFilter('ucits', val ?? '')}
+                      />
+                    </SimpleGrid>
+                  </Card>
+                </Collapse>
+
+                {columnsOpen && (
+                  <Card withBorder padding="sm">
+                    <Group gap="lg">
+                      {instrumentColumns.map(column => (
+                        <Checkbox
+                          key={column.value}
+                          label={column.label}
+                          checked={show(column.value)}
+                          onChange={() => toggleColumn(column.value)}
+                        />
+                      ))}
+                    </Group>
+                  </Card>
+                )}
+
+                <Group justify="space-between" align="center" mt={2}>
+                  <Text size="xs" c="dimmed">
+                    Showing {matchingRows.length ? bounds.start + 1 : 0}–{bounds.end} of {matchingRows.length} instruments
+                    {avgTer > 0 ? ` · Avg TER ${avgTer.toFixed(2)}%` : ''}
+                  </Text>
+                  {activePreset && (
+                    <Badge size="xs" variant="outline" color={isPresetModified ? 'yellow' : 'blue'}>
+                      Preset: {activePreset.name} {isPresetModified ? '(modified)' : ''}
+                    </Badge>
+                  )}
+                </Group>
+              </Stack>
             }
-          }}
-          autoFocus
-        />
-        <Text size="xs" c="dimmed">
-          Saves current criteria ({matchingCount} matching UCITS ETFs). Presets are saved locally and can be recalled anytime.
-        </Text>
-        <Group justify="flex-end" mt="xs">
-          <Button variant="default" onClick={() => setSavePresetOpened(false)}>Cancel</Button>
-          <Button
-            disabled={!presetNameInput.trim()}
-            onClick={() => {
-              handleSavePreset(presetNameInput);
-              setSavePresetOpened(false);
-            }}
-          >
-            Save preset
-          </Button>
-        </Group>
-      </Stack>
-    </Modal>
-    {ranked.length > 0 && (
-      <Paper p="xs" px="md" radius="lg" className="metric" style={{ borderColor: 'var(--mantine-color-teal-6)' }}>
-        <Group justify="space-between" align="center">
-          <Group gap="xs">
-            <Badge color="teal" size="md" variant="filled">Ranked results: {ranked.length} ETFs</Badge>
-            <Text size="xs" c="dimmed">
-              Ranked by composite score: Cost 35% · Tracking Diff 30% · Tracking Error 15% · Size 15% · Age 5%
-            </Text>
-          </Group>
-          <Button size="xs" variant="light" color="teal" onClick={() => setRanked([])}>
-            Exit ranking & view all catalog
-          </Button>
-        </Group>
-      </Paper>
-    )}
-    {similarity && <Alert color="blue" title={similarTo ? `Similar to ${similarTo.ticker || similarTo.name}` : `Similarity filter: ${similarity}`} withCloseButton onClose={() => setSimilarityFilter()}>{loadingAlternatives ? 'Loading comparable instruments…' : `${alternatives.length} comparable instruments · remove this filter to return to the full catalog.`}</Alert>}
-    {loadingAlternatives ? <Group justify="center" p="xl"><Loader /></Group> : rows.length === 0 ? <Empty title={similarity ? 'No comparable instruments' : 'No instrument data'} text={similarity ? 'Refresh more comparable profiles, then retry.' : 'Sync the justETF catalog, load one by ticker or ISIN, or add one manually.'} /> : <Stack gap="sm">
-      {selectedCompareISINs.length > 0 && (
-        <Paper p="sm" radius="lg" className="metric">
-          <Group justify="space-between" align="center">
+          />
+
+          <Group justify="space-between">
             <Group gap="xs">
-              <Badge color="teal" size="md" variant="filled">{selectedCompareISINs.length} Selected</Badge>
-              <Text fw={600} size="sm">Select 2 to 5 instruments to compare side-by-side</Text>
+              <Text size="sm" c="dimmed">Rows per page</Text>
+              <Select size="xs" w={82} aria-label="Rows per page" value={String(pageSize)} data={['10', '25', '50', '100']} onChange={value => setPageSize(Number(value ?? 50))} />
             </Group>
-            <Group gap="xs">
-              <Button
-                size="xs"
-                color="teal"
-                disabled={selectedCompareISINs.length < 2 || selectedCompareISINs.length > 5}
-                onClick={() => setCompareModalOpened(true)}
-              >
-                Compare {selectedCompareISINs.length} Selected Side-by-Side
-              </Button>
-              <Button size="xs" variant="default" onClick={() => setSelectedCompareISINs([])}>
-                Clear Selection
-              </Button>
-            </Group>
+            {bounds.pages > 1 && <Pagination size="sm" total={bounds.pages} value={bounds.current} onChange={setPage} />}
           </Group>
-        </Paper>
+        </Stack>
       )}
-      <DataTable rows={visibleRows} columns={catalogColumns} rowKey={item => item.instrument.id} minWidth={950} sort={ranked.length > 0 || similarity ? localSortKey : catalog.sort} direction={ranked.length > 0 || similarity ? localSortDir : catalog.direction} onSort={(key, direction) => {
-        if (ranked.length > 0 || similarity) {
-          setLocalSortKey(key);
-          setLocalSortDir(direction);
-        } else {
-          void catalog.sortRows(key, direction);
-        }
-      }} toolbar={<>
-        <Group justify="space-between" mb="sm">
-          <TextInput style={{ flex: 1, maxWidth: 440 }} placeholder="Search name, ticker, ISIN, issuer, index…" value={localQuery} onChange={event => setLocalQuery(event.currentTarget.value)} />
-          <Group>
-            <Text size="sm" c="dimmed">
-              Showing {matchingRows.length ? bounds.start + 1 : 0}–{bounds.end} of {matchingRows.length}
-              {matchingRows.some(r => r.instrument.ter_bps > 0)
-                ? ` · Avg TER ${(matchingRows.filter(r => r.instrument.ter_bps > 0).reduce((sum, r) => sum + r.instrument.ter_bps, 0) / Math.max(1, matchingRows.filter(r => r.instrument.ter_bps > 0).length) / 100).toFixed(2)}%`
-                : ''}
-            </Text>
-            <Button
-              size="xs"
-              variant="light"
-              leftSection={<IconFilter size={14} />}
-              onClick={() => setFiltersOpen(filtersOpen ? '' : '1')}
-            >
-              Filters{activeFilterCount ? ` (${activeFilterCount})` : ''}
-            </Button>
-            <Button
-              size="xs"
-              variant="light"
-              leftSection={<IconColumns size={14} />}
-              onClick={() => setColumnsOpen(current => !current)}
-            >
-              Columns
-            </Button>
-          </Group>
-        </Group>
-        {activeFilterCount > 0 && (
-          <Group gap="xs" align="center" mb="sm" wrap="wrap">
-            <Text size="xs" c="dimmed">Active filters:</Text>
-            {filters.assetClass && (
-              <Badge
-                size="sm"
-                variant="light"
-                color="teal"
-                style={{ cursor: 'pointer' }}
-                rightSection="✕"
-                onClick={() => setFilters(current => ({ ...current, assetClass: '' }))}
-              >
-                Asset class: {label(filters.assetClass)}
-              </Badge>
-            )}
-            {filters.issuer && (
-              <Badge
-                size="sm"
-                variant="light"
-                color="blue"
-                style={{ cursor: 'pointer' }}
-                rightSection="✕"
-                onClick={() => setFilters(current => ({ ...current, issuer: '' }))}
-              >
-                Issuer: {filters.issuer}
-              </Badge>
-            )}
-            {filters.type && (
-              <Badge
-                size="sm"
-                variant="light"
-                color="grape"
-                style={{ cursor: 'pointer' }}
-                rightSection="✕"
-                onClick={() => setFilters(current => ({ ...current, type: '' }))}
-              >
-                Type: {instrumentLabels[filters.type as InstrumentType] ?? filters.type}
-              </Badge>
-            )}
-            {filters.policy && (
-              <Badge
-                size="sm"
-                variant="light"
-                color="indigo"
-                style={{ cursor: 'pointer' }}
-                rightSection="✕"
-                onClick={() => setFilters(current => ({ ...current, policy: '' }))}
-              >
-                Policy: {label(filters.policy)}
-              </Badge>
-            )}
-            {filters.replication && (
-              <Badge
-                size="sm"
-                variant="light"
-                color="cyan"
-                style={{ cursor: 'pointer' }}
-                rightSection="✕"
-                onClick={() => setFilters(current => ({ ...current, replication: '' }))}
-              >
-                Replication: {label(filters.replication)}
-              </Badge>
-            )}
-            {filters.domicile && (
-              <Badge
-                size="sm"
-                variant="light"
-                color="gray"
-                style={{ cursor: 'pointer' }}
-                rightSection="✕"
-                onClick={() => setFilters(current => ({ ...current, domicile: '' }))}
-              >
-                Domicile: {filters.domicile}
-              </Badge>
-            )}
-            {filters.currency && (
-              <Badge
-                size="sm"
-                variant="light"
-                color="gray"
-                style={{ cursor: 'pointer' }}
-                rightSection="✕"
-                onClick={() => setFilters(current => ({ ...current, currency: '' }))}
-              >
-                Currency: {filters.currency}
-              </Badge>
-            )}
-            {filters.ucits && (
-              <Badge
-                size="sm"
-                variant="light"
-                color="green"
-                style={{ cursor: 'pointer' }}
-                rightSection="✕"
-                onClick={() => setFilters(current => ({ ...current, ucits: '' }))}
-              >
-                {filters.ucits === 'true' ? 'UCITS only' : 'Non-UCITS only'}
-              </Badge>
-            )}
-            <Button
-              size="compact-xs"
-              variant="subtle"
-              color="gray"
-              onClick={() =>
-                setFilters({
-                  issuer: '',
-                  type: '',
-                  assetClass: '',
-                  policy: '',
-                  replication: '',
-                  domicile: '',
-                  currency: '',
-                  ucits: '',
-                })
+
+      {/* Save Preset Modal */}
+      <Modal
+        opened={savePresetOpened}
+        onClose={() => setSavePresetOpened(false)}
+        title="Save Filter Preset"
+        size="sm"
+      >
+        <Stack gap="sm">
+          <TextInput
+            label="Preset name"
+            placeholder="e.g. European Equity Core"
+            value={presetNameInput}
+            onChange={e => setPresetNameInput(e.currentTarget.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && presetNameInput.trim()) {
+                handleSavePreset(presetNameInput);
+                setSavePresetOpened(false);
               }
+            }}
+            autoFocus
+          />
+          <Text size="xs" c="dimmed">
+            Saves current filter criteria ({matchingRows.length} matching instruments). Presets are saved locally and can be recalled anytime.
+          </Text>
+          <Group justify="flex-end" mt="xs">
+            <Button variant="default" onClick={() => setSavePresetOpened(false)}>Cancel</Button>
+            <Button
+              disabled={!presetNameInput.trim()}
+              onClick={() => {
+                handleSavePreset(presetNameInput);
+                setSavePresetOpened(false);
+              }}
             >
-              Clear all
+              Save preset
             </Button>
           </Group>
-        )}
-        {filtersOpen && <Card withBorder padding="sm" mb="sm"><SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
-          <Select size="xs" searchable clearable label="Issuer" placeholder="All issuers" value={filters.issuer || null} data={issuerOptions} onChange={value => setFilters(current => ({ ...current, issuer: value === null ? '' : String(value) }))} />
-          <Select size="xs" clearable label="Instrument type" placeholder="All types" value={filters.type || null} data={Object.entries(instrumentLabels).map(([value, itemLabel]) => ({ value, label: itemLabel }))} onChange={value => setFilters(current => ({ ...current, type: value ?? '' }))} />
-          <Select size="xs" searchable clearable label="Asset class" placeholder="All classes" value={filters.assetClass || null} data={assetClassOptions} onChange={value => setFilters(current => ({ ...current, assetClass: value === null ? '' : String(value) }))} />
-          <Select size="xs" clearable label="Policy" placeholder="Any policy" value={filters.policy || null} data={[{ value: 'accumulating', label: 'Accumulating' }, { value: 'distributing', label: 'Distributing' }]} onChange={value => setFilters(current => ({ ...current, policy: value ?? '' }))} />
-          <Select size="xs" clearable label="Replication" placeholder="Any method" value={filters.replication || null} data={[{ value: 'physical_full', label: 'Physical full' }, { value: 'physical_sampling', label: 'Physical sampling' }, { value: 'synthetic', label: 'Synthetic' }]} onChange={value => setFilters(current => ({ ...current, replication: value ?? '' }))} />
-          <Select size="xs" searchable clearable label="Domicile" placeholder="All domiciles" value={filters.domicile || null} data={domicileOptions} onChange={value => setFilters(current => ({ ...current, domicile: value === null ? '' : String(value) }))} />
-          <Select size="xs" searchable clearable label="Fund currency" placeholder="All currencies" value={filters.currency || null} data={currencyOptions} onChange={value => setFilters(current => ({ ...current, currency: value === null ? '' : String(value) }))} />
-          <Select size="xs" clearable label="UCITS" placeholder="Any status" value={filters.ucits || null} data={[{ value: 'true', label: 'UCITS' }, { value: 'false', label: 'Non-UCITS' }]} onChange={value => setFilters(current => ({ ...current, ucits: value ?? '' }))} />
-        </SimpleGrid>{activeFilterCount > 0 && <Button size="xs" variant="subtle" mt="xs" onClick={() => setFilters({ issuer: '', type: '', assetClass: '', policy: '', replication: '', domicile: '', currency: '', ucits: '' })}>Clear filters</Button>}</Card>}
-        {columnsOpen && <Card withBorder padding="sm" mb="sm"><Group gap="lg">{instrumentColumns.map(column => <Checkbox key={column.value} label={column.label} checked={show(column.value)} onChange={() => toggleColumn(column.value)} />)}</Group></Card>}
-      </>} />
-      <Group justify="space-between"><Group gap="xs"><Text size="sm" c="dimmed">Rows per page</Text><Select size="xs" w={82} aria-label="Rows per page" value={String(pageSize)} data={['10', '25', '50', '100']} onChange={value => setPageSize(Number(value ?? 50))} /></Group>{bounds.pages > 1 && <Pagination size="sm" total={bounds.pages} value={bounds.current} onChange={setPage} />}</Group>
-    </Stack>}
-    <InstrumentModal key={editing?.id ?? 'new'} opened={opened} close={() => setOpened(false)} instrument={editing} saved={async () => { setOpened(false); setRanked([]); await reload(); }} />
-    <CompareModal
-      opened={compareModalOpened}
-      onClose={() => setCompareModalOpened(false)}
-      instruments={selectedCompareInstruments}
-      onShowAlternatives={showAlternatives}
-    />
-    {confirmDeleteModal}
-  </ViewShell>
+        </Stack>
+      </Modal>
+
+      {/* Manage Presets Modal */}
+      <Modal
+        opened={managePresetsOpened}
+        onClose={() => setManagePresetsOpened(false)}
+        title="Manage Filter Presets"
+        size="md"
+      >
+        <Stack gap="md">
+          <Text size="xs" c="dimmed">
+            Presets save your screener filters for quick recall. You can load, overwrite with current filters, or delete presets here.
+          </Text>
+
+          {customPresets.length === 0 ? (
+            <Paper withBorder p="md" radius="sm" ta="center">
+              <Text size="sm" c="dimmed">No custom presets saved yet.</Text>
+              <Text size="xs" c="dimmed" mt={4}>Apply your favorite filters and click "Save preset" to create one.</Text>
+            </Paper>
+          ) : (
+            <Stack gap="xs">
+              {customPresets.map(preset => {
+                const isActive = activePresetId === preset.id;
+                return (
+                  <Paper key={preset.id} withBorder p="sm" radius="sm">
+                    <Group justify="space-between" align="center" wrap="nowrap">
+                      <Box style={{ flex: 1, minWidth: 0 }}>
+                        <Group gap="xs" align="center">
+                          <Text fw={650} size="sm" truncate>{preset.name}</Text>
+                          {isActive && <Badge size="xs" color="teal" variant="filled">Active</Badge>}
+                        </Group>
+                        <Group gap={4} mt={4} wrap="wrap">
+                          {preset.filters.assetClasses.length > 0 && (
+                            <Badge size="xs" variant="light" color="teal">{preset.filters.assetClasses.join(', ')}</Badge>
+                          )}
+                          {preset.filters.distributions.length > 0 && (
+                            <Badge size="xs" variant="light" color="indigo">{preset.filters.distributions.join(', ')}</Badge>
+                          )}
+                          {preset.filters.excludeDistributions.length > 0 && (
+                            <Badge size="xs" variant="light" color="red">Excl {preset.filters.excludeDistributions.join(', ')}</Badge>
+                          )}
+                          {preset.filters.maxTER !== '' && (
+                            <Badge size="xs" variant="light" color="orange">TER ≤ {preset.filters.maxTER}%</Badge>
+                          )}
+                          {preset.filters.minSize !== '' && (
+                            <Badge size="xs" variant="light" color="yellow">Size ≥ €{preset.filters.minSize}m</Badge>
+                          )}
+                        </Group>
+                      </Box>
+                      <Group gap="xs" wrap="nowrap">
+                        <Button
+                          size="xs"
+                          variant="light"
+                          onClick={() => {
+                            handleApplyPreset(preset.id);
+                            setManagePresetsOpened(false);
+                          }}
+                        >
+                          Load
+                        </Button>
+                        <Tooltip label="Overwrite this preset with what is currently on screen">
+                          <Button
+                            size="xs"
+                            variant="default"
+                            onClick={() => {
+                              const updated = customPresets.map(p =>
+                                p.id === preset.id ? { ...p, filters: { ...filters } } : p
+                              );
+                              setCustomPresets(updated);
+                              saveCustomPresets(updated);
+                              setActivePresetId(preset.id);
+                              notifications.show({
+                                color: 'teal',
+                                title: 'Preset updated',
+                                message: `Overwrote "${preset.name}" with current filters.`,
+                              });
+                            }}
+                          >
+                            Overwrite
+                          </Button>
+                        </Tooltip>
+                        <Tooltip label={`Delete preset "${preset.name}"`}>
+                          <ActionIcon
+                            size="sm"
+                            color="red"
+                            variant="subtle"
+                            onClick={() => handleDeleteCustomPreset(preset.id)}
+                            aria-label={`Delete ${preset.name}`}
+                          >
+                            <IconTrash size={15} />
+                          </ActionIcon>
+                        </Tooltip>
+                      </Group>
+                    </Group>
+                  </Paper>
+                );
+              })}
+            </Stack>
+          )}
+
+          <Divider my="xs" label="Built-in Presets" labelPosition="center" />
+          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+            {builtInPresets.map(preset => (
+              <Paper key={preset.id} withBorder p="xs" radius="sm" style={{ opacity: 0.9 }}>
+                <Group justify="space-between" align="center">
+                  <Box style={{ flex: 1, minWidth: 0 }}>
+                    <Text size="xs" fw={600} truncate>{preset.name}</Text>
+                    <Text size="10px" c="dimmed">Built-in</Text>
+                  </Box>
+                  <Button
+                    size="compact-xs"
+                    variant="light"
+                    onClick={() => {
+                      handleApplyPreset(preset.id);
+                      setManagePresetsOpened(false);
+                    }}
+                  >
+                    Load
+                  </Button>
+                </Group>
+              </Paper>
+            ))}
+          </SimpleGrid>
+        </Stack>
+      </Modal>
+
+      <InstrumentModal key={editing?.id ?? 'new'} opened={opened} close={() => setOpened(false)} instrument={editing} saved={async () => { setOpened(false); await reload(); }} />
+      <CompareModal
+        opened={compareModalOpened}
+        onClose={() => setCompareModalOpened(false)}
+        instruments={selectedCompareInstruments}
+        onShowAlternatives={showAlternatives}
+      />
+      {confirmDeleteModal}
+    </ViewShell>
   );
 }
 
 function InstrumentModal({ opened, close, instrument, saved }: { opened: boolean; close: () => void; instrument?: Instrument; saved: () => Promise<void> }) {
   const [form, setForm] = useState<InstrumentDraft>(() => instrument ? { ...instrument, ter: instrument.ter_bps / 100, size: instrument.fund_size_million, trackingDifference: instrument.tracking_difference_bps === null ? '' : instrument.tracking_difference_bps / 100, trackingError: instrument.tracking_error_bps === null ? '' : instrument.tracking_error_bps / 100 } : blankInstrument());
   const [error, setError] = useState('');
-  const save = async () => { try { await api('/api/instruments', { method: 'POST', body: JSON.stringify({ isin: form.isin, name: form.name, ticker: form.ticker, instrument_type: form.instrument_type, provider: form.provider, index_name: form.index_name, investment_focus: form.investment_focus, asset_class: form.asset_class, strategy: form.strategy, currency_hedged: form.currency_hedged, data_status: 'enriched', distribution: form.distribution, replication: form.replication, domicile: form.domicile, fund_currency: form.fund_currency, ter_bps: bps(form.ter), fund_size_million: n(form.size), inception_date: form.inception_date, tracking_difference_bps: form.trackingDifference === '' ? null : bps(form.trackingDifference), tracking_error_bps: form.trackingError === '' ? null : bps(form.trackingError), ucits: form.ucits, source_url: form.source_url }) }); await saved(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } };
+  const save = async () => {
+    try {
+      await api('/api/instruments', {
+        method: 'POST',
+        body: JSON.stringify({
+          isin: form.isin,
+          name: form.name,
+          ticker: form.ticker,
+          instrument_type: form.instrument_type,
+          provider: form.provider,
+          index_name: form.index_name,
+          investment_focus: form.investment_focus,
+          asset_class: form.asset_class,
+          strategy: form.strategy,
+          currency_hedged: form.currency_hedged,
+          data_status: 'enriched',
+          distribution: form.distribution,
+          replication: form.replication,
+          domicile: form.domicile,
+          fund_currency: form.fund_currency,
+          ter_bps: bps(form.ter),
+          fund_size_million: n(form.size),
+          inception_date: form.inception_date,
+          tracking_difference_bps: form.trackingDifference === '' ? null : bps(form.trackingDifference),
+          tracking_error_bps: form.trackingError === '' ? null : bps(form.trackingError),
+          ucits: form.ucits,
+          source_url: form.source_url,
+        }),
+      });
+      await saved();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  };
   const set = <K extends keyof InstrumentDraft>(key: K, value: InstrumentDraft[K]) => setForm(current => ({ ...current, [key]: value }));
-  return <Modal opened={opened} onClose={close} title={instrument ? 'Edit instrument' : 'Add instrument'} size="xl"><Stack>{error && <Alert color="red">{error}</Alert>}<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
-    <TextInput required label="ISIN" value={form.isin} onChange={e => set('isin', e.currentTarget.value.toUpperCase())} />
-    <TextInput required label="Name" value={form.name} onChange={e => set('name', e.currentTarget.value)} />
-    <TextInput label="Ticker" value={form.ticker} onChange={e => set('ticker', e.currentTarget.value)} />
-    <Select label="Instrument type" value={form.instrument_type} data={Object.entries(instrumentLabels).map(([value, label]) => ({ value, label }))} onChange={value => set('instrument_type', (value ?? 'other') as InstrumentType)} />
-    <TextInput label="Issuer" value={form.provider} onChange={e => set('provider', e.currentTarget.value)} />
-    <TextInput label="Tracked index" value={form.index_name} onChange={e => set('index_name', e.currentTarget.value)} />
-    <TextInput label="Investment focus" placeholder="Equity, World" value={form.investment_focus} onChange={e => set('investment_focus', e.currentTarget.value)} />
-    <Select label="Asset class" value={form.asset_class} data={[{ value: '', label: 'Unknown' }, { value: 'equity', label: 'Equity' }, { value: 'bond', label: 'Bond' }, { value: 'commodity', label: 'Commodity' }, { value: 'monetary', label: 'Monetary' }, { value: 'real_estate', label: 'Real estate' }, { value: 'crypto', label: 'Crypto' }, { value: 'mixed', label: 'Mixed' }, { value: 'other', label: 'Other' }]} onChange={value => set('asset_class', value ?? '')} />
-    <Select label="Strategy" value={form.strategy} data={[{ value: 'broad', label: 'Broad' }, { value: 'esg', label: 'ESG / screened' }, { value: 'dividend', label: 'Dividend' }, { value: 'factor', label: 'Factor' }]} onChange={value => set('strategy', value ?? 'broad')} />
-    <TextInput label="Domicile" maxLength={2} value={form.domicile} onChange={e => set('domicile', e.currentTarget.value.toUpperCase())} />
-    <Select label="Distribution" value={form.distribution} data={[{ value: 'accumulating', label: 'Accumulating' }, { value: 'distributing', label: 'Distributing' }]} onChange={value => set('distribution', (value ?? 'accumulating') as InstrumentDraft['distribution'])} />
-    <Select label="Replication" value={form.replication} data={[{ value: 'physical_full', label: 'Physical full' }, { value: 'physical_sampling', label: 'Physical sampling' }, { value: 'synthetic', label: 'Synthetic' }]} onChange={value => set('replication', (value ?? 'physical_full') as InstrumentDraft['replication'])} />
-    <TextInput label="Fund currency" maxLength={3} value={form.fund_currency} onChange={e => set('fund_currency', e.currentTarget.value.toUpperCase())} />
-    <NumberInput label="TER (%)" min={0} decimalScale={3} value={form.ter} onChange={value => set('ter', value)} />
-    <NumberInput label="Fund size (million)" min={0} value={form.size} onChange={value => set('size', value)} />
-    <TextInput type="date" label="Inception date" value={form.inception_date} onChange={e => set('inception_date', e.currentTarget.value)} />
-    <Checkbox label="UCITS compliant" checked={form.ucits} onChange={event => set('ucits', event.currentTarget.checked)} />
-    <Checkbox label="Currency hedged" checked={form.currency_hedged} onChange={event => set('currency_hedged', event.currentTarget.checked)} />
-    <NumberInput label="Tracking difference (%)" decimalScale={3} value={form.trackingDifference} onChange={value => set('trackingDifference', value)} />
-    <NumberInput label="Tracking error (%)" min={0} decimalScale={3} value={form.trackingError} onChange={value => set('trackingError', value)} />
-    <TextInput label="Source URL" type="url" value={form.source_url} onChange={e => set('source_url', e.currentTarget.value)} />
-  </SimpleGrid><Text size="xs" c="dimmed">Instrument type describes the legal wrapper; asset class describes what it invests in. The ISIN is the stable key.</Text><Group justify="end"><Button onClick={() => void save()}>Save instrument</Button></Group></Stack></Modal>;
+  return (
+    <Modal opened={opened} onClose={close} title={instrument ? 'Edit instrument' : 'Add instrument'} size="xl">
+      <Stack>
+        {error && <Alert color="red">{error}</Alert>}
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
+          <TextInput required label="ISIN" value={form.isin} onChange={e => set('isin', e.currentTarget.value.toUpperCase())} />
+          <TextInput required label="Name" value={form.name} onChange={e => set('name', e.currentTarget.value)} />
+          <TextInput label="Ticker" value={form.ticker} onChange={e => set('ticker', e.currentTarget.value)} />
+          <Select label="Instrument type" value={form.instrument_type} data={Object.entries(instrumentLabels).map(([value, label]) => ({ value, label }))} onChange={value => set('instrument_type', (value ?? 'other') as InstrumentType)} />
+          <TextInput label="Issuer" value={form.provider} onChange={e => set('provider', e.currentTarget.value)} />
+          <TextInput label="Tracked index" value={form.index_name} onChange={e => set('index_name', e.currentTarget.value)} />
+          <TextInput label="Investment focus" placeholder="Equity, World" value={form.investment_focus} onChange={e => set('investment_focus', e.currentTarget.value)} />
+          <Select label="Asset class" value={form.asset_class} data={[{ value: '', label: 'Unknown' }, { value: 'equity', label: 'Equity' }, { value: 'bond', label: 'Bond' }, { value: 'commodity', label: 'Commodity' }, { value: 'monetary', label: 'Monetary' }, { value: 'real_estate', label: 'Real estate' }, { value: 'crypto', label: 'Crypto' }, { value: 'mixed', label: 'Mixed' }, { value: 'other', label: 'Other' }]} onChange={value => set('asset_class', value ?? '')} />
+          <Select label="Strategy" value={form.strategy} data={[{ value: 'broad', label: 'Broad' }, { value: 'esg', label: 'ESG / screened' }, { value: 'dividend', label: 'Dividend' }, { value: 'factor', label: 'Factor' }]} onChange={value => set('strategy', value ?? 'broad')} />
+          <TextInput label="Domicile" maxLength={2} value={form.domicile} onChange={e => set('domicile', e.currentTarget.value.toUpperCase())} />
+          <Select label="Distribution" value={form.distribution} data={[{ value: 'accumulating', label: 'Accumulating' }, { value: 'distributing', label: 'Distributing' }]} onChange={value => set('distribution', (value ?? 'accumulating') as InstrumentDraft['distribution'])} />
+          <Select label="Replication" value={form.replication} data={[{ value: 'physical_full', label: 'Physical full' }, { value: 'physical_sampling', label: 'Physical sampling' }, { value: 'synthetic', label: 'Synthetic' }]} onChange={value => set('replication', (value ?? 'physical_full') as InstrumentDraft['replication'])} />
+          <TextInput label="Fund currency" maxLength={3} value={form.fund_currency} onChange={e => set('fund_currency', e.currentTarget.value.toUpperCase())} />
+          <NumberInput label="TER (%)" min={0} decimalScale={3} value={form.ter} onChange={value => set('ter', value)} />
+          <NumberInput label="Fund size (million)" min={0} value={form.size} onChange={value => set('size', value)} />
+          <TextInput type="date" label="Inception date" value={form.inception_date} onChange={e => set('inception_date', e.currentTarget.value)} />
+          <Checkbox label="UCITS compliant" checked={form.ucits} onChange={event => set('ucits', event.currentTarget.checked)} />
+          <Checkbox label="Currency hedged" checked={form.currency_hedged} onChange={event => set('currency_hedged', event.currentTarget.checked)} />
+          <NumberInput label="Tracking difference (%)" decimalScale={3} value={form.trackingDifference} onChange={value => set('trackingDifference', value)} />
+          <NumberInput label="Tracking error (%)" min={0} decimalScale={3} value={form.trackingError} onChange={value => set('trackingError', value)} />
+          <TextInput label="Source URL" type="url" value={form.source_url} onChange={e => set('source_url', e.currentTarget.value)} />
+        </SimpleGrid>
+        <Text size="xs" c="dimmed">Instrument type describes the legal wrapper; asset class describes what it invests in. The ISIN is the stable key.</Text>
+        <Group justify="end">
+          <Button onClick={() => void save()}>Save instrument</Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
 }

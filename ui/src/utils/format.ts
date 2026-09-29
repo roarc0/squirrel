@@ -66,3 +66,24 @@ export const label = (value: string) =>
 
 export const confirmDelete = (kind: string, name: string, consequence = '') =>
   window.confirm(`Delete ${kind} “${name}”?${consequence ? `\n\n${consequence}` : ''}\n\nThis cannot be undone.`);
+
+export function relativeDate(dateString: string | undefined | null, now: number = Date.now()): string {
+  if (!dateString) return '—';
+  const timestamp = new Date(dateString).getTime();
+  if (isNaN(timestamp)) return '—';
+  const diffSec = Math.round((now - timestamp) / 1000);
+  if (diffSec < 60) return 'just now';
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+  const diffDays = Math.floor(diffSec / 86400);
+  if (diffDays === 1) return 'yesterday';
+  if (diffDays < 30) return `${diffDays}d ago`;
+  if (diffDays < 365) {
+    const months = Math.floor(diffDays / 30.4);
+    return `${Math.max(1, months)}mo ago`;
+  }
+  const years = Math.floor(diffDays / 365);
+  const remainingMonths = Math.floor((diffDays % 365) / 30.4);
+  return remainingMonths > 0 && years < 3 ? `${years}y ${remainingMonths}mo ago` : `${years}y ago`;
+}
+
