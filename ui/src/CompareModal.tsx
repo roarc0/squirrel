@@ -11,6 +11,8 @@ import {
 } from '@mantine/core';
 import { type Instrument } from './api';
 import { Chip, ISINBadge, ReplicationChip, TickerBadge } from './Chip';
+import { label } from './utils/format';
+import { computeInstrumentScore, isESG, resolveInstrumentProvider } from './utils/rankFilters';
 
 type Props = {
   opened: boolean;
@@ -28,13 +30,20 @@ export function CompareModal({ opened, onClose, instruments, onShowAlternatives,
       ? '—'
       : `${(valBps / 100).toFixed(2)}%`;
 
-  // Determine best metrics (lowest TER, largest size, lowest tracking diff, lowest tracking error)
+  // Determine best metrics (lowest TER, largest size, lowest tracking diff, lowest tracking error, highest score)
   const minTER = Math.min(...instruments.map(i => i.ter_bps ?? 9999));
   const maxSize = Math.max(...instruments.map(i => i.fund_size_million ?? 0));
   const validDiffs = instruments.map(i => i.tracking_difference_bps).filter((v): v is number => v !== null);
   const minDiff = validDiffs.length > 0 ? Math.min(...validDiffs) : null;
   const validErrors = instruments.map(i => i.tracking_error_bps).filter((v): v is number => v !== null);
   const minError = validErrors.length > 0 ? Math.min(...validErrors) : null;
+
+  const scoreMap = new Map<number, number | null>();
+  instruments.forEach(inst => {
+    scoreMap.set(inst.id, computeInstrumentScore(inst));
+  });
+  const validScores = instruments.map(inst => scoreMap.get(inst.id)).filter((s): s is number => s !== null && s !== undefined);
+  const maxScore = validScores.length > 0 ? Math.max(...validScores) : null;
 
   return (
     <Modal
@@ -74,6 +83,28 @@ export function CompareModal({ opened, onClose, instruments, onShowAlternatives,
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
+              <Table.Tr>
+                <Table.Td fw={600}>Composite ETF Score</Table.Td>
+                {instruments.map(inst => {
+                  const sc = scoreMap.get(inst.id);
+                  const isBest = sc !== null && sc !== undefined && maxScore !== null && sc === maxScore && validScores.length > 1;
+                  return (
+                    <Table.Td key={inst.id}>
+                      {sc !== null && sc !== undefined ? (
+                        <Group gap="xs">
+                          <Badge color="grape" size="md" variant="filled">
+                            Score {sc.toFixed(1)}
+                          </Badge>
+                          {isBest && <Badge color="teal" size="xs">Top Score</Badge>}
+                        </Group>
+                      ) : (
+                        <Text size="xs" c="dimmed">—</Text>
+                      )}
+                    </Table.Td>
+                  );
+                })}
+              </Table.Tr>
+
               <Table.Tr>
                 <Table.Td fw={600}>Total Expense Ratio (TER)</Table.Td>
                 {instruments.map(inst => {
@@ -144,7 +175,7 @@ export function CompareModal({ opened, onClose, instruments, onShowAlternatives,
                   <Table.Td key={inst.id}>
                     <Stack gap={2}>
                       <Text size="sm" fw={600}>{inst.index_name || inst.investment_focus || '—'}</Text>
-                      {inst.asset_class && <Chip size="xs">{inst.asset_class}</Chip>}
+                      {inst.asset_class && <Chip size="xs" colorKey={inst.asset_class}>{label(inst.asset_class)}</Chip>}
                     </Stack>
                   </Table.Td>
                 ))}
@@ -154,7 +185,33 @@ export function CompareModal({ opened, onClose, instruments, onShowAlternatives,
                 <Table.Td fw={600}>Distribution Policy</Table.Td>
                 {instruments.map(inst => (
                   <Table.Td key={inst.id}>
-                    <Chip size="xs">{inst.distribution || '—'}</Chip>
+                    <Chip size="xs" colorKey={inst.distribution === 'accumulating' ? 'acc' : 'dist'}>
+                      {inst.distribution === 'accumulating' ? 'Accumulating (Acc)' : inst.distribution === 'distributing' ? 'Distributing (Dist)' : inst.distribution || '—'}
+                    </Chip>
+                  </Table.Td>
+                ))}
+              </Table.Tr>
+
+              <Table.Tr>
+                <Table.Td fw={600}>ESG / SRI Screened</Table.Td>
+                {instruments.map(inst => (
+                  <Table.Td key={inst.id}>
+                    {isESG(inst) ? (
+                      <Badge size="xs" color="green" variant="light">✓ ESG / SRI Screened</Badge>
+                    ) : (
+                      <Text size="xs" c="dimmed">Standard / Traditional</Text>
+                    )}
+                  </Table.Td>
+                ))}
+              </Table.Tr>
+
+              <Table.Tr>
+                <Table.Td fw={600}>UCITS Compliant</Table.Td>
+                {instruments.map(inst => (
+                  <Table.Td key={inst.id}>
+                    <Badge size="xs" color={inst.ucits ? 'teal' : 'gray'} variant="light">
+                      {inst.ucits ? '✓ UCITS Compliant' : '✕ Non-UCITS'}
+                    </Badge>
                   </Table.Td>
                 ))}
               </Table.Tr>
@@ -188,11 +245,14 @@ export function CompareModal({ opened, onClose, instruments, onShowAlternatives,
 
               <Table.Tr>
                 <Table.Td fw={600}>Provider / Issuer</Table.Td>
-                {instruments.map(inst => (
-                  <Table.Td key={inst.id}>
-                    <Text size="sm" fw={500}>{inst.provider || '—'}</Text>
-                  </Table.Td>
-                ))}
+                {instruments.map(inst => {
+                  const prov = resolveInstrumentProvider(inst);
+                  return (
+                    <Table.Td key={inst.id}>
+                      <Text size="sm" fw={600}>{prov || '—'}</Text>
+                    </Table.Td>
+                  );
+                })}
               </Table.Tr>
 
               <Table.Tr>

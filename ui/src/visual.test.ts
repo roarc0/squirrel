@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { Instrument } from './api.ts';
-import { compactMoney, instrumentLabels, localDateISO, relativeDate, setHideBalancesState } from './utils/format.ts';
+import { compactMoney, currencySymbol, instrumentLabels, localDateISO, relativeDate, setHideBalancesState } from './utils/format.ts';
 import { builtInPresets, computeInstrumentScore, defaultFilters, defaultRankFilters, isESG, matchesFilters, matchesRankFilters, parseSearchTerms, resolveInstrumentProvider } from './utils/rankFilters.ts';
 import { chartGeometry, chartTickIndexes, chipColor, filterChartRange, matchesExactFilters, nearestChartIndex, pageBounds, performanceMood } from './visual.ts';
 
@@ -503,6 +503,20 @@ test('resolveInstrumentProvider and matchesFilters correctly handle Avantis prov
   // ESG and Active chip colors
   assert.equal(chipColor('esg'), 'green');
   assert.equal(chipColor('active'), 'orange');
+});
+
+test('currencySymbol returns expected symbol or currency code', () => {
+  assert.equal(currencySymbol('EUR'), '€');
+  assert.equal(currencySymbol('USD'), '$');
+  assert.equal(currencySymbol('GBP'), '£');
+  assert.equal(currencySymbol('CHF'), 'CHF');
+  assert.equal(currencySymbol('JPY'), '¥');
+  assert.equal(currencySymbol('ILS'), '₪');
+  assert.equal(currencySymbol('CAD'), '$');
+  assert.equal(currencySymbol('AUD'), '$');
+  assert.equal(currencySymbol(''), '€');
+  assert.equal(currencySymbol(undefined), '€');
+  assert.equal(currencySymbol('XYZ'), 'XYZ');
 });
 
 

@@ -87,6 +87,7 @@ export function QuickSearchModal({
   scheme = 'dark',
   accent = 'amber',
   onApplyTheme,
+  onOpenDetail,
 }: {
   opened: boolean;
   onClose: () => void;
@@ -100,6 +101,7 @@ export function QuickSearchModal({
   scheme?: ThemeScheme;
   accent?: ThemeAccent;
   onApplyTheme?: (scheme: ThemeScheme, accent: ThemeAccent) => void;
+  onOpenDetail?: (isin: string) => void;
 }) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -470,10 +472,14 @@ export function QuickSearchModal({
           icon: <IconSearch size={18} color="var(--mantine-color-cyan-6)" />,
           badge: inst.type.toUpperCase(),
           badgeColor: 'cyan',
-          href: '/instruments',
+          href: `/instruments/${inst.isin}`,
           onSelect: () => {
-            onSwitchTab('instruments');
-            copyToClipboard(inst.isin, 'ISIN');
+            if (onOpenDetail) {
+              onOpenDetail(inst.isin);
+            } else {
+              onSwitchTab('instruments');
+              copyToClipboard(inst.isin, 'ISIN');
+            }
             onClose();
           },
         });
@@ -507,7 +513,7 @@ export function QuickSearchModal({
     }
 
     return results.slice(0, MAX_TOTAL_RESULTS);
-  }, [coreActions, query, indexedInstruments, indexedBtps, onSwitchTab, onClose]);
+  }, [coreActions, query, indexedInstruments, indexedBtps, onSwitchTab, onClose, onOpenDetail]);
 
   // Handle Keyboard Arrow Navigation & Enter
   const handleKeyDown = (e: React.KeyboardEvent) => {

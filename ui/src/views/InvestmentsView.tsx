@@ -39,7 +39,9 @@ import { api, instrumentClient, type Account, type Holding, type Instrument, typ
 import { GeoRadarSection } from './GeoRadarView';
 import { DraftPortfoliosView } from './DraftPortfoliosView';
 import { SubnavTabs } from '../components/SubnavTabs';
-import { AllocationBar, PerformanceResult, useBackendRows } from '../App';
+import { AllocationBar } from '../components/AllocationBar';
+import { PerformanceResult } from '../components/PerformanceResult';
+import { useBackendRows } from '../hooks/useBackendRows';
 import { copyToClipboard } from '../utils/copyToClipboard';
 import { Chip, ISINBadge, TickerBadge } from '../Chip';
 import { Empty } from '../components/Empty';

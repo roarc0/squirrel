@@ -9,6 +9,7 @@ import {
   Divider,
   FileInput,
   Group,
+  Loader,
   NumberInput,
   Paper,
   SegmentedControl,
@@ -41,8 +42,8 @@ import {
 
 import { exportBackup, restoreBackup } from './api';
 import { useConfirmDelete } from './components/ConfirmDeleteModal';
-import { useProfile, isProfileLoaded } from './hooks/useProfile';
-import { money } from './utils/format';
+import { useProfile, isProfileLoaded, useProfileSyncStatus } from './hooks/useProfile';
+import { money, currencySymbol } from './utils/format';
 import { ViewShell } from './components/ViewShell';
 import { SectionHeader } from './components/SectionHeader';
 
@@ -61,6 +62,8 @@ const CURRENCY_OPTIONS = [
 export function SettingsView({ reload }: { reload: () => Promise<void> }) {
   const [profile, setProfile] = useProfile();
   const loaded = isProfileLoaded();
+  const { status: syncStatus, error: syncError, retry: retrySync } = useProfileSyncStatus();
+  const currSymbol = `${currencySymbol(profile.preferred_currency || 'EUR')} `;
 
   const isKnownCurrency = CURRENCY_OPTIONS.some(c => c.value === profile.preferred_currency && c.value !== 'CUSTOM');
   const selectedCurrencyValue = isKnownCurrency ? profile.preferred_currency : 'CUSTOM';
@@ -129,7 +132,17 @@ export function SettingsView({ reload }: { reload: () => Promise<void> }) {
         title="Settings & Preferences"
         subtitle="Manage display currency, optional feature plugins, financial goals, and database backups."
         badge={
-          loaded ? (
+          syncStatus === 'saving' ? (
+            <Badge variant="light" color="blue" size="sm" leftSection={<Loader size={10} color="blue" />}>
+              Saving…
+            </Badge>
+          ) : syncStatus === 'error' ? (
+            <Tooltip label={syncError || 'Click to retry save'} withArrow>
+              <Badge variant="filled" color="red" size="sm" style={{ cursor: 'pointer' }} onClick={() => retrySync()}>
+                Sync error · Retry
+              </Badge>
+            </Tooltip>
+          ) : loaded ? (
             <Badge variant="dot" color="teal" size="sm">
               Synced to your profile
             </Badge>
@@ -317,7 +330,7 @@ export function SettingsView({ reload }: { reload: () => Promise<void> }) {
             <Stack gap="md">
               <NumberInput
                 label="Monthly Living Expenses"
-                prefix="€ "
+                prefix={currSymbol}
                 placeholder="e.g. 2,000"
                 min={0}
                 value={monthlyExpenses || ''}
@@ -345,7 +358,7 @@ export function SettingsView({ reload }: { reload: () => Promise<void> }) {
               <Divider my="xs" />
               <NumberInput
                 label="Emergency Cash Goal"
-                prefix="€ "
+                prefix={currSymbol}
                 placeholder="e.g. 10,000"
                 min={0}
                 value={emergencyGoal || ''}
@@ -353,7 +366,7 @@ export function SettingsView({ reload }: { reload: () => Promise<void> }) {
               />
               <NumberInput
                 label="Annual Expenses (FIRE 4% Target)"
-                prefix="€ "
+                prefix={currSymbol}
                 description="Your target annual spending for the financial freedom calculator"
                 placeholder="e.g. 24,000"
                 min={0}

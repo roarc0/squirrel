@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActionIcon,
+  Alert,
   Badge,
   Box,
   Button,
@@ -18,6 +19,7 @@ import {
   TextInput,
   Tooltip,
 } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import { useElementSize } from '@mantine/hooks';
 import {
   IconArrowLeft,
@@ -285,23 +287,41 @@ export function InstrumentDetailView({
   instruments = [],
   onBack,
   onOpenDetail,
+  reload,
 }: {
   isin: string;
   instrument: Instrument | undefined;
   instruments?: Instrument[];
   onBack: () => void;
   onOpenDetail?: (isin: string) => void;
+  reload?: () => Promise<void>;
 }) {
   const [series, setSeries] = useState<PerfPoint[]>([]);
   const [fetchedAt, setFetchedAt] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'refreshing' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
+  const [fetching, setFetching] = useState(false);
+  const [fetchError, setFetchError] = useState('');
 
   const [alternatives, setAlternatives] = useState<InstrumentAlternative[]>([]);
   const [loadingAlts, setLoadingAlts] = useState(false);
   const [altsExpanded, setAltsExpanded] = useState(true);
 
   const score = instrument ? computeInstrumentScore(instrument) : null;
+
+  const handleFetch = async () => {
+    setFetching(true);
+    setFetchError('');
+    try {
+      await api<Instrument>('/api/instruments/lookup', { method: 'POST', body: JSON.stringify({ query: isin }) });
+      notifications.show({ color: 'teal', title: 'Instrument imported', message: `Successfully fetched ${isin} from justETF.` });
+      await reload?.();
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setFetching(false);
+    }
+  };
 
   useEffect(() => {
     if (!instrument?.id || instrument.instrument_type !== 'etf' || !instrument.ucits) {
@@ -415,13 +435,29 @@ export function InstrumentDetailView({
           Back to finder
         </Button>
         <Card withBorder p="xl" radius="md">
-          <Text fw={600}>{isin}</Text>
-          <Text size="sm" c="dimmed" mt={4}>
-            This instrument is not in your catalog.{' '}
-            <Text component="span" style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={onBack}>
-              Add it →
+          <Stack gap="sm" align="flex-start">
+            <Group gap="xs">
+              <Text fw={700} size="lg">{isin}</Text>
+              <Badge color="gray" variant="light">Uncataloged Instrument</Badge>
+            </Group>
+            <Text size="sm" c="dimmed">
+              This instrument is not yet stored in your local catalog. You can fetch and enrich it directly from justETF right now.
             </Text>
-          </Text>
+            {fetchError && <Alert color="red" title="Fetch failed">{fetchError}</Alert>}
+            <Group gap="sm" mt="xs">
+              <Button
+                color="teal"
+                loading={fetching}
+                leftSection={<IconRefresh size={16} />}
+                onClick={() => void handleFetch()}
+              >
+                Fetch & Add from justETF
+              </Button>
+              <Button variant="default" onClick={onBack}>
+                Return to Finder
+              </Button>
+            </Group>
+          </Stack>
         </Card>
       </Stack>
     );

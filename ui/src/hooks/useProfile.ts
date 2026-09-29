@@ -37,8 +37,12 @@ const DEFAULTS: UserProfile = {
   user_description: '',
 };
 
+export type ProfileSyncStatus = 'idle' | 'saving' | 'saved' | 'error';
+
 let _profile: UserProfile = { ...DEFAULTS };
 let _loaded = false;
+let _syncStatus: ProfileSyncStatus = 'idle';
+let _syncError = '';
 const _listeners = new Set<() => void>();
 
 function notify() {
@@ -80,6 +84,7 @@ export async function loadProfile(): Promise<void> {
     };
   }
   _loaded = true;
+  _syncStatus = 'saved';
   localStorage.setItem('squirrel.hideBalances', String(_profile.hide_balances));
   localStorage.setItem('squirrel.activeTab', _profile.active_tab);
   if (_profile.ai_settings_json) localStorage.setItem('squirrel.aiSettings', _profile.ai_settings_json);
@@ -90,7 +95,10 @@ export async function loadProfile(): Promise<void> {
 
 let _saveTimer: ReturnType<typeof setTimeout> | undefined;
 
-async function persistProfile(): Promise<void> {
+export async function persistProfile(): Promise<void> {
+  _syncStatus = 'saving';
+  _syncError = '';
+  notify();
   try {
     await profileClient.updateProfile({
       profile: {
@@ -110,11 +118,16 @@ async function persistProfile(): Promise<void> {
         userDescription: _profile.user_description,
       },
     });
+    _syncStatus = 'saved';
+    notify();
   } catch (cause) {
+    _syncStatus = 'error';
+    _syncError = cause instanceof Error ? cause.message : String(cause);
+    notify();
     notifications.show({
       color: 'red',
       title: 'Profile was not saved',
-      message: cause instanceof Error ? cause.message : String(cause),
+      message: _syncError,
     });
   }
 }
@@ -131,6 +144,8 @@ export function resetProfile(): void {
   _saveTimer = undefined;
   _profile = { ...DEFAULTS };
   _loaded = false;
+  _syncStatus = 'idle';
+  _syncError = '';
   localStorage.removeItem('squirrel.aiSettings');
   localStorage.removeItem('squirrel.draftPortfolios');
   setHideBalancesState(false);
@@ -139,6 +154,7 @@ export function resetProfile(): void {
 
 export function updateProfile(patch: Partial<UserProfile>): void {
   _profile = { ..._profile, ...patch };
+  _syncStatus = 'saving';
   if (patch.show_fire_calculator !== undefined) {
     localStorage.setItem('squirrel.showFireCalculator', String(_profile.show_fire_calculator));
   }
@@ -176,4 +192,18 @@ export function useProfile(): [UserProfile, (patch: Partial<UserProfile>) => voi
     return () => { _listeners.delete(fn); };
   }, []);
   return [_profile, updateProfile];
+}
+
+export function useProfileSyncStatus(): { status: ProfileSyncStatus; error: string; retry: () => void } {
+  const [, rerender] = useState(0);
+  useEffect(() => {
+    const fn = () => rerender(n => n + 1);
+    _listeners.add(fn);
+    return () => { _listeners.delete(fn); };
+  }, []);
+  return {
+    status: _syncStatus,
+    error: _syncError,
+    retry: () => void persistProfile(),
+  };
 }

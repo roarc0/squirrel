@@ -24,8 +24,8 @@ Reviewed 2026-09-04 across the Go services/store/domain, protobuf and Connect bo
 
 - [x] **Build a real narrow-screen navigation.** Phone layouts now use a labelled Mantine burger/drawer around the existing sidebar; navigation closes the drawer and desktop collapse remains independently persisted.
 - [x] **Make invisible controls keyboard-visible.** Table actions reveal on `:focus-within`, icon-only controls have accessible names, decorative SVGs are hidden from assistive technology, and reduced-motion preferences are honored.
-- [ ] **Show persistence and recovery states.** Replace best-effort silent saves with saving/saved/error feedback; add Retry to initial-load errors and keep the last usable data on refresh failures.
-- [ ] **Apply display preferences consistently.** Restore theme/accent from the profile, use the selected currency symbol instead of hard-coded `€` in Settings, and explain when figures remain in their original currency.
+- [x] **Show persistence and recovery states.** Replace best-effort silent saves with saving/saved/error feedback; add Retry to initial-load errors and keep the last usable data on refresh failures.
+- [x] **Apply display preferences consistently.** Restore theme/accent from the profile, use the selected currency symbol instead of hard-coded `€` in Settings, and explain when figures remain in their original currency.
 
 ## P1 — Tests and delivery
 
@@ -47,7 +47,7 @@ Reviewed 2026-09-04 across the Go services/store/domain, protobuf and Connect bo
 - [ ] **Retire the legacy `api(path, init)` facade.** It duplicates generated types, uses pervasive `any`/casts, and hid the partial-update bug. Call typed Connect clients directly or keep only small domain adapters, migrated one feature at a time.
 - [ ] **Stop full-app reloads after every mutation.** Update the affected account/holding/snapshot slice and cache the shared instrument catalog; do not refetch thousands of instruments for an unrelated edit.
 - [ ] **Query instruments directly by ID/ISIN.** Both getters load and scan the full catalog, multiplying work during lookup/enrichment; share one row scanner and use indexed SQL.
-- [ ] **Delete verified dead UI code and break the `App.tsx` import cycle.** Remove unused `SettingsModal`, `DraftPortfoliosModal`, alias views, dead types/wrappers, and obsolete panels; move only actually shared table/chart helpers out of `App.tsx` (roughly 700+ removable lines before CSS cleanup).
+- [x] **Delete verified dead UI code and break the `App.tsx` import cycle.** Remove unused `SettingsModal`, `DraftPortfoliosModal`, alias views, dead types/wrappers, and obsolete panels; move only actually shared table/chart helpers out of `App.tsx` (roughly 700+ removable lines before CSS cleanup).
 - [ ] **Split large files only along active feature seams.** When touched, separate AI settings/history/provider code from the 1,500-line consultant view and form/table logic from the 1,000-line investments view; add no generic framework.
 - [ ] **Remove `samber/lo`.** Four simple map/filter/sum loops do not justify a production dependency.
 - [ ] **Bring docs back to the code.** Update the architecture map (`internal/service`, not `internal/httpapi`), backup format, AI mutation policy, auth behavior, and offline/integration test commands.

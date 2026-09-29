@@ -20,11 +20,13 @@ import {
 } from '@mantine/core';
 import { api, type Holding, type Instrument, type Snapshot, type Summary } from '../api';
 import { useElementSize } from '@mantine/hooks';
-import { AllocationBar, PerformanceResult, useBackendRows } from '../App';
+import { AllocationBar } from '../components/AllocationBar';
+import { PerformanceResult } from '../components/PerformanceResult';
+import { useBackendRows } from '../hooks/useBackendRows';
 import { Empty } from '../components/Empty';
 import { DataTable, TableAction, TableActions, type DataColumn } from '../DataTable';
 import { IconAlertTriangle, IconChartPie, IconPencil, IconTrash } from '@tabler/icons-react';
-import { compactMoney, investedMoney, label, localDateISO, money } from '../utils/format';
+import { compactMoney, currencySymbol, investedMoney, label, localDateISO, money } from '../utils/format';
 import { chartGeometry, filterChartRange, nearestChartIndex, type ChartRange } from '../visual';
 import { useConfirmDelete } from '../components/ConfirmDeleteModal';
 import { useProfile } from '../hooks/useProfile';
@@ -177,7 +179,7 @@ function FreedomCalculatorCard({ totalWealthMinor, currency }: { totalWealthMino
       <Progress value={fireProgressPct} color={fireProgressPct >= 100 ? 'teal' : 'blue'} radius="xl" mt="md" />
       <Modal opened={editing} onClose={() => setEditing(false)} title={`Target Annual Living Expenses (${currency})`} size="sm">
         <Stack gap="sm">
-          <NumberInput label="Annual Expenses Goal (€/yr)" min={1000} value={draftExpenses} onChange={setDraftExpenses} />
+          <NumberInput label={`Annual Expenses Goal (${currency}/yr)`} min={1000} value={draftExpenses} onChange={setDraftExpenses} />
           <Text size="xs" c="dimmed">Your estimated yearly budget needed to cover your living costs independently.</Text>
           <Button onClick={saveExpenses}>Save Expenses Goal</Button>
         </Stack>
@@ -445,17 +447,29 @@ function SnapshotHistory({ snapshots, currency, reload }: { snapshots: Snapshot[
     return rows;
   }, [table.rows, table.sort, table.direction]);
 
-  const deltaMap = new Map<number, { diff: number; pct: number }>();
-  for (let i = 0; i < current.length; i++) {
-    if (i === 0) {
-      deltaMap.set(current[i].id, { diff: 0, pct: 0 });
-    } else {
-      const prev = current[i - 1];
-      const diff = current[i].total_minor - prev.total_minor;
-      const pct = prev.total_minor > 0 ? (diff / prev.total_minor) * 100 : 0;
-      deltaMap.set(current[i].id, { diff, pct });
+  const deltaMap = useMemo(() => {
+    const map = new Map<string, { diff: number; pct: number }>();
+    const byCurrency = new Map<string, Snapshot[]>();
+    for (const s of snapshots) {
+      const list = byCurrency.get(s.currency) || [];
+      list.push(s);
+      byCurrency.set(s.currency, list);
     }
-  }
+    for (const [, list] of byCurrency) {
+      list.sort((a, b) => a.observed_on.localeCompare(b.observed_on));
+      for (let i = 0; i < list.length; i++) {
+        if (i === 0) {
+          map.set(`${list[i].id}-${list[i].currency}`, { diff: 0, pct: 0 });
+        } else {
+          const prev = list[i - 1];
+          const diff = list[i].total_minor - prev.total_minor;
+          const pct = prev.total_minor > 0 ? (diff / prev.total_minor) * 100 : 0;
+          map.set(`${list[i].id}-${list[i].currency}`, { diff, pct });
+        }
+      }
+    }
+    return map;
+  }, [snapshots]);
 
   const removeSnapshot = (item: Snapshot) => {
     confirmDelete('snapshot', `${item.observed_on} (${money(item.total_minor, item.currency)})`, async () => {
@@ -476,7 +490,7 @@ function SnapshotHistory({ snapshots, currency, reload }: { snapshots: Snapshot[
       sortable: false,
       align: 'right',
       render: item => {
-        const delta = deltaMap.get(item.id);
+        const delta = deltaMap.get(`${item.id}-${item.currency}`);
         if (!delta || (delta.diff === 0 && delta.pct === 0)) {
           return <Text size="xs" c="dimmed">—</Text>;
         }
@@ -652,7 +666,7 @@ function WealthChart({ snapshots, currency }: { snapshots: Snapshot[]; currency:
           </p>
         </div>
         <Group gap="xs">
-          <SegmentedControl size="xs" value={yMode} onChange={value => setYMode(value as 'abs' | 'pct')} data={[{ label: '€', value: 'abs' }, { label: '%', value: 'pct' }]} />
+          <SegmentedControl size="xs" value={yMode} onChange={value => setYMode(value as 'abs' | 'pct')} data={[{ label: currencySymbol(currency), value: 'abs' }, { label: '%', value: 'pct' }]} />
           <SegmentedControl size="xs" value={range} onChange={value => setRange(value as ChartRange)} data={['1w', '2w', '1m', '3m', '6m', '1y', '3y', '5y', 'max']} />
         </Group>
       </div>

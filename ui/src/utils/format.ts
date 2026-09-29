@@ -23,6 +23,17 @@ export const setHideBalancesState = (hidden: boolean) => {
 
 export const getHideBalancesState = (): boolean => hideBalancesGlobal;
 
+export const currencySymbol = (currency: string = 'EUR'): string => {
+  const curr = currency || 'EUR';
+  try {
+    const parts = new Intl.NumberFormat(undefined, { style: 'currency', currency: curr, currencyDisplay: 'narrowSymbol' }).formatToParts(0);
+    const sym = parts.find(p => p.type === 'currency')?.value;
+    return sym ?? curr;
+  } catch {
+    return curr;
+  }
+};
+
 export const money = (value: number | undefined, currency: string) => {
   if (hideBalancesGlobal) return '••••••';
   if (value === undefined || !Number.isFinite(value)) return '—';

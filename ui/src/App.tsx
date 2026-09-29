@@ -149,128 +149,15 @@ function applyAccentVars(a: ThemeAccent) {
   Object.entries(ACCENT_VARS[a]).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
 }
 
-export function useBackendRows<T>(endpoint: string, source: T[], initialSort = '', initialDirection: SortDirection = 'asc') {
-  const [rows, setRows] = useState(source);
-  const [sort, setSort] = useState(initialSort);
-  const [direction, setDirection] = useState<SortDirection>(initialDirection);
-  const [sortError, setSortError] = useState('');
-  useEffect(() => { setRows(source); setSort(initialSort); setDirection(initialDirection); }, [source, initialSort, initialDirection]);
-  const sortRows = async (key: string, next: SortDirection) => {
-    try {
-      setRows(await api<T[]>(`${endpoint}?sort=${encodeURIComponent(key)}&direction=${next}`) ?? []);
-      setSort(key); setDirection(next); setSortError('');
-    } catch (cause) { setSortError(cause instanceof Error ? cause.message : String(cause)); }
-  };
-  return { rows, setRows, sort, direction, sortError, sortRows };
-}
+import { SquirrelIcon, SquirrelBrandLogo } from './components/SquirrelLogo';
+import { useBackendRows } from './hooks/useBackendRows';
+import { PerformanceResult } from './components/PerformanceResult';
+import { AllocationBar } from './components/AllocationBar';
 
-export function SquirrelIcon({ size = 26, className }: { size?: number; className?: string }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 32 32"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      aria-hidden="true"
-      focusable="false"
-      style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }}
-    >
-      <defs>
-        <linearGradient id="sqFur" x1="2" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#fb923c" />
-          <stop offset="100%" stopColor="#ea580c" />
-        </linearGradient>
-        <linearGradient id="sqTail" x1="14" y1="2" x2="32" y2="28" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#f97316" />
-          <stop offset="100%" stopColor="#c2410c" />
-        </linearGradient>
-      </defs>
-
-      {/* Bushy Fluffy Tail (sweeping upward on right) */}
-      <path
-        d="M 16.5 25 C 22 25 28.5 21.5 29.5 15.5 C 30.5 10 28.5 5.5 25 2.5 C 22 0 18.5 0 16 0 C 17.5 2.5 19 5 19.5 8.5 C 20.2 12.5 19 16 16 19 C 14 21 12.5 21.5 11 22 C 12.5 24 14.5 25 16.5 25 Z"
-        fill="url(#sqTail)"
-      />
-
-      {/* Back Ear (tufted, standing tall) */}
-      <path d="M 14.5 7.5 L 14.2 0.8 C 13.6 -0.2 12.4 0.6 12 2 L 12 7 Z" fill="#9a3412" />
-
-      {/* Front Ear (tufted, standing tall) */}
-      <path d="M 11.5 8 L 10.5 0.5 C 9.8 -0.5 8.8 0.5 8.8 2 L 9.2 8.5 Z" fill="url(#sqFur)" />
-
-      {/* Big Round Head (Snout pointing left) */}
-      <circle cx="10" cy="10" r="5.5" fill="url(#sqFur)" />
-      <path d="M 10 4.5 C 7 4.5 4.5 7 4 9.5 C 3.5 11.2 4.2 12.8 5.5 13.8 L 10 15.5 Z" fill="url(#sqFur)" />
-
-      {/* Cream Chest / Belly Bib */}
-      <path
-        d="M 5.8 12.5 C 6.2 15 7.2 18.5 8.8 22 C 9.8 24.2 11.2 26 12.5 26 C 10.8 25 9.5 22.8 8.2 20 C 7.2 17.2 6.5 14.5 5.8 12.5 Z"
-        fill="#fef3c7"
-      />
-
-      {/* Torso & Back */}
-      <path
-        d="M 6.8 13.5 C 6 15.5 5.5 18 5.5 21 C 5.5 24.5 7 27 9 28 C 11 29 13.5 28 15 27 C 18 26 20 22.5 20 18 C 20 14.5 17.5 12 14.5 11.5 C 11 11 8.5 11.8 6.8 13.5 Z"
-        fill="url(#sqFur)"
-      />
-
-      {/* Round Sitting Hind Thigh */}
-      <circle cx="13.5" cy="20.5" r="4.8" fill="url(#sqFur)" stroke="#ea580c" strokeWidth="0.8" />
-
-      {/* Sitting Feet */}
-      <path d="M 8 27 C 6.8 27 5.8 27.5 5.2 28 C 6.8 28.8 9 28.8 10.5 28 Z" fill="#c2410c" />
-      <path d="M 12 26.8 C 10.8 27.5 10.2 28.2 10.8 28.8 C 12.5 29.2 14.8 28.8 15.8 27.8 Z" fill="#c2410c" />
-
-      {/* Cute Front Paws */}
-      <path d="M 7.2 15 C 6.2 16.2 6 17.8 6.5 18.5 C 7 18.8 8 17.8 8.4 16.5 Z" fill="#c2410c" />
-      <path d="M 9.5 15.2 C 8.5 16.5 8.2 18.1 8.7 18.8 C 9.2 19 10.2 18 10.6 16.8 Z" fill="#c2410c" />
-
-      {/* Large Expressive Eye & Nose */}
-      <circle cx="8" cy="9.2" r="1.5" fill="#0f172a" />
-      <circle cx="7.5" cy="8.6" r="0.55" fill="#ffffff" />
-      <ellipse cx="4.2" cy="10" rx="0.85" ry="0.65" fill="#0f172a" />
-    </svg>
-  );
-}
-
-export function SquirrelBrandLogo({ size = 26 }: { size?: number }) {
-  return (
-    <Group gap={8} align="center" style={{ userSelect: 'none' }}>
-      <SquirrelIcon size={size} />
-      <Text
-        component="span"
-        style={{
-          fontSize: '1.65rem',
-          fontWeight: 850,
-          fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif',
-          letterSpacing: '-0.045em',
-          background: 'linear-gradient(135deg, var(--mantine-color-teal-4, #fb923c) 0%, var(--mantine-color-teal-6, #ea580c) 65%, var(--mantine-color-teal-8, #c2410c) 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          lineHeight: 1,
-          display: 'inline-flex',
-          alignItems: 'center',
-          filter: 'drop-shadow(0 2px 10px rgba(249, 115, 22, 0.2))',
-        }}
-      >
-        squirrel
-      </Text>
-    </Group>
-  );
-}
-
-export function formatUserName(user?: AuthUser | null): string {
-  if (!user || !user.email) return 'Account';
-  const namePart = user.email.split('@')[0];
-  return namePart
-    .split(/[._-]/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
-
-
+export { SquirrelIcon, SquirrelBrandLogo } from './components/SquirrelLogo';
+export { useBackendRows } from './hooks/useBackendRows';
+export { PerformanceResult } from './components/PerformanceResult';
+export { AllocationBar } from './components/AllocationBar';
 
 export default function App() {
   const [needsLogin, setNeedsLogin] = useState(false);
@@ -551,8 +438,21 @@ export default function App() {
   if (needsLogin) return <LoginView />;
   if (!data) {
     return (
-      <main className="shell">
-        {error ? <Alert color="red">{error}</Alert> : <AppSkeleton />}
+      <main className="shell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
+        {error ? (
+          <Paper withBorder p="xl" radius="lg" style={{ maxWidth: 460, textAlign: 'center', margin: '0 auto' }}>
+            <Stack align="center" gap="md">
+              <SquirrelIcon size={48} />
+              <Text fw={750} size="lg">Could Not Connect to Squirrel</Text>
+              <Text size="sm" c="dimmed">{error}</Text>
+              <Button leftSection={<IconRefresh size={16} />} color="teal" onClick={() => void load()}>
+                Retry Connection
+              </Button>
+            </Stack>
+          </Paper>
+        ) : (
+          <AppSkeleton />
+        )}
       </main>
     );
   }
@@ -672,11 +572,13 @@ export default function App() {
             <Tabs.Panel value="instruments" className="tab-content">
               {route.subtab && /^[A-Z]{2}[A-Z0-9]{10}$/.test(route.subtab)
                 ? <InstrumentDetailView
+                    key={route.subtab}
                     isin={route.subtab}
                     instrument={data.instruments.find(i => i.isin === route.subtab)}
                     instruments={data.instruments}
                     onBack={() => handleSubtabChange('instruments', '')}
                     onOpenDetail={isin => handleSubtabChange('instruments', isin)}
+                    reload={load}
                   />
                 : <InstrumentFinderView
                     instruments={data.instruments}
@@ -738,6 +640,7 @@ export default function App() {
             scheme={scheme}
             accent={accent}
             onApplyTheme={applyTheme}
+            onOpenDetail={isin => handleSubtabChange('instruments', isin)}
           />
         </main>
         <footer className="app-footer">
@@ -772,122 +675,9 @@ function Overview({
   );
 }
 
-function Metric({ label, value, positive }: { label: string; value: string; positive?: boolean }) {
-  return <Card className="metric" p="lg" radius="lg"><Text size="sm" c="dimmed">{label}</Text><Text size="xl" fw={750} mt={4} className={positive ? 'positive' : ''}>{value}</Text></Card>;
-}
-
-function InvestmentMetric({ value, invested, currency }: { value: number; invested: number; currency: string }) {
-  return <Card className="metric" p="lg" radius="lg"><Text size="sm" c="dimmed">Investments</Text><Text size="xl" fw={750} mt={4}>{money(value, currency)}</Text><Text size="xs" c="dimmed" mt={5}>Invested {investedMoney(invested, value, currency)}</Text></Card>;
-}
-
-function PerformanceMetric({ value, invested, currency }: { value: number; invested: number; currency: string }) {
-  return <Card className="metric" p="lg" radius="lg"><Text size="sm" c="dimmed">Investment trend</Text><Group mt={10} align="center"><PerformanceResult value={value} invested={invested} currency={currency} mood /></Group></Card>;
-}
-
-export function PerformanceResult({ value, invested, currency, mood = false }: { value: number; invested: number; currency: string; mood?: boolean }) {
-  if (invested <= 0) return <Text size="sm" c="dimmed">—</Text>;
-  const change = value - invested; const changePercent = change / invested * 100; const state = performanceMood(changePercent);
-  return (
-    <Group gap={4} wrap="nowrap" align="center">
-      {mood && <Text title={state.label} size="lg" lh={1}>{state.emoji}</Text>}
-      {change >= 0 ? <IconTrendingUp size={14} color="var(--mantine-color-teal-6)" /> : <IconTrendingDown size={14} color="var(--mantine-color-red-6)" />}
-      <Text size="sm" fw={700} c={change >= 0 ? 'teal' : 'red'}>
-        {change >= 0 ? '+' : ''}{money(change, currency)} · {change >= 0 ? '+' : ''}{changePercent.toFixed(1)}%
-      </Text>
-    </Group>
-  );
-}
-
-
-
-export function AllocationBar({
-  segments,
-  total,
-  selectedKey,
-  onSelectKey,
-}: {
-  segments: { label: string; value: number; key?: string }[];
-  total: number;
-  selectedKey?: string | null;
-  onSelectKey?: (key: string | null) => void;
-}) {
-  const visible = segments.filter(segment => segment.value > 0);
-
-  return (
-    <Stack gap="xs" mt="sm">
-      <Box
-        h={14}
-        bg="light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5))"
-        style={{ display: 'flex', overflow: 'hidden', borderRadius: 999 }}
-      >
-        {visible.map(segment => {
-          const itemKey = segment.key ?? segment.label.toLowerCase();
-          const isSelected = selectedKey === itemKey;
-          const isDimmed = Boolean(selectedKey && !isSelected);
-          const pct = total > 0 ? (segment.value / total) * 100 : 0;
-
-          return (
-            <Tooltip
-              key={segment.label}
-              label={`${segment.label}: ${pct.toFixed(1)}% (${money(segment.value, 'EUR')})${onSelectKey ? ' · Click to filter' : ''}`}
-              withArrow
-            >
-              <Box
-                bg={`${chipColor(segment.label)}.5`}
-                onClick={() => onSelectKey?.(isSelected ? null : itemKey)}
-                style={{
-                  width: `${pct}%`,
-                  cursor: onSelectKey ? 'pointer' : 'default',
-                  opacity: isDimmed ? 0.35 : 1,
-                  transition: 'opacity 0.2s ease, transform 0.15s ease',
-                  transform: isSelected ? 'scaleY(1.2)' : 'scaleY(1)',
-                }}
-              />
-            </Tooltip>
-          );
-        })}
-      </Box>
-      <Group gap="xs">
-        {visible.map(segment => {
-          const itemKey = segment.key ?? segment.label.toLowerCase();
-          const isSelected = selectedKey === itemKey;
-          const pct = total > 0 ? (segment.value / total) * 100 : 0;
-          return (
-            <UnstyledButton
-              key={segment.label}
-              disabled={!onSelectKey}
-              onClick={() => onSelectKey?.(isSelected ? null : itemKey)}
-            >
-              <Chip
-                colorKey={segment.label}
-                variant={isSelected ? 'filled' : 'light'}
-                style={{
-                  cursor: onSelectKey ? 'pointer' : 'default',
-                  transition: 'all 0.15s ease',
-                  transform: isSelected ? 'scale(1.05)' : 'scale(1)',
-                  boxShadow: isSelected ? '0 2px 8px rgba(0,0,0,0.15)' : undefined,
-                }}
-              >
-                {`${segment.label} ${pct.toFixed(1)}%`}
-              </Chip>
-            </UnstyledButton>
-          );
-        })}
-      </Group>
-    </Stack>
-  );
-}
-
-type TierDraft = { upTo: Numeric; kind: 'fixed' | 'reference'; rate: Numeric; reference: string; spread: Numeric };
-type AccountDraft = { name: string; institution: string; type: Account['type']; preferred: boolean; archived: boolean; currency: string; balance: Numeric; tax: Numeric; fee: Numeric; tiers: TierDraft[] };
-const blankTier = (): TierDraft => ({ upTo: '', kind: 'fixed', rate: 0, reference: '', spread: 0 });
-const blankAccount = (tax = 26): AccountDraft => ({ name: '', institution: '', type: 'bank', preferred: false, archived: false, currency: 'EUR', balance: 0, tax, fee: 0, tiers: [blankTier()] });
-
 function Accounts({ accounts, rates, taxRates, reload }: { accounts: Account[]; rates: ReferenceRate[]; taxRates: TaxRate[]; reload: () => Promise<void> }) {
   return <AccountsView accounts={accounts} rates={rates} taxRates={taxRates} reload={reload} />;
 }
-
-type HoldingDraft = { accountID: string; instrumentID: string; value: Numeric; sinceBuy: Numeric; planned: Numeric; tax: Numeric };
 
 function Investments({
   holdings,
@@ -925,10 +715,3 @@ function Investments({
   );
 }
 
-function InstrumentFinder({ instruments, reload }: { instruments: Instrument[]; reload: () => Promise<void> }) {
-  return <InstrumentFinderView instruments={instruments} reload={reload} />;
-}
-
-export function Empty({ title, text }: { title: string; text: string }) {
-  return <Card className="metric" p="xl" radius="lg"><Text fw={700}>{title}</Text><Text size="sm" c="dimmed" mt={4}>{text}</Text></Card>;
-}

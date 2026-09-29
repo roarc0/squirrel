@@ -21,7 +21,7 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { api, type Account, type ReferenceRate, type TaxRate } from '../api';
-import { useBackendRows } from '../App';
+import { useBackendRows } from '../hooks/useBackendRows';
 import { Chip } from '../Chip';
 import { Empty } from '../components/Empty';
 import { DataTable, TableAction, TableActions, type DataColumn } from '../DataTable';

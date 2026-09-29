@@ -25,7 +25,7 @@ import {
 } from '@mantine/core';
 import { IconPencil, IconTrash, IconCopy, IconCamera, IconRepeat, IconPlus } from '@tabler/icons-react';
 import type { Account, Holding, Instrument } from '../api';
-import { AllocationBar } from '../App';
+import { AllocationBar } from '../components/AllocationBar';
 import { Chip } from '../Chip';
 import { Empty } from '../components/Empty';
 import { money, percent } from '../utils/format';
