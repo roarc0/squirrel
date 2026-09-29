@@ -2,14 +2,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActionIcon,
   Badge,
+  Box,
   Button,
   Card,
+  Collapse,
   Divider,
   Group,
+  Loader,
   Paper,
   SimpleGrid,
   Skeleton,
   Stack,
+  Table,
   Text,
   TextInput,
   Tooltip,
@@ -17,15 +21,19 @@ import {
 import { useElementSize } from '@mantine/hooks';
 import {
   IconArrowLeft,
+  IconArrowRight,
+  IconArrowsExchange,
+  IconChevronDown,
+  IconChevronUp,
   IconExternalLink,
   IconRefresh,
   IconX,
 } from '@tabler/icons-react';
-import { instrumentClient, type Instrument } from '../api';
+import { api, instrumentClient, type Instrument, type InstrumentAlternative } from '../api';
 import { chartGeometry, nearestChartIndex } from '../visual';
 import { Chip, ISINBadge, ReplicationChip, TickerBadge } from '../Chip';
 import { instrumentLabels, label, relativeDate } from '../utils/format';
-import { computeInstrumentScore } from '../utils/rankFilters';
+import { computeInstrumentScore, isESG } from '../utils/rankFilters';
 
 type PerfPoint = { date: string; change_bps: number };
 type PeriodKey = '1m' | '3m' | '6m' | 'ytd' | '1y' | '3y' | '5y' | 'max';
@@ -274,18 +282,113 @@ function fmtAUM(m: number) { return m >= 1000 ? `€${(m / 1000).toFixed(1)}b` :
 export function InstrumentDetailView({
   isin,
   instrument,
+  instruments = [],
   onBack,
+  onOpenDetail,
 }: {
   isin: string;
   instrument: Instrument | undefined;
+  instruments?: Instrument[];
   onBack: () => void;
+  onOpenDetail?: (isin: string) => void;
 }) {
   const [series, setSeries] = useState<PerfPoint[]>([]);
   const [fetchedAt, setFetchedAt] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'refreshing' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
+  const [alternatives, setAlternatives] = useState<InstrumentAlternative[]>([]);
+  const [loadingAlts, setLoadingAlts] = useState(false);
+  const [altsExpanded, setAltsExpanded] = useState(true);
+
   const score = instrument ? computeInstrumentScore(instrument) : null;
+
+  useEffect(() => {
+    if (!instrument?.id || instrument.instrument_type !== 'etf' || !instrument.ucits) {
+      setAlternatives([]);
+      return;
+    }
+    let active = true;
+    setLoadingAlts(true);
+    void api<InstrumentAlternative[]>(`/api/instruments/${instrument.id}/alternatives`)
+      .then(res => {
+        if (active) setAlternatives(res ?? []);
+      })
+      .catch(() => {
+        if (active) setAlternatives([]);
+      })
+      .finally(() => {
+        if (active) setLoadingAlts(false);
+      });
+    return () => { active = false; };
+  }, [instrument?.id, instrument?.instrument_type, instrument?.ucits]);
+
+  const betterAlternatives = useMemo(() => {
+    if (!instrument) return [];
+
+    const map = new Map<string, InstrumentAlternative>();
+    for (const a of alternatives) {
+      map.set(a.instrument.isin, a);
+    }
+
+    if (instruments.length > 0) {
+      for (const cand of instruments) {
+        if (cand.isin === instrument.isin || cand.id === instrument.id) continue;
+        if (cand.instrument_type !== 'etf' || !cand.ucits || cand.data_status !== 'enriched') continue;
+        if (cand.asset_class !== instrument.asset_class) continue;
+
+        const sameIndex = Boolean(instrument.index_name && cand.index_name && cand.index_name.toLowerCase().trim() === instrument.index_name.toLowerCase().trim());
+        const sameFocus = Boolean(instrument.investment_focus && cand.investment_focus && cand.investment_focus.toLowerCase().trim() === instrument.investment_focus.toLowerCase().trim());
+
+        if (sameIndex || sameFocus) {
+          if (!map.has(cand.isin)) {
+            const matchType = sameIndex ? 'exact_index' : 'same_exposure';
+            const candScore = computeInstrumentScore(cand);
+            map.set(cand.isin, {
+              instrument: cand,
+              match: matchType,
+              better: Boolean(candScore !== null && score !== null && candScore > score),
+              score: candScore ?? 0,
+              reasons: [
+                sameIndex ? `Tracks same index (${cand.index_name})` : `Same exposure (${cand.investment_focus})`,
+                cand.ter_bps < instrument.ter_bps ? `Lower TER (${(cand.ter_bps / 100).toFixed(2)}% vs ${(instrument.ter_bps / 100).toFixed(2)}%)` : '',
+                cand.fund_size_million > instrument.fund_size_million ? `Larger fund (€${cand.fund_size_million}m vs €${instrument.fund_size_million}m)` : '',
+              ].filter(Boolean),
+            });
+          }
+        }
+      }
+    }
+
+    const result: {
+      alt: InstrumentAlternative;
+      inst: Instrument;
+      score: number | null;
+      scoreDiff: number;
+      terSavings: number;
+    }[] = [];
+
+    for (const a of map.values()) {
+      const altInst = a.instrument;
+      const altScore = a.score ?? computeInstrumentScore(altInst);
+      const sDiff = altScore !== null && score !== null ? Math.round((altScore - score) * 10) / 10 : (a.better ? 1 : 0);
+      const isBetter = (altScore !== null && score !== null && altScore > score) || (score === null && altScore !== null) || a.better;
+
+      if (isBetter) {
+        const terDiffBps = (instrument.ter_bps ?? 0) - (altInst.ter_bps ?? 0);
+        result.push({
+          alt: a,
+          inst: altInst,
+          score: altScore,
+          scoreDiff: sDiff,
+          terSavings: terDiffBps / 100,
+        });
+      }
+    }
+
+    result.sort((x, y) => (y.scoreDiff - x.scoreDiff) || (y.terSavings - x.terSavings));
+    return result;
+  }, [instrument, alternatives, instruments, score]);
 
   const load = useCallback(async (refresh = false) => {
     setStatus(refresh ? 'refreshing' : 'loading');
@@ -409,6 +512,11 @@ export function InstrumentDetailView({
                 {label(instrument.strategy)}
               </Badge>
             )}
+            {isESG(instrument) && (
+              <Badge size="sm" variant="light" color="teal">
+                ESG / SRI Screened
+              </Badge>
+            )}
             <Badge size="sm" variant="light" color={instrument.ucits ? 'teal' : 'gray'}>
               {instrument.ucits ? 'UCITS Compliant' : 'Non-UCITS'}
             </Badge>
@@ -483,6 +591,178 @@ export function InstrumentDetailView({
         </Paper>
       </SimpleGrid>
 
+      {/* Expandable Section: Similar ETFs with a Better Score */}
+      {instrument.instrument_type === 'etf' && (
+        <Card withBorder p={0} radius="md" style={{ overflow: 'hidden' }}>
+          <Box
+            p="sm"
+            style={{
+              cursor: 'pointer',
+              backgroundColor: 'var(--mantine-color-default-hover)',
+              userSelect: 'none',
+            }}
+            onClick={() => setAltsExpanded(v => !v)}
+          >
+            <Group justify="space-between" align="center">
+              <Group gap="xs" align="center">
+                <IconArrowsExchange size={18} color="var(--mantine-color-teal-6)" />
+                <Text fw={700} size="sm">Similar ETFs with a Better Score</Text>
+                {loadingAlts ? (
+                  <Loader size="xs" />
+                ) : (
+                  <Badge
+                    size="sm"
+                    variant={betterAlternatives.length > 0 ? 'filled' : 'light'}
+                    color={betterAlternatives.length > 0 ? 'teal' : 'gray'}
+                  >
+                    {betterAlternatives.length} {betterAlternatives.length === 1 ? 'higher-scoring alternative' : 'higher-scoring alternatives'}
+                  </Badge>
+                )}
+              </Group>
+              <Group gap="xs">
+                <Text size="xs" c="dimmed">
+                  {altsExpanded ? 'Hide' : 'Show'}
+                </Text>
+                <ActionIcon variant="subtle" size="sm" color="gray" aria-label="Toggle alternatives table">
+                  {altsExpanded ? <IconChevronUp size={16} /> : <IconChevronDown size={16} />}
+                </ActionIcon>
+              </Group>
+            </Group>
+          </Box>
+
+          <Collapse expanded={altsExpanded}>
+            <Divider />
+            <Box p="sm">
+              {loadingAlts ? (
+                <Skeleton height={140} radius="sm" />
+              ) : betterAlternatives.length === 0 ? (
+                <Stack align="center" py="md" gap="xs">
+                  <Text size="sm" c="dimmed">
+                    No higher-scoring similar ETFs found in catalog.
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    {score !== null ? `This ETF currently has the top composite score (${score.toFixed(1)}/100) among comparable funds.` : 'Enrich this ETF to compute composite rankings.'}
+                  </Text>
+                </Stack>
+              ) : (
+                <Table.ScrollContainer minWidth={700}>
+                  <Table verticalSpacing="xs" striped highlightOnHover>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Alternative ETF</Table.Th>
+                        <Table.Th>Score</Table.Th>
+                        <Table.Th>TER</Table.Th>
+                        <Table.Th>Fund Size</Table.Th>
+                        <Table.Th>Policy / Replication</Table.Th>
+                        <Table.Th>Why it's Better</Table.Th>
+                        <Table.Th style={{ textAlign: 'right' }}>Action</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {betterAlternatives.map(({ alt, inst, score: altScore, scoreDiff, terSavings }) => (
+                        <Table.Tr key={inst.isin}>
+                          <Table.Td>
+                            <Stack gap={2}>
+                              <Group gap={6} align="center">
+                                {inst.ticker && <TickerBadge ticker={inst.ticker} size="xs" />}
+                                <Text
+                                  size="sm"
+                                  fw={600}
+                                  style={{ cursor: onOpenDetail ? 'pointer' : 'default', textDecoration: onOpenDetail ? 'underline' : 'none' }}
+                                  onClick={() => onOpenDetail?.(inst.isin)}
+                                >
+                                  {inst.name}
+                                </Text>
+                              </Group>
+                              <Group gap={4} mt={2}>
+                                <ISINBadge isin={inst.isin} size="xs" />
+                                {isESG(inst) && <Badge size="xs" variant="light" color="teal">ESG</Badge>}
+                                <Badge size="xs" variant="light" color={alt.match === 'exact_index' ? 'blue' : 'gray'}>
+                                  {alt.match === 'exact_index' ? 'Exact Benchmark' : 'Same Exposure'}
+                                </Badge>
+                              </Group>
+                            </Stack>
+                          </Table.Td>
+                          <Table.Td>
+                            <Group gap={4} align="center">
+                              <Badge size="sm" variant="filled" color="grape">
+                                {altScore !== null ? altScore.toFixed(1) : '—'}
+                              </Badge>
+                              {scoreDiff > 0 && (
+                                <Badge size="xs" variant="light" color="teal">
+                                  +{scoreDiff.toFixed(1)}
+                                </Badge>
+                              )}
+                            </Group>
+                          </Table.Td>
+                          <Table.Td>
+                            <Stack gap={1}>
+                              <Text size="sm" fw={600}>{fmtTER(inst.ter_bps)}</Text>
+                              {terSavings > 0 ? (
+                                <Text size="11px" c="teal" fw={600}>
+                                  -{(terSavings).toFixed(2)}% (Saves €{Math.round(terSavings * 100)}/yr per €10k)
+                                </Text>
+                              ) : terSavings < 0 ? (
+                                <Text size="11px" c="dimmed">
+                                  +{(-terSavings).toFixed(2)}%
+                                </Text>
+                              ) : (
+                                <Text size="11px" c="dimmed">Same cost</Text>
+                              )}
+                            </Stack>
+                          </Table.Td>
+                          <Table.Td>
+                            <Stack gap={1}>
+                              <Text size="sm" fw={600}>{fmtAUM(inst.fund_size_million)}</Text>
+                              {instrument.fund_size_million > 0 && inst.fund_size_million >= instrument.fund_size_million * 1.5 && (
+                                <Text size="11px" c="teal" fw={600}>
+                                  {(inst.fund_size_million / instrument.fund_size_million).toFixed(1)}x larger
+                                </Text>
+                              )}
+                            </Stack>
+                          </Table.Td>
+                          <Table.Td>
+                            <Group gap={4}>
+                              <Chip size="xs" colorKey={inst.distribution === 'accumulating' ? 'teal' : 'orange'}>
+                                {inst.distribution === 'accumulating' ? 'Acc' : 'Dist'}
+                              </Chip>
+                              <ReplicationChip value={inst.replication} size="xs" />
+                            </Group>
+                          </Table.Td>
+                          <Table.Td>
+                            <Stack gap={2}>
+                              {alt.reasons.length > 0 ? (
+                                alt.reasons.slice(0, 2).map((r, i) => (
+                                  <Text key={i} size="xs" c={r.startsWith('Saves') || r.startsWith('Lower') || r.includes('larger') ? 'teal' : 'dimmed'}>
+                                    • {r}
+                                  </Text>
+                                ))
+                              ) : (
+                                <Text size="xs" c="teal">• Higher overall composite score</Text>
+                              )}
+                            </Stack>
+                          </Table.Td>
+                          <Table.Td style={{ textAlign: 'right' }}>
+                            <Button
+                              size="xs"
+                              variant="light"
+                              rightSection={<IconArrowRight size={13} />}
+                              onClick={() => onOpenDetail?.(inst.isin)}
+                            >
+                              View ETF
+                            </Button>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </Table.ScrollContainer>
+              )}
+            </Box>
+          </Collapse>
+        </Card>
+      )}
+
       {/* Chart card */}
       <Card withBorder p="md" radius="md">
         <Text fw={600} mb="sm">Historical Performance (EUR, total return incl. dividends)</Text>
@@ -553,6 +833,15 @@ export function InstrumentDetailView({
               {instrument.strategy ? (
                 <Badge size="sm" variant="light" color="indigo">{label(instrument.strategy)}</Badge>
               ) : <Text size="sm" c="dimmed">—</Text>}
+            </Group>
+
+            <Group justify="space-between" align="center">
+              <Text size="sm" c="dimmed">ESG Screening</Text>
+              {isESG(instrument) ? (
+                <Badge size="sm" variant="light" color="teal">✓ ESG / SRI Screened</Badge>
+              ) : (
+                <Text size="sm" c="dimmed">Standard / Traditional</Text>
+              )}
             </Group>
 
             <Group justify="space-between" align="center">

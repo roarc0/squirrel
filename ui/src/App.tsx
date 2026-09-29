@@ -671,7 +671,9 @@ export default function App() {
                 ? <InstrumentDetailView
                     isin={route.subtab}
                     instrument={data.instruments.find(i => i.isin === route.subtab)}
+                    instruments={data.instruments}
                     onBack={() => handleSubtabChange('instruments', '')}
+                    onOpenDetail={isin => handleSubtabChange('instruments', isin)}
                   />
                 : <InstrumentFinderView
                     instruments={data.instruments}

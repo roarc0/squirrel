@@ -7,6 +7,7 @@ export const bps = (value: Numeric | undefined) => Math.round(n(value) * 100);
 export interface InstrumentFilters {
   query: string;
   excludeQuery?: string;
+  esg?: string; // '' | 'esg' | 'non_esg'
   assetClasses: string[];
   excludeAssetClasses: string[];
   distributions: string[];
@@ -42,6 +43,21 @@ export interface FilterPreset {
 }
 
 export type RankPreset = FilterPreset;
+
+export function isESG(instrument: Partial<Instrument>): boolean {
+  if (instrument.strategy === 'esg') return true;
+  const text = [
+    instrument.name,
+    instrument.index_name,
+    instrument.investment_focus,
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  return (
+    /\b(esg|sri|screened|climate|paris|sustainable|sustainability|clean energy|socially responsible)\b/.test(text) ||
+    text.includes('paris-aligned') ||
+    text.includes('low carbon')
+  );
+}
 
 export function parseSearchTerms(query: string = '', excludeQuery: string = ''): { includes: string[]; excludes: string[] } {
   const includes: string[] = [];
@@ -80,6 +96,7 @@ export function parseSearchTerms(query: string = '', excludeQuery: string = ''):
 export const defaultFilters: InstrumentFilters = {
   query: '',
   excludeQuery: '',
+  esg: '',
   assetClasses: [],
   excludeAssetClasses: [],
   distributions: [],
@@ -202,6 +219,7 @@ export function loadSavedFilters(): InstrumentFilters {
         ...defaultFilters,
         query: parsed.query || parsed.indexQuery || '',
         excludeQuery: parsed.excludeQuery || '',
+        esg: parsed.esg || '',
         distributions: Array.isArray(parsed.distributions) ? parsed.distributions : (parsed.distribution ? [parsed.distribution] : []),
         excludeDistributions: Array.isArray(parsed.excludeDistributions) ? parsed.excludeDistributions : [],
         replications: Array.isArray(parsed.replications) ? parsed.replications : (parsed.replication ? [parsed.replication] : []),
@@ -259,6 +277,7 @@ export function loadCustomPresets(): FilterPreset[] {
             ...p.filters,
             query: p.filters?.query || p.filters?.indexQuery || '',
             excludeQuery: p.filters?.excludeQuery || '',
+            esg: p.filters?.esg || '',
           },
         }));
       }
@@ -307,6 +326,10 @@ export function matchesFilters(
       }
     }
   }
+
+  // ESG screening filter
+  if (filters.esg === 'esg' && !isESG(instrument)) return false;
+  if (filters.esg === 'non_esg' && isESG(instrument)) return false;
 
   // Include asset classes
   if (filters.assetClasses.length > 0) {

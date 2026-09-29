@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { Instrument } from './api.ts';
 import { compactMoney, instrumentLabels, localDateISO, relativeDate, setHideBalancesState } from './utils/format.ts';
-import { builtInPresets, computeInstrumentScore, defaultFilters, defaultRankFilters, matchesFilters, matchesRankFilters, parseSearchTerms } from './utils/rankFilters.ts';
+import { builtInPresets, computeInstrumentScore, defaultFilters, defaultRankFilters, isESG, matchesFilters, matchesRankFilters, parseSearchTerms } from './utils/rankFilters.ts';
 import { chartGeometry, chartTickIndexes, chipColor, filterChartRange, matchesExactFilters, nearestChartIndex, pageBounds, performanceMood } from './visual.ts';
 
 test('financial labels use semantic colors and unknown labels stay stable', () => {
@@ -377,5 +377,51 @@ test('matchesFilters allows including keywords while excluding others', () => {
   assert.equal(matchesFilters(msciWorld, explicitQuery), true);
   assert.equal(matchesFilters(msciUSA, explicitQuery), false);
   assert.equal(matchesFilters(ftseChina, explicitQuery), false);
+});
+
+test('isESG detects sustainable / SRI ETFs and matchesFilters handles ESG screening', () => {
+  const esgEtf: Partial<Instrument> = {
+    name: 'iShares MSCI World SRI UCITS ETF',
+    ticker: 'SUSW',
+    index_name: 'MSCI World SRI Select Reduced Fossil Fuel Index',
+    strategy: 'esg',
+  };
+  const screenedEtf: Partial<Instrument> = {
+    name: 'Xtrackers MSCI World ESG Screened UCITS ETF',
+    ticker: 'XDWE',
+    index_name: 'MSCI World ESG Screened Index',
+    strategy: 'broad',
+  };
+  const climateEtf: Partial<Instrument> = {
+    name: 'Amundi MSCI World Climate Paris Aligned UCITS ETF',
+    ticker: 'PABW',
+    index_name: 'MSCI World Climate Paris Aligned Filtered Index',
+    strategy: 'broad',
+  };
+  const traditionalEtf: Partial<Instrument> = {
+    name: 'iShares Core MSCI World UCITS ETF',
+    ticker: 'IWDA',
+    index_name: 'MSCI World Index',
+    strategy: 'broad',
+  };
+
+  assert.equal(isESG(esgEtf), true);
+  assert.equal(isESG(screenedEtf), true);
+  assert.equal(isESG(climateEtf), true);
+  assert.equal(isESG(traditionalEtf), false);
+
+  // ESG only filter
+  const esgOnly = { ...defaultFilters, esg: 'esg' };
+  assert.equal(matchesFilters(esgEtf, esgOnly), true);
+  assert.equal(matchesFilters(screenedEtf, esgOnly), true);
+  assert.equal(matchesFilters(climateEtf, esgOnly), true);
+  assert.equal(matchesFilters(traditionalEtf, esgOnly), false);
+
+  // Exclude ESG filter
+  const nonEsgOnly = { ...defaultFilters, esg: 'non_esg' };
+  assert.equal(matchesFilters(esgEtf, nonEsgOnly), false);
+  assert.equal(matchesFilters(screenedEtf, nonEsgOnly), false);
+  assert.equal(matchesFilters(climateEtf, nonEsgOnly), false);
+  assert.equal(matchesFilters(traditionalEtf, nonEsgOnly), true);
 });
 

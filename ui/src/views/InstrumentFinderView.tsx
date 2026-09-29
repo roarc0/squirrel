@@ -65,6 +65,7 @@ import {
   builtInPresets,
   computeInstrumentScore,
   defaultFilters,
+  isESG,
   loadCustomPresets,
   loadSavedFilters,
   matchesFilters,
@@ -82,7 +83,7 @@ const bps = (value: Numeric | undefined) => Math.round(n(value) * 100);
 type InstrumentDraft = Omit<Instrument, 'id' | 'ter_bps' | 'fund_size_million' | 'tracking_difference_bps' | 'tracking_error_bps'> & { ter: Numeric; size: Numeric; trackingDifference: Numeric; trackingError: Numeric };
 const blankInstrument = (): InstrumentDraft => ({ isin: '', name: '', ticker: '', instrument_type: 'etf', provider: '', index_name: '', investment_focus: '', asset_class: '', strategy: 'broad', currency_hedged: false, starred: false, data_status: 'enriched', distribution: 'accumulating', replication: 'physical_full', domicile: 'IE', fund_currency: 'EUR', ter: 0.2, size: 0, inception_date: '', trackingDifference: '', trackingError: '', ucits: false, source_url: '' });
 
-type InstrumentColumn = 'ticker' | 'isin' | 'type' | 'issuer' | 'assetClass' | 'exposure' | 'policy' | 'replication' | 'ter' | 'size' | 'domicile' | 'currency' | 'inception' | 'tracking' | 'enriched' | 'score';
+type InstrumentColumn = 'ticker' | 'isin' | 'type' | 'issuer' | 'assetClass' | 'esg' | 'exposure' | 'policy' | 'replication' | 'ter' | 'size' | 'domicile' | 'currency' | 'inception' | 'tracking' | 'enriched' | 'score';
 type EnrichmentMode = 'missing' | 'discover' | 'oldest';
 type EnrichmentProgress = { mode: EnrichmentMode; phase: string; current?: string; processed: number; total: number; available?: number; enriched: number; skipped: number; failed: number; done: boolean; error?: string };
 
@@ -92,6 +93,7 @@ const instrumentColumns: { value: InstrumentColumn; label: string }[] = [
   { value: 'type', label: 'Type' },
   { value: 'issuer', label: 'Issuer' },
   { value: 'assetClass', label: 'Asset class' },
+  { value: 'esg', label: 'ESG / SRI' },
   { value: 'exposure', label: 'Exposure' },
   { value: 'policy', label: 'Policy' },
   { value: 'replication', label: 'Replication' },
@@ -109,6 +111,7 @@ const defaultInstrumentColumns: InstrumentColumn[] = [
   'ticker',
   'type',
   'assetClass',
+  'esg',
   'policy',
   'replication',
   'ter',
@@ -119,11 +122,18 @@ const defaultInstrumentColumns: InstrumentColumn[] = [
 
 function savedInstrumentColumns(): InstrumentColumn[] {
   try {
-    const raw = (typeof localStorage !== 'undefined' ? localStorage.getItem('squirrel.instrumentColumns.v6') : null) || getProfile().instrument_columns_json;
+    const raw = (typeof localStorage !== 'undefined' ? localStorage.getItem('squirrel.instrumentColumns.v7') : null) ||
+                (typeof localStorage !== 'undefined' ? localStorage.getItem('squirrel.instrumentColumns.v6') : null) ||
+                getProfile().instrument_columns_json;
     if (!raw) return defaultInstrumentColumns;
     const saved = JSON.parse(raw) as string[];
     const valid = saved.filter((value): value is InstrumentColumn => instrumentColumns.some(column => column.value === value));
     if (!valid.length) return defaultInstrumentColumns;
+    if (!valid.includes('esg')) {
+      const idx = valid.indexOf('assetClass');
+      if (idx !== -1) valid.splice(idx + 1, 0, 'esg');
+      else valid.push('esg');
+    }
     return valid;
   } catch { return defaultInstrumentColumns; }
 }
@@ -661,6 +671,14 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
     });
   }
 
+  if (filters.esg) {
+    activeBadges.push({
+      key: 'esg',
+      label: filters.esg === 'esg' ? 'ESG / SRI only' : 'Exclude ESG',
+      color: 'teal',
+      onRemove: () => updateFilter('esg', ''),
+    });
+  }
   if (filters.ucits) {
     activeBadges.push({
       key: 'ucits',
@@ -733,6 +751,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
       case 'issuer': return (inst.provider || '').toLowerCase();
       case 'asset_class':
       case 'assetClass': return (inst.asset_class || '').toLowerCase();
+      case 'esg': return isESG(inst) ? 1 : 0;
       case 'exposure': return (inst.index_name || inst.investment_focus || '').toLowerCase();
       case 'policy': return inst.distribution || '';
       case 'replication': return inst.replication || '';
@@ -789,7 +808,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
       const next = current.includes(column) ? current.filter(item => item !== column) : [...current, column];
       try {
         if (typeof localStorage !== 'undefined') {
-          localStorage.setItem('squirrel.instrumentColumns.v6', JSON.stringify(next));
+          localStorage.setItem('squirrel.instrumentColumns.v7', JSON.stringify(next));
         }
       } catch {}
       return next;
@@ -888,6 +907,16 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
         return <Chip colorKey={val}>{label(val)}</Chip>;
       },
     }] : []),
+    ...(show('esg') ? [{
+      key: 'esg',
+      label: 'ESG',
+      sortable: true,
+      render: (item: CatalogRow) => isESG(item.instrument) ? (
+        <Badge size="xs" variant="light" color="teal">ESG</Badge>
+      ) : (
+        <Text c="dimmed" size="xs">—</Text>
+      ),
+    }] : []),
     ...(show('exposure') ? [{
       key: 'exposure',
       label: 'Exposure',
@@ -964,7 +993,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
   useEffect(() => {
     try {
       if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('squirrel.instrumentColumns.v6', JSON.stringify(visibleColumns));
+        localStorage.setItem('squirrel.instrumentColumns.v7', JSON.stringify(visibleColumns));
       }
     } catch {}
     setProfileField({ instrument_columns_json: JSON.stringify(visibleColumns) });
@@ -1250,8 +1279,8 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
 
                 <Collapse expanded={filtersOpen}>
                   <Card withBorder padding="sm" radius="md">
-                    <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 5 }} spacing="xs" verticalSpacing="xs">
-                      {/* Row 1: Core ETF Attributes */}
+                    <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="xs" verticalSpacing="xs">
+                      {/* Row 1: Core Classification */}
                       <FacetFilterSelect
                         label="Asset class"
                         placeholder="All classes"
@@ -1260,6 +1289,18 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
                         exclude={filters.excludeAssetClasses}
                         onChange={(inc, exc) => updateFiltersBatch({ assetClasses: inc, excludeAssetClasses: exc })}
                         searchable
+                      />
+                      <Select
+                        size="xs"
+                        label="ESG screening"
+                        placeholder="Any"
+                        clearable
+                        data={[
+                          { value: 'esg', label: 'ESG / SRI only' },
+                          { value: 'non_esg', label: 'Exclude ESG (Traditional)' },
+                        ]}
+                        value={filters.esg || null}
+                        onChange={val => updateFilter('esg', val ?? '')}
                       />
                       <FacetFilterSelect
                         label="Distribution policy"
@@ -1277,6 +1318,8 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
                         exclude={filters.excludeReplications}
                         onChange={(inc, exc) => updateFiltersBatch({ replications: inc, excludeReplications: exc })}
                       />
+
+                      {/* Row 2: Attributes & Focus */}
                       <FacetFilterSelect
                         label="Strategy"
                         placeholder="Any strategy"
@@ -1285,70 +1328,6 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
                         exclude={filters.excludeStrategies}
                         onChange={(inc, exc) => updateFiltersBatch({ strategies: inc, excludeStrategies: exc })}
                       />
-                      <Select
-                        size="xs"
-                        label="Currency hedged"
-                        placeholder="Any"
-                        clearable
-                        data={[
-                          { value: 'hedged', label: 'Hedged only' },
-                          { value: 'unhedged', label: 'Unhedged only' },
-                        ]}
-                        value={filters.currencyHedged || null}
-                        onChange={val => updateFilter('currencyHedged', val ?? '')}
-                      />
-
-                      {/* Row 2: Performance, Size & Tracking */}
-                      <NumberInput
-                        size="xs"
-                        label="Max TER (%)"
-                        placeholder="Any"
-                        min={0}
-                        step={0.05}
-                        decimalScale={2}
-                        value={filters.maxTER}
-                        onChange={val => updateFilter('maxTER', val)}
-                      />
-                      <NumberInput
-                        size="xs"
-                        label="Min size (€m)"
-                        placeholder="Any"
-                        min={0}
-                        step={50}
-                        value={filters.minSize}
-                        onChange={val => updateFilter('minSize', val)}
-                      />
-                      <NumberInput
-                        size="xs"
-                        label="Min age (years)"
-                        placeholder="Any"
-                        min={0}
-                        step={1}
-                        value={filters.minAge}
-                        onChange={val => updateFilter('minAge', val)}
-                      />
-                      <NumberInput
-                        size="xs"
-                        label="Max tracking diff (%)"
-                        placeholder="Any"
-                        min={0}
-                        step={0.05}
-                        decimalScale={2}
-                        value={filters.maxTrackingDiff}
-                        onChange={val => updateFilter('maxTrackingDiff', val)}
-                      />
-                      <NumberInput
-                        size="xs"
-                        label="Max tracking error (%)"
-                        placeholder="Any"
-                        min={0}
-                        step={0.05}
-                        decimalScale={2}
-                        value={filters.maxTrackingError}
-                        onChange={val => updateFilter('maxTrackingError', val)}
-                      />
-
-                      {/* Row 3: Issuer, Domicile, Currency & Type */}
                       <FacetFilterSelect
                         label="Issuer / Provider"
                         placeholder="All issuers"
@@ -1376,13 +1355,19 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
                         onChange={(inc, exc) => updateFiltersBatch({ currencies: inc, excludeCurrencies: exc })}
                         searchable
                       />
-                      <FacetFilterSelect
-                        label="Instrument type"
-                        placeholder="All types"
-                        options={Object.entries(instrumentLabels).map(([val, itemLabel]) => ({ value: val, label: itemLabel }))}
-                        include={filters.types}
-                        exclude={filters.excludeTypes}
-                        onChange={(inc, exc) => updateFiltersBatch({ types: inc, excludeTypes: exc })}
+
+                      {/* Row 3: Structure, Regulation & Age */}
+                      <Select
+                        size="xs"
+                        label="Currency hedged"
+                        placeholder="Any"
+                        clearable
+                        data={[
+                          { value: 'hedged', label: 'Hedged only' },
+                          { value: 'unhedged', label: 'Unhedged only' },
+                        ]}
+                        value={filters.currencyHedged || null}
+                        onChange={val => updateFilter('currencyHedged', val ?? '')}
                       />
                       <Select
                         size="xs"
@@ -1395,6 +1380,64 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
                         ]}
                         value={filters.ucits || null}
                         onChange={val => updateFilter('ucits', val ?? '')}
+                      />
+                      <FacetFilterSelect
+                        label="Instrument type"
+                        placeholder="All types"
+                        options={Object.entries(instrumentLabels).map(([val, itemLabel]) => ({ value: val, label: itemLabel }))}
+                        include={filters.types}
+                        exclude={filters.excludeTypes}
+                        onChange={(inc, exc) => updateFiltersBatch({ types: inc, excludeTypes: exc })}
+                      />
+                      <NumberInput
+                        size="xs"
+                        label="Min age (years)"
+                        placeholder="Any"
+                        min={0}
+                        step={1}
+                        value={filters.minAge}
+                        onChange={val => updateFilter('minAge', val)}
+                      />
+
+                      {/* Row 4: Performance, Size & Tracking */}
+                      <NumberInput
+                        size="xs"
+                        label="Max TER (%)"
+                        placeholder="Any"
+                        min={0}
+                        step={0.05}
+                        decimalScale={2}
+                        value={filters.maxTER}
+                        onChange={val => updateFilter('maxTER', val)}
+                      />
+                      <NumberInput
+                        size="xs"
+                        label="Min size (€m)"
+                        placeholder="Any"
+                        min={0}
+                        step={50}
+                        value={filters.minSize}
+                        onChange={val => updateFilter('minSize', val)}
+                      />
+                      <NumberInput
+                        size="xs"
+                        label="Max tracking diff (%)"
+                        placeholder="Any"
+                        min={0}
+                        step={0.05}
+                        decimalScale={2}
+                        value={filters.maxTrackingDiff}
+                        onChange={val => updateFilter('maxTrackingDiff', val)}
+                      />
+                      <NumberInput
+                        size="xs"
+                        label="Max tracking error (%)"
+                        placeholder="Any"
+                        min={0}
+                        step={0.05}
+                        decimalScale={2}
+                        value={filters.maxTrackingError}
+                        onChange={val => updateFilter('maxTrackingError', val)}
                       />
                     </SimpleGrid>
                   </Card>
