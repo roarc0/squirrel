@@ -325,8 +325,13 @@ type RankWeights struct {
 type RankCriteria struct {
 	IndexQuery         string      `json:"index_query,omitempty"`
 	Distribution       string      `json:"distribution,omitempty"`
+	Distributions      []string    `json:"distributions,omitempty"`
 	Replications       []string    `json:"replications,omitempty"`
 	Domiciles          []string    `json:"domiciles,omitempty"`
+	AssetClasses       []string    `json:"asset_classes,omitempty"`
+	FundCurrencies     []string    `json:"fund_currencies,omitempty"`
+	Providers          []string    `json:"providers,omitempty"`
+	CurrencyHedged     *bool       `json:"currency_hedged,omitempty"`
 	MaxTERBPS          *int64      `json:"max_ter_bps"`
 	MinFundSizeMillion int64       `json:"min_fund_size_million"`
 	MinAgeYears        int         `json:"min_age_years"`
@@ -346,6 +351,11 @@ type Score struct {
 func RankInstruments(instruments []Instrument, criteria RankCriteria, asOf time.Time) ([]Score, error) {
 	if criteria.Distribution != "" && !slices.Contains([]string{DistributionAccumulating, DistributionDistributing}, criteria.Distribution) {
 		return nil, errors.New("unsupported distribution policy")
+	}
+	for _, dist := range criteria.Distributions {
+		if !slices.Contains([]string{DistributionAccumulating, DistributionDistributing}, dist) {
+			return nil, errors.New("unsupported distribution policy")
+		}
 	}
 	for _, replication := range criteria.Replications {
 		if !slices.Contains([]string{ReplicationPhysicalFull, ReplicationSampling, ReplicationSynthetic}, replication) {
@@ -410,13 +420,62 @@ func matches(instrument Instrument, criteria RankCriteria, asOf time.Time) bool 
 	if !isETF(instrument) || !instrument.UCITS || instrument.DataStatus == InstrumentStatusCatalog {
 		return false
 	}
-	if criteria.IndexQuery != "" && !strings.Contains(strings.ToLower(instrument.IndexName), strings.ToLower(strings.TrimSpace(criteria.IndexQuery))) {
-		return false
+	if criteria.IndexQuery != "" {
+		iq := strings.ToLower(strings.TrimSpace(criteria.IndexQuery))
+		if !strings.Contains(strings.ToLower(instrument.IndexName), iq) &&
+			!strings.Contains(strings.ToLower(instrument.InvestmentFocus), iq) &&
+			!strings.Contains(strings.ToLower(instrument.Name), iq) &&
+			!strings.Contains(strings.ToLower(instrument.Ticker), iq) {
+			return false
+		}
 	}
-	if criteria.Distribution != "" && instrument.Distribution != criteria.Distribution {
+	if len(criteria.Distributions) > 0 {
+		if !slices.Contains(criteria.Distributions, instrument.Distribution) {
+			return false
+		}
+	} else if criteria.Distribution != "" && instrument.Distribution != criteria.Distribution {
 		return false
 	}
 	if len(criteria.Replications) > 0 && !slices.Contains(criteria.Replications, instrument.Replication) {
+		return false
+	}
+	if len(criteria.AssetClasses) > 0 {
+		match := false
+		for _, ac := range criteria.AssetClasses {
+			if strings.EqualFold(ac, instrument.AssetClass) {
+				match = true
+				break
+			}
+		}
+		if !match {
+			return false
+		}
+	}
+	if len(criteria.FundCurrencies) > 0 {
+		match := false
+		for _, c := range criteria.FundCurrencies {
+			if strings.EqualFold(c, instrument.FundCurrency) {
+				match = true
+				break
+			}
+		}
+		if !match {
+			return false
+		}
+	}
+	if len(criteria.Providers) > 0 {
+		match := false
+		for _, p := range criteria.Providers {
+			if strings.EqualFold(p, instrument.Provider) {
+				match = true
+				break
+			}
+		}
+		if !match {
+			return false
+		}
+	}
+	if criteria.CurrencyHedged != nil && instrument.CurrencyHedged != *criteria.CurrencyHedged {
 		return false
 	}
 	if len(criteria.Domiciles) > 0 {

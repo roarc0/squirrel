@@ -98,6 +98,16 @@ message RankCriteria {
   double min_age_years = 7;
   // Scoring weights customization.
   RankWeights weights = 8;
+  // Filter by asset classes e.g. ["equity", "bond", "commodity"].
+  repeated string asset_classes = 9;
+  // Filter by multiple distribution policies e.g. ["accumulating"], ["distributing"].
+  repeated string distributions = 10;
+  // Filter by fund currencies e.g. ["EUR", "USD"].
+  repeated string fund_currencies = 11;
+  // Filter by providers / issuers e.g. ["iShares", "Vanguard"].
+  repeated string providers = 12;
+  // Filter by currency hedging status.
+  optional bool currency_hedged = 13;
 }
 
 // RankedInstrument represents an ETF evaluated and scored against ranking criteria.

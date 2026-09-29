@@ -45,6 +45,37 @@ func TestRankInstrumentsFiltersAndExplainsScore(t *testing.T) {
 	}
 }
 
+func TestRankInstrumentsWithAssetClassAndDistributions(t *testing.T) {
+	instruments := []Instrument{
+		{ISIN: "IE0000000001", Name: "World Acc", AssetClass: "equity", Distribution: DistributionAccumulating, Replication: ReplicationPhysicalFull, FundCurrency: "EUR", Domicile: "IE", TERBPS: 15, FundSizeMillion: 2000, InceptionDate: "2015-01-01", UCITS: true, DataStatus: InstrumentStatusEnriched},
+		{ISIN: "IE0000000002", Name: "World Dist", AssetClass: "equity", Distribution: DistributionDistributing, Replication: ReplicationPhysicalFull, FundCurrency: "EUR", Domicile: "IE", TERBPS: 15, FundSizeMillion: 1500, InceptionDate: "2015-01-01", UCITS: true, DataStatus: InstrumentStatusEnriched},
+		{ISIN: "LU0000000003", Name: "Euro Bond Acc", AssetClass: "bond", Distribution: DistributionAccumulating, Replication: ReplicationPhysicalFull, FundCurrency: "EUR", Domicile: "LU", TERBPS: 10, FundSizeMillion: 1000, InceptionDate: "2018-01-01", UCITS: true, DataStatus: InstrumentStatusEnriched},
+	}
+
+	// 1. Exclude Dist by selecting only Accumulating
+	ranked, err := RankInstruments(instruments, RankCriteria{Distributions: []string{DistributionAccumulating}}, time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ranked) != 2 {
+		t.Fatalf("expected 2 accumulating instruments, got %d", len(ranked))
+	}
+	for _, r := range ranked {
+		if r.Instrument.Distribution != DistributionAccumulating {
+			t.Fatalf("expected only accumulating, got %s", r.Instrument.Distribution)
+		}
+	}
+
+	// 2. Filter by Asset Class = "bond"
+	rankedBond, err := RankInstruments(instruments, RankCriteria{AssetClasses: []string{"bond"}}, time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rankedBond) != 1 || rankedBond[0].Instrument.Name != "Euro Bond Acc" {
+		t.Fatalf("expected only Euro Bond Acc, got %+v", rankedBond)
+	}
+}
+
 func TestValidateInstrumentChecksISIN(t *testing.T) {
 	instrument := Instrument{ISIN: "IE00B4L5Y983", Name: "World", Distribution: DistributionAccumulating, Replication: ReplicationSampling, FundCurrency: "USD"}
 	if err := ValidateInstrument(instrument); err != nil {

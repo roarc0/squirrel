@@ -580,8 +580,13 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
         criteria: {
           indexQuery: bodyData.index_query ?? '',
           distribution: bodyData.distribution ?? '',
+          distributions: bodyData.distributions ?? [],
           replications: bodyData.replications ?? [],
           domiciles: bodyData.domiciles ?? [],
+          assetClasses: bodyData.asset_classes ?? [],
+          fundCurrencies: bodyData.fund_currencies ?? [],
+          providers: bodyData.providers ?? [],
+          currencyHedged: typeof bodyData.currency_hedged === 'boolean' ? bodyData.currency_hedged : undefined,
           maxTerBps: bodyData.max_ter_bps !== null && bodyData.max_ter_bps !== undefined ? bigint(bodyData.max_ter_bps) : undefined,
           minFundSizeMillion: bigint(bodyData.min_fund_size_million) ?? 0n,
           minAgeYears: bodyData.min_age_years ?? 0,

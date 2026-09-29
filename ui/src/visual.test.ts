@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import type { Instrument } from './api.ts';
 import { compactMoney, instrumentLabels, localDateISO, setHideBalancesState } from './utils/format.ts';
+import { builtInPresets, defaultRankFilters, matchesRankFilters } from './utils/rankFilters.ts';
 import { chartGeometry, chartTickIndexes, chipColor, filterChartRange, matchesExactFilters, nearestChartIndex, pageBounds, performanceMood } from './visual.ts';
 
 test('financial labels use semantic colors and unknown labels stay stable', () => {
@@ -86,4 +88,86 @@ test('chart ranges filter monthly observed_on dates correctly', () => {
   const maxRange = filterChartRange(monthly, 'max');
   assert.equal(maxRange.length, 31);
 });
+
+test('matchesRankFilters supports distribution exclusion and multi-selection', () => {
+  const accETF: Partial<Instrument> = {
+    instrument_type: 'etf',
+    data_status: 'enriched',
+    ucits: true,
+    distribution: 'accumulating',
+    replication: 'physical_full',
+    asset_class: 'equity',
+    domicile: 'IE',
+    fund_currency: 'EUR',
+    ter_bps: 20,
+    fund_size_million: 500,
+    inception_date: '2020-01-01',
+  };
+  const distETF: Partial<Instrument> = {
+    ...accETF,
+    distribution: 'distributing',
+  };
+
+  // When no distribution filter is selected, both match
+  assert.equal(matchesRankFilters(accETF, defaultRankFilters), true);
+  assert.equal(matchesRankFilters(distETF, defaultRankFilters), true);
+
+  // When user selects only 'accumulating' (deselecting/excluding dist)
+  const onlyAccFilters = { ...defaultRankFilters, distributions: ['accumulating'] };
+  assert.equal(matchesRankFilters(accETF, onlyAccFilters), true);
+  assert.equal(matchesRankFilters(distETF, onlyAccFilters), false);
+
+  // When user selects only 'distributing' (excluding acc)
+  const onlyDistFilters = { ...defaultRankFilters, distributions: ['distributing'] };
+  assert.equal(matchesRankFilters(accETF, onlyDistFilters), false);
+  assert.equal(matchesRankFilters(distETF, onlyDistFilters), true);
+
+  // When user selects both ['accumulating', 'distributing']
+  const bothFilters = { ...defaultRankFilters, distributions: ['accumulating', 'distributing'] };
+  assert.equal(matchesRankFilters(accETF, bothFilters), true);
+  assert.equal(matchesRankFilters(distETF, bothFilters), true);
+});
+
+test('matchesRankFilters filters by asset class and replications', () => {
+  const equityETF: Partial<Instrument> = {
+    instrument_type: 'etf',
+    data_status: 'enriched',
+    ucits: true,
+    distribution: 'accumulating',
+    replication: 'physical_full',
+    asset_class: 'equity',
+    ter_bps: 12,
+    fund_size_million: 1000,
+    inception_date: '2018-01-01',
+  };
+  const bondETF: Partial<Instrument> = {
+    ...equityETF,
+    asset_class: 'bond',
+    replication: 'physical_sampling',
+  };
+  const synthETF: Partial<Instrument> = {
+    ...equityETF,
+    replication: 'synthetic',
+  };
+
+  // Asset class filter
+  assert.equal(matchesRankFilters(equityETF, { ...defaultRankFilters, assetClasses: ['equity'] }), true);
+  assert.equal(matchesRankFilters(bondETF, { ...defaultRankFilters, assetClasses: ['equity'] }), false);
+  assert.equal(matchesRankFilters(bondETF, { ...defaultRankFilters, assetClasses: ['bond'] }), true);
+
+  // Multi-replication filter (selecting physical, excluding synthetic)
+  const physicalOnly = { ...defaultRankFilters, replications: ['physical_full', 'physical_sampling'] };
+  assert.equal(matchesRankFilters(equityETF, physicalOnly), true);
+  assert.equal(matchesRankFilters(bondETF, physicalOnly), true);
+  assert.equal(matchesRankFilters(synthETF, physicalOnly), false);
+});
+
+test('built-in presets provide valid filter configurations', () => {
+  assert.ok(builtInPresets.length >= 5);
+  const coreWorld = builtInPresets.find(p => p.id === 'core-world-acc');
+  assert.ok(coreWorld);
+  assert.deepEqual(coreWorld.filters.distributions, ['accumulating']);
+  assert.deepEqual(coreWorld.filters.assetClasses, ['equity']);
+});
+
 

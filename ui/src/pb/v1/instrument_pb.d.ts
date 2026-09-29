@@ -364,6 +364,41 @@ export declare class RankCriteria extends Message<RankCriteria> {
    */
   weights?: RankWeights;
 
+  /**
+   * Filter by asset classes e.g. ["equity", "bond", "commodity"].
+   *
+   * @generated from field: repeated string asset_classes = 9;
+   */
+  assetClasses: string[];
+
+  /**
+   * Filter by multiple distribution policies e.g. ["accumulating"], ["distributing"].
+   *
+   * @generated from field: repeated string distributions = 10;
+   */
+  distributions: string[];
+
+  /**
+   * Filter by fund currencies e.g. ["EUR", "USD"].
+   *
+   * @generated from field: repeated string fund_currencies = 11;
+   */
+  fundCurrencies: string[];
+
+  /**
+   * Filter by providers / issuers e.g. ["iShares", "Vanguard"].
+   *
+   * @generated from field: repeated string providers = 12;
+   */
+  providers: string[];
+
+  /**
+   * Filter by currency hedging status.
+   *
+   * @generated from field: optional bool currency_hedged = 13;
+   */
+  currencyHedged?: boolean;
+
   constructor(data?: PartialMessage<RankCriteria>);
 
   static readonly runtime: typeof proto3;

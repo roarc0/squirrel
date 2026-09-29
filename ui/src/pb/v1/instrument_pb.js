@@ -89,6 +89,11 @@ export const RankCriteria = /*@__PURE__*/ proto3.makeMessageType(
     { no: 6, name: "min_fund_size_million", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
     { no: 7, name: "min_age_years", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
     { no: 8, name: "weights", kind: "message", T: RankWeights },
+    { no: 9, name: "asset_classes", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 10, name: "distributions", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 11, name: "fund_currencies", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 12, name: "providers", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 13, name: "currency_hedged", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
   ],
 );
 

@@ -117,8 +117,13 @@ func rankCriteriaFromProto(p *portv1.RankCriteria) portfolio.RankCriteria {
 	res := portfolio.RankCriteria{
 		IndexQuery:         p.IndexQuery,
 		Distribution:       p.Distribution,
+		Distributions:      p.Distributions,
 		Replications:       p.Replications,
 		Domiciles:          p.Domiciles,
+		AssetClasses:       p.AssetClasses,
+		FundCurrencies:     p.FundCurrencies,
+		Providers:          p.Providers,
+		CurrencyHedged:     p.CurrencyHedged,
 		MaxTERBPS:          p.MaxTerBps,
 		MinFundSizeMillion: p.MinFundSizeMillion,
 		MinAgeYears:        int(p.MinAgeYears),
