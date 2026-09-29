@@ -492,24 +492,42 @@ export function computeInstrumentScore(
   }
   const ter = instrument.ter_bps ?? 0;
   const cost = Math.max(0, Math.min(1, 1 - (ter / 100)));
+
+  // Fund size score with diminishing returns:
+  // Saturates around ~€3.16B (log10(3162) / 3.5 = 1.0), so a €3B, €20B, and €50B fund are all treated as established/maxed
   const sizeM = instrument.fund_size_million ?? 0;
-  const size = Math.max(0, Math.min(1, Math.log10(Math.max(sizeM, 1)) / 4));
+  const size = Math.max(0, Math.min(1, Math.log10(Math.max(sizeM, 1)) / 3.5));
+
+  // Fund age score with diminishing returns:
+  // A 10y fund and 20y fund are both fully established (1.0).
+  // 3-5y funds already gain strong credibility (~0.58-0.75) via logarithmic saturation.
   let age = 0;
   if (instrument.inception_date) {
     const parsed = new Date(instrument.inception_date).getTime();
     if (!isNaN(parsed)) {
-      const ageYears = (asOf - parsed) / (365.25 * 24 * 3600 * 1000);
-      age = Math.max(0, Math.min(1, ageYears / 10));
+      const ageYears = Math.max(0, (asOf - parsed) / (365.25 * 24 * 3600 * 1000));
+      age = Math.max(0, Math.min(1, Math.log10(1 + Math.min(ageYears, 10)) / Math.log10(11)));
     }
   }
+
+  // Tracking difference:
+  // Outperforming index (TD <= 0) up to -30 bps gets top score (1.0).
+  // Lagging index (TD > 0) is penalized.
   let td = 0;
   if (instrument.tracking_difference_bps != null) {
-    td = Math.max(0, Math.min(1, 1 - Math.abs(instrument.tracking_difference_bps) / 100));
+    const tdBps = instrument.tracking_difference_bps;
+    if (tdBps <= 0) {
+      td = Math.max(0, Math.min(1, 1 - Math.max(0, -tdBps - 30) / 100));
+    } else {
+      td = Math.max(0, Math.min(1, 1 - tdBps / 100));
+    }
   }
+
   let te = 0;
   if (instrument.tracking_error_bps != null) {
     te = Math.max(0, Math.min(1, 1 - Math.abs(instrument.tracking_error_bps) / 100));
   }
+
   const total = cost * 35 + td * 30 + te * 15 + size * 15 + age * 5;
   return Math.round(total * 10) / 10;
 }

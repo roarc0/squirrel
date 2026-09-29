@@ -108,6 +108,11 @@ func TestClassifyInstrument(t *testing.T) {
 	if instrument.AssetClass != "bond" || instrument.Strategy != "broad" {
 		t.Fatalf("unexpected classification: %+v", instrument)
 	}
+	activeInst := Instrument{Name: "JPMorgan Active Global Aggregate Bond UCITS ETF", InstrumentType: InstrumentTypeETF}
+	ClassifyInstrument(&activeInst)
+	if activeInst.Strategy != "active" {
+		t.Fatalf("active ETF classified as %q, expected 'active'", activeInst.Strategy)
+	}
 	catalog := Instrument{Name: "Vanguard Global Government Bond UCITS ETF", InstrumentType: InstrumentTypeETF}
 	ClassifyInstrument(&catalog)
 	if catalog.AssetClass != "bond" {
@@ -121,5 +126,38 @@ func TestAlternativesRespectHedgingForSameIndex(t *testing.T) {
 	candidate.ID, candidate.ISIN, candidate.TERBPS, candidate.CurrencyHedged = 2, "IE00B579F325", 10, true
 	if got := FindInstrumentAlternatives(selected, []Instrument{candidate}, time.Now()); len(got) != 0 {
 		t.Fatalf("different hedge classified as a strict peer: %+v", got)
+	}
+}
+
+func TestAlternativeScoreDiminishingReturns(t *testing.T) {
+	asOf := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	selected := Instrument{
+		ID:              1,
+		ISIN:            "IE00B4L5Y983",
+		Name:            "World Baseline",
+		InstrumentType:  "etf",
+		DataStatus:      "enriched",
+		UCITS:           true,
+		Distribution:    DistributionAccumulating,
+		Replication:     ReplicationPhysicalFull,
+		TERBPS:          20,
+		FundSizeMillion: 20_000,      // €20B
+		InceptionDate:   "2016-01-01", // 10 years old
+	}
+	// Candidate 1: €20B, 10y old
+	cand1 := selected
+	cand1.ID, cand1.ISIN = 2, "IE00B2222222"
+
+	// Candidate 2: €50B, 20y old (both size and age well past the established saturation thresholds)
+	cand2 := selected
+	cand2.ID, cand2.ISIN = 3, "IE00B3333333"
+	cand2.FundSizeMillion = 50_000 // €50B
+	cand2.InceptionDate = "2006-01-01" // 20 years old
+
+	score1 := alternativeScore(selected, cand1, asOf)
+	score2 := alternativeScore(selected, cand2, asOf)
+
+	if score1 != score2 {
+		t.Fatalf("expected identical score for 20B/10y and 50B/20y due to diminishing returns, got score1=%.1f, score2=%.1f", score1, score2)
 	}
 }

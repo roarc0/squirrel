@@ -425,3 +425,63 @@ test('isESG detects sustainable / SRI ETFs and matchesFilters handles ESG screen
   assert.equal(matchesFilters(traditionalEtf, nonEsgOnly), true);
 });
 
+test('computeInstrumentScore applies diminishing returns for age >= 10y and fund size >= €3B', () => {
+  const asOf = new Date('2026-01-01').getTime();
+
+  // 10-year-old vs 20-year-old fund with identical specs
+  const etf10y: Partial<Instrument> = {
+    instrument_type: 'etf',
+    data_status: 'enriched',
+    ucits: true,
+    ter_bps: 15,
+    fund_size_million: 5000,
+    inception_date: '2016-01-01', // exactly 10 years
+    tracking_difference_bps: -5, // outperforming
+    tracking_error_bps: 6,
+  };
+  const etf20y: Partial<Instrument> = {
+    ...etf10y,
+    inception_date: '2006-01-01', // 20 years
+  };
+
+  const score10y = computeInstrumentScore(etf10y, asOf);
+  const score20y = computeInstrumentScore(etf20y, asOf);
+  assert.ok(score10y !== null && score20y !== null);
+  // Both are established: score is identical because age saturated at 10 years
+  assert.equal(score10y, score20y);
+
+  // 20 billion vs 50 billion fund with identical specs
+  const etf20B: Partial<Instrument> = {
+    ...etf10y,
+    fund_size_million: 20000, // €20 Billion
+  };
+  const etf50B: Partial<Instrument> = {
+    ...etf10y,
+    fund_size_million: 50000, // €50 Billion
+  };
+
+  const score20B = computeInstrumentScore(etf20B, asOf);
+  const score50B = computeInstrumentScore(etf50B, asOf);
+  assert.ok(score20B !== null && score50B !== null);
+  // Both mega-funds are fully saturated: score is identical
+  assert.equal(score20B, score50B);
+});
+
+test('matchesFilters supports active strategy filtering', () => {
+  const activeEtf: Partial<Instrument> = {
+    name: 'JPMorgan Global Research Enhanced Index Equity Active UCITS ETF',
+    ticker: 'JREG',
+    strategy: 'active',
+  };
+  const passiveEtf: Partial<Instrument> = {
+    name: 'iShares Core MSCI World UCITS ETF',
+    ticker: 'IWDA',
+    strategy: 'broad',
+  };
+
+  const activeFilter = { ...defaultFilters, strategies: ['active'] };
+  assert.equal(matchesFilters(activeEtf, activeFilter), true);
+  assert.equal(matchesFilters(passiveEtf, activeFilter), false);
+});
+
+

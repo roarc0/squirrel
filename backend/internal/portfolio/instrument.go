@@ -154,6 +154,8 @@ func ClassifyInstrument(instrument *Instrument) {
 	}
 
 	switch {
+	case containsAny(text, "active", "actively managed"):
+		instrument.Strategy = "active"
 	case containsAny(text, "esg", "sri", "climate", "paris-aligned", "screened", "sustainable", "low carbon"):
 		instrument.Strategy = "esg"
 	case containsAny(text, "dividend", "income"):
@@ -299,8 +301,17 @@ func comparisonKey(value string) string {
 
 func alternativeScore(selected, candidate Instrument, asOf time.Time) float64 {
 	score := 50 + float64(selected.TERBPS-candidate.TERBPS)
-	score += 10 * math.Log10(float64(max(candidate.FundSizeMillion, 1))/float64(max(selected.FundSizeMillion, 1)))
-	score += min(max(ageYears(candidate.InceptionDate, asOf)-ageYears(selected.InceptionDate, asOf), -5), 5)
+
+	// Fund size score difference with diminishing returns capped at €3B (so €20B vs €50B gives 0 bonus)
+	candSize := math.Log10(float64(max(min(candidate.FundSizeMillion, 3000), 1)))
+	selSize := math.Log10(float64(max(min(selected.FundSizeMillion, 3000), 1)))
+	score += 10 * (candSize - selSize)
+
+	// Age score difference with diminishing returns capped at 10 years (so 10y vs 20y gives 0 bonus)
+	candAge := math.Log10(1 + min(max(ageYears(candidate.InceptionDate, asOf), 0), 10.0))
+	selAge := math.Log10(1 + min(max(ageYears(selected.InceptionDate, asOf), 0), 10.0))
+	score += 5 * (candAge - selAge)
+
 	if candidate.Distribution == selected.Distribution {
 		score += 3
 	} else {
@@ -386,11 +397,16 @@ func RankInstruments(instruments []Instrument, criteria RankCriteria, asOf time.
 		score := Score{
 			Instrument: instrument,
 			Cost:       clamp01(1 - float64(instrument.TERBPS)/100),
-			Size:       clamp01(math.Log10(float64(max(instrument.FundSizeMillion, 1))) / 4),
-			Age:        clamp01(age / 10),
+			Size:       clamp01(math.Log10(float64(max(instrument.FundSizeMillion, 1))) / 3.5),
+			Age:        clamp01(math.Log10(1+min(max(age, 0), 10.0)) / math.Log10(11)),
 		}
 		if instrument.TrackingDifferenceBPS != nil {
-			score.TrackingDifference = clamp01(1 - math.Abs(float64(*instrument.TrackingDifferenceBPS))/100)
+			tdBps := float64(*instrument.TrackingDifferenceBPS)
+			if tdBps <= 0 {
+				score.TrackingDifference = clamp01(1 - max(0, -tdBps-30)/100)
+			} else {
+				score.TrackingDifference = clamp01(1 - tdBps/100)
+			}
 		}
 		if instrument.TrackingErrorBPS != nil {
 			score.TrackingError = clamp01(1 - math.Abs(float64(*instrument.TrackingErrorBPS))/100)

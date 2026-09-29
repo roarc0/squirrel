@@ -469,6 +469,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
   ];
   const strategyOptions: FacetOption[] = [
     { value: 'broad', label: 'Broad / Core' },
+    { value: 'active', label: 'Active' },
     { value: 'esg', label: 'ESG / Screened' },
     { value: 'dividend', label: 'Dividend' },
     { value: 'factor', label: 'Factor' },
@@ -1709,7 +1710,7 @@ function InstrumentModal({ opened, close, instrument, saved }: { opened: boolean
           <TextInput label="Tracked index" value={form.index_name} onChange={e => set('index_name', e.currentTarget.value)} />
           <TextInput label="Investment focus" placeholder="Equity, World" value={form.investment_focus} onChange={e => set('investment_focus', e.currentTarget.value)} />
           <Select label="Asset class" value={form.asset_class} data={[{ value: '', label: 'Unknown' }, { value: 'equity', label: 'Equity' }, { value: 'bond', label: 'Bond' }, { value: 'commodity', label: 'Commodity' }, { value: 'monetary', label: 'Monetary' }, { value: 'real_estate', label: 'Real estate' }, { value: 'crypto', label: 'Crypto' }, { value: 'mixed', label: 'Mixed' }, { value: 'other', label: 'Other' }]} onChange={value => set('asset_class', value ?? '')} />
-          <Select label="Strategy" value={form.strategy} data={[{ value: 'broad', label: 'Broad' }, { value: 'esg', label: 'ESG / screened' }, { value: 'dividend', label: 'Dividend' }, { value: 'factor', label: 'Factor' }]} onChange={value => set('strategy', value ?? 'broad')} />
+          <Select label="Strategy" value={form.strategy} data={[{ value: 'broad', label: 'Broad' }, { value: 'active', label: 'Active' }, { value: 'esg', label: 'ESG / screened' }, { value: 'dividend', label: 'Dividend' }, { value: 'factor', label: 'Factor' }]} onChange={value => set('strategy', value ?? 'broad')} />
           <TextInput label="Domicile" maxLength={2} value={form.domicile} onChange={e => set('domicile', e.currentTarget.value.toUpperCase())} />
           <Select label="Distribution" value={form.distribution} data={[{ value: 'accumulating', label: 'Accumulating' }, { value: 'distributing', label: 'Distributing' }]} onChange={value => set('distribution', (value ?? 'accumulating') as InstrumentDraft['distribution'])} />
           <Select label="Replication" value={form.replication} data={[{ value: 'physical_full', label: 'Physical full' }, { value: 'physical_sampling', label: 'Physical sampling' }, { value: 'synthetic', label: 'Synthetic' }]} onChange={value => set('replication', (value ?? 'physical_full') as InstrumentDraft['replication'])} />
