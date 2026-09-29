@@ -4,6 +4,7 @@ const knownColors: Record<string, string> = {
   etp: 'grape', 'non-ucits etp': 'grape', etf: 'gray', 'ucits etf': 'gray', 'non-ucits etf': 'gray', etc: 'yellow', 'non-ucits etc': 'yellow', etn: 'orange', 'non-ucits etn': 'orange',
   fund: 'grape', stock: 'blue', bank: 'cyan', broker: 'violet',
   acc: 'violet', accumulating: 'violet', dist: 'orange', distributing: 'orange',
+  active: 'orange', broad: 'blue', dividend: 'yellow', factor: 'grape',
   esg: 'green',
   refreshed: 'teal', 'awaiting refresh': 'gray', archived: 'gray', hedged: 'cyan', default: 'teal', rate: 'green', tax: 'red',
   'strictly better': 'green', 'same index': 'blue', 'same exposure': 'violet', score: 'teal',

@@ -172,3 +172,49 @@ func TestCatalogIncludesETCsAndNonUCITS(t *testing.T) {
 		t.Fatalf("incomplete instrument should use zero values: %+v", incomplete)
 	}
 }
+
+func TestLookupWithMissingFundSizeAndTER(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `<html><body>
+			<h1 data-testid="etf-profile-header_etf-name">Dimensional US Core Equity Market UCITS ETF USD (Acc)</h1>
+			<span data-testid="etf-profile-header_isin-value">IE000XKK4AV2</span>
+			<span data-testid="etf-profile-header_identifier-value-ticker">-</span>
+			<div data-testid="etf-profile-header_fund-size-value-wrapper"><span>-</span></div>
+			<div data-testid="tl_etf-basics_value_index-name">Active</div>
+			<div data-testid="tl_etf-basics_value_investment-focus">Equity, North America</div>
+			<div data-testid="tl_etf-basics_value_currency-hedge">Currency unhedged</div>
+			<div data-testid="tl_etf-basics_value_ter">-</div>
+			<span data-testid="tl_etf-basics_value_replication">Physical</span>
+			<span data-testid="tl_etf-basics_value_replication-method">Full replication</span>
+			<div data-testid="tl_etf-basics_value_fund-currency">-</div>
+			<div data-testid="tl_etf-basics_value_launch-date">-</div>
+			<div data-testid="tl_etf-basics_value_distribution-policy">-</div>
+			<div data-testid="tl_etf-basics_value_domicile-country">Ireland</div>
+			<div data-testid="tl_etf-basics_value_fund-provider">Dimensional</div>
+			<table><tr><td>UCITS compliance</td><td>Yes</td></tr></table>
+		</body></html>`)
+	}))
+	defer server.Close()
+
+	client := &Client{baseURL: server.URL, timeout: time.Second}
+	etf, err := client.Lookup(context.Background(), "IE000XKK4AV2")
+	if err != nil {
+		t.Fatalf("expected successful lookup with missing metrics, got: %v", err)
+	}
+	if etf.ISIN != "IE000XKK4AV2" {
+		t.Fatalf("expected ISIN IE000XKK4AV2, got %s", etf.ISIN)
+	}
+	if etf.FundSizeMillion != 0 {
+		t.Fatalf("expected fund size 0, got %d", etf.FundSizeMillion)
+	}
+	if etf.TERBPS != 0 {
+		t.Fatalf("expected TER 0, got %d", etf.TERBPS)
+	}
+	if etf.FundCurrency != "USD" {
+		t.Fatalf("expected currency USD (inferred from name), got %s", etf.FundCurrency)
+	}
+	if etf.Distribution != portfolio.DistributionAccumulating {
+		t.Fatalf("expected accumulating (inferred from Acc), got %s", etf.Distribution)
+	}
+}
+

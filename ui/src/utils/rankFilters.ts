@@ -59,6 +59,13 @@ export function isESG(instrument: Partial<Instrument>): boolean {
   );
 }
 
+export function resolveInstrumentProvider(instrument: Partial<Instrument>): string {
+  const prov = instrument.provider?.trim();
+  if (prov && prov.toLowerCase() === 'american century') return 'Avantis';
+  if (instrument.name && instrument.name.toLowerCase().startsWith('avantis')) return 'Avantis';
+  return prov || '';
+}
+
 export function parseSearchTerms(query: string = '', excludeQuery: string = ''): { includes: string[]; excludes: string[] } {
   const includes: string[] = [];
   const excludes: string[] = [];
@@ -301,11 +308,12 @@ export function matchesFilters(
   const { includes, excludes } = parseSearchTerms(filters.query, filters.excludeQuery);
 
   if (includes.length > 0 || excludes.length > 0) {
+    const instProvider = resolveInstrumentProvider(instrument);
     const searchable = [
       instrument.name,
       instrument.ticker,
       instrument.isin,
-      instrument.provider,
+      instProvider,
       instrument.index_name,
       instrument.investment_focus,
       instrument.asset_class,
@@ -412,14 +420,15 @@ export function matchesFilters(
   }
 
   // Include issuers
+  const provider = resolveInstrumentProvider(instrument);
   if (filters.issuers.length > 0) {
-    if (!instrument.provider || !filters.issuers.includes(instrument.provider)) {
+    if (!provider || !filters.issuers.includes(provider)) {
       return false;
     }
   }
   // Exclude issuers
   if (filters.excludeIssuers?.length > 0) {
-    if (instrument.provider && filters.excludeIssuers.includes(instrument.provider)) {
+    if (provider && filters.excludeIssuers.includes(provider)) {
       return false;
     }
   }

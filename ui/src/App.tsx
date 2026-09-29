@@ -642,6 +642,7 @@ export default function App() {
                 reload={load}
                 activeSubtab={(route.subtab as any) || 'holdings'}
                 onSubtabChange={(subtab) => handleSubtabChange('investments', subtab)}
+                onOpenDetail={isin => handleSubtabChange('instruments', isin)}
               />
             </Tabs.Panel>
             <Tabs.Panel value="holdings" className="tab-content">
@@ -653,6 +654,7 @@ export default function App() {
                 reload={load}
                 activeSubtab="holdings"
                 onSubtabChange={(subtab) => handleSubtabChange('investments', subtab)}
+                onOpenDetail={isin => handleSubtabChange('instruments', isin)}
               />
             </Tabs.Panel>
             <Tabs.Panel value="drafts" className="tab-content">
@@ -664,6 +666,7 @@ export default function App() {
                 reload={load}
                 activeSubtab="sandbox"
                 onSubtabChange={(subtab) => handleSubtabChange('investments', subtab)}
+                onOpenDetail={isin => handleSubtabChange('instruments', isin)}
               />
             </Tabs.Panel>
             <Tabs.Panel value="instruments" className="tab-content">
@@ -895,6 +898,7 @@ function Investments({
   activeSubtab,
   onSubtabChange,
   onOpenDrafts,
+  onOpenDetail,
 }: {
   holdings: Holding[];
   accounts: Account[];
@@ -904,6 +908,7 @@ function Investments({
   activeSubtab?: 'holdings' | 'pac' | 'radar' | 'sandbox';
   onSubtabChange?: (subtab: 'holdings' | 'pac' | 'radar' | 'sandbox') => void;
   onOpenDrafts?: () => void;
+  onOpenDetail?: (isin: string) => void;
 }) {
   return (
     <InvestmentsView
@@ -915,6 +920,7 @@ function Investments({
       activeSubtab={activeSubtab}
       onSubtabChange={onSubtabChange}
       onOpenDrafts={onOpenDrafts}
+      onOpenDetail={onOpenDetail}
     />
   );
 }

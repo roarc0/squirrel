@@ -162,6 +162,51 @@ func (s *Store) SaveInstrumentCatalogBatch(ctx context.Context, instruments []po
 	return saved, tx.Commit()
 }
 
+func (s *Store) ReclassifyInstruments(ctx context.Context) (int, int, error) {
+	instruments, err := s.ListInstruments(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer tx.Rollback()
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	stmt, err := tx.PrepareContext(ctx, `
+		UPDATE instruments 
+		SET instrument_type = ?, provider = ?, asset_class = ?, strategy = ?, updated_at = ?
+		WHERE isin = ?`)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer stmt.Close()
+
+	updated := 0
+	for _, inst := range instruments {
+		oldType := inst.InstrumentType
+		oldProvider := inst.Provider
+		oldAssetClass := inst.AssetClass
+		oldStrategy := inst.Strategy
+
+		portfolio.ClassifyInstrument(&inst)
+
+		if inst.InstrumentType != oldType || inst.Provider != oldProvider || inst.AssetClass != oldAssetClass || inst.Strategy != oldStrategy {
+			if _, err := stmt.ExecContext(ctx, inst.InstrumentType, inst.Provider, inst.AssetClass, inst.Strategy, now, inst.ISIN); err != nil {
+				return updated, len(instruments), err
+			}
+			updated++
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, len(instruments), err
+	}
+	return updated, len(instruments), nil
+}
+
+
 func (s *Store) SetInstrumentStarred(ctx context.Context, isin string, starred bool) error {
 	isin = strings.ToUpper(strings.TrimSpace(isin))
 	if !portfolio.ValidISIN(isin) {

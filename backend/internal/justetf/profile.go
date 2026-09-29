@@ -39,46 +39,97 @@ func (c *Client) fetchProfile(ctx context.Context, client *http.Client, isin str
 	value := func(id string) string { return testIDText(doc, id) }
 	name := value("etf-profile-header_etf-name")
 	if name == "" {
-		return portfolio.Instrument{}, fmt.Errorf("%w: %s", ErrNotFound, isin)
+		name = testIDText(doc, "etf-profile_header_name")
+		if name == "" {
+			return portfolio.Instrument{}, fmt.Errorf("%w: %s", ErrNotFound, isin)
+		}
 	}
-	ter, err := percentBPS(value("tl_etf-basics_value_ter"))
-	if err != nil {
-		return portfolio.Instrument{}, fmt.Errorf("parse justETF TER: %w", err)
+
+	// Pull whatever fields are available without failing if secondary metrics are missing
+	ter, _ := percentBPS(value("tl_etf-basics_value_ter"))
+	if ter < 0 || ter > 1_000 {
+		ter = 0
 	}
-	size, err := millions(value("etf-profile-header_fund-size-value-wrapper"))
-	if err != nil {
-		return portfolio.Instrument{}, fmt.Errorf("parse justETF fund size: %w", err)
+
+	size, _ := millions(value("etf-profile-header_fund-size-value-wrapper"))
+	if size <= 0 {
+		size, _ = millions(value("tl_etf-basics_value_fund-size"))
 	}
-	started, err := profileDate(value("tl_etf-basics_value_launch-date"))
-	if err != nil {
-		return portfolio.Instrument{}, fmt.Errorf("parse justETF inception date: %w", err)
+	if size < 0 {
+		size = 0
 	}
+
+	started, _ := profileDate(value("tl_etf-basics_value_launch-date"))
+	if started == "" {
+		started, _ = profileDate(tableValue(doc, "Inception/ Listing Date"))
+	}
+
+	dist := distribution(value("tl_etf-basics_value_distribution-policy"))
+	if dist == "" {
+		nameLower := strings.ToLower(name)
+		if strings.Contains(nameLower, "dis") || strings.Contains(nameLower, "dist") {
+			dist = portfolio.DistributionDistributing
+		} else {
+			dist = portfolio.DistributionAccumulating
+		}
+	}
+
+	rep := replication(value("tl_etf-basics_value_replication") + " " + value("tl_etf-basics_value_replication-method"))
+	if rep == "" {
+		nameLower := strings.ToLower(name)
+		if strings.Contains(nameLower, "swap") || strings.Contains(nameLower, "synthetic") {
+			rep = portfolio.ReplicationSynthetic
+		} else {
+			rep = portfolio.ReplicationPhysicalFull
+		}
+	}
+
+	dom := countryCode(value("tl_etf-basics_value_domicile-country"))
+	if dom == "" && len(isin) >= 2 {
+		dom = strings.ToUpper(isin[:2])
+	}
+
+	currency := currencyCode(value("tl_etf-basics_value_fund-currency"))
+	if len(currency) != 3 {
+		currency = detectCurrencyFromName(name)
+	}
+
+	rawISIN := strings.ToUpper(value("etf-profile-header_isin-value"))
+	if rawISIN == "" || !portfolio.ValidISIN(rawISIN) {
+		rawISIN = isin
+	}
+	if rawISIN != isin {
+		return portfolio.Instrument{}, errors.New("justETF returned a different ISIN")
+	}
+
+	ticker := strings.ToUpper(value("etf-profile-header_identifier-value-ticker"))
+	if ticker == "-" {
+		ticker = ""
+	}
+
 	now := time.Now().UTC().Format(time.RFC3339)
 	etf := portfolio.Instrument{
-		ISIN:            strings.ToUpper(value("etf-profile-header_isin-value")),
+		ISIN:            rawISIN,
 		Name:            name,
-		Ticker:          strings.ToUpper(value("etf-profile-header_identifier-value-ticker")),
+		Ticker:          ticker,
 		InstrumentType:  portfolio.InferInstrumentType(name),
 		Provider:        value("tl_etf-basics_value_fund-provider"),
 		IndexName:       value("tl_etf-basics_value_index-name"),
 		InvestmentFocus: value("tl_etf-basics_value_investment-focus"),
 		CurrencyHedged:  strings.EqualFold(value("tl_etf-basics_value_currency-hedge"), "Currency hedged"),
 		DataStatus:      portfolio.InstrumentStatusEnriched,
-		Distribution:    distribution(value("tl_etf-basics_value_distribution-policy")),
-		Replication:     replication(value("tl_etf-basics_value_replication") + " " + value("tl_etf-basics_value_replication-method")),
-		Domicile:        countryCode(value("tl_etf-basics_value_domicile-country")),
-		FundCurrency:    strings.ToUpper(value("tl_etf-basics_value_fund-currency")),
+		Distribution:    dist,
+		Replication:     rep,
+		Domicile:        dom,
+		FundCurrency:    currency,
 		TERBPS:          ter,
 		FundSizeMillion: size,
 		InceptionDate:   started,
-		UCITS:           strings.EqualFold(tableValue(doc, "UCITS compliance"), "Yes"),
+		UCITS:           strings.EqualFold(tableValue(doc, "UCITS compliance"), "Yes") || strings.Contains(strings.ToUpper(name), "UCITS"),
 		SourceURL:       profileURL,
 		RefreshedAt:     now,
 	}
 	portfolio.ClassifyInstrument(&etf)
-	if etf.ISIN != isin {
-		return portfolio.Instrument{}, errors.New("justETF returned a different ISIN")
-	}
 	if err := portfolio.ValidateInstrument(etf); err != nil {
 		return portfolio.Instrument{}, fmt.Errorf("justETF returned incomplete ETF data: %w", err)
 	}
@@ -155,7 +206,19 @@ func millions(value string) (int64, error) {
 }
 
 func profileDate(value string) (string, error) {
-	for _, format := range []string{"2 January 2006", "02.01.06"} {
+	value = strings.TrimSpace(value)
+	if value == "" || value == "-" {
+		return "", errors.New("missing date")
+	}
+	for _, format := range []string{
+		"2 January 2006",
+		"02.01.06",
+		"02.01.2006",
+		"2006-01-02",
+		"02/01/2006",
+		"01/02/2006",
+		"January 2, 2006",
+	} {
 		if parsed, err := time.Parse(format, value); err == nil {
 			return parsed.Format(time.DateOnly), nil
 		}
@@ -202,3 +265,14 @@ func currencyCode(value string) string {
 	}
 	return value
 }
+
+func detectCurrencyFromName(name string) string {
+	upper := strings.ToUpper(name)
+	for _, code := range []string{"USD", "EUR", "GBP", "CHF", "JPY", "CAD", "AUD"} {
+		if strings.Contains(upper, code) {
+			return code
+		}
+	}
+	return "EUR"
+}
+

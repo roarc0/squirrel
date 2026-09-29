@@ -575,6 +575,10 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
       const res = await instrumentClient.enrichInstrumentCatalog({ limit: bodyData.limit ?? 20 });
       return { enriched: res.enriched, failed: res.failed } as unknown as T;
     }
+    if (path === '/api/instruments/catalog/reclassify' && method === 'POST') {
+      const res = await instrumentClient.reclassifyInstruments({});
+      return { updated: res.updated, total: res.total } as unknown as T;
+    }
     if (path === '/api/instruments/rank' && method === 'POST') {
       const res = await instrumentClient.rankInstruments({
         criteria: {
@@ -1144,3 +1148,9 @@ export async function* watchContinuousRefresh(options?: { signal?: AbortSignal }
 export async function setContinuousRefresh(enabled: boolean): Promise<void> {
   await instrumentClient.setContinuousRefresh({ enabled });
 }
+
+export async function reclassifyInstruments(): Promise<{ updated: number; total: number }> {
+  const res = await instrumentClient.reclassifyInstruments({});
+  return { updated: res.updated, total: res.total };
+}
+

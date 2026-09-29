@@ -271,6 +271,13 @@ message RankInstrumentsResponse {
   repeated RankedInstrument ranked_instruments = 1;
 }
 
+message ReclassifyInstrumentsRequest {}
+
+message ReclassifyInstrumentsResponse {
+  int32 updated = 1;
+  int32 total = 2;
+}
+
 // InstrumentService provides access to the 4,000+ ETF catalog, searching, enrichment, and ETF alternative ranking.
 service InstrumentService {
   // List saved instruments in the user catalog.
@@ -305,4 +312,6 @@ service InstrumentService {
   rpc GetInstrumentPerformance(GetInstrumentPerformanceRequest) returns (GetInstrumentPerformanceResponse);
   // Re-fetch and replace performance data from justETF for an instrument.
   rpc RefreshInstrumentPerformance(RefreshInstrumentPerformanceRequest) returns (RefreshInstrumentPerformanceResponse);
+  // Re-classify all instruments locally in the database (updates strategy, asset class, provider).
+  rpc ReclassifyInstruments(ReclassifyInstrumentsRequest) returns (ReclassifyInstrumentsResponse);
 }

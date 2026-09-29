@@ -304,6 +304,8 @@ export function InvestmentsView({
   reload,
   activeSubtab = 'holdings',
   onSubtabChange,
+  onOpenDrafts,
+  onOpenDetail,
 }: {
   holdings: Holding[];
   accounts: Account[];
@@ -313,6 +315,7 @@ export function InvestmentsView({
   activeSubtab?: InvestmentsSubtab;
   onSubtabChange?: (subtab: InvestmentsSubtab) => void;
   onOpenDrafts?: () => void;
+  onOpenDetail?: (isin: string) => void;
 }) {
   const [currentSubtab, setCurrentSubtab] = useState<InvestmentsSubtab>(activeSubtab);
 
@@ -393,23 +396,36 @@ export function InvestmentsView({
       key: 'instrument',
       label: 'Instrument',
       sortable: true,
-      render: holding => (
-        <Stack gap={2}>
-          <Text size="sm" fw={600} lh={1.3}>{holding.instrument_name}</Text>
-          <Group gap={6} align="center" mt={2}>
-            {holding.instrument_ticker && <TickerBadge ticker={holding.instrument_ticker} />}
-            {holding.instrument_isin && <ISINBadge isin={holding.instrument_isin} />}
-          </Group>
-          {holding.notes && (
-            <Group gap={4} align="center" wrap="nowrap">
-              <IconNotes size={13} color="var(--mantine-color-dimmed)" style={{ flexShrink: 0 }} />
-              <Text size="xs" c="dimmed" fs="italic" lineClamp={2}>
-                {holding.notes}
+      render: holding => {
+        const isin = holding.instrument_isin || instMap.get(holding.instrument_id)?.isin;
+        return (
+          <Stack gap={2}>
+            <Tooltip label={isin && onOpenDetail ? `View ${holding.instrument_name} details` : undefined} disabled={!isin || !onOpenDetail} withArrow openDelay={400}>
+              <Text
+                size="sm"
+                fw={600}
+                lh={1.3}
+                style={onOpenDetail && isin ? { cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 2 } : undefined}
+                onClick={onOpenDetail && isin ? () => onOpenDetail(isin) : undefined}
+              >
+                {holding.instrument_name}
               </Text>
+            </Tooltip>
+            <Group gap={6} align="center" mt={2}>
+              {holding.instrument_ticker && <TickerBadge ticker={holding.instrument_ticker} />}
+              {isin && <ISINBadge isin={isin} />}
             </Group>
-          )}
-        </Stack>
-      ),
+            {holding.notes && (
+              <Group gap={4} align="center" wrap="nowrap">
+                <IconNotes size={13} color="var(--mantine-color-dimmed)" style={{ flexShrink: 0 }} />
+                <Text size="xs" c="dimmed" fs="italic" lineClamp={2}>
+                  {holding.notes}
+                </Text>
+              </Group>
+            )}
+          </Stack>
+        );
+      },
     },
     { key: 'type', label: 'Type', sortable: true, render: holding => <Chip>{instrumentLabels[holding.instrument_type ?? 'other']}</Chip> },
     { key: 'asset_class', label: 'Asset class', sortable: true, render: holding => <Chip>{label(holding.asset_class || 'other')}</Chip> },
@@ -446,7 +462,20 @@ export function InvestmentsView({
     } },
     { key: 'change', label: 'Gain / loss', sortable: true, align: 'right', render: holding => { if (holding.invested_minor === 0) return <Text c="dimmed">—</Text>; const change = holding.value_minor - holding.invested_minor; return <Stack gap={1} align="flex-end"><Text fw={650} c={change >= 0 ? 'teal' : 'red'}>{money(change, holding.currency ?? 'EUR')}</Text><Text size="xs" c="dimmed">{change >= 0 ? '+' : ''}{(change / holding.invested_minor * 100).toFixed(1)}%</Text></Stack>; } },
     { key: 'tax', label: 'Tax', sortable: true, align: 'right', render: holding => percent(holding.tax_bps) },
-    { key: 'actions', align: 'right', render: holding => <TableActions><TableAction label={`Edit ${holding.instrument_name}`} onClick={() => open(holding)}><IconPencil size={14} /></TableAction><TableAction label={`Delete ${holding.instrument_name}`} color="red" onClick={() => void remove(holding)}><IconTrash size={14} /></TableAction></TableActions> },
+    { key: 'actions', align: 'right', render: holding => {
+      const isin = holding.instrument_isin || instMap.get(holding.instrument_id)?.isin;
+      return (
+        <TableActions>
+          {onOpenDetail && isin && (
+            <TableAction label={`View ${holding.instrument_name} details`} onClick={() => onOpenDetail(isin)}>
+              <IconChartPie size={14} />
+            </TableAction>
+          )}
+          <TableAction label={`Edit ${holding.instrument_name}`} onClick={() => open(holding)}><IconPencil size={14} /></TableAction>
+          <TableAction label={`Delete ${holding.instrument_name}`} color="red" onClick={() => void remove(holding)}><IconTrash size={14} /></TableAction>
+        </TableActions>
+      );
+    } },
   ];
 
   const visibleAccounts = activeAccounts.filter(account => accountIDs.length === 0 || accountIDs.includes(String(account.id)));
@@ -481,7 +510,7 @@ export function InvestmentsView({
       holding: h,
       instrumentName: h.instrument_name,
       ticker: h.instrument_ticker,
-      isin: h.instrument_isin,
+      isin: h.instrument_isin || inst?.isin,
       pacBps,
       itemMonthlyMinor,
       terBps,
@@ -706,14 +735,25 @@ export function InvestmentsView({
                             </Table.Thead>
                             <Table.Tbody>
                               {accountPlannedHoldings.map(item => {
+                                const isin = item.isin;
                                 return (
                                   <Table.Tr key={item.holding.id}>
                                     <Table.Td>
                                       <Stack gap={2}>
-                                        <Text size="xs" fw={600} lh={1.3}>{item.instrumentName}</Text>
+                                        <Tooltip label={isin && onOpenDetail ? `View ${item.instrumentName} details` : undefined} disabled={!isin || !onOpenDetail} withArrow openDelay={400}>
+                                          <Text
+                                            size="xs"
+                                            fw={600}
+                                            lh={1.3}
+                                            style={onOpenDetail && isin ? { cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 2 } : undefined}
+                                            onClick={onOpenDetail && isin ? () => onOpenDetail(isin) : undefined}
+                                          >
+                                            {item.instrumentName}
+                                          </Text>
+                                        </Tooltip>
                                         <Group gap={6} align="center">
                                           {item.ticker && <TickerBadge ticker={item.ticker} />}
-                                          {item.isin && <ISINBadge isin={item.isin} />}
+                                          {isin && <ISINBadge isin={isin} />}
                                         </Group>
                                       </Stack>
                                     </Table.Td>
@@ -760,6 +800,13 @@ export function InvestmentsView({
                                     </Table.Td>
                                     <Table.Td style={{ textAlign: 'right' }}>
                                       <TableActions>
+                                        {onOpenDetail && item.isin && (
+                                          <Tooltip label={`View ${item.instrumentName} details`} position="top" withArrow>
+                                            <TableAction label={`View ${item.instrumentName} details`} onClick={() => onOpenDetail(item.isin!)}>
+                                              <IconChartPie size={14} />
+                                            </TableAction>
+                                          </Tooltip>
+                                        )}
                                         <Tooltip label={`Refresh ${item.isin} data from justETF`} position="top" withArrow>
                                           <TableAction label={`Refresh ${item.instrumentName}`} color="blue" disabled={refreshingISIN !== null} onClick={() => void refreshInstrument(item.isin ?? '')}>
                                             <IconRefresh size={14} style={refreshingISIN === item.isin ? { animation: 'spin 1s linear infinite' } : undefined} />

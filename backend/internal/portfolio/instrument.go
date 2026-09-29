@@ -120,6 +120,7 @@ func ValidateInstrument(instrument Instrument) error {
 // ClassifyInstrument derives a deliberately small set of comparison fields from catalog data.
 func ClassifyInstrument(instrument *Instrument) {
 	instrument.InstrumentType = ResolveInstrumentType(instrument.Name, instrument.InstrumentType)
+	instrument.Provider = ResolveProvider(instrument.Name, instrument.Provider)
 	focus := strings.TrimSpace(instrument.InvestmentFocus)
 	text := strings.ToLower(strings.Join([]string{instrument.Name, instrument.IndexName, focus}, " "))
 	first, _, _ := strings.Cut(focus, ",")
@@ -153,8 +154,9 @@ func ClassifyInstrument(instrument *Instrument) {
 		}
 	}
 
+	nameLower := strings.ToLower(instrument.Name)
 	switch {
-	case containsAny(text, "active", "actively managed"):
+	case containsWord(text, "active", "actively", "actively managed") || strings.HasPrefix(nameLower, "avantis"):
 		instrument.Strategy = "active"
 	case containsAny(text, "esg", "sri", "climate", "paris-aligned", "screened", "sustainable", "low carbon"):
 		instrument.Strategy = "esg"
@@ -165,6 +167,73 @@ func ClassifyInstrument(instrument *Instrument) {
 	default:
 		instrument.Strategy = "broad"
 	}
+}
+
+// ResolveProvider normalizes provider names and infers known issuers from security names.
+func ResolveProvider(name, current string) string {
+	nameLower := strings.ToLower(strings.TrimSpace(name))
+	currentTrimmed := strings.TrimSpace(current)
+	currentLower := strings.ToLower(currentTrimmed)
+
+	// Avantis ETFs are managed under American Century Investments; normalize to Avantis for search & filters.
+	if strings.HasPrefix(nameLower, "avantis") || currentLower == "american century" || strings.Contains(nameLower, "avantis ") {
+		return "Avantis"
+	}
+	if currentTrimmed != "" {
+		return currentTrimmed
+	}
+
+	prefixes := []struct {
+		prefix   string
+		provider string
+	}{
+		{"avantis", "Avantis"},
+		{"ishares", "iShares"},
+		{"vanguard", "Vanguard"},
+		{"xtrackers", "Xtrackers"},
+		{"amundi", "Amundi ETF"},
+		{"invesco", "Invesco"},
+		{"spdr", "State Street"},
+		{"state street", "State Street"},
+		{"wisdomtree", "WisdomTree"},
+		{"vaneck", "VanEck"},
+		{"global x", "Global X"},
+		{"franklin", "Franklin Templeton"},
+		{"bnp paribas", "BNP Paribas Easy"},
+		{"hsbc", "HSBC ETF"},
+		{"ubs", "UBS ETF"},
+		{"deka", "Deka ETFs"},
+		{"fidelity", "Fidelity ETF"},
+		{"first trust", "First Trust"},
+		{"jpmorgan", "J.P. Morgan"},
+		{"j.p. morgan", "J.P. Morgan"},
+		{"pimco", "PIMCO"},
+		{"dimensional", "Dimensional"},
+		{"coinshares", "CoinShares"},
+		{"janus henderson", "Janus Henderson"},
+		{"pictet", "Pictet"},
+		{"calamos", "Calamos"},
+		{"erste", "ERSTE ETF"},
+		{"leonteq", "Leonteq"},
+		{"21shares", "21shares"},
+		{"bitwise", "Bitwise"},
+		{"robeco", "Robeco"},
+		{"schroder", "Schroder"},
+		{"ossiam", "Ossiam"},
+		{"kraneshares", "KraneShares"},
+		{"goldman sachs", "Goldman Sachs"},
+		{"hanetf", "HANetf"},
+		{"legal & general", "Legal & General (LGIM)"},
+		{"lgim", "Legal & General (LGIM)"},
+		{"leverage shares", "Leverage Shares"},
+	}
+
+	for _, p := range prefixes {
+		if strings.HasPrefix(nameLower, p.prefix) {
+			return p.provider
+		}
+	}
+	return currentTrimmed
 }
 
 // ResolveInstrumentType corrects legacy ETF defaults and generic ETP labels,
@@ -198,6 +267,32 @@ func containsAny(value string, needles ...string) bool {
 		}
 	}
 	return false
+}
+
+func containsWord(text string, targets ...string) bool {
+	for _, target := range targets {
+		target = strings.ToLower(target)
+		idx := 0
+		for {
+			pos := strings.Index(text[idx:], target)
+			if pos == -1 {
+				break
+			}
+			start := idx + pos
+			end := start + len(target)
+			leftOk := (start == 0 || !isAlphaNum(rune(text[start-1])))
+			rightOk := (end == len(text) || !isAlphaNum(rune(text[end])))
+			if leftOk && rightOk {
+				return true
+			}
+			idx = start + 1
+		}
+	}
+	return false
+}
+
+func isAlphaNum(r rune) bool {
+	return (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9')
 }
 
 type InstrumentAlternative struct {

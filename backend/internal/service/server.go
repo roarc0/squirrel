@@ -119,6 +119,7 @@ func NewWithConfig(data *store.Store, cfg config.Config, configPath string, prof
 	// AI config REST endpoints authenticate with the same session as RPCs.
 	mux.HandleFunc("GET /api/config/ai", s.handleGetAIConfig)
 	mux.HandleFunc("PATCH /api/config/ai", s.handlePatchAIConfig)
+	mux.HandleFunc("POST /api/instruments/catalog/reclassify", s.handleReclassifyInstruments)
 
 	// UI fallback handler
 	mux.Handle("/", ui.Handler())

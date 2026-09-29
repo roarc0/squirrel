@@ -81,6 +81,9 @@ const (
 	// InstrumentServiceRefreshInstrumentPerformanceProcedure is the fully-qualified name of the
 	// InstrumentService's RefreshInstrumentPerformance RPC.
 	InstrumentServiceRefreshInstrumentPerformanceProcedure = "/v1.InstrumentService/RefreshInstrumentPerformance"
+	// InstrumentServiceReclassifyInstrumentsProcedure is the fully-qualified name of the
+	// InstrumentService's ReclassifyInstruments RPC.
+	InstrumentServiceReclassifyInstrumentsProcedure = "/v1.InstrumentService/ReclassifyInstruments"
 )
 
 // InstrumentServiceClient is a client for the v1.InstrumentService service.
@@ -117,6 +120,8 @@ type InstrumentServiceClient interface {
 	GetInstrumentPerformance(context.Context, *connect.Request[v1.GetInstrumentPerformanceRequest]) (*connect.Response[v1.GetInstrumentPerformanceResponse], error)
 	// Re-fetch and replace performance data from justETF for an instrument.
 	RefreshInstrumentPerformance(context.Context, *connect.Request[v1.RefreshInstrumentPerformanceRequest]) (*connect.Response[v1.RefreshInstrumentPerformanceResponse], error)
+	// Re-classify all instruments locally in the database (updates strategy, asset class, provider).
+	ReclassifyInstruments(context.Context, *connect.Request[v1.ReclassifyInstrumentsRequest]) (*connect.Response[v1.ReclassifyInstrumentsResponse], error)
 }
 
 // NewInstrumentServiceClient constructs a client for the v1.InstrumentService service. By default,
@@ -226,6 +231,12 @@ func NewInstrumentServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(instrumentServiceMethods.ByName("RefreshInstrumentPerformance")),
 			connect.WithClientOptions(opts...),
 		),
+		reclassifyInstruments: connect.NewClient[v1.ReclassifyInstrumentsRequest, v1.ReclassifyInstrumentsResponse](
+			httpClient,
+			baseURL+InstrumentServiceReclassifyInstrumentsProcedure,
+			connect.WithSchema(instrumentServiceMethods.ByName("ReclassifyInstruments")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -247,6 +258,7 @@ type instrumentServiceClient struct {
 	watchContinuousRefresh       *connect.Client[v1.WatchContinuousRefreshRequest, v1.RefreshTick]
 	getInstrumentPerformance     *connect.Client[v1.GetInstrumentPerformanceRequest, v1.GetInstrumentPerformanceResponse]
 	refreshInstrumentPerformance *connect.Client[v1.RefreshInstrumentPerformanceRequest, v1.RefreshInstrumentPerformanceResponse]
+	reclassifyInstruments        *connect.Client[v1.ReclassifyInstrumentsRequest, v1.ReclassifyInstrumentsResponse]
 }
 
 // ListInstruments calls v1.InstrumentService.ListInstruments.
@@ -329,6 +341,11 @@ func (c *instrumentServiceClient) RefreshInstrumentPerformance(ctx context.Conte
 	return c.refreshInstrumentPerformance.CallUnary(ctx, req)
 }
 
+// ReclassifyInstruments calls v1.InstrumentService.ReclassifyInstruments.
+func (c *instrumentServiceClient) ReclassifyInstruments(ctx context.Context, req *connect.Request[v1.ReclassifyInstrumentsRequest]) (*connect.Response[v1.ReclassifyInstrumentsResponse], error) {
+	return c.reclassifyInstruments.CallUnary(ctx, req)
+}
+
 // InstrumentServiceHandler is an implementation of the v1.InstrumentService service.
 type InstrumentServiceHandler interface {
 	// List saved instruments in the user catalog.
@@ -363,6 +380,8 @@ type InstrumentServiceHandler interface {
 	GetInstrumentPerformance(context.Context, *connect.Request[v1.GetInstrumentPerformanceRequest]) (*connect.Response[v1.GetInstrumentPerformanceResponse], error)
 	// Re-fetch and replace performance data from justETF for an instrument.
 	RefreshInstrumentPerformance(context.Context, *connect.Request[v1.RefreshInstrumentPerformanceRequest]) (*connect.Response[v1.RefreshInstrumentPerformanceResponse], error)
+	// Re-classify all instruments locally in the database (updates strategy, asset class, provider).
+	ReclassifyInstruments(context.Context, *connect.Request[v1.ReclassifyInstrumentsRequest]) (*connect.Response[v1.ReclassifyInstrumentsResponse], error)
 }
 
 // NewInstrumentServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -468,6 +487,12 @@ func NewInstrumentServiceHandler(svc InstrumentServiceHandler, opts ...connect.H
 		connect.WithSchema(instrumentServiceMethods.ByName("RefreshInstrumentPerformance")),
 		connect.WithHandlerOptions(opts...),
 	)
+	instrumentServiceReclassifyInstrumentsHandler := connect.NewUnaryHandler(
+		InstrumentServiceReclassifyInstrumentsProcedure,
+		svc.ReclassifyInstruments,
+		connect.WithSchema(instrumentServiceMethods.ByName("ReclassifyInstruments")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/v1.InstrumentService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case InstrumentServiceListInstrumentsProcedure:
@@ -502,6 +527,8 @@ func NewInstrumentServiceHandler(svc InstrumentServiceHandler, opts ...connect.H
 			instrumentServiceGetInstrumentPerformanceHandler.ServeHTTP(w, r)
 		case InstrumentServiceRefreshInstrumentPerformanceProcedure:
 			instrumentServiceRefreshInstrumentPerformanceHandler.ServeHTTP(w, r)
+		case InstrumentServiceReclassifyInstrumentsProcedure:
+			instrumentServiceReclassifyInstrumentsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -573,4 +600,8 @@ func (UnimplementedInstrumentServiceHandler) GetInstrumentPerformance(context.Co
 
 func (UnimplementedInstrumentServiceHandler) RefreshInstrumentPerformance(context.Context, *connect.Request[v1.RefreshInstrumentPerformanceRequest]) (*connect.Response[v1.RefreshInstrumentPerformanceResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.InstrumentService.RefreshInstrumentPerformance is not implemented"))
+}
+
+func (UnimplementedInstrumentServiceHandler) ReclassifyInstruments(context.Context, *connect.Request[v1.ReclassifyInstrumentsRequest]) (*connect.Response[v1.ReclassifyInstrumentsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.InstrumentService.ReclassifyInstruments is not implemented"))
 }

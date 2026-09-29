@@ -118,6 +118,34 @@ func TestClassifyInstrument(t *testing.T) {
 	if catalog.AssetClass != "bond" {
 		t.Fatalf("catalog bond classified as %q", catalog.AssetClass)
 	}
+
+	// Solactive index passive fund must NOT be falsely classified as active
+	solactiveInst := Instrument{Name: "UBS Solactive Global Pure Gold Miners UCITS ETF USD dis", InstrumentType: InstrumentTypeETF}
+	ClassifyInstrument(&solactiveInst)
+	if solactiveInst.Strategy == "active" {
+		t.Fatalf("Solactive index fund incorrectly classified as active: strategy=%q", solactiveInst.Strategy)
+	}
+
+	// Avantis fund must have Provider "Avantis" and Strategy "active" even if scraper saw "American Century"
+	avantisInst := Instrument{
+		Name:           "Avantis Global Small Cap Value UCITS ETF USD Acc",
+		Provider:       "American Century",
+		InstrumentType: InstrumentTypeETF,
+	}
+	ClassifyInstrument(&avantisInst)
+	if avantisInst.Provider != "Avantis" {
+		t.Fatalf("expected provider 'Avantis', got %q", avantisInst.Provider)
+	}
+	if avantisInst.Strategy != "active" {
+		t.Fatalf("expected strategy 'active' for Avantis fund, got %q", avantisInst.Strategy)
+	}
+
+	// Provider inference from name when provider is empty
+	isharesInst := Instrument{Name: "iShares Core MSCI World UCITS ETF", InstrumentType: InstrumentTypeETF}
+	ClassifyInstrument(&isharesInst)
+	if isharesInst.Provider != "iShares" {
+		t.Fatalf("expected inferred provider 'iShares', got %q", isharesInst.Provider)
+	}
 }
 
 func TestAlternativesRespectHedgingForSameIndex(t *testing.T) {

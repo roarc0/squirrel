@@ -3,9 +3,11 @@ package service
 import (
 	"cmp"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"slices"
 	"strings"
 	"time"
@@ -363,6 +365,43 @@ func (s *Server) RankInstruments(ctx context.Context, req *connect.Request[portv
 	return connect.NewResponse(&portv1.RankInstrumentsResponse{RankedInstruments: pbRanked}), nil
 }
 
+func (s *Server) ReclassifyInstruments(ctx context.Context, req *connect.Request[portv1.ReclassifyInstrumentsRequest]) (*connect.Response[portv1.ReclassifyInstrumentsResponse], error) {
+	if err := s.requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	updated, total, err := s.store.ReclassifyInstruments(ctx)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&portv1.ReclassifyInstrumentsResponse{
+		Updated: int32(updated),
+		Total:   int32(total),
+	}), nil
+}
+
+func (s *Server) handleReclassifyInstruments(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := s.requireAdmin(r.Context()); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+	updated, total, err := s.store.ReclassifyInstruments(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"updated": updated,
+		"total":   total,
+	})
+}
+
+
+
 func (s *Server) enrichInstrument(ctx context.Context, isin string) error {
 	existing, err := s.store.GetInstrumentByISIN(ctx, isin)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
@@ -390,6 +429,21 @@ func (s *Server) enrichInstrument(ctx context.Context, isin string) error {
 		}
 		if profile.FundCurrency == "" {
 			profile.FundCurrency = existing.FundCurrency
+		}
+		if profile.Ticker == "" && existing.Ticker != "" {
+			profile.Ticker = existing.Ticker
+		}
+		if profile.Provider == "" && existing.Provider != "" {
+			profile.Provider = existing.Provider
+		}
+		if profile.InceptionDate == "" && existing.InceptionDate != "" {
+			profile.InceptionDate = existing.InceptionDate
+		}
+		if profile.TERBPS == 0 && existing.TERBPS > 0 {
+			profile.TERBPS = existing.TERBPS
+		}
+		if profile.FundSizeMillion == 0 && existing.FundSizeMillion > 0 {
+			profile.FundSizeMillion = existing.FundSizeMillion
 		}
 		profile.Starred = existing.Starred
 	}

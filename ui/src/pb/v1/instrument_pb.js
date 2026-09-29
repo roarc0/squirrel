@@ -460,3 +460,22 @@ export const RankInstrumentsResponse = /*@__PURE__*/ proto3.makeMessageType(
   ],
 );
 
+/**
+ * @generated from message v1.ReclassifyInstrumentsRequest
+ */
+export const ReclassifyInstrumentsRequest = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.ReclassifyInstrumentsRequest",
+  [],
+);
+
+/**
+ * @generated from message v1.ReclassifyInstrumentsResponse
+ */
+export const ReclassifyInstrumentsResponse = /*@__PURE__*/ proto3.makeMessageType(
+  "v1.ReclassifyInstrumentsResponse",
+  () => [
+    { no: 1, name: "updated", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 2, name: "total", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+  ],
+);
+

@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { CreateInstrumentRequest, CreateInstrumentResponse, DeleteInstrumentRequest, DeleteInstrumentResponse, EnrichInstrumentCatalogRequest, EnrichInstrumentCatalogResponse, EnrichmentProgress, GetInstrumentAlternativesRequest, GetInstrumentAlternativesResponse, GetInstrumentPerformanceRequest, GetInstrumentPerformanceResponse, ImportInstrumentsRequest, ImportInstrumentsResponse, ListInstrumentsRequest, ListInstrumentsResponse, LookupInstrumentRequest, LookupInstrumentResponse, RankInstrumentsRequest, RankInstrumentsResponse, RefreshInstrumentPerformanceRequest, RefreshInstrumentPerformanceResponse, RefreshTick, SearchInstrumentsRequest, SearchInstrumentsResponse, SetContinuousRefreshRequest, SetContinuousRefreshResponse, StarInstrumentRequest, StarInstrumentResponse, StreamInstrumentCatalogRequest, SyncInstrumentCatalogRequest, SyncInstrumentCatalogResponse, WatchContinuousRefreshRequest } from "./instrument_pb.js";
+import { CreateInstrumentRequest, CreateInstrumentResponse, DeleteInstrumentRequest, DeleteInstrumentResponse, EnrichInstrumentCatalogRequest, EnrichInstrumentCatalogResponse, EnrichmentProgress, GetInstrumentAlternativesRequest, GetInstrumentAlternativesResponse, GetInstrumentPerformanceRequest, GetInstrumentPerformanceResponse, ImportInstrumentsRequest, ImportInstrumentsResponse, ListInstrumentsRequest, ListInstrumentsResponse, LookupInstrumentRequest, LookupInstrumentResponse, RankInstrumentsRequest, RankInstrumentsResponse, ReclassifyInstrumentsRequest, ReclassifyInstrumentsResponse, RefreshInstrumentPerformanceRequest, RefreshInstrumentPerformanceResponse, RefreshTick, SearchInstrumentsRequest, SearchInstrumentsResponse, SetContinuousRefreshRequest, SetContinuousRefreshResponse, StarInstrumentRequest, StarInstrumentResponse, StreamInstrumentCatalogRequest, SyncInstrumentCatalogRequest, SyncInstrumentCatalogResponse, WatchContinuousRefreshRequest } from "./instrument_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -188,6 +188,17 @@ export declare const InstrumentService: {
       readonly name: "RefreshInstrumentPerformance",
       readonly I: typeof RefreshInstrumentPerformanceRequest,
       readonly O: typeof RefreshInstrumentPerformanceResponse,
+      readonly kind: MethodKind.Unary,
+    },
+    /**
+     * Re-classify all instruments locally in the database (updates strategy, asset class, provider).
+     *
+     * @generated from rpc v1.InstrumentService.ReclassifyInstruments
+     */
+    readonly reclassifyInstruments: {
+      readonly name: "ReclassifyInstruments",
+      readonly I: typeof ReclassifyInstrumentsRequest,
+      readonly O: typeof ReclassifyInstrumentsResponse,
       readonly kind: MethodKind.Unary,
     },
   }

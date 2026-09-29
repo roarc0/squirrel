@@ -17,9 +17,10 @@ type Props = {
   onClose: () => void;
   instruments: Instrument[];
   onShowAlternatives?: (instrument: Instrument) => void;
+  onOpenDetail?: (isin: string) => void;
 };
 
-export function CompareModal({ opened, onClose, instruments, onShowAlternatives }: Props) {
+export function CompareModal({ opened, onClose, instruments, onShowAlternatives, onOpenDetail }: Props) {
   if (instruments.length === 0) return null;
 
   const percent = (valBps: number | null | undefined) =>
@@ -55,7 +56,14 @@ export function CompareModal({ opened, onClose, instruments, onShowAlternatives 
                 {instruments.map(inst => (
                   <Table.Th key={inst.id} style={{ minWidth: 240 }}>
                     <Stack gap={2}>
-                      <Text fw={700} size="sm">{inst.name}</Text>
+                      <Text
+                        fw={700}
+                        size="sm"
+                        style={onOpenDetail ? { cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 2 } : undefined}
+                        onClick={onOpenDetail ? () => { onClose(); onOpenDetail(inst.isin); } : undefined}
+                      >
+                        {inst.name}
+                      </Text>
                       <Group gap={4} align="center">
                         {inst.ticker && <TickerBadge ticker={inst.ticker} />}
                         <ISINBadge isin={inst.isin} />

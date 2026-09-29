@@ -472,3 +472,54 @@ func TestUpdateSituationRollsBackWhenSnapshotFails(t *testing.T) {
 		t.Fatalf("snapshot failure did not roll back account changes: err=%v accounts=%+v", err, accounts)
 	}
 }
+
+func TestReclassifyInstruments(t *testing.T) {
+	s, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	ctx := context.Background()
+
+	inst := portfolio.Instrument{
+		ISIN:            "IE000RJECXS5",
+		Name:            "Avantis Global Equity UCITS ETF USD Acc",
+		Provider:        "American Century",
+		Strategy:        "broad",
+		AssetClass:      "equity",
+		Distribution:    portfolio.DistributionAccumulating,
+		Replication:     portfolio.ReplicationPhysicalFull,
+		FundCurrency:    "USD",
+		TERBPS:          22,
+		FundSizeMillion: 500,
+	}
+	if err := s.SaveInstrument(ctx, &inst); err != nil {
+		t.Fatal(err)
+	}
+
+	// Manually force old classification values to simulate pre-existing database rows
+	_, err = s.DB().ExecContext(ctx, `UPDATE instruments SET provider = 'American Century', strategy = 'broad' WHERE isin = ?`, inst.ISIN)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	updated, total, err := s.ReclassifyInstruments(ctx)
+	if err != nil {
+		t.Fatalf("ReclassifyInstruments failed: %v", err)
+	}
+	if total != 1 || updated != 1 {
+		t.Fatalf("expected 1 updated, 1 total; got %d updated, %d total", updated, total)
+	}
+
+	got, err := s.GetInstrumentByISIN(ctx, inst.ISIN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Provider != "Avantis" {
+		t.Fatalf("expected provider 'Avantis', got %q", got.Provider)
+	}
+	if got.Strategy != "active" {
+		t.Fatalf("expected strategy 'active', got %q", got.Strategy)
+	}
+}
+

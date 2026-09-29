@@ -1365,3 +1365,51 @@ export declare class RankInstrumentsResponse extends Message<RankInstrumentsResp
   static equals(a: RankInstrumentsResponse | PlainMessage<RankInstrumentsResponse> | undefined, b: RankInstrumentsResponse | PlainMessage<RankInstrumentsResponse> | undefined): boolean;
 }
 
+/**
+ * @generated from message v1.ReclassifyInstrumentsRequest
+ */
+export declare class ReclassifyInstrumentsRequest extends Message<ReclassifyInstrumentsRequest> {
+  constructor(data?: PartialMessage<ReclassifyInstrumentsRequest>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.ReclassifyInstrumentsRequest";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ReclassifyInstrumentsRequest;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ReclassifyInstrumentsRequest;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ReclassifyInstrumentsRequest;
+
+  static equals(a: ReclassifyInstrumentsRequest | PlainMessage<ReclassifyInstrumentsRequest> | undefined, b: ReclassifyInstrumentsRequest | PlainMessage<ReclassifyInstrumentsRequest> | undefined): boolean;
+}
+
+/**
+ * @generated from message v1.ReclassifyInstrumentsResponse
+ */
+export declare class ReclassifyInstrumentsResponse extends Message<ReclassifyInstrumentsResponse> {
+  /**
+   * @generated from field: int32 updated = 1;
+   */
+  updated: number;
+
+  /**
+   * @generated from field: int32 total = 2;
+   */
+  total: number;
+
+  constructor(data?: PartialMessage<ReclassifyInstrumentsResponse>);
+
+  static readonly runtime: typeof proto3;
+  static readonly typeName = "v1.ReclassifyInstrumentsResponse";
+  static readonly fields: FieldList;
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ReclassifyInstrumentsResponse;
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ReclassifyInstrumentsResponse;
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ReclassifyInstrumentsResponse;
+
+  static equals(a: ReclassifyInstrumentsResponse | PlainMessage<ReclassifyInstrumentsResponse> | undefined, b: ReclassifyInstrumentsResponse | PlainMessage<ReclassifyInstrumentsResponse> | undefined): boolean;
+}
+

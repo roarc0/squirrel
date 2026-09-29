@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { Instrument } from './api.ts';
 import { compactMoney, instrumentLabels, localDateISO, relativeDate, setHideBalancesState } from './utils/format.ts';
-import { builtInPresets, computeInstrumentScore, defaultFilters, defaultRankFilters, isESG, matchesFilters, matchesRankFilters, parseSearchTerms } from './utils/rankFilters.ts';
+import { builtInPresets, computeInstrumentScore, defaultFilters, defaultRankFilters, isESG, matchesFilters, matchesRankFilters, parseSearchTerms, resolveInstrumentProvider } from './utils/rankFilters.ts';
 import { chartGeometry, chartTickIndexes, chipColor, filterChartRange, matchesExactFilters, nearestChartIndex, pageBounds, performanceMood } from './visual.ts';
 
 test('financial labels use semantic colors and unknown labels stay stable', () => {
@@ -483,5 +483,27 @@ test('matchesFilters supports active strategy filtering', () => {
   assert.equal(matchesFilters(activeEtf, activeFilter), true);
   assert.equal(matchesFilters(passiveEtf, activeFilter), false);
 });
+
+test('resolveInstrumentProvider and matchesFilters correctly handle Avantis provider', () => {
+  const avantisEtf: Partial<Instrument> = {
+    name: 'Avantis Global Small Cap Value UCITS ETF USD Acc',
+    provider: 'American Century',
+    strategy: 'active',
+  };
+  assert.equal(resolveInstrumentProvider(avantisEtf), 'Avantis');
+
+  // Matching by Avantis issuer
+  const avantisFilter = { ...defaultFilters, issuers: ['Avantis'] };
+  assert.equal(matchesFilters(avantisEtf, avantisFilter), true);
+
+  // Negative issuer filter
+  const excludeAvantis = { ...defaultFilters, excludeIssuers: ['Avantis'] };
+  assert.equal(matchesFilters(avantisEtf, excludeAvantis), false);
+
+  // ESG and Active chip colors
+  assert.equal(chipColor('esg'), 'green');
+  assert.equal(chipColor('active'), 'orange');
+});
+
 
 

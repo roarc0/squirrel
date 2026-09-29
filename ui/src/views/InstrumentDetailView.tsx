@@ -33,7 +33,7 @@ import { api, instrumentClient, type Instrument, type InstrumentAlternative } fr
 import { chartGeometry, nearestChartIndex } from '../visual';
 import { Chip, ISINBadge, ReplicationChip, TickerBadge } from '../Chip';
 import { instrumentLabels, label, relativeDate } from '../utils/format';
-import { computeInstrumentScore, isESG } from '../utils/rankFilters';
+import { computeInstrumentScore, isESG, resolveInstrumentProvider } from '../utils/rankFilters';
 
 type PerfPoint = { date: string; change_bps: number };
 type PeriodKey = '1m' | '3m' | '6m' | 'ytd' | '1y' | '3y' | '5y' | 'max';
@@ -676,7 +676,7 @@ export function InstrumentDetailView({
                               </Group>
                               <Group gap={4} mt={2}>
                                 <ISINBadge isin={inst.isin} size="xs" />
-                                {isESG(inst) && <Badge size="xs" variant="light" color="teal">ESG</Badge>}
+                                {isESG(inst) && <Chip size="xs" colorKey="esg">ESG</Chip>}
                                 <Badge size="xs" variant="light" color={alt.match === 'exact_index' ? 'blue' : 'gray'}>
                                   {alt.match === 'exact_index' ? 'Exact Benchmark' : 'Same Exposure'}
                                 </Badge>
@@ -813,7 +813,7 @@ export function InstrumentDetailView({
 
             <Group justify="space-between" align="center">
               <Text size="sm" c="dimmed">Provider / Issuer</Text>
-              <Text size="sm" fw={600} ta="right">{instrument.provider || '—'}</Text>
+              <Text size="sm" fw={600} ta="right">{resolveInstrumentProvider(instrument) || '—'}</Text>
             </Group>
 
             <Group justify="space-between" align="center">
@@ -838,7 +838,7 @@ export function InstrumentDetailView({
             <Group justify="space-between" align="center">
               <Text size="sm" c="dimmed">ESG Screening</Text>
               {isESG(instrument) ? (
-                <Badge size="sm" variant="light" color="teal">✓ ESG / SRI Screened</Badge>
+                <Badge size="sm" variant="light" color="green">✓ ESG / SRI Screened</Badge>
               ) : (
                 <Text size="sm" c="dimmed">Standard / Traditional</Text>
               )}

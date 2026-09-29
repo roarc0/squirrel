@@ -456,7 +456,7 @@ body,
 
 .data-table thead tr th {
   border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
-  padding: 9px 14px !important;
+  padding: 8px 10px !important;
   background-color: rgba(0, 0, 0, 0.02) !important;
   color: #475569 !important;
   font-size: 11px !important;
@@ -469,6 +469,11 @@ body,
   border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
   background-color: rgba(255, 255, 255, 0.02) !important;
   color: #94a3b8 !important;
+}
+
+.data-table.compact thead tr th {
+  padding: 6px 7px !important;
+  font-size: 10.5px !important;
 }
 
 .data-table thead tr:first-child th:first-child {
@@ -490,7 +495,7 @@ body,
 
 .data-table tbody tr td {
   border-bottom: 1px solid #e2e8f0 !important;
-  padding: 9px 14px !important;
+  padding: 7px 10px !important;
   background-color: inherit;
   transition: background-color 0.1s ease;
 }
@@ -498,6 +503,11 @@ body,
 [data-mantine-color-scheme="dark"] .data-table tbody tr td {
   border-bottom: 1px solid #262e3d !important;
   background-color: inherit;
+}
+
+.data-table.compact tbody tr td {
+  padding: 5px 7px !important;
+  font-size: 12.5px !important;
 }
 
 .data-table tbody tr:hover td {
