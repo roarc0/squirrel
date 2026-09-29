@@ -469,7 +469,6 @@ export function AIConsultantView({
       value: money(h.value_minor, h.currency ?? primaryCurrency),
       ter: inst?.ter_bps ? percent(inst.ter_bps) : '0%',
       actualPct: percent(h.actual_bps),
-      plannedPct: percent(h.planned_bps),
       notes: h.notes || undefined,
     };
   });

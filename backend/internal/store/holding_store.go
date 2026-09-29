@@ -13,7 +13,7 @@ import (
 func (s *Store) ListHoldings(ctx context.Context, userID string) ([]portfolio.Holding, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT h.id, h.account_id, h.instrument_id, a.name, a.currency, i.name, i.isin, i.ticker, i.instrument_type, i.asset_class, i.ter_bps,
-			h.invested_minor, h.value_minor, h.tax_bps, h.planned_bps, h.is_pac, h.pac_bps, h.pac_frequency, COALESCE(h.notes, '')
+			h.invested_minor, h.value_minor, h.tax_bps, h.is_pac, h.pac_bps, h.pac_frequency, COALESCE(h.notes, '')
 		FROM holdings h
 		JOIN accounts a ON a.id = h.account_id
 		JOIN instruments i ON i.id = h.instrument_id
@@ -28,7 +28,7 @@ func (s *Store) ListHoldings(ctx context.Context, userID string) ([]portfolio.Ho
 	for rows.Next() {
 		var holding portfolio.Holding
 		var isPacInt int
-		if err := rows.Scan(&holding.ID, &holding.AccountID, &holding.InstrumentID, &holding.AccountName, &holding.Currency, &holding.InstrumentName, &holding.InstrumentISIN, &holding.InstrumentTicker, &holding.InstrumentType, &holding.AssetClass, &holding.TERBPS, &holding.InvestedMinor, &holding.ValueMinor, &holding.TaxBPS, &holding.PlannedBPS, &isPacInt, &holding.PACBPS, &holding.PACFrequency, &holding.Notes); err != nil {
+		if err := rows.Scan(&holding.ID, &holding.AccountID, &holding.InstrumentID, &holding.AccountName, &holding.Currency, &holding.InstrumentName, &holding.InstrumentISIN, &holding.InstrumentTicker, &holding.InstrumentType, &holding.AssetClass, &holding.TERBPS, &holding.InvestedMinor, &holding.ValueMinor, &holding.TaxBPS, &isPacInt, &holding.PACBPS, &holding.PACFrequency, &holding.Notes); err != nil {
 			return nil, err
 		}
 		holding.IsPAC = isPacInt != 0
@@ -54,13 +54,13 @@ func (s *Store) GetHolding(ctx context.Context, id int64, userID string) (*portf
 	var isPacInt int
 	err := s.db.QueryRowContext(ctx, `
 		SELECT h.id, h.account_id, h.instrument_id, a.name, a.currency, i.name, i.isin, i.ticker, i.instrument_type, i.asset_class, i.ter_bps,
-			h.invested_minor, h.value_minor, h.tax_bps, h.planned_bps, h.is_pac, h.pac_bps, h.pac_frequency, COALESCE(h.notes, '')
+			h.invested_minor, h.value_minor, h.tax_bps, h.is_pac, h.pac_bps, h.pac_frequency, COALESCE(h.notes, '')
 		FROM holdings h
 		JOIN accounts a ON a.id = h.account_id
 		JOIN instruments i ON i.id = h.instrument_id
 		WHERE h.id = ? AND a.user_id = ?`, id, userID).Scan(
 		&h.ID, &h.AccountID, &h.InstrumentID, &h.AccountName, &h.Currency, &h.InstrumentName, &h.InstrumentISIN, &h.InstrumentTicker, &h.InstrumentType, &h.AssetClass, &h.TERBPS,
-		&h.InvestedMinor, &h.ValueMinor, &h.TaxBPS, &h.PlannedBPS, &isPacInt, &h.PACBPS, &h.PACFrequency, &h.Notes,
+		&h.InvestedMinor, &h.ValueMinor, &h.TaxBPS, &isPacInt, &h.PACBPS, &h.PACFrequency, &h.Notes,
 	)
 	if err != nil {
 		return nil, err
@@ -105,12 +105,12 @@ func (s *Store) SaveHolding(ctx context.Context, holding *portfolio.Holding) err
 	}
 	if holding.ID == 0 {
 		err := tx.QueryRowContext(ctx, `
-			INSERT INTO holdings (account_id, instrument_id, invested_minor, value_minor, tax_bps, planned_bps, is_pac, pac_bps, pac_frequency, notes, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO holdings (account_id, instrument_id, invested_minor, value_minor, tax_bps, is_pac, pac_bps, pac_frequency, notes, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(account_id, instrument_id) DO UPDATE SET invested_minor=excluded.invested_minor,
-				value_minor=excluded.value_minor, tax_bps=excluded.tax_bps, planned_bps=excluded.planned_bps,
+				value_minor=excluded.value_minor, tax_bps=excluded.tax_bps,
 				is_pac=excluded.is_pac, pac_bps=excluded.pac_bps, pac_frequency=excluded.pac_frequency, notes=excluded.notes, updated_at=excluded.updated_at
-			RETURNING id`, holding.AccountID, holding.InstrumentID, holding.InvestedMinor, holding.ValueMinor, holding.TaxBPS, holding.PlannedBPS, isPacInt, holding.PACBPS, holding.PACFrequency, holding.Notes, now).Scan(&holding.ID)
+			RETURNING id`, holding.AccountID, holding.InstrumentID, holding.InvestedMinor, holding.ValueMinor, holding.TaxBPS, isPacInt, holding.PACBPS, holding.PACFrequency, holding.Notes, now).Scan(&holding.ID)
 		if err != nil {
 			return err
 		}
@@ -123,7 +123,7 @@ func (s *Store) SaveHolding(ctx context.Context, holding *portfolio.Holding) err
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
-	result, err := tx.ExecContext(ctx, `UPDATE holdings SET account_id=?, instrument_id=?, invested_minor=?, value_minor=?, tax_bps=?, planned_bps=?, is_pac=?, pac_bps=?, pac_frequency=?, notes=?, updated_at=? WHERE id=?`, holding.AccountID, holding.InstrumentID, holding.InvestedMinor, holding.ValueMinor, holding.TaxBPS, holding.PlannedBPS, isPacInt, holding.PACBPS, holding.PACFrequency, holding.Notes, now, holding.ID)
+	result, err := tx.ExecContext(ctx, `UPDATE holdings SET account_id=?, instrument_id=?, invested_minor=?, value_minor=?, tax_bps=?, is_pac=?, pac_bps=?, pac_frequency=?, notes=?, updated_at=? WHERE id=?`, holding.AccountID, holding.InstrumentID, holding.InvestedMinor, holding.ValueMinor, holding.TaxBPS, isPacInt, holding.PACBPS, holding.PACFrequency, holding.Notes, now, holding.ID)
 	if err != nil {
 		return err
 	}

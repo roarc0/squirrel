@@ -16,7 +16,6 @@ type Holding struct {
 	InvestedMinor    int64  `json:"invested_minor"`
 	ValueMinor       int64  `json:"value_minor"`
 	TaxBPS           int64  `json:"tax_bps"`
-	PlannedBPS       int64  `json:"planned_bps"`
 	ActualBPS        int64  `json:"actual_bps"`
 	TERBPS           int64  `json:"ter_bps,omitempty"`
 	IsPAC            bool   `json:"is_pac"`
@@ -34,9 +33,6 @@ func ValidateHolding(holding Holding) error {
 	}
 	if holding.TaxBPS < 0 || holding.TaxBPS > 10_000 {
 		return errors.New("tax rate must be between 0% and 100%")
-	}
-	if holding.PlannedBPS < 0 || holding.PlannedBPS > 10_000 {
-		return errors.New("planned allocation must be between 0% and 100%")
 	}
 	if holding.PACBPS < 0 || holding.PACBPS > 10_000 {
 		return errors.New("PAC allocation percentage must be between 0% and 100%")

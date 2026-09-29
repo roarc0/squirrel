@@ -68,8 +68,7 @@ func (s *Server) ListHoldings(ctx context.Context, req *connect.Request[portv1.L
 			"profit": func(a, b portfolio.Holding) int {
 				return cmp.Compare(a.ValueMinor-a.InvestedMinor, b.ValueMinor-b.InvestedMinor)
 			},
-			"planned": func(a, b portfolio.Holding) int { return cmp.Compare(a.PlannedBPS, b.PlannedBPS) },
-			"actual":  func(a, b portfolio.Holding) int { return cmp.Compare(a.ActualBPS, b.ActualBPS) },
+			"actual": func(a, b portfolio.Holding) int { return cmp.Compare(a.ActualBPS, b.ActualBPS) },
 			"ter":     func(a, b portfolio.Holding) int { return cmp.Compare(a.TERBPS, b.TERBPS) },
 			"pac": func(a, b portfolio.Holding) int {
 				if order := cmp.Compare(a.PACBPS, b.PACBPS); order != 0 {
@@ -161,9 +160,6 @@ func (s *Server) UpdateHolding(ctx context.Context, req *connect.Request[portv1.
 	}
 	if patch.TaxBps != nil {
 		existing.TaxBPS = *patch.TaxBps
-	}
-	if patch.PlannedBps != nil {
-		existing.PlannedBPS = *patch.PlannedBps
 	}
 	if patch.IsPac != nil {
 		existing.IsPAC = *patch.IsPac

@@ -206,7 +206,7 @@ func TestUpdateHoldingPreservesOmittedFields(t *testing.T) {
 	if err := data.SaveInstrument(ctx, &instrument); err != nil {
 		t.Fatal(err)
 	}
-	holding := portfolio.Holding{AccountID: account.ID, InstrumentID: instrument.ID, InvestedMinor: 12_000, ValueMinor: 15_000, TaxBPS: 2600, PlannedBPS: 7000, IsPAC: true, PACBPS: 5000, PACFrequency: "monthly", Notes: "core"}
+	holding := portfolio.Holding{AccountID: account.ID, InstrumentID: instrument.ID, InvestedMinor: 12_000, ValueMinor: 15_000, TaxBPS: 2600, IsPAC: true, PACBPS: 5000, PACFrequency: "monthly", Notes: "core"}
 	if err := data.SaveHolding(ctx, &holding); err != nil {
 		t.Fatal(err)
 	}
@@ -220,7 +220,7 @@ func TestUpdateHoldingPreservesOmittedFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.InvestedMinor != 12_000 || got.ValueMinor != 15_000 || got.TaxBPS != 2600 || got.PlannedBPS != 7000 || got.Notes != "core" || got.IsPAC || got.PACBPS != 0 {
+	if got.InvestedMinor != 12_000 || got.ValueMinor != 15_000 || got.TaxBPS != 2600 || got.Notes != "core" || got.IsPAC || got.PACBPS != 0 {
 		t.Fatalf("partial update changed omitted fields: %+v", got)
 	}
 }
@@ -516,7 +516,7 @@ func TestActiveAllocationsAndIndependentContributionEdits(t *testing.T) {
 	if err := data.SaveInstrument(ctx, &inst); err != nil {
 		t.Fatal(err)
 	}
-	holding := portfolio.Holding{AccountID: active.ID, InstrumentID: inst.ID, ValueMinor: 10000, InvestedMinor: 9000, PlannedBPS: 10000, PACBPS: 6000, Notes: "keep"}
+	holding := portfolio.Holding{AccountID: active.ID, InstrumentID: inst.ID, ValueMinor: 10000, InvestedMinor: 9000, PACBPS: 6000, Notes: "keep"}
 	if err := data.SaveHolding(ctx, &holding); err != nil {
 		t.Fatal(err)
 	}
@@ -534,20 +534,20 @@ func TestActiveAllocationsAndIndependentContributionEdits(t *testing.T) {
 		t.Fatalf("PAC upsert: %v", err)
 	}
 	srv := &Server{store: data, baseCurrency: "EUR"}
-	_, err = srv.UpdateHolding(ctx, connect.NewRequest(&portv1.UpdateHoldingRequest{Id: holding.ID, Holding: &portv1.HoldingPatch{PlannedBps: proto.Int64(5000)}}))
+	_, err = srv.UpdateHolding(ctx, connect.NewRequest(&portv1.UpdateHoldingRequest{Id: holding.ID, Holding: &portv1.HoldingPatch{TaxBps: proto.Int64(2600)}}))
 	if err != nil {
 		t.Fatal(err)
 	}
 	got, err := data.GetHolding(ctx, holding.ID, "")
-	if err != nil || got.PACBPS != 6000 || got.PlannedBPS != 5000 || got.ValueMinor != 10000 || got.Notes != "keep" {
-		t.Fatalf("target edit changed other fields: %+v, %v", got, err)
+	if err != nil || got.PACBPS != 6000 || got.TaxBPS != 2600 || got.ValueMinor != 10000 || got.Notes != "keep" {
+		t.Fatalf("tax edit changed other fields: %+v, %v", got, err)
 	}
 	_, err = srv.UpdateHolding(ctx, connect.NewRequest(&portv1.UpdateHoldingRequest{Id: holding.ID, Holding: &portv1.HoldingPatch{PacBps: proto.Int64(0)}}))
 	if err != nil {
 		t.Fatal(err)
 	}
 	got, err = data.GetHolding(ctx, holding.ID, "")
-	if err != nil || got.IsPAC || got.PACBPS != 0 || got.PlannedBPS != 5000 {
-		t.Fatalf("stopping PAC changed target: %+v, %v", got, err)
+	if err != nil || got.IsPAC || got.PACBPS != 0 || got.TaxBPS != 2600 {
+		t.Fatalf("stopping PAC changed tax: %+v, %v", got, err)
 	}
 }

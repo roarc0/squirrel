@@ -104,13 +104,6 @@ export declare class Holding extends Message<Holding> {
   taxBps: bigint;
 
   /**
-   * Target planned portfolio allocation weight in basis points (e.g. 8000 bps = 80.00%).
-   *
-   * @generated from field: int64 planned_bps = 14;
-   */
-  plannedBps: bigint;
-
-  /**
    * Calculated actual weight of this holding relative to total currency wealth in basis points.
    *
    * @generated from field: int64 actual_bps = 15;
@@ -301,11 +294,6 @@ export declare class HoldingPatch extends Message<HoldingPatch> {
    * @generated from field: optional int64 tax_bps = 13;
    */
   taxBps?: bigint;
-
-  /**
-   * @generated from field: optional int64 planned_bps = 14;
-   */
-  plannedBps?: bigint;
 
   /**
    * @generated from field: optional bool is_pac = 17;

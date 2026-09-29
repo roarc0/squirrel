@@ -189,7 +189,6 @@ export type Holding = {
   invested_minor: number;
   value_minor: number;
   tax_bps: number;
-  planned_bps: number;
   actual_bps: number;
   ter_bps?: number;
   is_pac?: boolean;
@@ -318,7 +317,7 @@ function protoToHolding(h: any): Holding {
     invested_minor: num(h.investedMinor),
     value_minor: num(h.valueMinor),
     tax_bps: num(h.taxBps),
-    planned_bps: num(h.plannedBps),
+
     actual_bps: num(h.actualBps),
     ter_bps: optNum(h.terBps) ?? undefined,
     is_pac: Boolean(h.isPac),
@@ -484,7 +483,6 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
           investedMinor: bigint(bodyData.invested_minor),
           valueMinor: bigint(bodyData.value_minor),
           taxBps: bigint(bodyData.tax_bps),
-          plannedBps: bigint(bodyData.planned_bps),
           isPac: Boolean(bodyData.is_pac),
           pacBps: bigint(bodyData.pac_bps),
           pacFrequency: bodyData.pac_frequency || 'monthly',

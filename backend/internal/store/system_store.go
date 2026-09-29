@@ -62,7 +62,6 @@ type BackupHolding struct {
 	InvestedMinor  int64  `json:"invested_minor"`
 	ValueMinor     int64  `json:"value_minor"`
 	TaxBps         int    `json:"tax_bps"`
-	PlannedBps     int    `json:"planned_bps"`
 	IsPac          bool   `json:"is_pac"`
 	PacBps         int    `json:"pac_bps"`
 	PacFrequency   string `json:"pac_frequency"`
@@ -182,7 +181,7 @@ func (s *Store) ExportBackup(ctx context.Context, userID string) ([]byte, string
 		holdingRows, err := s.db.QueryContext(ctx, `
 			SELECT h.account_id, i.isin, i.name, i.instrument_type, i.fund_currency,
 			       i.distribution, i.replication, h.invested_minor, h.value_minor, h.tax_bps,
-			       h.planned_bps, h.is_pac, h.pac_bps, h.pac_frequency, h.notes, h.updated_at
+			       h.is_pac, h.pac_bps, h.pac_frequency, h.notes, h.updated_at
 			FROM holdings h
 			JOIN instruments i ON i.id = h.instrument_id
 			WHERE h.account_id IN (SELECT id FROM accounts WHERE user_id=?)
@@ -196,7 +195,7 @@ func (s *Store) ExportBackup(ctx context.Context, userID string) ([]byte, string
 			var h BackupHolding
 			if err := holdingRows.Scan(&accountID, &h.InstrumentISIN, &h.InstrumentName, &h.InstrumentType,
 				&h.FundCurrency, &h.Distribution, &h.Replication, &h.InvestedMinor, &h.ValueMinor,
-				&h.TaxBps, &h.PlannedBps, &h.IsPac, &h.PacBps, &h.PacFrequency, &h.Notes, &h.UpdatedAt); err != nil {
+				&h.TaxBps, &h.IsPac, &h.PacBps, &h.PacFrequency, &h.Notes, &h.UpdatedAt); err != nil {
 				return nil, "", fmt.Errorf("scan holding: %w", err)
 			}
 			if index, ok := accountIDs[accountID]; ok {
@@ -471,10 +470,10 @@ func (s *Store) RestoreBackup(ctx context.Context, userID string, backupData []b
 			}
 			if _, err := tx.ExecContext(ctx, `
 				INSERT INTO holdings (account_id, instrument_id, invested_minor, value_minor, tax_bps,
-				                      planned_bps, is_pac, pac_bps, pac_frequency, notes, updated_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				                      is_pac, pac_bps, pac_frequency, notes, updated_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				accountID, instrumentID, h.InvestedMinor, h.ValueMinor, h.TaxBps,
-				h.PlannedBps, isPac, h.PacBps, h.PacFrequency, h.Notes, updatedAt); err != nil {
+				isPac, h.PacBps, h.PacFrequency, h.Notes, updatedAt); err != nil {
 				return fmt.Errorf("insert holding %s for account %q: %w", h.InstrumentISIN, a.Name, err)
 			}
 		}

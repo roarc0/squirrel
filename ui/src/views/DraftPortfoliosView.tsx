@@ -176,7 +176,7 @@ export function DraftPortfoliosView({
         name: h.instrument_name || inst?.name || `Instrument #${h.instrument_id}`,
         asset_class: h.asset_class || inst?.asset_class || 'other',
         ter_bps: inst?.ter_bps ?? h.ter_bps ?? 0,
-        target_pct: h.planned_bps ? h.planned_bps / 100 : (h.actual_bps ? h.actual_bps / 100 : 0),
+        target_pct: h.actual_bps ? h.actual_bps / 100 : 0,
         pac_share_pct: h.pac_bps ? h.pac_bps / 100 : 0,
       };
     });

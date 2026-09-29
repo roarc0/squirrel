@@ -122,7 +122,7 @@ export function DraftPortfoliosModal({
         instrumentId: h.instrument_id,
         isin: h.instrument_isin,
         name: h.instrument_name || inst?.name || `Instrument #${h.instrument_id}`,
-        targetPct: h.planned_bps ? h.planned_bps / 100 : (h.actual_bps ? h.actual_bps / 100 : 0),
+        targetPct: h.actual_bps ? h.actual_bps / 100 : 0,
         pacSharePct: h.pac_bps ? h.pac_bps / 100 : 0,
       };
     });
@@ -164,13 +164,11 @@ export function DraftPortfoliosModal({
         );
 
         if (match) {
-          const plannedBps = Math.round(match.targetPct * 100);
           const pacBps = Math.round((match.pacSharePct ?? 0) * 100);
           await api(`/api/holdings/${holding.id}`, {
             method: 'PUT',
             body: JSON.stringify({
               ...holding,
-              planned_bps: plannedBps,
               pac_bps: pacBps,
               is_pac: pacBps > 0,
             }),

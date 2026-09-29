@@ -91,30 +91,7 @@ func EvaluateDiagnostics(accounts []Account, holdings []Holding, instruments []I
 		}
 	}
 
-	// 2. Target Allocation Drift Check
-	for _, h := range holdings {
-		if h.PlannedBPS > 0 {
-			actualBPS := h.ActualBPS
-			driftBPS := actualBPS - h.PlannedBPS
-			if driftBPS > 500 || driftBPS < -500 { // > 5% drift
-				direction := "above"
-				if driftBPS < 0 {
-					direction = "below"
-				}
-				results = append(results, Diagnostic{
-					ID:        fmt.Sprintf("target_drift_%d", h.ID),
-					Category:  "drift",
-					Severity:  SeverityWarning,
-					Title:     "Target Allocation Drift",
-					Message:   fmt.Sprintf("%s is %.1f%% %s planned target (Planned: %.1f%%, Actual: %.1f%%). Consider adjusting your portfolio allocations to realign.", h.InstrumentName, float64(absInt64(driftBPS))/100, direction, float64(h.PlannedBPS)/100, float64(actualBPS)/100),
-					HoldingID: h.ID,
-					ISIN:      h.InstrumentISIN,
-				})
-			}
-		}
-	}
-
-	// 3. High TER Check
+	// 2. High TER Check
 	for _, h := range holdings {
 		inst, exists := instByISIN[strings.ToUpper(h.InstrumentISIN)]
 		if exists && inst.TERBPS > 40 { // TER > 0.40%
@@ -192,11 +169,4 @@ func EvaluateDiagnostics(accounts []Account, holdings []Holding, instruments []I
 	}
 
 	return results
-}
-
-func absInt64(v int64) int64 {
-	if v < 0 {
-		return -v
-	}
-	return v
 }

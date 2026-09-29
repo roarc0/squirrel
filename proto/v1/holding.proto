@@ -32,8 +32,8 @@ message Holding {
   int64 value_minor = 12;
   // Applicable capital gains tax rate in basis points (e.g. 2600 bps = 26.00%).
   int64 tax_bps = 13;
-  // Target planned portfolio allocation weight in basis points (e.g. 8000 bps = 80.00%).
-  int64 planned_bps = 14;
+  reserved 14;
+  reserved "planned_bps";
   // Calculated actual weight of this holding relative to total currency wealth in basis points.
   int64 actual_bps = 15;
   // Total Expense Ratio (TER) of the instrument in basis points (e.g. 20 bps = 0.20%).
@@ -74,7 +74,8 @@ message HoldingPatch {
   optional int64 invested_minor = 11;
   optional int64 value_minor = 12;
   optional int64 tax_bps = 13;
-  optional int64 planned_bps = 14;
+  reserved 14;
+  reserved "planned_bps";
   optional bool is_pac = 17;
   optional int64 pac_bps = 18;
   optional string pac_frequency = 19;

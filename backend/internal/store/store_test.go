@@ -81,7 +81,7 @@ func TestStoreRoundTrip(t *testing.T) {
 	if err != nil || !instruments[0].Starred || instruments[0].DataStatus != portfolio.InstrumentStatusEnriched || instruments[0].Provider != "Provider" || instruments[0].InvestmentFocus != "Equity, World" || instruments[0].TERBPS != 12 || instruments[0].RefreshedAt != "2026-08-21T12:00:00Z" {
 		t.Fatalf("catalog refresh downgraded enriched data: err=%v instruments=%+v", err, instruments)
 	}
-	holding := portfolio.Holding{AccountID: account.ID, InstrumentID: instrument.ID, InvestedMinor: 1_000_000, ValueMinor: 1_100_000, TaxBPS: 2600, PlannedBPS: 6000}
+	holding := portfolio.Holding{AccountID: account.ID, InstrumentID: instrument.ID, InvestedMinor: 1_000_000, ValueMinor: 1_100_000, TaxBPS: 2600}
 	if err := s.SaveHolding(ctx, &holding); err != nil {
 		t.Fatal(err)
 	}
@@ -89,11 +89,11 @@ func TestStoreRoundTrip(t *testing.T) {
 	if err := s.SaveInstrument(ctx, &gold); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SaveHolding(ctx, &portfolio.Holding{AccountID: account.ID, InstrumentID: gold.ID, ValueMinor: 900_000, TaxBPS: 2600, PlannedBPS: 4000}); err != nil {
+	if err := s.SaveHolding(ctx, &portfolio.Holding{AccountID: account.ID, InstrumentID: gold.ID, ValueMinor: 900_000, TaxBPS: 2600}); err != nil {
 		t.Fatal(err)
 	}
 	holdings, err := s.ListHoldings(ctx, "testuser")
-	if err != nil || len(holdings) != 2 || holdings[0].InstrumentID != instrument.ID || holdings[0].InstrumentType != portfolio.InstrumentTypeETF || holdings[0].AssetClass != "equity" || holdings[0].PlannedBPS != 6000 || holdings[0].ActualBPS != 5500 || holdings[1].ActualBPS != 4500 {
+	if err != nil || len(holdings) != 2 || holdings[0].InstrumentID != instrument.ID || holdings[0].InstrumentType != portfolio.InstrumentTypeETF || holdings[0].AssetClass != "equity" || holdings[0].ActualBPS != 5500 || holdings[1].ActualBPS != 4500 {
 		t.Fatalf("unexpected holdings: err=%v holdings=%+v", err, holdings)
 	}
 	if err := s.SaveSnapshot(ctx, "2026-08-21", "testuser"); err != nil {
@@ -140,7 +140,7 @@ func TestMigratesLegacyDatabase(t *testing.T) {
 	defer s.Close()
 	var version int64
 	var errVersion error
-	if version, errVersion = goose.GetDBVersion(s.db); errVersion != nil || version != 12 {
+	if version, errVersion = goose.GetDBVersion(s.db); errVersion != nil || version != 13 {
 		t.Fatalf("migration version=%d err=%v", version, errVersion)
 	}
 }

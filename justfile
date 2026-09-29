@@ -10,6 +10,7 @@ ui: generate
 	cd ui && npm run build
 
 run *args: ui
+	-lsof -ti :7340 | xargs kill -9 2>/dev/null
 	CGO_ENABLED=0 go run github.com/air-verse/air@v1.67.4 -- -config squirrel.yaml {{args}}
 
 build: ui
