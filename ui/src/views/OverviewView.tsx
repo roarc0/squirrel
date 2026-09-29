@@ -398,29 +398,28 @@ export function OverviewView({
                     </SimpleGrid>
                   </Card>
 
+                  {/* Area 3: Financial Independence & Milestones */}
+                  <Card withBorder className="section-card" p="md" radius="md">
+                    <div className="section-card-header">
+                      <div>
+                        <h2 className="section-card-title">Financial Independence & Milestones</h2>
+                        <p className="section-card-meta">
+                          Emergency liquidity reserves and safe withdrawal capacity ({item.currency})
+                        </p>
+                      </div>
+                    </div>
+                    <SimpleGrid cols={{ base: 1, md: profile.show_fire_calculator ? 2 : 1 }} spacing="sm">
+                      <EmergencyReserveCard cashMinor={item.balance_minor} currency={item.currency} />
+                      {profile.show_fire_calculator && (
+                        <FreedomCalculatorCard totalWealthMinor={item.total_minor} currency={item.currency} />
+                      )}
+                    </SimpleGrid>
+                  </Card>
                 </Stack>
               );
             })
           )}
           <SnapshotHistory snapshots={data.snapshots} currency={data.summary.base_currency} reload={reload} />
-          {currencies.map(item => (
-            <Card key={item.currency} withBorder className="section-card" p="md" radius="md">
-              <div className="section-card-header">
-                <div>
-                  <h2 className="section-card-title">Financial Independence & Milestones</h2>
-                  <p className="section-card-meta">
-                    Emergency liquidity reserves and safe withdrawal capacity
-                  </p>
-                </div>
-              </div>
-              <SimpleGrid cols={{ base: 1, md: profile.show_fire_calculator ? 2 : 1 }} spacing="sm">
-                <EmergencyReserveCard cashMinor={item.balance_minor} currency={item.currency} />
-                {profile.show_fire_calculator && (
-                  <FreedomCalculatorCard totalWealthMinor={item.total_minor} currency={item.currency} />
-                )}
-              </SimpleGrid>
-            </Card>
-          ))}
         </>
       )}
     </ViewShell>
@@ -591,6 +590,8 @@ function SnapshotHistory({ snapshots, currency, reload }: { snapshots: Snapshot[
             sort={table.sort}
             direction={table.direction}
             onSort={(key, direction) => void table.sortRows(key, direction)}
+            compact
+            stickyHeader
           />
         )}
       </Card>

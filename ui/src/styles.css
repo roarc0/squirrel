@@ -87,14 +87,20 @@ body {
 .app-content-container {
   flex: 1;
   width: 100%;
-  max-width: 1540px;
+  max-width: 1560px;
   margin: 0 auto;
-  padding: 28px 36px 56px;
+  padding: 18px 24px 44px;
+}
+
+@media (max-width: 1024px) {
+  .app-content-container {
+    padding: 16px 18px 36px;
+  }
 }
 
 @media (max-width: 768px) {
   .app-content-container {
-    padding: 64px 14px 44px;
+    padding: 56px 12px 32px;
   }
 
   .mobile-nav-trigger {
@@ -283,7 +289,7 @@ body,
   background-color: rgba(0, 0, 0, 0.035) !important;
   border: 1px solid rgba(0, 0, 0, 0.08) !important;
   border-radius: 10px !important;
-  padding: 16px 20px !important;
+  padding: 14px 18px !important;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
 }
 
@@ -300,12 +306,12 @@ body,
   align-items: flex-start;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .section-card-title,
 .lead-summary-title {
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: -0.015em;
   color: #0f172a !important;
@@ -319,7 +325,7 @@ body,
 
 .section-card-meta,
 .lead-summary-meta {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: #64748b !important;
   margin-top: 2px;
 }
@@ -371,9 +377,21 @@ body,
 
 .stat-tiles-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   margin-top: 4px;
+}
+
+@media (max-width: 1080px) {
+  .stat-tiles-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 580px) {
+  .stat-tiles-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .stat-tile-label {
@@ -394,12 +412,12 @@ body,
 
 .stat-tile-value {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  font-size: 1.42rem;
+  font-size: 1.35rem;
   font-weight: 750;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   line-height: 1.25;
-  margin-top: 4px;
+  margin-top: 3px;
   color: #0f172a;
 }
 
@@ -433,6 +451,22 @@ body,
   margin-bottom: 10px;
 }
 
+/* Global Tabular Numbers for financial values */
+.tabular-nums,
+[data-tabular="true"],
+.data-table,
+.stat-tile-value,
+.stat-tile-hint,
+.isin-badge,
+.ticker-badge,
+.metric,
+.asset-card,
+.asset-tile {
+  font-variant-numeric: tabular-nums;
+  -webkit-font-feature-settings: "tnum" 1;
+  font-feature-settings: "tnum" 1;
+}
+
 /* Solid, Flat, Crisp Data Table Surface */
 .data-table-card {
   background-color: #ffffff !important;
@@ -456,24 +490,25 @@ body,
 
 .data-table thead tr th {
   border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
-  padding: 8px 10px !important;
-  background-color: rgba(0, 0, 0, 0.02) !important;
+  padding: 7px 10px !important;
+  background-color: light-dark(#f8fafc, #1a222d) !important;
   color: #475569 !important;
   font-size: 11px !important;
   font-weight: 700 !important;
   letter-spacing: 0.04em !important;
   text-transform: uppercase !important;
+  z-index: 2;
 }
 
 [data-mantine-color-scheme="dark"] .data-table thead tr th {
   border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-  background-color: rgba(255, 255, 255, 0.02) !important;
+  background-color: #161c24 !important;
   color: #94a3b8 !important;
 }
 
 .data-table.compact thead tr th {
-  padding: 6px 7px !important;
-  font-size: 10.5px !important;
+  padding: 5px 8px !important;
+  font-size: 10px !important;
 }
 
 .data-table thead tr:first-child th:first-child {
@@ -495,7 +530,7 @@ body,
 
 .data-table tbody tr td {
   border-bottom: 1px solid #e2e8f0 !important;
-  padding: 7px 10px !important;
+  padding: 6px 10px !important;
   background-color: inherit;
   transition: background-color 0.1s ease;
 }

@@ -3,6 +3,6 @@ module github.com/roarc0/squirrel/proto
 go 1.26.6
 
 require (
-	connectrpc.com/connect v1.18.1
-	google.golang.org/protobuf v1.36.5
+	connectrpc.com/connect v1.21.0
+	google.golang.org/protobuf v1.36.12
 )

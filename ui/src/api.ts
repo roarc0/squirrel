@@ -1,17 +1,17 @@
 import { holdingPatch } from './utils/holdingPatch';
-import { createPromiseClient } from '@connectrpc/connect';
+import { createClient } from '@connectrpc/connect';
 import type { Interceptor } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-web';
 
-import { AccountService } from './pb/v1/account_connect.js';
-import { HoldingService } from './pb/v1/holding_connect.js';
-import { InstrumentService } from './pb/v1/instrument_connect.js';
-import { RateService } from './pb/v1/rate_connect.js';
-import { SnapshotService } from './pb/v1/snapshot_connect.js';
-import { SummaryService } from './pb/v1/summary_connect.js';
-import { SystemService } from './pb/v1/system_connect.js';
-import { ProfileService } from './pb/v1/profile_connect.js';
-import { BtpService } from './pb/v1/btp_connect.js';
+import { AccountService } from './pb/v1/account_pb.js';
+import { HoldingService } from './pb/v1/holding_pb.js';
+import { InstrumentService } from './pb/v1/instrument_pb.js';
+import { RateService } from './pb/v1/rate_pb.js';
+import { SnapshotService } from './pb/v1/snapshot_pb.js';
+import { SummaryService } from './pb/v1/summary_pb.js';
+import { SystemService } from './pb/v1/system_pb.js';
+import { ProfileService } from './pb/v1/profile_pb.js';
+import { BtpService } from './pb/v1/btp_pb.js';
 import { getToken } from './auth';
 
 const authInterceptor: Interceptor = (next) => async (req) => {
@@ -27,15 +27,15 @@ const transport = createConnectTransport({
   interceptors: [authInterceptor],
 });
 
-export const accountClient: any = createPromiseClient(AccountService as any, transport);
-export const holdingClient: any = createPromiseClient(HoldingService as any, transport);
-export const instrumentClient: any = createPromiseClient(InstrumentService as any, transport);
-export const rateClient: any = createPromiseClient(RateService as any, transport);
-export const snapshotClient: any = createPromiseClient(SnapshotService as any, transport);
-export const summaryClient: any = createPromiseClient(SummaryService as any, transport);
-export const systemClient: any = createPromiseClient(SystemService as any, transport);
-export const profileClient: any = createPromiseClient(ProfileService as any, transport);
-export const btpClient: any = createPromiseClient(BtpService as any, transport);
+export const accountClient: any = createClient(AccountService as any, transport);
+export const holdingClient: any = createClient(HoldingService as any, transport);
+export const instrumentClient: any = createClient(InstrumentService as any, transport);
+export const rateClient: any = createClient(RateService as any, transport);
+export const snapshotClient: any = createClient(SnapshotService as any, transport);
+export const summaryClient: any = createClient(SummaryService as any, transport);
+export const systemClient: any = createClient(SystemService as any, transport);
+export const profileClient: any = createClient(ProfileService as any, transport);
+export const btpClient: any = createClient(BtpService as any, transport);
 
 export type ReferenceRate = {
   code: string;

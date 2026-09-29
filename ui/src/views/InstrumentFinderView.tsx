@@ -1245,6 +1245,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
             rowKey={item => item.instrument.id}
             minWidth={880}
             compact
+            stickyHeader
             sort={localSortKey}
             direction={localSortDir}
             onSort={(key, direction) => {

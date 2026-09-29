@@ -16,7 +16,21 @@ export type DataColumn<T> = {
   wrap?: boolean;
 };
 
-export function DataTable<T>({ rows, columns, rowKey, minWidth = 800, toolbar, sort, direction = 'asc', onSort, rowStyle, rowClassName, compact }: {
+export function DataTable<T>({
+  rows,
+  columns,
+  rowKey,
+  minWidth = 800,
+  toolbar,
+  sort,
+  direction = 'asc',
+  onSort,
+  rowStyle,
+  rowClassName,
+  compact,
+  stickyHeader,
+  stickyHeaderOffset,
+}: {
   rows: T[];
   columns: DataColumn<T>[];
   rowKey: (row: T) => string | number;
@@ -28,12 +42,22 @@ export function DataTable<T>({ rows, columns, rowKey, minWidth = 800, toolbar, s
   rowStyle?: (row: T) => CSSProperties | undefined;
   rowClassName?: (row: T) => string | undefined;
   compact?: boolean;
+  stickyHeader?: boolean;
+  stickyHeaderOffset?: number | string;
 }) {
   return (
     <Paper className="data-table-card" radius="md" withBorder style={{ padding: 0 }}>
       {toolbar && <div style={{ padding: '8px 12px', borderBottom: '1px solid light-dark(#cbd5e1, #334155)' }}>{toolbar}</div>}
       <Table.ScrollContainer minWidth={minWidth}>
-        <Table tabularNums verticalSpacing={compact ? 'xs' : 'sm'} horizontalSpacing={compact ? 'xs' : 'md'} highlightOnHover className={`data-table${compact ? ' compact' : ''}`}>
+        <Table
+          tabularNums
+          stickyHeader={stickyHeader}
+          stickyHeaderOffset={stickyHeaderOffset}
+          verticalSpacing={compact ? 'xs' : 'sm'}
+          horizontalSpacing={compact ? 'xs' : 'md'}
+          highlightOnHover
+          className={`data-table${compact ? ' compact' : ''}`}
+        >
           <Table.Thead>
             <Table.Tr>
               {columns.map(column => (

@@ -101,7 +101,7 @@ export function AccountsView({ accounts, rates, taxRates, reload }: { accounts: 
       ),
     },
     { key: 'total', label: 'Assets', sortable: true, align: 'right', render: account => <AccountAssets account={account} /> },
-    { key: 'per_year', label: 'Projected interest', sortable: true, align: 'right', render: account => <Group gap="lg" wrap="nowrap" justify="end">{[['Day', 365], ['Month', 12], ['Year', 1]].map(([label, divisor]) => <Box key={label} miw={94}><Text size="xs" c="dimmed" fw={650} mb={3}>{label}</Text><RevenuePeriod account={account} divisor={Number(divisor)} /></Box>)}</Group> },
+    { key: 'per_year', label: 'Projected interest', sortable: true, align: 'right', render: account => <Group gap="sm" wrap="nowrap" justify="end">{[['Day', 365], ['Month', 12], ['Year', 1]].map(([label, divisor]) => <Box key={label} miw={82}><Text size="xs" c="dimmed" fw={650} mb={2}>{label}</Text><RevenuePeriod account={account} divisor={Number(divisor)} /></Box>)}</Group> },
     { key: 'rates', label: 'Rates', render: account => <Stack gap={5}><Group gap={5}>{(account.tiers ?? []).map((tier, index) => <Chip key={index} colorKey="Rate">{percent(tier.resolved_rate_bps ?? tier.fixed_rate_bps ?? 0)}</Chip>)}</Group><Group><Chip colorKey="Tax">{`Tax ${percent(account.tax_bps)}`}</Chip></Group></Stack> },
     { key: 'actions', align: 'right', render: account => <TableActions><TableAction label={account.archived ? `Restore ${account.name}` : `Archive ${account.name}`} onClick={() => void toggleArchived(account)}>{account.archived ? <IconRefresh size={14} /> : <IconPlayerPause size={14} />}</TableAction><TableAction label={`Edit ${account.name}`} onClick={() => open(account)}><IconPencil size={14} /></TableAction><TableAction label={`Delete ${account.name}`} color="red" onClick={() => void remove(account)}><IconTrash size={14} /></TableAction></TableActions> },
   ];
@@ -112,7 +112,7 @@ export function AccountsView({ accounts, rates, taxRates, reload }: { accounts: 
         subtitle="Marginal rate tiers, taxes, and recurring annual fees."
         actions={<Button onClick={() => open()}>Add account</Button>}
       />
-      {accounts.length === 0 ? <Empty title="No accounts" text="Add the places where you hold cash." /> : <DataTable rows={table.rows} columns={columns} rowKey={account => account.id} minWidth={960} sort={table.sort} direction={table.direction} onSort={(key, direction) => void table.sortRows(key, direction)} rowStyle={account => account.archived ? { opacity: 0.48 } : undefined} />}
+      {accounts.length === 0 ? <Empty title="No accounts" text="Add the places where you hold cash." /> : <DataTable rows={table.rows} columns={columns} rowKey={account => account.id} minWidth={920} sort={table.sort} direction={table.direction} onSort={(key, direction) => void table.sortRows(key, direction)} stickyHeader rowStyle={account => account.archived ? { opacity: 0.48 } : undefined} />}
       <AccountModal key={editing?.id ?? 'new'} opened={opened} close={() => setOpened(false)} account={editing} rates={rates} taxRates={taxRates} saved={async () => { setOpened(false); await reload(); }} />
       {confirmDeleteModal}
     </ViewShell>

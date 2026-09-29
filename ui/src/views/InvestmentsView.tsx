@@ -16,6 +16,7 @@ import {
   Stack,
   Table,
   Text,
+  TextInput,
   Textarea,
   Tooltip,
 } from '@mantine/core';
@@ -32,6 +33,7 @@ import {
   IconNotes,
   IconPencil,
   IconRefresh,
+  IconSearch,
   IconTrash,
   IconX,
 } from '@tabler/icons-react';
@@ -338,6 +340,7 @@ export function InvestmentsView({
   const { confirmDelete, modal: confirmDeleteModal } = useConfirmDelete();
   const [refreshingISIN, setRefreshingISIN] = useState<string | null>(null);
   const [showTax, setShowTax] = useState(false);
+  const [filterQuery, setFilterQuery] = useState('');
   const table = useBackendRows('/api/holdings', holdings, 'value', 'desc');
   const activeAccounts = accounts.filter(account => !account.archived); const activeAccountIDs = new Set(activeAccounts.map(account => account.id));
   const accountMap = new Map<number, Account>(accounts.map(a => [a.id, a]));
@@ -371,10 +374,22 @@ export function InvestmentsView({
     }
   };
   const ready = activeAccounts.length > 0 && instruments.length > 0;
+  const instMap = new Map<number, Instrument>(instruments.map(i => [i.id, i]));
   const activeHoldings = table.rows.filter(holding => activeAccountIDs.has(holding.account_id));
   const visibleHoldings = activeHoldings.filter(holding => accountIDs.length === 0 || accountIDs.includes(String(holding.account_id)));
-  const displayedHoldings = visibleHoldings.filter(holding => holding.value_minor !== 0 && (!selectedAssetClass || holding.asset_class === selectedAssetClass));
-  const instMap = new Map<number, Instrument>(instruments.map(i => [i.id, i]));
+  const queryLower = filterQuery.trim().toLowerCase();
+  const displayedHoldings = visibleHoldings.filter(holding => {
+    if (holding.value_minor === 0) return false;
+    if (selectedAssetClass && holding.asset_class !== selectedAssetClass) return false;
+    if (queryLower) {
+      const nameMatch = holding.instrument_name?.toLowerCase().includes(queryLower);
+      const tickerMatch = holding.instrument_ticker?.toLowerCase().includes(queryLower);
+      const isin = holding.instrument_isin || instMap.get(holding.instrument_id)?.isin;
+      const isinMatch = isin?.toLowerCase().includes(queryLower);
+      if (!nameMatch && !tickerMatch && !isinMatch) return false;
+    }
+    return true;
+  });
   const totals = new Map<string, { value: number; invested: number; count: number; weightedTERNum: number; annualFeeDrag: number; classes: Map<string, number> }>();
   for (const holding of visibleHoldings) {
     const currency = holding.currency ?? 'EUR';
@@ -599,22 +614,22 @@ export function InvestmentsView({
           />
 
           {mixedCurrencies ? <Text size="sm" c="dimmed">Contributions are shown separately per account below; currencies are not combined.</Text> : <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
-            <Card className="metric" p="md" radius="lg">
+            <Card withBorder className="stat-card" p="md" radius="md">
               <Text size="xs" c="dimmed">Monthly Contribution</Text>
               <Text size="xl" fw={800} c="teal" mt={4}>{money(totalMonthlyContributionMinor, currency)}/mo</Text>
               <Text size="xs" c="dimmed" mt={4}>Optional · across {visibleAccounts.length} {visibleAccounts.length === 1 ? 'account' : 'accounts'}</Text>
             </Card>
-            <Card className="metric" p="md" radius="lg">
+            <Card withBorder className="stat-card" p="md" radius="md">
               <Text size="xs" c="dimmed">Annual Contributions</Text>
               <Text size="xl" fw={800} mt={4}>{totalMonthlyContributionMinor > 0 ? `${money(totalMonthlyContributionMinor * 12, currency)}/yr` : '—'}</Text>
               <Text size="xs" c="dimmed" mt={4}>{totalMonthlyContributionMinor > 0 ? '12 monthly contributions' : 'No recurring amount set'}</Text>
             </Card>
-            <Card className="metric" p="md" radius="lg">
+            <Card withBorder className="stat-card" p="md" radius="md">
               <Text size="xs" c="dimmed">PAC-Weighted TER</Text>
               <Text size="xl" fw={800} mt={4}>{totalPacBps > 0 ? percent(pacWeightedTERBps) : '—'}</Text>
               <Text size="xs" c={totalMonthlyAllocatedMinor > 0 ? 'orange' : 'dimmed'} mt={4}>{totalMonthlyAllocatedMinor > 0 ? `Fee drag: -${money(totalAnnualFeeDragMinor, currency)}/yr` : 'Based on PAC allocations'}</Text>
             </Card>
-            <Card className="metric" p="md" radius="lg">
+            <Card withBorder className="stat-card" p="md" radius="md">
               <Text size="xs" c="dimmed">5-Yr Contributions</Text>
               <Text size="xl" fw={800} mt={4}>{totalMonthlyContributionMinor > 0 ? money(totalMonthlyContributionMinor * 60, currency) : '—'}</Text>
               {totalAnnualFeeDragMinor > 0 && (
@@ -654,7 +669,7 @@ export function InvestmentsView({
                 const accAnnualFeeDragMinor = accountPlannedHoldings.reduce((sum, item) => sum + Math.round((item.itemMonthlyMinor * 12 * item.terBps) / 10000), 0);
 
                 return (
-                  <Card key={acc.id} className="metric" p="lg" radius="lg" withBorder>
+                  <Card key={acc.id} withBorder className="section-card" p="md" radius="md">
                     <Group justify="space-between" align="start" mb="xs">
                       <Box>
                         <Group gap="xs" align="center">
@@ -721,7 +736,7 @@ export function InvestmentsView({
                     ) : (
                       <>
                         <Paper className="data-table-card" radius="md" withBorder style={{ padding: 0, marginTop: 8 }}>
-                          <Table verticalSpacing="xs" horizontalSpacing="xs" highlightOnHover className="data-table">
+                          <Table tabularNums verticalSpacing="xs" horizontalSpacing="xs" highlightOnHover className="data-table compact">
                             <Table.Thead>
                               <Table.Tr>
                                 <Table.Th style={{ width: '22%' }}><Text size="xs" fw={700} c="dimmed" tt="uppercase">Instrument</Text></Table.Th>
@@ -851,9 +866,24 @@ export function InvestmentsView({
             subtitle="Your actual holdings, values, performance, and current portfolio allocation."
             actions={
               <Group gap="sm" align="center" wrap="wrap">
+                <TextInput
+                  size="xs"
+                  w={180}
+                  placeholder="Search holdings…"
+                  leftSection={<IconSearch size={14} />}
+                  value={filterQuery}
+                  onChange={e => setFilterQuery(e.currentTarget.value)}
+                  rightSection={
+                    filterQuery ? (
+                      <ActionIcon size={16} variant="subtle" color="gray" onClick={() => setFilterQuery('')}>
+                        <IconX size={10} />
+                      </ActionIcon>
+                    ) : null
+                  }
+                />
                 {activeAccounts.length > 0 && (
                   <MultiSelect
-                    w={240}
+                    w={220}
                     searchable
                     clearable
                     placeholder="Filter by account"
@@ -873,7 +903,7 @@ export function InvestmentsView({
           {activeHoldings.length > 0 && visibleHoldings.length > 0 && (
             <SimpleGrid cols={{ base: 1, md: Math.min(2, Math.max(1, totals.size)) }}>
               {[...totals].map(([currency, summary]) => (
-                <Card key={currency} className="metric" p="lg" radius="lg">
+                <Card key={currency} withBorder className="section-card" p="md" radius="md">
                   <Group justify="space-between" align="start">
                     <Box>
                       <Text size="xs" c="dimmed">Visible investments · {currency}</Text>
@@ -900,13 +930,26 @@ export function InvestmentsView({
             </SimpleGrid>
           )}
 
-          {selectedAssetClass && (
+          {(selectedAssetClass || filterQuery) && (
             <Group gap="xs" align="center" mt="xs">
-              <Text size="xs" c="dimmed">Filtered by asset class:</Text>
-              <Chip colorKey={selectedAssetClass || ''} variant="filled">{label(selectedAssetClass)}</Chip>
-              <Button size="xs" variant="subtle" color="gray" onClick={() => setSelectedAssetClass(null)}>
-                Clear filter ✕
-              </Button>
+              {selectedAssetClass && (
+                <>
+                  <Text size="xs" c="dimmed">Asset class:</Text>
+                  <Chip colorKey={selectedAssetClass || ''} variant="filled">{label(selectedAssetClass)}</Chip>
+                  <Button size="xs" variant="subtle" color="gray" onClick={() => setSelectedAssetClass(null)}>
+                    Clear ✕
+                  </Button>
+                </>
+              )}
+              {filterQuery && (
+                <>
+                  <Text size="xs" c="dimmed">Search:</Text>
+                  <Badge size="sm" variant="light" color="blue">"{filterQuery}"</Badge>
+                  <Button size="xs" variant="subtle" color="gray" onClick={() => setFilterQuery('')}>
+                    Clear ✕
+                  </Button>
+                </>
+              )}
             </Group>
           )}
 
@@ -917,7 +960,10 @@ export function InvestmentsView({
           ) : visibleHoldings.length === 0 ? (
             <Empty title="No matching investments" text="Choose another account or clear the filter." />
           ) : displayedHoldings.length === 0 ? (
-            <Empty title="No matching asset class investments" text={`No investments found under ${label(selectedAssetClass || '')}. Clear filter to show all.`} />
+            <Empty
+              title="No matching investments"
+              text={filterQuery ? `No holdings match "${filterQuery}". Clear search to show all.` : `No investments found under ${label(selectedAssetClass || '')}. Clear filter to show all.`}
+            />
           ) : (
             <Stack gap="md">
               {visibleAccounts.filter(acc => displayedHoldings.some(h => h.account_id === acc.id)).map(acc => {
@@ -931,7 +977,7 @@ export function InvestmentsView({
                 const accCurrency = acc.currency ?? currency;
                 const accColumns = columns.filter(c => c.key !== 'account' && (showTax || c.key !== 'tax'));
                 return (
-                  <Card key={acc.id} className="metric" p="lg" radius="lg" withBorder>
+                  <Card key={acc.id} withBorder className="section-card" p="md" radius="md">
                     <Group justify="space-between" align="start" mb="xs">
                       <Group gap="xs" align="center">
                         <Text fw={750} size="md">{acc.name}</Text>
@@ -961,6 +1007,8 @@ export function InvestmentsView({
                       sort={table.sort}
                       direction={table.direction}
                       onSort={(key, direction) => void table.sortRows(key, direction)}
+                      compact
+                      stickyHeader
                     />
                   </Card>
                 );

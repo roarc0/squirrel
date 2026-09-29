@@ -521,6 +521,8 @@ export function BtpRankView() {
           columns={columns}
           rowKey={b => b.isin}
           minWidth={1100}
+          compact
+          stickyHeader
           sort={sortKey}
           direction={sortDir}
           onSort={(key, dir) => {
