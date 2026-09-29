@@ -49,7 +49,7 @@ import {
   type InstrumentAlternative,
   type InstrumentType,
 } from '../api';
-import { Chip, ISINBadge, ReplicationChip, TickerBadge } from '../Chip';
+import { Chip, ISINBadge, ReplicationChip, TickerBadge, chipColor } from '../Chip';
 import { CompareModal } from '../CompareModal';
 import { Empty } from '../components/Empty';
 import { DataTable, TableAction, TableActions, type DataColumn, type SortDirection } from '../DataTable';
@@ -817,10 +817,11 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
   };
 
   const searchColumns: DataColumn<Instrument>[] = [
-    { key: 'select', render: item => <Checkbox aria-label={`Select ${item.name}`} checked={selected.includes(item.isin)} onChange={event => setSelected(current => event.currentTarget.checked ? [...current, item.isin] : current.filter(isin => isin !== item.isin))} /> },
+    { key: 'select', width: 36, minWidth: 36, align: 'center', render: item => <Checkbox aria-label={`Select ${item.name}`} checked={selected.includes(item.isin)} onChange={event => setSelected(current => event.currentTarget.checked ? [...current, item.isin] : current.filter(isin => isin !== item.isin))} /> },
     {
       key: 'instrument',
       label: 'Product',
+      minWidth: 200,
       render: item => (
         <>
           <Text fw={650}>{item.name}</Text>
@@ -832,16 +833,29 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
         </>
       ),
     },
-    { key: 'policy', label: 'Policy', render: item => <Chip>{item.distribution === 'accumulating' ? 'Acc' : 'Dist'}</Chip> },
-    { key: 'replication', label: 'Replication', render: item => <ReplicationChip value={item.replication} size="xs" /> },
-    { key: 'ter', label: 'TER', render: item => percent(item.ter_bps) },
-    { key: 'size', label: 'Size', render: item => `${item.fund_size_million.toLocaleString()}m` },
-    { key: 'actions', render: item => <TableActions><TableAction label={`Open ${item.isin} on justETF`} href={item.source_url} disabled={!item.source_url}><IconExternalLink size={14} /></TableAction></TableActions> },
+    {
+      key: 'policy',
+      label: 'Policy',
+      width: 76,
+      minWidth: 76,
+      align: 'center',
+      render: item => {
+        const isAcc = item.distribution === 'accumulating';
+        return item.distribution ? <Badge size="xs" variant="light" color={isAcc ? 'violet' : 'orange'}>{isAcc ? 'Acc' : 'Dist'}</Badge> : <Text c="dimmed" size="xs">—</Text>;
+      },
+    },
+    { key: 'replication', label: 'Replication', width: 116, minWidth: 116, align: 'center', render: item => <ReplicationChip value={item.replication} size="xs" /> },
+    { key: 'ter', label: 'TER', width: 75, minWidth: 75, align: 'right', render: item => percent(item.ter_bps) },
+    { key: 'size', label: 'Size', width: 95, minWidth: 95, align: 'right', render: item => `${item.fund_size_million.toLocaleString()}m` },
+    { key: 'actions', width: 60, minWidth: 60, align: 'right', render: item => <TableActions><TableAction label={`Open ${item.isin} on justETF`} href={item.source_url} disabled={!item.source_url}><IconExternalLink size={14} /></TableAction></TableActions> },
   ];
 
   const catalogColumns: DataColumn<CatalogRow>[] = [
     {
       key: 'select_compare',
+      width: 36,
+      minWidth: 36,
+      align: 'center',
       render: (item: CatalogRow) => (
         <Checkbox
           aria-label={`Select ${item.instrument.isin} for comparison`}
@@ -855,10 +869,11 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
         />
       ),
     },
-    { key: 'starred', sortable: true, render: item => <TableAction label={item.instrument.starred ? `Unstar ${item.instrument.isin}` : `Star ${item.instrument.isin}`} color="yellow" variant={item.instrument.starred ? 'light' : 'subtle'} onClick={() => void star(item.instrument)}>{item.instrument.starred ? <IconStarFilled size={14} /> : <IconStar size={14} />}</TableAction> },
+    { key: 'starred', width: 40, minWidth: 40, align: 'center', sortable: true, render: item => <TableAction label={item.instrument.starred ? `Unstar ${item.instrument.isin}` : `Star ${item.instrument.isin}`} color="yellow" variant={item.instrument.starred ? 'light' : 'subtle'} onClick={() => void star(item.instrument)}>{item.instrument.starred ? <IconStarFilled size={14} /> : <IconStar size={14} />}</TableAction> },
     {
       key: 'name',
       label: 'Instrument',
+      minWidth: 200,
       sortable: true,
       render: item => (
         <Text
@@ -875,6 +890,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
     ...(similarity ? [{
       key: 'similarity',
       label: 'Peer Group Analysis',
+      minWidth: 200,
       sortable: true,
       render: (item: CatalogRow) => item.similarity ? (
         <Stack gap={4}>
@@ -894,26 +910,51 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
         </Stack>
       ) : '—',
     }] : []),
-    ...(show('ticker') ? [{ key: 'ticker', label: 'Ticker', sortable: true, render: (item: CatalogRow) => <TickerBadge ticker={item.instrument.ticker} /> }] : []),
-    ...(show('isin') ? [{ key: 'isin', label: 'ISIN', sortable: true, render: (item: CatalogRow) => <ISINBadge isin={item.instrument.isin} /> }] : []),
-    ...(show('type') ? [{ key: 'type', label: 'Type', sortable: true, render: (item: CatalogRow) => <Chip>{instrumentLabels[item.instrument.instrument_type]}</Chip> }] : []),
-    ...(show('issuer') ? [{ key: 'issuer', label: 'Issuer', sortable: true, render: (item: CatalogRow) => item.instrument.provider || '—' }] : []),
+    ...(show('ticker') ? [{ key: 'ticker', label: 'Ticker', width: 85, minWidth: 85, align: 'center' as const, sortable: true, render: (item: CatalogRow) => <TickerBadge ticker={item.instrument.ticker} /> }] : []),
+    ...(show('isin') ? [{ key: 'isin', label: 'ISIN', width: 135, minWidth: 135, align: 'center' as const, sortable: true, render: (item: CatalogRow) => <ISINBadge isin={item.instrument.isin} /> }] : []),
+    ...(show('type') ? [{
+      key: 'type',
+      label: 'Type',
+      width: 76,
+      minWidth: 76,
+      align: 'center' as const,
+      sortable: true,
+      render: (item: CatalogRow) => {
+        const type = item.instrument.instrument_type;
+        return (
+          <Badge
+            size="xs"
+            variant={type === 'etf' ? 'subtle' : 'light'}
+            color={chipColor(type)}
+          >
+            {instrumentLabels[type] || type.toUpperCase()}
+          </Badge>
+        );
+      },
+    }] : []),
+    ...(show('issuer') ? [{ key: 'issuer', label: 'Issuer', minWidth: 120, sortable: true, render: (item: CatalogRow) => item.instrument.provider || '—' }] : []),
     ...(show('assetClass') ? [{
       key: 'asset_class',
       label: 'Asset class',
+      width: 105,
+      minWidth: 105,
+      align: 'center' as const,
       sortable: true,
       render: (item: CatalogRow) => {
         const val = item.instrument.asset_class;
-        if (!val) return <Text c="dimmed">—</Text>;
-        return <Chip colorKey={val}>{label(val)}</Chip>;
+        if (!val) return <Text c="dimmed" size="xs">—</Text>;
+        return <Chip size="xs" colorKey={val}>{label(val)}</Chip>;
       },
     }] : []),
     ...(show('esg') ? [{
       key: 'esg',
       label: 'ESG',
+      width: 76,
+      minWidth: 76,
+      align: 'center' as const,
       sortable: true,
       render: (item: CatalogRow) => isESG(item.instrument) ? (
-        <Badge size="xs" variant="light" color="teal">ESG</Badge>
+        <Badge size="xs" variant="light" color="green" style={{ minWidth: 44, flexShrink: 0 }}>ESG</Badge>
       ) : (
         <Text c="dimmed" size="xs">—</Text>
       ),
@@ -935,30 +976,40 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
     ...(show('policy') ? [{
       key: 'policy',
       label: 'Policy',
+      width: 76,
+      minWidth: 76,
+      align: 'center' as const,
       sortable: true,
       render: (item: CatalogRow) => {
         const val = item.instrument.distribution;
-        if (!val) return <Text c="dimmed">—</Text>;
-        return <Chip>{val === 'accumulating' ? 'Acc' : 'Dist'}</Chip>;
+        if (!val) return <Text c="dimmed" size="xs">—</Text>;
+        const isAcc = val === 'accumulating';
+        return <Badge size="xs" variant="light" color={isAcc ? 'violet' : 'orange'}>{isAcc ? 'Acc' : 'Dist'}</Badge>;
       },
     }] : []),
     ...(show('replication') ? [{
       key: 'replication',
       label: 'Replication',
+      width: 116,
+      minWidth: 116,
+      align: 'center' as const,
       sortable: true,
       render: (item: CatalogRow) => {
         const val = item.instrument.replication;
-        if (!val) return <Text c="dimmed">—</Text>;
+        if (!val) return <Text c="dimmed" size="xs">—</Text>;
         return <ReplicationChip value={val} size="xs" />;
       },
     }] : []),
-    ...(show('ter') ? [{ key: 'ter', label: 'TER', sortable: true, render: (item: CatalogRow) => percent(item.instrument.ter_bps) }] : []),
-    ...(show('size') ? [{ key: 'size', label: 'Size', sortable: true, render: (item: CatalogRow) => `${item.instrument.fund_size_million.toLocaleString()}m` }] : []),
-    ...(show('domicile') ? [{ key: 'domicile', label: 'Domicile', sortable: true, render: (item: CatalogRow) => item.instrument.domicile || '—' }] : []),
-    ...(show('currency') ? [{ key: 'currency', label: 'Currency', sortable: true, render: (item: CatalogRow) => item.instrument.fund_currency || '—' }] : []),
+    ...(show('ter') ? [{ key: 'ter', label: 'TER', width: 75, minWidth: 75, align: 'right' as const, sortable: true, render: (item: CatalogRow) => percent(item.instrument.ter_bps) }] : []),
+    ...(show('size') ? [{ key: 'size', label: 'Size', width: 95, minWidth: 95, align: 'right' as const, sortable: true, render: (item: CatalogRow) => `${item.instrument.fund_size_million.toLocaleString()}m` }] : []),
+    ...(show('domicile') ? [{ key: 'domicile', label: 'Domicile', width: 85, minWidth: 85, align: 'center' as const, sortable: true, render: (item: CatalogRow) => item.instrument.domicile || '—' }] : []),
+    ...(show('currency') ? [{ key: 'currency', label: 'Currency', width: 85, minWidth: 85, align: 'center' as const, sortable: true, render: (item: CatalogRow) => item.instrument.fund_currency || '—' }] : []),
     ...(show('inception') ? [{
       key: 'inception',
       label: 'Inception',
+      width: 110,
+      minWidth: 110,
+      align: 'center' as const,
       sortable: true,
       render: (item: CatalogRow) => item.instrument.inception_date ? (
         <Tooltip label={`Inception: ${new Date(item.instrument.inception_date).toLocaleDateString(undefined, { dateStyle: 'long' })} (${item.instrument.inception_date})`} withArrow>
@@ -966,10 +1017,21 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
         </Tooltip>
       ) : <Text c="dimmed">—</Text>,
     }] : []),
-    ...(show('tracking') ? [{ key: 'tracking', label: 'Tracking', sortable: true, render: (item: CatalogRow) => item.instrument.tracking_difference_bps === null && item.instrument.tracking_error_bps === null ? <Text c="dimmed">—</Text> : <Stack gap={1}><Text size="sm">Diff {item.instrument.tracking_difference_bps === null ? '—' : percent(item.instrument.tracking_difference_bps)}</Text><Text size="xs" c="dimmed">Error {item.instrument.tracking_error_bps === null ? '—' : percent(item.instrument.tracking_error_bps)}</Text></Stack> }] : []),
+    ...(show('tracking') ? [{
+      key: 'tracking',
+      label: 'Tracking',
+      width: 115,
+      minWidth: 115,
+      align: 'right' as const,
+      sortable: true,
+      render: (item: CatalogRow) => item.instrument.tracking_difference_bps === null && item.instrument.tracking_error_bps === null ? <Text c="dimmed">—</Text> : <Stack gap={1}><Text size="sm">Diff {item.instrument.tracking_difference_bps === null ? '—' : percent(item.instrument.tracking_difference_bps)}</Text><Text size="xs" c="dimmed">Error {item.instrument.tracking_error_bps === null ? '—' : percent(item.instrument.tracking_error_bps)}</Text></Stack>
+    }] : []),
     ...(show('enriched') ? [{
       key: 'enriched',
       label: 'Last refreshed',
+      width: 125,
+      minWidth: 125,
+      align: 'center' as const,
       sortable: true,
       render: (item: CatalogRow) => item.instrument.data_status === 'enriched' && item.instrument.refreshed_at ? (
         <Tooltip label={`Refreshed: ${new Date(item.instrument.refreshed_at).toLocaleString()}`} withArrow>
@@ -980,6 +1042,9 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
     ...(show('score') ? [{
       key: 'score',
       label: 'Score',
+      width: 85,
+      minWidth: 85,
+      align: 'center' as const,
       sortable: true,
       render: (item: CatalogRow) => item.score !== null ? (
         <Tooltip label={`Composite ETF score: ${item.score.toFixed(1)} / 100 · based on cost, tracking diff, size, and age`}>
@@ -987,7 +1052,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
         </Tooltip>
       ) : <Text c="dimmed" size="xs">—</Text>,
     }] : []),
-    { key: 'actions', render: item => <TableActions><TableAction label={`Open ${item.instrument.isin} on justETF`} href={item.instrument.source_url} disabled={!item.instrument.source_url}><IconExternalLink size={14} /></TableAction><TableAction label={item.instrument.ucits && item.instrument.instrument_type === 'etf' ? `Find alternatives for ${item.instrument.isin}` : 'Alternatives are limited to comparable UCITS ETFs'} disabled={item.instrument.instrument_type !== 'etf' || item.instrument.data_status !== 'enriched' || !item.instrument.ucits || item.instrument.asset_class === 'other'} onClick={() => showAlternatives(item.instrument)}><IconArrowsExchange size={14} /></TableAction><TableAction label={`Refresh ${item.instrument.isin}`} disabled={lookingUp} onClick={() => void lookup(item.instrument.isin)}><IconRefresh size={14} /></TableAction><TableAction label={`Edit ${item.instrument.isin}`} onClick={() => open(item.instrument)}><IconPencil size={14} /></TableAction><TableAction label={`Delete ${item.instrument.isin}`} color="red" onClick={() => void remove(item.instrument)}><IconTrash size={14} /></TableAction></TableActions> },
+    { key: 'actions', width: 140, minWidth: 140, align: 'right' as const, render: item => <TableActions><TableAction label={`Open ${item.instrument.isin} on justETF`} href={item.instrument.source_url} disabled={!item.instrument.source_url}><IconExternalLink size={14} /></TableAction><TableAction label={item.instrument.ucits && item.instrument.instrument_type === 'etf' ? `Find alternatives for ${item.instrument.isin}` : 'Alternatives are limited to comparable UCITS ETFs'} disabled={item.instrument.instrument_type !== 'etf' || item.instrument.data_status !== 'enriched' || !item.instrument.ucits || item.instrument.asset_class === 'other'} onClick={() => showAlternatives(item.instrument)}><IconArrowsExchange size={14} /></TableAction><TableAction label={`Refresh ${item.instrument.isin}`} disabled={lookingUp} onClick={() => void lookup(item.instrument.isin)}><IconRefresh size={14} /></TableAction><TableAction label={`Edit ${item.instrument.isin}`} onClick={() => open(item.instrument)}><IconPencil size={14} /></TableAction><TableAction label={`Delete ${item.instrument.isin}`} color="red" onClick={() => void remove(item.instrument)}><IconTrash size={14} /></TableAction></TableActions> },
   ];
 
   const [, setProfileField] = useProfile();
@@ -1131,7 +1196,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
             rows={visibleRows}
             columns={catalogColumns}
             rowKey={item => item.instrument.id}
-            minWidth={950}
+            minWidth={1150}
             sort={localSortKey}
             direction={localSortDir}
             onSort={(key, direction) => {

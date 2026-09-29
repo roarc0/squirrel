@@ -1,12 +1,14 @@
 const knownColors: Record<string, string> = {
   cash: 'teal', equity: 'blue', bond: 'indigo', mixed: 'violet', other: 'gray',
-  commodity: 'yellow', monetary: 'cyan', 'real estate': 'grape', crypto: 'orange',
-  etp: 'grape', 'non-ucits etp': 'grape', etf: 'blue', 'ucits etf': 'blue', 'non-ucits etf': 'blue', etc: 'yellow', 'non-ucits etc': 'yellow', etn: 'orange', 'non-ucits etn': 'orange',
-  fund: 'violet', stock: 'blue', bank: 'cyan', broker: 'violet', acc: 'teal', dist: 'orange',
+  commodity: 'yellow', monetary: 'teal', 'real estate': 'pink', crypto: 'orange',
+  etp: 'grape', 'non-ucits etp': 'grape', etf: 'gray', 'ucits etf': 'gray', 'non-ucits etf': 'gray', etc: 'yellow', 'non-ucits etc': 'yellow', etn: 'orange', 'non-ucits etn': 'orange',
+  fund: 'grape', stock: 'blue', bank: 'cyan', broker: 'violet',
+  acc: 'violet', accumulating: 'violet', dist: 'orange', distributing: 'orange',
+  esg: 'green',
   refreshed: 'teal', 'awaiting refresh': 'gray', archived: 'gray', hedged: 'cyan', default: 'teal', rate: 'green', tax: 'red',
   'strictly better': 'green', 'same index': 'blue', 'same exposure': 'violet', score: 'teal',
-  'phy / full': 'blue', 'phy / sampled': 'cyan', 'swap / syn': 'grape', synthetic: 'grape',
-  'physical_full': 'blue', 'physical_sampling': 'cyan',
+  'phy / full': 'cyan', 'phy / sampled': 'teal', 'swap / syn': 'grape', synthetic: 'grape',
+  'physical_full': 'cyan', 'physical_sampling': 'teal',
 };
 const fallbackColors = ['blue', 'cyan', 'teal', 'green', 'lime', 'yellow', 'orange', 'red', 'pink', 'grape', 'violet', 'indigo'];
 

@@ -501,7 +501,7 @@ export function InstrumentDetailView({
                 {label(instrument.asset_class)}
               </Chip>
             )}
-            <Chip size="sm" colorKey={instrument.distribution === 'accumulating' ? 'teal' : 'orange'}>
+            <Chip size="sm" colorKey={instrument.distribution === 'accumulating' ? 'acc' : 'dist'}>
               {instrument.distribution === 'accumulating' ? 'Accumulating (Acc)' : 'Distributing (Dist)'}
             </Chip>
             {instrument.replication && (
@@ -513,7 +513,7 @@ export function InstrumentDetailView({
               </Badge>
             )}
             {isESG(instrument) && (
-              <Badge size="sm" variant="light" color="teal">
+              <Badge size="sm" variant="light" color="green">
                 ESG / SRI Screened
               </Badge>
             )}
@@ -723,7 +723,7 @@ export function InstrumentDetailView({
                           </Table.Td>
                           <Table.Td>
                             <Group gap={4}>
-                              <Chip size="xs" colorKey={inst.distribution === 'accumulating' ? 'teal' : 'orange'}>
+                              <Chip size="xs" colorKey={inst.distribution === 'accumulating' ? 'acc' : 'dist'}>
                                 {inst.distribution === 'accumulating' ? 'Acc' : 'Dist'}
                               </Chip>
                               <ReplicationChip value={inst.replication} size="xs" />
@@ -858,7 +858,7 @@ export function InstrumentDetailView({
             <Group justify="space-between" align="center">
               <Text size="sm" c="dimmed">Distribution Policy</Text>
               <Group gap="xs">
-                <Chip size="sm" colorKey={instrument.distribution === 'accumulating' ? 'teal' : 'orange'}>
+                <Chip size="sm" colorKey={instrument.distribution === 'accumulating' ? 'acc' : 'dist'}>
                   {instrument.distribution === 'accumulating' ? 'Accumulating (Acc)' : 'Distributing (Dist)'}
                 </Chip>
               </Group>
