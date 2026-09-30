@@ -20,7 +20,7 @@ import {
   Title,
   Tooltip,
 } from '@mantine/core';
-import { api, type Account, type ReferenceRate, type TaxRate } from '../api';
+import { listAccounts, createAccount, updateAccount, deleteAccount, type Account, type ReferenceRate, type TaxRate } from '../api';
 import { useBackendRows } from '../hooks/useBackendRows';
 import { Chip } from '../components/Chip';
 import { Empty } from '../components/Empty';
@@ -46,15 +46,15 @@ export function AccountsView({ accounts, rates, taxRates, reload }: { accounts: 
   const [opened, setOpened] = useState(false);
   const [editing, setEditing] = useState<Account>();
   const { confirmDelete, modal: confirmDeleteModal } = useConfirmDelete();
-  const table = useBackendRows('/api/accounts', accounts, 'total', 'desc');
+  const table = useBackendRows(listAccounts, accounts, 'total', 'desc');
   const open = (account?: Account) => { setEditing(account); setOpened(true); };
   const remove = (account: Account) => {
     confirmDelete('account', account.name, async () => {
-      await api(`/api/accounts/${account.id}`, { method: 'DELETE' });
+      await deleteAccount(account.id);
       await reload();
     }, 'Its current holdings will also be removed. Saved snapshots stay intact.');
   };
-  const toggleArchived = async (account: Account) => { try { await api(`/api/accounts/${account.id}`, { method: 'PUT', body: JSON.stringify({ ...account, archived: !account.archived }) }); await reload(); } catch (cause) { notifications.show({ color: 'red', title: 'Failed to update account', message: cause instanceof Error ? cause.message : String(cause) }); } };
+  const toggleArchived = async (account: Account) => { try { await updateAccount(account.id, { ...account, archived: !account.archived }); await reload(); } catch (cause) { notifications.show({ color: 'red', title: 'Failed to update account', message: cause instanceof Error ? cause.message : String(cause) }); } };
   const columns: DataColumn<Account>[] = [
     {
       key: 'name',
@@ -149,7 +149,11 @@ function AccountModal({ opened, close, account, rates, taxRates, saved }: { open
         name: form.name, institution: form.institution, type: form.type, preferred: form.preferred, archived: form.archived, currency: form.currency.toUpperCase(), balance_minor: minor(form.balance), tax_bps: bps(form.tax), annual_fee_minor: minor(form.fee), pac_amount_minor: minor(form.pacAmount), notes: form.notes,
         tiers: form.tiers.map(item => ({ up_to_minor: item.upTo === '' ? null : minor(item.upTo), fixed_rate_bps: item.kind === 'fixed' ? bps(item.rate) : null, reference_code: item.kind === 'reference' ? item.reference : '', spread_bps: item.kind === 'reference' ? bps(item.spread) : 0 })),
       };
-      await api(account ? `/api/accounts/${account.id}` : '/api/accounts', { method: account ? 'PUT' : 'POST', body: JSON.stringify(body) });
+      if (account) {
+        await updateAccount(account.id, body);
+      } else {
+        await createAccount(body);
+      }
       notifications.show({ color: 'teal', title: account ? 'Account updated' : 'Account added', message: account ? 'Changes saved successfully.' : 'New account added.' });
       await saved();
     } catch (cause) {

@@ -33,7 +33,7 @@ import {
   IconStarFilled,
   IconX,
 } from '@tabler/icons-react';
-import { api, instrumentClient, type Instrument, type InstrumentAlternative } from '../api';
+import { lookupInstrument, starInstrument, getInstrumentAlternatives, instrumentClient, type Instrument, type InstrumentAlternative } from '../api';
 import { setInstrumentStarredInProfile } from '../hooks/useProfile';
 import { chartGeometry, nearestChartIndex } from '../utils/visual';
 import { Chip, ISINBadge, ReplicationChip, TickerBadge } from '../components/Chip';
@@ -316,7 +316,7 @@ export function InstrumentDetailView({
     setFetching(true);
     setFetchError('');
     try {
-      await api<Instrument>('/api/instruments/lookup', { method: 'POST', body: JSON.stringify({ query: isin }) });
+      await lookupInstrument(isin);
       notifications.show({ color: 'teal', title: 'Instrument imported', message: `Successfully fetched ${isin} from justETF.` });
       await reload?.();
     } catch (err) {
@@ -337,10 +337,7 @@ export function InstrumentDetailView({
     setStarred(next);
     setInstrumentStarredInProfile(instrument.isin, next);
     try {
-      await api(`/api/instruments/${encodeURIComponent(instrument.isin)}/star`, {
-        method: 'PUT',
-        body: JSON.stringify({ starred: next }),
-      });
+      await starInstrument(instrument.isin, next);
       if (reload) void reload();
     } catch (cause) {
       setStarred(!next);
@@ -360,7 +357,7 @@ export function InstrumentDetailView({
     }
     let active = true;
     setLoadingAlts(true);
-    void api<InstrumentAlternative[]>(`/api/instruments/${instrument.id}/alternatives`)
+    void getInstrumentAlternatives(instrument.id)
       .then(res => {
         if (active) setAlternatives(res ?? []);
       })

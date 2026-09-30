@@ -37,7 +37,7 @@ import {
   IconTrash,
   IconX,
 } from '@tabler/icons-react';
-import { api, instrumentClient, type Account, type Holding, type Instrument, type TaxRate } from '../api';
+import { updateAccount, listHoldings, createHolding, updateHolding, deleteHolding, importInstruments, type Account, type Holding, type Instrument, type TaxRate } from '../api';
 import { GeoRadarSection } from './GeoRadarView';
 import { DraftPortfoliosView } from './DraftPortfoliosView';
 import { SubnavTabs } from '../components/SubnavTabs';
@@ -78,10 +78,7 @@ function PacAmountEditor({ account, currency, onSaved }: { account: Account; cur
   const save = async () => {
     setSaving(true);
     try {
-      await api(`/api/accounts/${account.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ ...account, pac_amount_minor: Math.round(Number(value) * 100) }),
-      });
+      await updateAccount(account.id, { ...account, pac_amount_minor: Math.round(Number(value) * 100) });
       notifications.show({ color: 'teal', title: 'Monthly contribution updated', message: `Monthly amount set to ${money(Math.round(Number(value) * 100), currency)}/mo` });
       await onSaved();
     } catch (cause) {
@@ -128,10 +125,7 @@ function InlinePlannedBpsEditor({
     setSaving(true);
     try {
       const newBps = Math.round(Number(value) * 100);
-      await api(`/api/holdings/${holding.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ pac_bps: newBps }),
-      });
+      await updateHolding(holding.id, { pac_bps: newBps });
       notifications.show({
         color: 'teal',
         title: 'PAC share updated',
@@ -229,10 +223,7 @@ function InlineCurrencyEditor({
     setSaving(true);
     try {
       const newMinor = Math.round(Number(value) * 100);
-      await api(`/api/holdings/${holding.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ ...holding, [field]: newMinor }),
-      });
+      await updateHolding(holding.id, { [field]: newMinor });
       notifications.show({
         color: 'teal',
         title: 'Holding updated',
@@ -341,19 +332,19 @@ export function InvestmentsView({
   const [refreshingISIN, setRefreshingISIN] = useState<string | null>(null);
   const [showTax, setShowTax] = useState(false);
   const [filterQuery, setFilterQuery] = useState('');
-  const table = useBackendRows('/api/holdings', holdings, 'value', 'desc');
+  const table = useBackendRows(listHoldings, holdings, 'value', 'desc');
   const activeAccounts = accounts.filter(account => !account.archived); const activeAccountIDs = new Set(activeAccounts.map(account => account.id));
   const accountMap = new Map<number, Account>(accounts.map(a => [a.id, a]));
   const open = (holding?: Holding) => { setEditing(holding); setOpened(true); };
   const remove = (holding: Holding) => {
     confirmDelete('investment', `${holding.instrument_name} · ${holding.account_name}`, async () => {
-      try { await api(`/api/holdings/${holding.id}`, { method: 'DELETE' }); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+      try { await deleteHolding(holding.id); await reload(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     });
   };
   const refreshInstrument = async (isin: string) => {
     setRefreshingISIN(isin);
     try {
-      await instrumentClient.importInstruments({ isins: [isin] });
+      await importInstruments([isin]);
       await reload();
       notifications.show({ color: 'teal', message: `${isin} data refreshed` });
     } catch (cause) {
@@ -364,10 +355,7 @@ export function InvestmentsView({
   };
   const zeroPac = async (holding: Holding) => {
     try {
-      await api(`/api/holdings/${holding.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ pac_bps: 0 }),
-      });
+      await updateHolding(holding.id, { pac_bps: 0 });
       await reload();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -1126,10 +1114,11 @@ function HoldingModal({
         pac_frequency: holding?.pac_frequency || 'monthly',
         notes: form.notes,
       };
-      await api(holding ? `/api/holdings/${holding.id}` : '/api/holdings', {
-        method: holding ? 'PUT' : 'POST',
-        body: JSON.stringify(body),
-      });
+      if (holding) {
+        await updateHolding(holding.id, body);
+      } else {
+        await createHolding(body);
+      }
       notifications.show({
         color: 'teal',
         title: holding ? 'Investment updated' : 'Investment added',

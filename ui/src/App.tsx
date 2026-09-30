@@ -68,7 +68,26 @@ import {
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { api, instrumentClient, type Account, type Diagnostic, type Instrument, type InstrumentAlternative, type InstrumentType, type Holding, type RankedInstrument, type ReferenceRate, type Snapshot, type Summary, type TaxRate } from './api';
+import {
+  getSummary,
+  listAccounts,
+  listReferenceRates,
+  listTaxRates,
+  listInstruments,
+  listHoldings,
+  listSnapshots,
+  type Account,
+  type Diagnostic,
+  type Instrument,
+  type InstrumentAlternative,
+  type InstrumentType,
+  type Holding,
+  type RankedInstrument,
+  type ReferenceRate,
+  type Snapshot,
+  type Summary,
+  type TaxRate,
+} from './api';
 import { Chip, chipColor } from './components/Chip';
 import { DataTable, TableAction, TableActions, type DataColumn, type SortDirection } from './components/DataTable';
 import { CompareModal } from './components/CompareModal';
@@ -170,13 +189,13 @@ export default function App() {
     captureTokenFromURL();
     try {
       const [summary, accounts, rates, taxRates, instruments, holdings, snapshots, user] = await Promise.all([
-        api<Summary>('/api/summary'),
-        api<Account[]>('/api/accounts'),
-        api<ReferenceRate[]>('/api/reference-rates'),
-        api<TaxRate[]>('/api/tax-rates'),
-        api<Instrument[]>('/api/instruments'),
-        api<Holding[]>('/api/holdings'),
-        api<Snapshot[]>('/api/snapshots'),
+        getSummary(),
+        listAccounts(),
+        listReferenceRates(),
+        listTaxRates(),
+        listInstruments(),
+        listHoldings(),
+        listSnapshots(),
         fetchMe(),
         loadProfile(),
       ]);
@@ -237,7 +256,7 @@ export default function App() {
   useEffect(() => {
     if (refreshTick?.phase !== 'waiting' || refreshTick.hasError) return;
     let active = true;
-    api<Instrument[]>('/api/instruments').then(instruments => {
+    listInstruments().then(instruments => {
       if (active) setData(current => current ? { ...current, instruments: instruments ?? [] } : current);
     }).catch(() => {});
     return () => { active = false; };

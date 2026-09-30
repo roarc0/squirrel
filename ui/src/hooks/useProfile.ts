@@ -59,7 +59,8 @@ export async function loadProfile(): Promise<void> {
   const userKey = getActiveUserKey();
   try {
     const res = await profileClient.getProfile({});
-    const p = res.profile ?? {};
+    const p = res.profile;
+    if (!p) throw new Error('empty profile');
     const resolvedTheme = resolveUserTheme(p.theme, userKey);
     const themeStr = `${resolvedTheme.scheme}:${resolvedTheme.accent}`;
     _profile = {

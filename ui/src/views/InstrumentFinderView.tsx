@@ -43,7 +43,16 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import {
-  api,
+  lookupInstrument,
+  searchInstruments,
+  importInstruments,
+  syncInstrumentCatalog,
+  enrichInstrumentCatalog,
+  reclassifyInstruments,
+  createInstrument,
+  starInstrument,
+  getInstrumentAlternatives,
+  deleteInstrument,
   instrumentClient,
   type Instrument,
   type InstrumentAlternative,
@@ -298,7 +307,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
     if (!query.trim()) return;
     setLookingUp(true);
     try {
-      const inst = await api<Instrument>('/api/instruments/lookup', { method: 'POST', body: JSON.stringify({ query }) });
+      const inst = await lookupInstrument(query);
       setLookupQuery('');
       setError('');
       await reload();
@@ -315,7 +324,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
     if (!lookupQuery.trim()) return;
     setSearching(true);
     try {
-      const result = await api<Instrument[]>(`/api/instruments/search?q=${encodeURIComponent(lookupQuery)}`);
+      const result = await searchInstruments(lookupQuery);
       setSearchResults(result ?? []);
       setSelected((result ?? []).map(item => item.isin));
       setError('');
@@ -330,7 +339,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
     if (selected.length === 0) return;
     setImporting(true);
     try {
-      await api<Instrument[]>('/api/instruments/import', { method: 'POST', body: JSON.stringify({ isins: selected }) });
+      await importInstruments(selected);
       setSearchResults([]);
       setSelected([]);
       setLookupQuery('');
@@ -346,7 +355,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
   const syncCatalog = async () => {
     setSyncing(true);
     try {
-      const result = await api<{ saved: number; available: number }>('/api/instruments/catalog/sync', { method: 'POST', body: JSON.stringify({ limit: 4000 }) });
+      const result = await syncInstrumentCatalog(4000);
       setNotice(`Saved ${result.saved.toLocaleString()} instruments from ${result.available.toLocaleString()} screener results.`);
       setError('');
       await reload();
@@ -360,7 +369,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
   const enrichCatalog = async () => {
     setEnriching(true);
     try {
-      const result = await api<{ enriched: number; failed: number }>('/api/instruments/catalog/enrich', { method: 'POST', body: JSON.stringify({ limit: 20 }) });
+      const result = await enrichInstrumentCatalog(20);
       setNotice(`Refreshed ${result.enriched} product profiles${result.failed ? `; ${result.failed} failed and can be retried` : ''}.`);
       setError('');
       await reload();
@@ -374,7 +383,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
   const localReclassify = async () => {
     setReclassifying(true);
     try {
-      const result = await api<{ updated: number; total: number }>('/api/instruments/catalog/reclassify', { method: 'POST' });
+      const result = await reclassifyInstruments();
       setNotice(`Local refresh complete: ${result.updated.toLocaleString()} of ${result.total.toLocaleString()} instruments re-classified with updated strategies and providers.`);
       setError('');
       await reload();
@@ -395,7 +404,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
       let latest: EnrichmentProgress | undefined;
       for await (const res of instrumentClient.streamInstrumentCatalog({ mode }, { signal: controller.signal })) {
         latest = {
-          mode: res.mode,
+          mode: res.mode as EnrichmentMode,
           phase: res.phase,
           current: res.current ?? undefined,
           processed: res.processed,
@@ -408,7 +417,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
           error: res.error ?? undefined,
         };
         setStreamProgress(latest);
-        if (latest.error) setError(latest.error);
+        if (latest?.error) setError(latest.error);
       }
       if (latest) setNotice(`Finished: ${latest.enriched} refreshed, ${latest.skipped} skipped, ${latest.failed} failed.`);
       await reload();
@@ -437,10 +446,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
     setInstrumentStarredInProfile(instrument.isin, nextStarred);
 
     try {
-      await api(`/api/instruments/${encodeURIComponent(instrument.isin)}/star`, {
-        method: 'PUT',
-        body: JSON.stringify({ starred: nextStarred }),
-      });
+      await starInstrument(instrument.isin, nextStarred);
     } catch (cause) {
       if (found) {
         found.starred = !nextStarred;
@@ -458,7 +464,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
   const remove = (instrument: Instrument) => {
     confirmDelete('instrument', `${instrument.ticker || instrument.name} · ${instrument.isin}`, async () => {
       try {
-        await api(`/api/instruments/${instrument.id}`, { method: 'DELETE' });
+        await deleteInstrument(instrument.id);
         await reload();
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
@@ -1109,7 +1115,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
     if (!similarity) { setAlternatives([]); setLoadingAlternatives(false); return; }
     if (!similarTo) { setAlternatives([]); setLoadingAlternatives(false); setError(`Similarity instrument ${similarity} is not in the local catalog`); return; }
     let active = true; setLoadingAlternatives(true);
-    void api<InstrumentAlternative[]>(`/api/instruments/${similarTo.id}/alternatives`).then(result => { if (active) { setAlternatives(result ?? []); setError(''); } }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : String(cause)); }).finally(() => { if (active) setLoadingAlternatives(false); });
+    void getInstrumentAlternatives(similarTo.id).then(result => { if (active) { setAlternatives(result ?? []); setError(''); } }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : String(cause)); }).finally(() => { if (active) setLoadingAlternatives(false); });
     return () => { active = false; };
   }, [similarity, similarTo?.id]);
 
@@ -1781,32 +1787,29 @@ function InstrumentModal({ opened, close, instrument, saved }: { opened: boolean
   const [error, setError] = useState('');
   const save = async () => {
     try {
-      await api('/api/instruments', {
-        method: 'POST',
-        body: JSON.stringify({
-          isin: form.isin,
-          name: form.name,
-          ticker: form.ticker,
-          instrument_type: form.instrument_type,
-          provider: form.provider,
-          index_name: form.index_name,
-          investment_focus: form.investment_focus,
-          asset_class: form.asset_class,
-          strategy: form.strategy,
-          currency_hedged: form.currency_hedged,
-          data_status: 'enriched',
-          distribution: form.distribution,
-          replication: form.replication,
-          domicile: form.domicile,
-          fund_currency: form.fund_currency,
-          ter_bps: bps(form.ter),
-          fund_size_million: n(form.size),
-          inception_date: form.inception_date,
-          tracking_difference_bps: form.trackingDifference === '' ? null : bps(form.trackingDifference),
-          tracking_error_bps: form.trackingError === '' ? null : bps(form.trackingError),
-          ucits: form.ucits,
-          source_url: form.source_url,
-        }),
+      await createInstrument({
+        isin: form.isin,
+        name: form.name,
+        ticker: form.ticker,
+        instrument_type: form.instrument_type,
+        provider: form.provider,
+        index_name: form.index_name,
+        investment_focus: form.investment_focus,
+        asset_class: form.asset_class,
+        strategy: form.strategy,
+        currency_hedged: form.currency_hedged,
+        data_status: 'enriched',
+        distribution: form.distribution,
+        replication: form.replication,
+        domicile: form.domicile,
+        fund_currency: form.fund_currency,
+        ter_bps: bps(form.ter),
+        fund_size_million: n(form.size),
+        inception_date: form.inception_date,
+        tracking_difference_bps: form.trackingDifference === '' ? null : bps(form.trackingDifference),
+        tracking_error_bps: form.trackingError === '' ? null : bps(form.trackingError),
+        ucits: form.ucits,
+        source_url: form.source_url,
       });
       await saved();
     } catch (cause) {

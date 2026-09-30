@@ -18,7 +18,7 @@ import {
   TextInput,
   Title,
 } from '@mantine/core';
-import { api, type Holding, type Instrument, type Snapshot, type Summary } from '../api';
+import { listSnapshots, createSnapshot, updateSnapshot, deleteSnapshot, type Holding, type Instrument, type Snapshot, type Summary } from '../api';
 import { useElementSize } from '@mantine/hooks';
 import { AllocationBar } from '../components/AllocationBar';
 import { PerformanceResult } from '../components/PerformanceResult';
@@ -432,7 +432,7 @@ function SnapshotHistory({ snapshots, currency, reload }: { snapshots: Snapshot[
   const [editing, setEditing] = useState<Snapshot>();
   const [error, setError] = useState('');
   const { confirmDelete, modal: confirmDeleteModal } = useConfirmDelete();
-  const table = useBackendRows('/api/snapshots', snapshots, 'date', 'desc');
+  const table = useBackendRows(listSnapshots, snapshots, 'date', 'desc');
   const current = snapshots.filter(item => item.currency === currency).sort((a, b) => a.observed_on.localeCompare(b.observed_on));
 
   const displayRows = useMemo(() => {
@@ -472,7 +472,7 @@ function SnapshotHistory({ snapshots, currency, reload }: { snapshots: Snapshot[
 
   const removeSnapshot = (item: Snapshot) => {
     confirmDelete('snapshot', `${item.observed_on} (${money(item.total_minor, item.currency)})`, async () => {
-      await api(`/api/snapshots/${item.id}`, { method: 'DELETE' });
+      await deleteSnapshot(item.id);
       await reload();
     });
   };
@@ -535,7 +535,7 @@ function SnapshotHistory({ snapshots, currency, reload }: { snapshots: Snapshot[
   const save = async () => {
     setSaving(true);
     try {
-      await api('/api/snapshots', { method: 'POST', body: JSON.stringify({ observed_on: observedOn }) });
+      await createSnapshot(observedOn);
       setError('');
       await reload();
     } catch (cause) {
@@ -612,7 +612,7 @@ function SnapshotHistory({ snapshots, currency, reload }: { snapshots: Snapshot[
 
 function SnapshotModal({ snapshot, close, saved }: { snapshot?: Snapshot; close: () => void; saved: () => Promise<void> }) {
   const [form, setForm] = useState<{ date: string; cash: Numeric; invested: Numeric; portfolio: Numeric }>(() => snapshot ? { date: snapshot.observed_on, cash: snapshot.cash_minor / 100, invested: snapshot.invested_minor / 100, portfolio: snapshot.portfolio_minor / 100 } : { date: '', cash: 0, invested: 0, portfolio: 0 }); const [error, setError] = useState('');
-  const save = async () => { if (!snapshot) return; try { await api(`/api/snapshots/${snapshot.id}`, { method: 'PUT', body: JSON.stringify({ observed_on: form.date, currency: snapshot.currency, cash_minor: minor(form.cash), invested_minor: minor(form.invested), portfolio_minor: minor(form.portfolio) }) }); await saved(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } };
+  const save = async () => { if (!snapshot) return; try { await updateSnapshot(snapshot.id, { observed_on: form.date, currency: snapshot.currency, cash_minor: minor(form.cash), invested_minor: minor(form.invested), portfolio_minor: minor(form.portfolio) }); await saved(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } };
   return <Modal opened={Boolean(snapshot)} onClose={close} title="Correct snapshot"><Stack>{error && <Alert color="red">{error}</Alert>}<SimpleGrid cols={2}><TextInput type="date" label="Date" value={form.date} onChange={event => setForm({ ...form, date: event.currentTarget.value })} /><TextInput readOnly label="Currency" value={snapshot?.currency ?? ''} /><NumberInput min={0} decimalScale={2} label="Cash" value={form.cash} onChange={value => setForm({ ...form, cash: value })} /><NumberInput min={0} decimalScale={2} label="Amount invested" value={form.invested} onChange={value => setForm({ ...form, invested: value })} /><NumberInput min={0} decimalScale={2} label="Investments" value={form.portfolio} onChange={value => setForm({ ...form, portfolio: value })} /></SimpleGrid><Group justify="space-between"><Text size="sm" c="dimmed">Corrected total</Text><Text fw={700}>{money(minor(form.cash) + minor(form.portfolio), snapshot?.currency ?? 'EUR')}</Text></Group><Text size="xs" c="dimmed">This replaces the stored per-account breakdown for this currency with the corrected totals.</Text><Group justify="end"><Button onClick={() => void save()}>Save correction</Button></Group></Stack></Modal>;
 }
 

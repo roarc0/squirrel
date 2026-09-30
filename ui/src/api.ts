@@ -27,15 +27,15 @@ const transport = createConnectTransport({
   interceptors: [authInterceptor],
 });
 
-export const accountClient: any = createClient(AccountService as any, transport);
-export const holdingClient: any = createClient(HoldingService as any, transport);
-export const instrumentClient: any = createClient(InstrumentService as any, transport);
-export const rateClient: any = createClient(RateService as any, transport);
-export const snapshotClient: any = createClient(SnapshotService as any, transport);
-export const summaryClient: any = createClient(SummaryService as any, transport);
-export const systemClient: any = createClient(SystemService as any, transport);
-export const profileClient: any = createClient(ProfileService as any, transport);
-export const btpClient: any = createClient(BtpService as any, transport);
+export const accountClient = createClient(AccountService, transport);
+export const holdingClient = createClient(HoldingService, transport);
+export const instrumentClient = createClient(InstrumentService, transport);
+export const rateClient = createClient(RateService, transport);
+export const snapshotClient = createClient(SnapshotService, transport);
+export const summaryClient = createClient(SummaryService, transport);
+export const systemClient = createClient(SystemService, transport);
+export const profileClient = createClient(ProfileService, transport);
+export const btpClient = createClient(BtpService, transport);
 
 export type ReferenceRate = {
   code: string;
@@ -340,340 +340,265 @@ function protoToSnapshot(s: any): Snapshot {
   };
 }
 
-// Central API routing function translating legacy path calls to Connect RPC client invocations
-export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const method = init?.method?.toUpperCase() ?? 'GET';
-  const bodyData = init?.body ? JSON.parse(init.body as string) : {};
+// --- Typed Connect-RPC Service Wrappers ---
 
-  // Summary
-  if (path === '/api/summary' && method === 'GET') {
-    const res = await summaryClient.getSummary({});
-    const summary: Summary = {
-      base_currency: res.summary?.baseCurrency ?? 'EUR',
-      currencies: (res.summary?.currencies ?? []).map((c: any) => ({
-        currency: c.currency,
-        balance_minor: num(c.balanceMinor),
-        gross_revenue_minor: num(c.grossRevenueMinor),
-        tax_minor: num(c.taxMinor),
-        fees_minor: num(c.feesMinor),
-        net_revenue_minor: num(c.netRevenueMinor),
-        invested_minor: num(c.investedMinor),
-        portfolio_minor: num(c.portfolioMinor),
-        total_minor: num(c.totalMinor),
-        allocations: (c.allocations ?? []).map((a: any) => ({
-          asset_class: a.assetClass,
-          value_minor: num(a.valueMinor),
-        })),
+// Summary
+export async function getSummary(): Promise<Summary> {
+  const res = await summaryClient.getSummary({});
+  return {
+    base_currency: res.summary?.baseCurrency ?? 'EUR',
+    currencies: (res.summary?.currencies ?? []).map((c: any) => ({
+      currency: c.currency,
+      balance_minor: num(c.balanceMinor),
+      gross_revenue_minor: num(c.grossRevenueMinor),
+      tax_minor: num(c.taxMinor),
+      fees_minor: num(c.feesMinor),
+      net_revenue_minor: num(c.netRevenueMinor),
+      invested_minor: num(c.investedMinor),
+      portfolio_minor: num(c.portfolioMinor),
+      total_minor: num(c.totalMinor),
+      allocations: (c.allocations ?? []).map((a: any) => ({
+        asset_class: a.assetClass,
+        value_minor: num(a.valueMinor),
       })),
-      diagnostics: (res.summary?.diagnostics ?? []).map((d: any) => ({
-        id: d.id,
-        category: d.category,
-        severity: d.severity,
-        title: d.title,
-        message: d.message,
-        holding_id: optNum(d.holdingId) ?? undefined,
-        account_id: optNum(d.accountId) ?? undefined,
-        isin: optStr(d.isin),
-      })),
-    };
-    return summary as unknown as T;
-  }
-
-  // Accounts
-  if (path.startsWith('/api/accounts')) {
-    if ((path === '/api/accounts' || path.startsWith('/api/accounts?')) && method === 'GET') {
-      const urlParams = new URLSearchParams(path.includes('?') ? path.split('?')[1] : '');
-      const sortParam = urlParams.get('sort');
-      const dirParam = urlParams.get('direction');
-      const sort = sortParam ? `${sortParam}:${dirParam ?? 'asc'}` : undefined;
-      const res = await accountClient.listAccounts({ sort });
-      return (res.accounts ?? []).map(protoToAccount) as unknown as T;
-    }
-    if (method === 'POST') {
-      const res = await accountClient.createAccount({
-        account: {
-          name: bodyData.name,
-          institution: bodyData.institution ?? '',
-          type: bodyData.type ?? 'broker',
-          preferred: Boolean(bodyData.preferred),
-          archived: Boolean(bodyData.archived),
-          currency: bodyData.currency ?? 'EUR',
-          balanceMinor: bigint(bodyData.balance_minor),
-          taxBps: bigint(bodyData.tax_bps),
-          annualFeeMinor: bigint(bodyData.annual_fee_minor),
-          pacAmountMinor: bigint(bodyData.pac_amount_minor),
-          notes: bodyData.notes ?? '',
-          tiers: (bodyData.tiers ?? []).map((t: any) => ({
-            upToMinor: t.up_to_minor !== null ? bigint(t.up_to_minor) : undefined,
-            fixedRateBps: t.fixed_rate_bps !== null ? bigint(t.fixed_rate_bps) : undefined,
-            referenceCode: t.reference_code || undefined,
-            spreadBps: bigint(t.spread_bps) ?? 0n,
-          })),
-        } as any,
-      });
-      return protoToAccount(res.account) as unknown as T;
-    }
-    const idMatch = path.match(/\/api\/accounts\/(\d+)/);
-    if (idMatch) {
-      const id = BigInt(idMatch[1]);
-      if (method === 'PUT') {
-        const res = await accountClient.updateAccount({
-          id,
-          account: {
-            id,
-            name: bodyData.name,
-            institution: bodyData.institution ?? '',
-            type: bodyData.type ?? 'broker',
-            preferred: Boolean(bodyData.preferred),
-            archived: Boolean(bodyData.archived),
-            currency: bodyData.currency ?? 'EUR',
-            balanceMinor: bigint(bodyData.balance_minor),
-            taxBps: bigint(bodyData.tax_bps),
-            annualFeeMinor: bigint(bodyData.annual_fee_minor),
-            pacAmountMinor: bigint(bodyData.pac_amount_minor),
-            notes: bodyData.notes ?? '',
-            tiers: (bodyData.tiers ?? []).map((t: any) => ({
-              id: t.id !== undefined && t.id !== null ? bigint(t.id) : undefined,
-              upToMinor: t.up_to_minor !== null ? bigint(t.up_to_minor) : undefined,
-              fixedRateBps: t.fixed_rate_bps !== null ? bigint(t.fixed_rate_bps) : undefined,
-              referenceCode: t.reference_code || undefined,
-              spreadBps: bigint(t.spread_bps) ?? 0n,
-            })),
-          } as any,
-        });
-        return protoToAccount(res.account) as unknown as T;
-      }
-      if (method === 'DELETE') {
-        await accountClient.deleteAccount({ id });
-        return undefined as unknown as T;
-      }
-    }
-  }
-
-  // Reference Rates & Tax Rates
-  if (path === '/api/reference-rates') {
-    const res = await rateClient.listReferenceRates({});
-    return (res.rates ?? []).map(protoToReferenceRate) as unknown as T;
-  }
-
-  if (path === '/api/tax-rates') {
-    const res = await rateClient.listTaxRates({});
-    return (res.rates ?? []).map((r: any) => ({
-      code: r.code,
-      label: r.label,
-      rate_bps: num(r.rateBps),
-    })) as unknown as T;
-  }
-
-  // Holdings
-  if (path.startsWith('/api/holdings')) {
-    if ((path === '/api/holdings' || path.startsWith('/api/holdings?')) && method === 'GET') {
-      const urlParams = new URLSearchParams(path.includes('?') ? path.split('?')[1] : '');
-      const sortParam = urlParams.get('sort');
-      const dirParam = urlParams.get('direction');
-      const sort = sortParam ? `${sortParam}:${dirParam ?? 'asc'}` : undefined;
-      const res = await holdingClient.listHoldings({ sort });
-      return (res.holdings ?? []).map(protoToHolding) as unknown as T;
-    }
-    if (method === 'POST') {
-      const res = await holdingClient.createHolding({
-        holding: {
-          accountId: bigint(bodyData.account_id),
-          instrumentId: bigint(bodyData.instrument_id),
-          investedMinor: bigint(bodyData.invested_minor),
-          valueMinor: bigint(bodyData.value_minor),
-          taxBps: bigint(bodyData.tax_bps),
-          isPac: Boolean(bodyData.is_pac),
-          pacBps: bigint(bodyData.pac_bps),
-          pacFrequency: bodyData.pac_frequency || 'monthly',
-          notes: bodyData.notes ?? '',
-        } as any,
-      });
-      return protoToHolding(res.holding) as unknown as T;
-    }
-    const idMatch = path.match(/\/api\/holdings\/(\d+)/);
-    if (idMatch) {
-      const id = BigInt(idMatch[1]);
-      if (method === 'PUT') {
-        const res = await holdingClient.updateHolding({
-          id,
-          holding: { ...holdingPatch(bodyData), id } as any,
-        });
-        return protoToHolding(res.holding) as unknown as T;
-      }
-      if (method === 'DELETE') {
-        await holdingClient.deleteHolding({ id });
-        return undefined as unknown as T;
-      }
-    }
-  }
-
-  // Snapshots
-  if (path.startsWith('/api/snapshots')) {
-    if ((path === '/api/snapshots' || path.startsWith('/api/snapshots?')) && method === 'GET') {
-      const urlParams = new URLSearchParams(path.includes('?') ? path.split('?')[1] : '');
-      const sortParam = urlParams.get('sort');
-      const dirParam = urlParams.get('direction');
-      const sort = sortParam ? `${sortParam}:${dirParam ?? 'asc'}` : undefined;
-      const res = await snapshotClient.listSnapshots({ sort });
-      return (res.snapshots ?? []).map(protoToSnapshot) as unknown as T;
-    }
-    if (method === 'POST') {
-      await snapshotClient.createSnapshot({ observedOn: bodyData.observed_on });
-      return undefined as unknown as T;
-    }
-    const idMatch = path.match(/\/api\/snapshots\/(\d+)/);
-    if (idMatch) {
-      const id = BigInt(idMatch[1]);
-      if (method === 'PUT') {
-        const res = await snapshotClient.updateSnapshot({
-          id,
-          observedOn: bodyData.observed_on,
-          currency: bodyData.currency ?? 'EUR',
-          cashMinor: bigint(bodyData.cash_minor) ?? 0n,
-          investedMinor: bigint(bodyData.invested_minor) ?? 0n,
-          portfolioMinor: bigint(bodyData.portfolio_minor) ?? 0n,
-        });
-        return protoToSnapshot(res.snapshot) as unknown as T;
-      }
-      if (method === 'DELETE') {
-        await snapshotClient.deleteSnapshot({ id });
-        return undefined as unknown as T;
-      }
-    }
-  }
-
-  // Instruments
-  if (path.startsWith('/api/instruments')) {
-    if ((path === '/api/instruments' || path.startsWith('/api/instruments?')) && method === 'GET') {
-      const urlParams = new URLSearchParams(path.includes('?') ? path.split('?')[1] : '');
-      const sortParam = urlParams.get('sort');
-      const dirParam = urlParams.get('direction');
-      const sort = sortParam ? `${sortParam}:${dirParam ?? 'asc'}` : undefined;
-      const res = await instrumentClient.listInstruments({ sort });
-      return (res.instruments ?? []).map(protoToInstrument) as unknown as T;
-    }
-    if (path.startsWith('/api/instruments/search')) {
-      const urlParams = new URLSearchParams(path.includes('?') ? path.split('?')[1] : '');
-      const query = urlParams.get('q') ?? '';
-      const res = await instrumentClient.searchInstruments({ query });
-      return (res.instruments ?? []).map(protoToInstrument) as unknown as T;
-    }
-    if (path === '/api/instruments/lookup' && method === 'POST') {
-      const res = await instrumentClient.lookupInstrument({ query: bodyData.query });
-      return protoToInstrument(res.instrument) as unknown as T;
-    }
-    if (path === '/api/instruments/import' && method === 'POST') {
-      const res = await instrumentClient.importInstruments({ isins: bodyData.isins });
-      return (res.instruments ?? []).map(protoToInstrument) as unknown as T;
-    }
-    if (path === '/api/instruments/catalog/sync' && method === 'POST') {
-      const res = await instrumentClient.syncInstrumentCatalog({ limit: bodyData.limit ?? 4000 });
-      return { saved: res.saved, available: res.available } as unknown as T;
-    }
-    if (path === '/api/instruments/catalog/enrich' && method === 'POST') {
-      const res = await instrumentClient.enrichInstrumentCatalog({ limit: bodyData.limit ?? 20 });
-      return { enriched: res.enriched, failed: res.failed } as unknown as T;
-    }
-    if (path === '/api/instruments/catalog/reclassify' && method === 'POST') {
-      const res = await instrumentClient.reclassifyInstruments({});
-      return { updated: res.updated, total: res.total } as unknown as T;
-    }
-    if (path === '/api/instruments/rank' && method === 'POST') {
-      const res = await instrumentClient.rankInstruments({
-        criteria: {
-          indexQuery: bodyData.index_query ?? '',
-          distribution: bodyData.distribution ?? '',
-          distributions: bodyData.distributions ?? [],
-          replications: bodyData.replications ?? [],
-          domiciles: bodyData.domiciles ?? [],
-          assetClasses: bodyData.asset_classes ?? [],
-          fundCurrencies: bodyData.fund_currencies ?? [],
-          providers: bodyData.providers ?? [],
-          currencyHedged: typeof bodyData.currency_hedged === 'boolean' ? bodyData.currency_hedged : undefined,
-          maxTerBps: bodyData.max_ter_bps !== null && bodyData.max_ter_bps !== undefined ? bigint(bodyData.max_ter_bps) : undefined,
-          minFundSizeMillion: bigint(bodyData.min_fund_size_million) ?? 0n,
-          minAgeYears: bodyData.min_age_years ?? 0,
-          weights: bodyData.weights ? {
-            cost: bodyData.weights.cost ?? 0,
-            trackingDifference: bodyData.weights.tracking_difference ?? 0,
-            trackingError: bodyData.weights.tracking_error ?? 0,
-            size: bodyData.weights.size ?? 0,
-            age: bodyData.weights.age ?? 0,
-          } : undefined,
-        },
-      });
-      return (res.rankedInstruments ?? []).map((r: any) => ({
-        instrument: protoToInstrument(r.instrument),
-        total: r.total,
-        cost: r.cost,
-        tracking_difference: r.trackingDifference,
-        tracking_error: r.trackingError,
-        size: r.size,
-        age: r.age,
-      })) as unknown as T;
-    }
-    if (method === 'POST') {
-      const res = await instrumentClient.createInstrument({
-        instrument: {
-          isin: bodyData.isin,
-          name: bodyData.name,
-          ticker: bodyData.ticker || undefined,
-          instrumentType: bodyData.instrument_type ?? 'etf',
-          provider: bodyData.provider || undefined,
-          indexName: bodyData.index_name || undefined,
-          investmentFocus: bodyData.investment_focus || undefined,
-          assetClass: bodyData.asset_class || undefined,
-          strategy: bodyData.strategy || undefined,
-          currencyHedged: Boolean(bodyData.currency_hedged),
-          starred: Boolean(bodyData.starred),
-          dataStatus: bodyData.data_status ?? 'enriched',
-          distribution: bodyData.distribution ?? 'accumulating',
-          replication: bodyData.replication ?? 'physical_full',
-          domicile: bodyData.domicile || undefined,
-          fundCurrency: bodyData.fund_currency ?? 'EUR',
-          terBps: bigint(bodyData.ter_bps) ?? 0n,
-          fundSizeMillion: bigint(bodyData.fund_size_million) ?? 0n,
-          inceptionDate: bodyData.inception_date || undefined,
-          trackingDifferenceBps: bodyData.tracking_difference_bps !== null && bodyData.tracking_difference_bps !== undefined ? bigint(bodyData.tracking_difference_bps) : undefined,
-          trackingErrorBps: bodyData.tracking_error_bps !== null && bodyData.tracking_error_bps !== undefined ? bigint(bodyData.tracking_error_bps) : undefined,
-          ucits: Boolean(bodyData.ucits),
-          sourceUrl: bodyData.source_url || undefined,
-        } as any,
-      });
-      return protoToInstrument(res.instrument) as unknown as T;
-    }
-
-    const starMatch = path.match(/\/api\/instruments\/([^\/]+)\/star/);
-    if (starMatch && method === 'PUT') {
-      const isin = decodeURIComponent(starMatch[1]);
-      await instrumentClient.starInstrument({ isin, starred: Boolean(bodyData.starred) });
-      return undefined as unknown as T;
-    }
-
-    const altMatch = path.match(/\/api\/instruments\/(\d+)\/alternatives/);
-    if (altMatch && method === 'GET') {
-      const id = BigInt(altMatch[1]);
-      const res = await instrumentClient.getInstrumentAlternatives({ id });
-      return (res.alternatives ?? []).map((a: any) => ({
-        instrument: protoToInstrument(a.instrument),
-        match: a.match as InstrumentAlternative['match'],
-        better: Boolean(a.better),
-        score: a.score,
-        reasons: a.reasons ?? [],
-      })) as unknown as T;
-    }
-
-    const idMatch = path.match(/\/api\/instruments\/(\d+)/);
-    if (idMatch && method === 'DELETE') {
-      const id = BigInt(idMatch[1]);
-      await instrumentClient.deleteInstrument({ id });
-      return undefined as unknown as T;
-    }
-  }
-
-  throw new Error(`Unhandled Connect API call: ${method} ${path}`);
+    })),
+    diagnostics: (res.summary?.diagnostics ?? []).map((d: any) => ({
+      id: d.id,
+      category: d.category,
+      severity: d.severity,
+      title: d.title,
+      message: d.message,
+      holding_id: optNum(d.holdingId) ?? undefined,
+      account_id: optNum(d.accountId) ?? undefined,
+      isin: optStr(d.isin),
+    })),
+  };
 }
+
+// Reference Rates & Tax Rates
+export async function listReferenceRates(): Promise<ReferenceRate[]> {
+  const res = await rateClient.listReferenceRates({});
+  return (res.rates ?? []).map(protoToReferenceRate);
+}
+
+export async function listTaxRates(): Promise<TaxRate[]> {
+  const res = await rateClient.listTaxRates({});
+  return (res.rates ?? []).map((r: any) => ({
+    code: r.code,
+    label: r.label,
+    rate_bps: num(r.rateBps),
+  }));
+}
+
+// Accounts
+export async function listAccounts(sort?: string): Promise<Account[]> {
+  const res = await accountClient.listAccounts({ sort });
+  return (res.accounts ?? []).map(protoToAccount);
+}
+
+export async function createAccount(data: Partial<Account> & { tiers?: any[] | null }): Promise<Account> {
+  const res = await accountClient.createAccount({
+    account: {
+      name: data.name ?? '',
+      institution: data.institution ?? '',
+      type: data.type ?? 'broker',
+      preferred: Boolean(data.preferred),
+      archived: Boolean(data.archived),
+      currency: data.currency ?? 'EUR',
+      balanceMinor: bigint(data.balance_minor),
+      taxBps: bigint(data.tax_bps),
+      annualFeeMinor: bigint(data.annual_fee_minor),
+      pacAmountMinor: bigint(data.pac_amount_minor),
+      notes: data.notes ?? '',
+      tiers: (data.tiers ?? []).map((t: any) => ({
+        upToMinor: t.up_to_minor !== null && t.up_to_minor !== undefined ? bigint(t.up_to_minor) : undefined,
+        fixedRateBps: t.fixed_rate_bps !== null && t.fixed_rate_bps !== undefined ? bigint(t.fixed_rate_bps) : undefined,
+        referenceCode: t.reference_code || undefined,
+        spreadBps: bigint(t.spread_bps) ?? 0n,
+      })),
+    } as any,
+  });
+  return protoToAccount(res.account);
+}
+
+export async function updateAccount(id: number | bigint, data: Partial<Account> & { tiers?: any[] | null }): Promise<Account> {
+  const accountId = BigInt(id);
+  const res = await accountClient.updateAccount({
+    id: accountId,
+    account: {
+      id: accountId,
+      name: data.name,
+      institution: data.institution ?? '',
+      type: data.type ?? 'broker',
+      preferred: Boolean(data.preferred),
+      archived: Boolean(data.archived),
+      currency: data.currency ?? 'EUR',
+      balanceMinor: bigint(data.balance_minor),
+      taxBps: bigint(data.tax_bps),
+      annualFeeMinor: bigint(data.annual_fee_minor),
+      pacAmountMinor: bigint(data.pac_amount_minor),
+      notes: data.notes ?? '',
+      tiers: (data.tiers ?? []).map((t: any) => ({
+        id: t.id !== undefined && t.id !== null ? bigint(t.id) : undefined,
+        upToMinor: t.up_to_minor !== null && t.up_to_minor !== undefined ? bigint(t.up_to_minor) : undefined,
+        fixedRateBps: t.fixed_rate_bps !== null && t.fixed_rate_bps !== undefined ? bigint(t.fixed_rate_bps) : undefined,
+        referenceCode: t.reference_code || undefined,
+        spreadBps: bigint(t.spread_bps) ?? 0n,
+      })),
+    } as any,
+  });
+  return protoToAccount(res.account);
+}
+
+export async function deleteAccount(id: number | bigint): Promise<void> {
+  await accountClient.deleteAccount({ id: BigInt(id) });
+}
+
+// Holdings
+export async function listHoldings(sort?: string): Promise<Holding[]> {
+  const res = await holdingClient.listHoldings({ sort });
+  return (res.holdings ?? []).map(protoToHolding);
+}
+
+export async function createHolding(data: Partial<Holding>): Promise<Holding> {
+  const res = await holdingClient.createHolding({
+    holding: {
+      accountId: bigint(data.account_id),
+      instrumentId: bigint(data.instrument_id),
+      investedMinor: bigint(data.invested_minor),
+      valueMinor: bigint(data.value_minor),
+      taxBps: bigint(data.tax_bps),
+      isPac: Boolean(data.is_pac),
+      pacBps: bigint(data.pac_bps),
+      pacFrequency: data.pac_frequency || 'monthly',
+      notes: data.notes ?? '',
+    } as any,
+  });
+  return protoToHolding(res.holding);
+}
+
+export async function updateHolding(id: number | bigint, data: any): Promise<Holding> {
+  const holdingId = BigInt(id);
+  const res = await holdingClient.updateHolding({
+    id: holdingId,
+    holding: { ...holdingPatch(data), id: holdingId } as any,
+  });
+  return protoToHolding(res.holding);
+}
+
+export async function deleteHolding(id: number | bigint): Promise<void> {
+  await holdingClient.deleteHolding({ id: BigInt(id) });
+}
+
+// Snapshots
+export async function listSnapshots(sort?: string): Promise<Snapshot[]> {
+  const res = await snapshotClient.listSnapshots({ sort });
+  return (res.snapshots ?? []).map(protoToSnapshot);
+}
+
+export async function createSnapshot(observedOn: string): Promise<void> {
+  await snapshotClient.createSnapshot({ observedOn });
+}
+
+export async function updateSnapshot(id: number | bigint, data: Partial<Snapshot>): Promise<Snapshot> {
+  const snapshotId = BigInt(id);
+  const res = await snapshotClient.updateSnapshot({
+    id: snapshotId,
+    observedOn: data.observed_on,
+    currency: data.currency ?? 'EUR',
+    cashMinor: bigint(data.cash_minor) ?? 0n,
+    investedMinor: bigint(data.invested_minor) ?? 0n,
+    portfolioMinor: bigint(data.portfolio_minor) ?? 0n,
+  });
+  return protoToSnapshot(res.snapshot);
+}
+
+export async function deleteSnapshot(id: number | bigint): Promise<void> {
+  await snapshotClient.deleteSnapshot({ id: BigInt(id) });
+}
+
+// Instruments
+export async function listInstruments(sort?: string): Promise<Instrument[]> {
+  const res = await instrumentClient.listInstruments({ sort });
+  return (res.instruments ?? []).map(protoToInstrument);
+}
+
+export async function searchInstruments(query: string): Promise<Instrument[]> {
+  const res = await instrumentClient.searchInstruments({ query });
+  return (res.instruments ?? []).map(protoToInstrument);
+}
+
+export async function lookupInstrument(query: string): Promise<Instrument> {
+  const res = await instrumentClient.lookupInstrument({ query });
+  return protoToInstrument(res.instrument);
+}
+
+export async function importInstruments(isins: string[]): Promise<Instrument[]> {
+  const res = await instrumentClient.importInstruments({ isins });
+  return (res.instruments ?? []).map(protoToInstrument);
+}
+
+export async function syncInstrumentCatalog(limit = 4000): Promise<{ saved: number; available: number }> {
+  const res = await instrumentClient.syncInstrumentCatalog({ limit });
+  return { saved: res.saved, available: res.available };
+}
+
+export async function enrichInstrumentCatalog(limit = 20): Promise<{ enriched: number; failed: number }> {
+  const res = await instrumentClient.enrichInstrumentCatalog({ limit });
+  return { enriched: res.enriched, failed: res.failed };
+}
+
+export async function createInstrument(data: any): Promise<Instrument> {
+  const res = await instrumentClient.createInstrument({
+    instrument: {
+      isin: data.isin,
+      name: data.name,
+      ticker: data.ticker || undefined,
+      instrumentType: data.instrument_type ?? 'etf',
+      provider: data.provider || undefined,
+      indexName: data.index_name || undefined,
+      investmentFocus: data.investment_focus || undefined,
+      assetClass: data.asset_class || undefined,
+      strategy: data.strategy || undefined,
+      currencyHedged: Boolean(data.currency_hedged),
+      starred: Boolean(data.starred),
+      dataStatus: data.data_status ?? 'enriched',
+      distribution: data.distribution ?? 'accumulating',
+      replication: data.replication ?? 'physical_full',
+      domicile: data.domicile || undefined,
+      fundCurrency: data.fund_currency ?? 'EUR',
+      terBps: bigint(data.ter_bps) ?? 0n,
+      fundSizeMillion: bigint(data.fund_size_million) ?? 0n,
+      inceptionDate: data.inception_date || undefined,
+      trackingDifferenceBps: data.tracking_difference_bps !== null && data.tracking_difference_bps !== undefined ? bigint(data.tracking_difference_bps) : undefined,
+      trackingErrorBps: data.tracking_error_bps !== null && data.tracking_error_bps !== undefined ? bigint(data.tracking_error_bps) : undefined,
+      ucits: Boolean(data.ucits),
+      sourceUrl: data.source_url || undefined,
+    } as any,
+  });
+  return protoToInstrument(res.instrument);
+}
+
+export async function starInstrument(isin: string, starred: boolean): Promise<void> {
+  await instrumentClient.starInstrument({ isin, starred });
+}
+
+export async function getInstrumentAlternatives(id: number | bigint): Promise<InstrumentAlternative[]> {
+  const res = await instrumentClient.getInstrumentAlternatives({ id: BigInt(id) });
+  return (res.alternatives ?? []).map((a: any) => ({
+    instrument: protoToInstrument(a.instrument),
+    match: a.match as InstrumentAlternative['match'],
+    better: Boolean(a.better),
+    score: a.score,
+    reasons: a.reasons ?? [],
+  }));
+}
+
+export async function deleteInstrument(id: number | bigint): Promise<void> {
+  await instrumentClient.deleteInstrument({ id: BigInt(id) });
+}
+
+
 
 export async function refreshReferenceRates(): Promise<ReferenceRate[]> {
   const res = await rateClient.refreshReferenceRates({});
