@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -41,7 +41,7 @@ func NewScraper(baseURL string) *Scraper {
 }
 
 func (s *Scraper) ScrapeAll(ctx context.Context, cfg ScoringConfig) ([]BTP, error) {
-	log.Printf("[btp.scraper] Starting ScrapeAll from %s", s.baseURL)
+	slog.InfoContext(ctx, "Starting ScrapeAll", "baseURL", s.baseURL)
 	var allBTPs []BTP
 	seenIsins := make(map[string]bool)
 
@@ -54,7 +54,7 @@ func (s *Scraper) ScrapeAll(ctx context.Context, cfg ScoringConfig) ([]BTP, erro
 			return nil, fmt.Errorf("scrape BTP page %d: %w", page, err)
 		}
 		if len(btps) == 0 {
-			log.Printf("[btp.scraper] ScrapePage(%d) returned 0 BTPs", page)
+			slog.DebugContext(ctx, "ScrapePage returned 0 BTPs", "page", page)
 			break
 		}
 
@@ -66,7 +66,7 @@ func (s *Scraper) ScrapeAll(ctx context.Context, cfg ScoringConfig) ([]BTP, erro
 				newCount++
 			}
 		}
-		log.Printf("[btp.scraper] Page %d: scraped %d BTPs (%d new)", page, len(btps), newCount)
+		slog.DebugContext(ctx, "Scraped BTPs page", "page", page, "count", len(btps), "new", newCount)
 
 		if newCount == 0 {
 			break
@@ -84,7 +84,7 @@ func (s *Scraper) ScrapeAll(ctx context.Context, cfg ScoringConfig) ([]BTP, erro
 	}
 
 	allBTPs = ComputeAdvancedScores(allBTPs, cfg)
-	log.Printf("[btp.scraper] ScrapeAll completed with %d scored BTPs", len(allBTPs))
+	slog.InfoContext(ctx, "ScrapeAll completed", "scoredCount", len(allBTPs))
 	return allBTPs, nil
 }
 

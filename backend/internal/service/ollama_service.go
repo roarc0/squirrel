@@ -14,7 +14,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"connectrpc.com/connect"
@@ -22,8 +21,6 @@ import (
 	"github.com/roarc0/squirrel/backend/internal/config"
 	portv1 "github.com/roarc0/squirrel/proto/gen/go/v1"
 )
-
-var activeDownloads sync.Map // map[string]int32
 
 func (s *Server) ListAIModels(ctx context.Context, req *connect.Request[portv1.ListAIModelsRequest]) (*connect.Response[portv1.ListAIModelsResponse], error) {
 	modelsDir := filepath.Join("data", "models")
@@ -62,7 +59,7 @@ func (s *Server) ListAIModels(ctx context.Context, req *connect.Request[portv1.L
 
 		var downloadPercent int32
 		var isDownloading bool
-		if val, ok := activeDownloads.Load(preset.ID); ok {
+		if val, ok := s.getActiveDownloads().Load(preset.ID); ok {
 			isDownloading = true
 			downloadPercent = val.(int32)
 		}
@@ -88,7 +85,7 @@ func (s *Server) ListAIModels(ctx context.Context, req *connect.Request[portv1.L
 		modelID := strings.TrimSuffix(filename, ".gguf")
 		var downloadPercent int32
 		var isDownloading bool
-		if val, ok := activeDownloads.Load(modelID); ok {
+		if val, ok := s.getActiveDownloads().Load(modelID); ok {
 			isDownloading = true
 			downloadPercent = val.(int32)
 		}
@@ -184,10 +181,10 @@ func (s *Server) DownloadAIModel(ctx context.Context, req *connect.Request[portv
 	targetPath := filepath.Join(modelsDir, filename)
 	tempPath := targetPath + ".tmp"
 
-	if _, loaded := activeDownloads.LoadOrStore(modelID, int32(0)); loaded {
+	if _, loaded := s.getActiveDownloads().LoadOrStore(modelID, int32(0)); loaded {
 		return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("model %s is already downloading", modelID))
 	}
-	defer activeDownloads.Delete(modelID)
+	defer s.getActiveDownloads().Delete(modelID)
 
 	slog.InfoContext(ctx, "Starting AI model download", "model", modelID, "host", parsedDownloadURL.Hostname(), "target", targetPath)
 
@@ -218,7 +215,7 @@ func (s *Server) DownloadAIModel(ctx context.Context, req *connect.Request[portv
 	pw := &progressWriter{
 		total: res.ContentLength,
 		onProgress: func(pct int32) {
-			activeDownloads.Store(modelID, pct)
+			s.getActiveDownloads().Store(modelID, pct)
 		},
 	}
 
@@ -246,7 +243,7 @@ func (s *Server) DownloadAIModel(ctx context.Context, req *connect.Request[portv
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to save final model file: %w", err))
 	}
 
-	activeDownloads.Store(modelID, int32(100))
+	s.getActiveDownloads().Store(modelID, int32(100))
 	slog.InfoContext(ctx, "AI model downloaded successfully", "model", modelID, "file", targetPath)
 
 	return connect.NewResponse(&portv1.DownloadAIModelResponse{

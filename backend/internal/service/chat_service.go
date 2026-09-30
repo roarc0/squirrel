@@ -91,9 +91,6 @@ type chatJobKey struct {
 	SessionID string
 }
 
-var globalChatJobs = &chatJobRegistry{
-	jobs: make(map[chatJobKey]*activeChatJob),
-}
 
 const (
 	maxAIContextSize        int32 = 1 << 20
@@ -194,8 +191,8 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 	userID := auth.UserIDOrEmpty(ctx)
 	key := chatJobKey{UserID: userID, SessionID: sessionID}
 
-	globalChatJobs.mu.Lock()
-	job, exists := globalChatJobs.jobs[key]
+	s.getChatJobs().mu.Lock()
+	job, exists := s.getChatJobs().jobs[key]
 	if !exists {
 		jobCtx, cancel := backgroundChatContext(ctx)
 		job = &activeChatJob{
@@ -205,12 +202,12 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 			Cancel:      cancel,
 			Broadcaster: newBroadcaster(),
 		}
-		globalChatJobs.jobs[key] = job
-		globalChatJobs.mu.Unlock()
+		s.getChatJobs().jobs[key] = job
+		s.getChatJobs().mu.Unlock()
 
 		go s.runBackgroundChat(job, msg)
 	} else {
-		globalChatJobs.mu.Unlock()
+		s.getChatJobs().mu.Unlock()
 	}
 
 	ch, history, done := job.Broadcaster.Subscribe()
@@ -245,9 +242,9 @@ func (s *Server) StreamChat(ctx context.Context, req *connect.Request[portv1.Str
 
 func (s *Server) runBackgroundChat(job *activeChatJob, msg *portv1.StreamChatRequest) {
 	defer func() {
-		globalChatJobs.mu.Lock()
-		delete(globalChatJobs.jobs, chatJobKey{UserID: job.UserID, SessionID: job.SessionID})
-		globalChatJobs.mu.Unlock()
+		s.getChatJobs().mu.Lock()
+		delete(s.getChatJobs().jobs, chatJobKey{UserID: job.UserID, SessionID: job.SessionID})
+		s.getChatJobs().mu.Unlock()
 	}()
 
 	// Snapshot all AI config fields under a single read lock.
@@ -865,12 +862,12 @@ func (s *Server) StopChatSession(ctx context.Context, req *connect.Request[portv
 	}
 	key := chatJobKey{UserID: auth.UserIDOrEmpty(ctx), SessionID: sessionID}
 
-	globalChatJobs.mu.Lock()
-	job, exists := globalChatJobs.jobs[key]
+	s.getChatJobs().mu.Lock()
+	job, exists := s.getChatJobs().jobs[key]
 	if exists && job != nil {
 		job.Cancel()
 	}
-	globalChatJobs.mu.Unlock()
+	s.getChatJobs().mu.Unlock()
 
 	return connect.NewResponse(&portv1.StopChatSessionResponse{Success: true}), nil
 }
@@ -885,13 +882,13 @@ func (s *Server) GetChatStatus(ctx context.Context, req *connect.Request[portv1.
 	}
 	key := chatJobKey{UserID: auth.UserIDOrEmpty(ctx), SessionID: sessionID}
 
-	globalChatJobs.mu.Lock()
-	job, exists := globalChatJobs.jobs[key]
+	s.getChatJobs().mu.Lock()
+	job, exists := s.getChatJobs().jobs[key]
 	var nCtx int32
 	if exists && job != nil {
 		nCtx = job.ActualNCtx.Load()
 	}
-	globalChatJobs.mu.Unlock()
+	s.getChatJobs().mu.Unlock()
 
 	return connect.NewResponse(&portv1.GetChatStatusResponse{
 		IsGenerating: exists,

@@ -373,10 +373,10 @@ func TestChatSessionStatusAndStop(t *testing.T) {
 		Broadcaster: newBroadcaster(),
 	}
 	job.ActualNCtx.Store(16384)
-	globalChatJobs.mu.Lock()
+	srv.getChatJobs().mu.Lock()
 	key := chatJobKey{UserID: "user1", SessionID: "session-test"}
-	globalChatJobs.jobs[key] = job
-	globalChatJobs.mu.Unlock()
+	srv.getChatJobs().jobs[key] = job
+	srv.getChatJobs().mu.Unlock()
 
 	otherCtx := auth.WithUser(context.Background(), auth.User{GoogleID: "user2"})
 	otherStatus, err := srv.GetChatStatus(otherCtx, connect.NewRequest(&portv1.GetChatStatusRequest{SessionId: "session-test"}))
@@ -411,9 +411,9 @@ func TestChatSessionStatusAndStop(t *testing.T) {
 		t.Fatal("StopChatSession did not trigger job context cancellation")
 	}
 
-	globalChatJobs.mu.Lock()
-	delete(globalChatJobs.jobs, key)
-	globalChatJobs.mu.Unlock()
+	srv.getChatJobs().mu.Lock()
+	delete(srv.getChatJobs().jobs, key)
+	srv.getChatJobs().mu.Unlock()
 }
 
 func TestBackgroundChatContextPreservesAuthenticatedUser(t *testing.T) {

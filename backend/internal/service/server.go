@@ -32,16 +32,39 @@ import (
 )
 
 type Server struct {
-	store        *store.Store
-	config       config.Config
-	configMu     sync.RWMutex
-	configPath   string
-	baseCurrency string
-	justETF      *justetf.Client
-	ecb          *ecb.Client
-	taxRates     []portfolio.TaxRate
-	mcpHandler   *mcp.Handler
-	refresh      *refreshState
+	store           *store.Store
+	config          config.Config
+	configMu        sync.RWMutex
+	configPath      string
+	baseCurrency    string
+	justETF         *justetf.Client
+	ecb             *ecb.Client
+	taxRates        []portfolio.TaxRate
+	mcpHandler      *mcp.Handler
+	refresh         *refreshState
+	chatJobsMu      sync.Mutex
+	chatJobs        *chatJobRegistry
+	activeDownloads *sync.Map
+}
+
+func (s *Server) getChatJobs() *chatJobRegistry {
+	s.chatJobsMu.Lock()
+	defer s.chatJobsMu.Unlock()
+	if s.chatJobs == nil {
+		s.chatJobs = &chatJobRegistry{
+			jobs: make(map[chatJobKey]*activeChatJob),
+		}
+	}
+	return s.chatJobs
+}
+
+func (s *Server) getActiveDownloads() *sync.Map {
+	s.chatJobsMu.Lock()
+	defer s.chatJobsMu.Unlock()
+	if s.activeDownloads == nil {
+		s.activeDownloads = new(sync.Map)
+	}
+	return s.activeDownloads
 }
 
 func New(data *store.Store, baseCurrency string, taxRates []portfolio.TaxRate, profileInterval ...time.Duration) http.Handler {
@@ -58,14 +81,16 @@ func NewWithConfig(data *store.Store, cfg config.Config, configPath string, prof
 	_ = refreshCancel // kept alive for the lifetime of the process
 
 	s := &Server{
-		store:        data,
-		config:       cfg,
-		configPath:   configPath,
-		baseCurrency: cfg.BaseCurrency,
-		justETF:      justetf.New(profileInterval...),
-		ecb:          ecb.New(),
-		taxRates:     cfg.TaxRates,
-		refresh:      newRefreshState(),
+		store:           data,
+		config:          cfg,
+		configPath:      configPath,
+		baseCurrency:    cfg.BaseCurrency,
+		justETF:         justetf.New(profileInterval...),
+		ecb:             ecb.New(),
+		taxRates:        cfg.TaxRates,
+		refresh:         newRefreshState(),
+		chatJobs:        &chatJobRegistry{jobs: make(map[chatJobKey]*activeChatJob)},
+		activeDownloads: new(sync.Map),
 	}
 
 	go s.startContinuousRefresh(refreshCtx)

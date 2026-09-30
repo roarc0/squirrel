@@ -3,7 +3,7 @@ package btp
 import (
 	"context"
 	"database/sql"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -34,7 +34,7 @@ func NewService(db *sql.DB, authEnabled bool, adminGoogleID string) *Service {
 func (s *Service) ListBtps(ctx context.Context, req *connect.Request[portv1.ListBtpsRequest]) (*connect.Response[portv1.ListBtpsResponse], error) {
 	btps, lastUpdated, err := s.store.GetBtps(ctx, auth.UserIDOrEmpty(ctx))
 	if err != nil {
-		log.Printf("[btp.service] GetBtps error: %v", err)
+		slog.ErrorContext(ctx, "GetBtps error", "error", err)
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -104,7 +104,7 @@ func (s *Service) ListBtps(ctx context.Context, req *connect.Request[portv1.List
 		})
 	}
 
-	log.Printf("[btp.service] ListBtps returning %d filtered of %d cached BTPs", len(filtered), len(btps))
+	slog.DebugContext(ctx, "ListBtps returning filtered BTPs", "filtered", len(filtered), "cached", len(btps))
 	return connect.NewResponse(&portv1.ListBtpsResponse{
 		Btps:        filtered,
 		LastUpdated: lastUpdated,
@@ -118,7 +118,7 @@ func (s *Service) RefreshBtps(ctx context.Context, req *connect.Request[portv1.R
 			return nil, err
 		}
 	}
-	log.Printf("[btp.service] RefreshBtps triggered (targetMaturityYear=%d)", req.Msg.GetTargetMaturityYear())
+	slog.InfoContext(ctx, "RefreshBtps triggered", "targetMaturityYear", req.Msg.GetTargetMaturityYear())
 	cfg := ScoringConfig{
 		TaxRate:            0.125,
 		TargetMaturityYear: int(req.Msg.GetTargetMaturityYear()),
@@ -126,18 +126,18 @@ func (s *Service) RefreshBtps(ctx context.Context, req *connect.Request[portv1.R
 
 	btps, err := s.scraper.ScrapeAll(ctx, cfg)
 	if err != nil {
-		log.Printf("[btp.service] ScrapeAll failed: %v", err)
+		slog.ErrorContext(ctx, "ScrapeAll failed", "error", err)
 		return nil, connect.NewError(connect.CodeUnavailable, err)
 	}
 
-	log.Printf("[btp.service] ScrapeAll returned %d BTPs; saving to cache...", len(btps))
+	slog.InfoContext(ctx, "ScrapeAll returned BTPs; saving to cache", "count", len(btps))
 	if err := s.store.SaveBtpsCache(ctx, btps); err != nil {
-		log.Printf("[btp.service] SaveBtpsCache failed: %v", err)
+		slog.ErrorContext(ctx, "SaveBtpsCache failed", "error", err)
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
 	_, lastUpdated, _ := s.store.GetBtps(ctx, "")
-	log.Printf("[btp.service] RefreshBtps completed successfully with %d BTPs (lastUpdated=%s)", len(btps), lastUpdated)
+	slog.InfoContext(ctx, "RefreshBtps completed successfully", "count", len(btps), "lastUpdated", lastUpdated)
 
 	return connect.NewResponse(&portv1.RefreshBtpsResponse{
 		Count:       int32(len(btps)),
