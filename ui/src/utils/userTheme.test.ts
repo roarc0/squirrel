@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getDistinctAccentForUser, resolveUserTheme, saveUserThemeLocally, ACCENTS } from './utils/userTheme.ts';
+import { getDistinctAccentForUser, resolveUserTheme, saveUserThemeLocally, ACCENTS } from './userTheme.ts';
 
 class MemoryStorage {
   private values = new Map<string, string>();

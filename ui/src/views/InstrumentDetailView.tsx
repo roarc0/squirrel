@@ -35,8 +35,8 @@ import {
 } from '@tabler/icons-react';
 import { api, instrumentClient, type Instrument, type InstrumentAlternative } from '../api';
 import { setInstrumentStarredInProfile } from '../hooks/useProfile';
-import { chartGeometry, nearestChartIndex } from '../visual';
-import { Chip, ISINBadge, ReplicationChip, TickerBadge } from '../Chip';
+import { chartGeometry, nearestChartIndex } from '../utils/visual';
+import { Chip, ISINBadge, ReplicationChip, TickerBadge } from '../components/Chip';
 import { instrumentLabels, label, relativeDate } from '../utils/format';
 import { computeInstrumentScore, isESG, resolveInstrumentProvider } from '../utils/rankFilters';
 

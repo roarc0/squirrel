@@ -1,7 +1,7 @@
 import { Group, Text } from '@mantine/core';
 import { IconTrendingDown, IconTrendingUp } from '@tabler/icons-react';
 import { money } from '../utils/format';
-import { performanceMood } from '../visual';
+import { performanceMood } from '../utils/visual';
 
 export function PerformanceResult({
   value,

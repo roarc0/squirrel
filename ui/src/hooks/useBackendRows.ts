@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
-import type { SortDirection } from '../DataTable';
+import type { SortDirection } from '../components/DataTable';
 
 export function useBackendRows<T>(endpoint: string, source: T[], initialSort = '', initialDirection: SortDirection = 'asc') {
   const [rows, setRows] = useState(source);

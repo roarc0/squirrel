@@ -15,9 +15,9 @@ import {
   ActionIcon,
   Tooltip,
 } from '@mantine/core';
-import { updateSituation, type Account, type Holding } from './api';
+import { updateSituation, type Account, type Holding } from '../api';
 import { notifications } from '@mantine/notifications';
-import { localDateISO } from './utils/format';
+import { localDateISO } from '../utils/format';
 
 type Props = {
   opened: boolean;

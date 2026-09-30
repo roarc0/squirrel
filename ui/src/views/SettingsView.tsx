@@ -43,13 +43,13 @@ import {
   IconUserCheck,
 } from '@tabler/icons-react';
 
-import { exportBackup, restoreBackup } from './api';
-import { useConfirmDelete } from './components/ConfirmDeleteModal';
-import { useProfile, isProfileLoaded, useProfileSyncStatus } from './hooks/useProfile';
-import { type ThemeAccent, type ThemeScheme, ACCENTS, ACCENT_HEX, ACCENT_LABELS } from './components/Sidebar';
-import { money, currencySymbol } from './utils/format';
-import { ViewShell } from './components/ViewShell';
-import { SectionHeader } from './components/SectionHeader';
+import { exportBackup, restoreBackup } from '../api';
+import { useConfirmDelete } from '../components/ConfirmDeleteModal';
+import { useProfile, isProfileLoaded, useProfileSyncStatus } from '../hooks/useProfile';
+import { type ThemeAccent, type ThemeScheme, ACCENTS, ACCENT_HEX, ACCENT_LABELS } from '../components/Sidebar';
+import { money, currencySymbol } from '../utils/format';
+import { ViewShell } from '../components/ViewShell';
+import { SectionHeader } from '../components/SectionHeader';
 
 const CURRENCY_OPTIONS = [
   { value: 'EUR', label: 'EUR (€) — Euro' },

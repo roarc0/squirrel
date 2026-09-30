@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { holdingPatch } from './utils/holdingPatch.ts';
+import { holdingPatch } from './holdingPatch.ts';
 
 test('PAC and other holding fields are patched independently', () => {
   const holding = { pacBps: 3000n, valueMinor: 90000n, accountId: 1n, notes: 'Core' };

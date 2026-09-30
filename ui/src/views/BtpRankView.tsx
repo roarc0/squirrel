@@ -33,11 +33,10 @@ import {
 
 import { listBtps, refreshBtps, toggleStarBtp, type BtpBond } from '../api';
 import { setBtpStarredInProfile } from '../hooks/useProfile';
-import { ISINBadge } from '../Chip';
-import { DataTable, type DataColumn } from '../DataTable';
+import { Chip, ISINBadge } from '../components/Chip';
+import { DataTable, type DataColumn } from '../components/DataTable';
 import { SectionHeader } from '../components/SectionHeader';
 import { ViewShell } from '../components/ViewShell';
-import { Chip } from '../Chip';
 import { BtpDetailModal } from './BtpDetailModal';
 import { exportToCSV } from '../utils/exportCsv';
 import { copyToClipboard } from '../utils/copyToClipboard';

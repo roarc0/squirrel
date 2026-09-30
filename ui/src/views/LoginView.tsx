@@ -1,5 +1,5 @@
 import { Button, Center, Paper, Stack, Text } from '@mantine/core';
-import { SquirrelBrandLogo } from './components/SquirrelLogo';
+import { SquirrelBrandLogo } from '../components/SquirrelLogo';
 
 export function LoginView() {
   return (

@@ -22,9 +22,9 @@ import {
 } from '@mantine/core';
 import { api, type Account, type ReferenceRate, type TaxRate } from '../api';
 import { useBackendRows } from '../hooks/useBackendRows';
-import { Chip } from '../Chip';
+import { Chip } from '../components/Chip';
 import { Empty } from '../components/Empty';
-import { DataTable, TableAction, TableActions, type DataColumn } from '../DataTable';
+import { DataTable, TableAction, TableActions, type DataColumn } from '../components/DataTable';
 import { confirmDelete as legacyConfirmDelete, money, percent } from '../utils/format';
 import { useConfirmDelete } from '../components/ConfirmDeleteModal';
 import { notifications } from '@mantine/notifications';

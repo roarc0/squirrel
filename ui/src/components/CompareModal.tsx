@@ -9,10 +9,10 @@ import {
   Badge,
   Divider,
 } from '@mantine/core';
-import { type Instrument } from './api';
+import { type Instrument } from '../api';
 import { Chip, ISINBadge, ReplicationChip, TickerBadge } from './Chip';
-import { label } from './utils/format';
-import { computeInstrumentScore, isESG, resolveInstrumentProvider } from './utils/rankFilters';
+import { label } from '../utils/format';
+import { computeInstrumentScore, isESG, resolveInstrumentProvider } from '../utils/rankFilters';
 
 type Props = {
   opened: boolean;

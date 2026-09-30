@@ -26,7 +26,7 @@ import {
 import { IconPencil, IconTrash, IconCopy, IconCamera, IconRepeat, IconPlus } from '@tabler/icons-react';
 import type { Account, Holding, Instrument } from '../api';
 import { AllocationBar } from '../components/AllocationBar';
-import { Chip } from '../Chip';
+import { Chip } from '../components/Chip';
 import { Empty } from '../components/Empty';
 import { money, percent } from '../utils/format';
 import { useConfirmDelete } from '../components/ConfirmDeleteModal';

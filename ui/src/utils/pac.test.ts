@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { availablePacBps, availablePacPercent } from './utils/pac.ts';
-import type { Holding } from './api';
+import { availablePacBps, availablePacPercent } from './pac.ts';
+import type { Holding } from '../api';
 
 test('available PAC percentage calculates unallocated budget correctly', () => {
   const dummyHoldings: Holding[] = [

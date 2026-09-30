@@ -1,5 +1,5 @@
 import { Box, Group, Stack, Tooltip, UnstyledButton } from '@mantine/core';
-import { Chip, chipColor } from '../Chip';
+import { Chip, chipColor } from './Chip';
 import { money } from '../utils/format';
 
 export interface AllocationSegment {

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { Instrument } from './api.ts';
-import { compactMoney, currencySymbol, instrumentLabels, localDateISO, relativeDate, setHideBalancesState } from './utils/format.ts';
-import { builtInPresets, computeInstrumentScore, defaultFilters, defaultRankFilters, isESG, matchesFilters, matchesRankFilters, parseSearchTerms, resolveInstrumentProvider } from './utils/rankFilters.ts';
+import type { Instrument } from '../api.ts';
+import { compactMoney, currencySymbol, instrumentLabels, localDateISO, relativeDate, setHideBalancesState } from './format.ts';
+import { builtInPresets, computeInstrumentScore, defaultFilters, defaultRankFilters, isESG, matchesFilters, matchesRankFilters, parseSearchTerms, resolveInstrumentProvider } from './rankFilters.ts';
 import { chartGeometry, chartTickIndexes, chipColor, filterChartRange, matchesExactFilters, nearestChartIndex, pageBounds, performanceMood } from './visual.ts';
 
 test('financial labels use semantic colors and unknown labels stay stable', () => {

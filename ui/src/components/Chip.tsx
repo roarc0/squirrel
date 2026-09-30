@@ -1,8 +1,8 @@
 import { Badge, Tooltip, Text, type BadgeProps } from '@mantine/core';
-import { chipColor } from './visual';
-import { copyToClipboard } from './utils/copyToClipboard';
+import { chipColor } from '../utils/visual';
+import { copyToClipboard } from '../utils/copyToClipboard';
 
-export { chipColor } from './visual';
+export { chipColor } from '../utils/visual';
 
 export function Chip({ children, colorKey, className, ...props }: Omit<BadgeProps, 'children' | 'color'> & { children: string; colorKey?: string; onClick?: (event: React.MouseEvent<HTMLDivElement>) => void }) {
   return <Badge {...props} className={['stable-chip', className].filter(Boolean).join(' ')} color={chipColor(colorKey ?? children)} variant={props.variant ?? 'light'}>{children}</Badge>;

@@ -49,12 +49,12 @@ import {
   type InstrumentAlternative,
   type InstrumentType,
 } from '../api';
-import { Chip, ISINBadge, ReplicationChip, TickerBadge, chipColor } from '../Chip';
-import { CompareModal } from '../CompareModal';
+import { Chip, ISINBadge, ReplicationChip, TickerBadge, chipColor } from '../components/Chip';
+import { CompareModal } from '../components/CompareModal';
 import { Empty } from '../components/Empty';
-import { DataTable, TableAction, TableActions, type DataColumn, type SortDirection } from '../DataTable';
+import { DataTable, TableAction, TableActions, type DataColumn, type SortDirection } from '../components/DataTable';
 import { confirmDelete as legacyConfirmDelete, instrumentLabels, label, percent, relativeDate } from '../utils/format';
-import { pageBounds } from '../visual';
+import { pageBounds } from '../utils/visual';
 import { useConfirmDelete } from '../components/ConfirmDeleteModal';
 import { useProfile, getProfile, setInstrumentStarredInProfile } from '../hooks/useProfile';
 import { useQueryParamInt } from '../hooks/useQueryParam';

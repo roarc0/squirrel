@@ -5,7 +5,7 @@ import { IconAdjustmentsHorizontal, IconAlertTriangle, IconGlobe, IconWorldLatit
 import { getGeoRadar, type GeoRadarResult } from '../api';
 import { SectionHeader } from '../components/SectionHeader';
 import { ViewShell } from '../components/ViewShell';
-import { chipColor } from '../visual';
+import { chipColor } from '../utils/visual';
 import { money } from '../utils/format';
 
 export function GeoRadarSection() {

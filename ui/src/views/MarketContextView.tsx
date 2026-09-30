@@ -7,7 +7,7 @@ import { notifications } from '@mantine/notifications';
 import { getMarketContext, refreshReferenceRates, type InflationRange, type MarketMetric, type MarketObservation, type ReferenceRate } from '../api';
 import { SectionHeader } from '../components/SectionHeader';
 import { ViewShell } from '../components/ViewShell';
-import { chartGeometry, chartTickIndexes, filterChartRange, nearestChartIndex, type ChartRange } from '../visual';
+import { chartGeometry, chartTickIndexes, filterChartRange, nearestChartIndex, type ChartRange } from '../utils/visual';
 
 const policySource = 'https://data.ecb.europa.eu/main-figures/ecb-interest-rates-and-exchange-rates/key-ecb-interest-rates';
 
