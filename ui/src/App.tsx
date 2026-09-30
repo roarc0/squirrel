@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   IconChartPie,
   IconBuildingBank,
@@ -88,24 +88,20 @@ import {
   type Summary,
   type TaxRate,
 } from './api';
-import { Chip, chipColor } from './components/Chip';
-import { DataTable, TableAction, TableActions, type DataColumn, type SortDirection } from './components/DataTable';
-import { CompareModal } from './components/CompareModal';
 import { AppSkeleton } from './components/AppSkeleton';
-import { SettingsView } from './views/SettingsView';
 import { UpdateSituationModal } from './components/UpdateSituationModal';
-import { OverviewView } from './views/OverviewView';
-import { AccountsView } from './views/AccountsView';
-import { InvestmentsView } from './views/InvestmentsView';
-import { InstrumentFinderView } from './views/InstrumentFinderView';
-import { InstrumentDetailView } from './views/InstrumentDetailView';
-import { DiagnosticsView } from './views/DiagnosticsView';
-import { AIConsultantView } from './views/AIConsultantView';
-import { DraftPortfoliosView } from './views/DraftPortfoliosView';
-import { BtpRankView } from './views/BtpRankView';
-import { MarketContextView } from './views/MarketContextView';
 import { QuickSearchModal } from './components/QuickSearchModal';
-import { chartGeometry, matchesExactFilters, pageBounds, performanceMood } from './utils/visual';
+
+const OverviewView = lazy(() => import('./views/OverviewView').then(m => ({ default: m.OverviewView })));
+const AccountsView = lazy(() => import('./views/AccountsView').then(m => ({ default: m.AccountsView })));
+const InvestmentsView = lazy(() => import('./views/InvestmentsView').then(m => ({ default: m.InvestmentsView })));
+const InstrumentFinderView = lazy(() => import('./views/InstrumentFinderView').then(m => ({ default: m.InstrumentFinderView })));
+const InstrumentDetailView = lazy(() => import('./views/InstrumentDetailView').then(m => ({ default: m.InstrumentDetailView })));
+const DiagnosticsView = lazy(() => import('./views/DiagnosticsView').then(m => ({ default: m.DiagnosticsView })));
+const AIConsultantView = lazy(() => import('./views/AIConsultantView').then(m => ({ default: m.AIConsultantView })));
+const BtpRankView = lazy(() => import('./views/BtpRankView').then(m => ({ default: m.BtpRankView })));
+const MarketContextView = lazy(() => import('./views/MarketContextView').then(m => ({ default: m.MarketContextView })));
+const SettingsView = lazy(() => import('./views/SettingsView').then(m => ({ default: m.SettingsView })));
 
 type Data = { summary: Summary; accounts: Account[]; rates: ReferenceRate[]; taxRates: TaxRate[]; instruments: Instrument[]; holdings: Holding[]; snapshots: Snapshot[] };
 type Numeric = string | number;
@@ -491,7 +487,8 @@ export default function App() {
 
       <div className="app-main-content">
         <main className="app-content-container">
-          <Tabs value={activeTab} onChange={handleSidebarNavigate} keepMounted={false}>
+          <Suspense fallback={<AppSkeleton />}>
+            <Tabs value={activeTab} onChange={handleSidebarNavigate} keepMounted={false}>
             <Tabs.Panel value="overview" className="tab-content">
               <Overview
                 data={data}
@@ -600,6 +597,7 @@ export default function App() {
               />
             </Tabs.Panel>
           </Tabs>
+          </Suspense>
 
           <UpdateSituationModal
             opened={updateModalOpened}

@@ -49,7 +49,6 @@ import {
   syncInstrumentCatalog,
   enrichInstrumentCatalog,
   reclassifyInstruments,
-  createInstrument,
   starInstrument,
   getInstrumentAlternatives,
   deleteInstrument,
@@ -58,6 +57,8 @@ import {
   type InstrumentAlternative,
   type InstrumentType,
 } from '../api';
+import { InstrumentModal } from '../components/InstrumentModal';
+import { SavePresetModal, ManagePresetsModal } from '../components/FilterPresetsModal';
 import { Chip, ISINBadge, ReplicationChip, TickerBadge, chipColor } from '../components/Chip';
 import { CompareModal } from '../components/CompareModal';
 import { Empty } from '../components/Empty';
@@ -183,8 +184,8 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
   const [customPresets, setCustomPresets] = useState<FilterPreset[]>(loadCustomPresets);
   const [activePresetId, setActivePresetId] = useState<string>('');
   const [savePresetOpened, setSavePresetOpened] = useState(false);
+  const [savePresetDefaultName, setSavePresetDefaultName] = useState('');
   const [managePresetsOpened, setManagePresetsOpened] = useState(false);
-  const [presetNameInput, setPresetNameInput] = useState('');
   const [starVersion, setStarVersion] = useState(0);
 
   const [similarity, setSimilarity] = useState(() => (new URLSearchParams(window.location.search).get('similarity') ?? '').toUpperCase());
@@ -1323,7 +1324,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
                           size="xs"
                           variant="default"
                           onClick={() => {
-                            setPresetNameInput(`${activePreset.name} (Copy)`);
+                            setSavePresetDefaultName(`${activePreset.name} (Copy)`);
                             setSavePresetOpened(true);
                           }}
                         >
@@ -1336,7 +1337,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
                         variant="light"
                         leftSection={<IconDeviceFloppy size={14} />}
                         onClick={() => {
-                          setPresetNameInput(activePreset ? `${activePreset.name} (Copy)` : '');
+                          setSavePresetDefaultName(activePreset ? `${activePreset.name} (Copy)` : '');
                           setSavePresetOpened(true);
                         }}
                       >
@@ -1606,168 +1607,26 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
         </Stack>
       )}
 
-      {/* Save Preset Modal */}
-      <Modal
+      <SavePresetModal
         opened={savePresetOpened}
         onClose={() => setSavePresetOpened(false)}
-        title="Save Filter Preset"
-        size="sm"
-      >
-        <Stack gap="sm">
-          <TextInput
-            label="Preset name"
-            placeholder="e.g. European Equity Core"
-            value={presetNameInput}
-            onChange={e => setPresetNameInput(e.currentTarget.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && presetNameInput.trim()) {
-                handleSavePreset(presetNameInput);
-                setSavePresetOpened(false);
-              }
-            }}
-            autoFocus
-          />
-          <Text size="xs" c="dimmed">
-            Saves current filter criteria ({matchingRows.length} matching instruments). Presets are saved locally and can be recalled anytime.
-          </Text>
-          <Group justify="flex-end" mt="xs">
-            <Button variant="default" onClick={() => setSavePresetOpened(false)}>Cancel</Button>
-            <Button
-              disabled={!presetNameInput.trim()}
-              onClick={() => {
-                handleSavePreset(presetNameInput);
-                setSavePresetOpened(false);
-              }}
-            >
-              Save preset
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-
-      {/* Manage Presets Modal */}
-      <Modal
+        initialName={savePresetDefaultName}
+        matchingCount={matchingRows.length}
+        onSave={handleSavePreset}
+      />
+      <ManagePresetsModal
         opened={managePresetsOpened}
         onClose={() => setManagePresetsOpened(false)}
-        title="Manage Filter Presets"
-        size="md"
-      >
-        <Stack gap="md">
-          <Text size="xs" c="dimmed">
-            Presets save your screener filters for quick recall. You can load, overwrite with current filters, or delete presets here.
-          </Text>
-
-          {customPresets.length === 0 ? (
-            <Paper withBorder p="md" radius="sm" ta="center">
-              <Text size="sm" c="dimmed">No custom presets saved yet.</Text>
-              <Text size="xs" c="dimmed" mt={4}>Apply your favorite filters and click "Save preset" to create one.</Text>
-            </Paper>
-          ) : (
-            <Stack gap="xs">
-              {customPresets.map(preset => {
-                const isActive = activePresetId === preset.id;
-                return (
-                  <Paper key={preset.id} withBorder p="sm" radius="sm">
-                    <Group justify="space-between" align="center" wrap="nowrap">
-                      <Box style={{ flex: 1, minWidth: 0 }}>
-                        <Group gap="xs" align="center">
-                          <Text fw={650} size="sm" truncate>{preset.name}</Text>
-                          {isActive && <Badge size="xs" color="teal" variant="filled">Active</Badge>}
-                        </Group>
-                        <Group gap={4} mt={4} wrap="wrap">
-                          {preset.filters.assetClasses.length > 0 && (
-                            <Badge size="xs" variant="light" color="teal">{preset.filters.assetClasses.join(', ')}</Badge>
-                          )}
-                          {preset.filters.distributions.length > 0 && (
-                            <Badge size="xs" variant="light" color="indigo">{preset.filters.distributions.join(', ')}</Badge>
-                          )}
-                          {preset.filters.excludeDistributions.length > 0 && (
-                            <Badge size="xs" variant="light" color="red">Excl {preset.filters.excludeDistributions.join(', ')}</Badge>
-                          )}
-                          {preset.filters.maxTER !== '' && (
-                            <Badge size="xs" variant="light" color="orange">TER ≤ {preset.filters.maxTER}%</Badge>
-                          )}
-                          {preset.filters.minSize !== '' && (
-                            <Badge size="xs" variant="light" color="yellow">Size ≥ €{preset.filters.minSize}m</Badge>
-                          )}
-                        </Group>
-                      </Box>
-                      <Group gap="xs" wrap="nowrap">
-                        <Button
-                          size="xs"
-                          variant="light"
-                          onClick={() => {
-                            handleApplyPreset(preset.id);
-                            setManagePresetsOpened(false);
-                          }}
-                        >
-                          Load
-                        </Button>
-                        <Tooltip label="Overwrite this preset with what is currently on screen">
-                          <Button
-                            size="xs"
-                            variant="default"
-                            onClick={() => {
-                              const updated = customPresets.map(p =>
-                                p.id === preset.id ? { ...p, filters: { ...filters } } : p
-                              );
-                              setCustomPresets(updated);
-                              saveCustomPresets(updated);
-                              setActivePresetId(preset.id);
-                              notifications.show({
-                                color: 'teal',
-                                title: 'Preset updated',
-                                message: `Overwrote "${preset.name}" with current filters.`,
-                              });
-                            }}
-                          >
-                            Overwrite
-                          </Button>
-                        </Tooltip>
-                        <Tooltip label={`Delete preset "${preset.name}"`}>
-                          <ActionIcon
-                            size="sm"
-                            color="red"
-                            variant="subtle"
-                            onClick={() => handleDeleteCustomPreset(preset.id)}
-                            aria-label={`Delete ${preset.name}`}
-                          >
-                            <IconTrash size={15} />
-                          </ActionIcon>
-                        </Tooltip>
-                      </Group>
-                    </Group>
-                  </Paper>
-                );
-              })}
-            </Stack>
-          )}
-
-          <Divider my="xs" label="Built-in Presets" labelPosition="center" />
-          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
-            {builtInPresets.map(preset => (
-              <Paper key={preset.id} withBorder p="xs" radius="sm" style={{ opacity: 0.9 }}>
-                <Group justify="space-between" align="center">
-                  <Box style={{ flex: 1, minWidth: 0 }}>
-                    <Text size="xs" fw={600} truncate>{preset.name}</Text>
-                    <Text size="10px" c="dimmed">Built-in</Text>
-                  </Box>
-                  <Button
-                    size="compact-xs"
-                    variant="light"
-                    onClick={() => {
-                      handleApplyPreset(preset.id);
-                      setManagePresetsOpened(false);
-                    }}
-                  >
-                    Load
-                  </Button>
-                </Group>
-              </Paper>
-            ))}
-          </SimpleGrid>
-        </Stack>
-      </Modal>
+        customPresets={customPresets}
+        activePresetId={activePresetId}
+        currentFilters={filters}
+        onApplyPreset={handleApplyPreset}
+        onUpdatePreset={updated => {
+          setCustomPresets(updated);
+          saveCustomPresets(updated);
+        }}
+        onDeletePreset={handleDeleteCustomPreset}
+      />
 
       <InstrumentModal key={editing?.id ?? 'new'} opened={opened} close={() => setOpened(false)} instrument={editing} saved={async () => { setOpened(false); await reload(); }} />
       <CompareModal
@@ -1779,76 +1638,5 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
       />
       {confirmDeleteModal}
     </ViewShell>
-  );
-}
-
-function InstrumentModal({ opened, close, instrument, saved }: { opened: boolean; close: () => void; instrument?: Instrument; saved: () => Promise<void> }) {
-  const [form, setForm] = useState<InstrumentDraft>(() => instrument ? { ...instrument, ter: instrument.ter_bps / 100, size: instrument.fund_size_million, trackingDifference: instrument.tracking_difference_bps === null ? '' : instrument.tracking_difference_bps / 100, trackingError: instrument.tracking_error_bps === null ? '' : instrument.tracking_error_bps / 100 } : blankInstrument());
-  const [error, setError] = useState('');
-  const save = async () => {
-    try {
-      await createInstrument({
-        isin: form.isin,
-        name: form.name,
-        ticker: form.ticker,
-        instrument_type: form.instrument_type,
-        provider: form.provider,
-        index_name: form.index_name,
-        investment_focus: form.investment_focus,
-        asset_class: form.asset_class,
-        strategy: form.strategy,
-        currency_hedged: form.currency_hedged,
-        data_status: 'enriched',
-        distribution: form.distribution,
-        replication: form.replication,
-        domicile: form.domicile,
-        fund_currency: form.fund_currency,
-        ter_bps: bps(form.ter),
-        fund_size_million: n(form.size),
-        inception_date: form.inception_date,
-        tracking_difference_bps: form.trackingDifference === '' ? null : bps(form.trackingDifference),
-        tracking_error_bps: form.trackingError === '' ? null : bps(form.trackingError),
-        ucits: form.ucits,
-        source_url: form.source_url,
-      });
-      await saved();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    }
-  };
-  const set = <K extends keyof InstrumentDraft>(key: K, value: InstrumentDraft[K]) => setForm(current => ({ ...current, [key]: value }));
-  return (
-    <Modal opened={opened} onClose={close} title={instrument ? 'Edit instrument' : 'Add instrument'} size="xl">
-      <Stack>
-        {error && <Alert color="red">{error}</Alert>}
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
-          <TextInput required label="ISIN" value={form.isin} onChange={e => set('isin', e.currentTarget.value.toUpperCase())} />
-          <TextInput required label="Name" value={form.name} onChange={e => set('name', e.currentTarget.value)} />
-          <TextInput label="Ticker" value={form.ticker} onChange={e => set('ticker', e.currentTarget.value)} />
-          <Select label="Instrument type" value={form.instrument_type} data={Object.entries(instrumentLabels).map(([value, label]) => ({ value, label }))} onChange={value => set('instrument_type', (value ?? 'other') as InstrumentType)} />
-          <TextInput label="Issuer" value={form.provider} onChange={e => set('provider', e.currentTarget.value)} />
-          <TextInput label="Tracked index" value={form.index_name} onChange={e => set('index_name', e.currentTarget.value)} />
-          <TextInput label="Investment focus" placeholder="Equity, World" value={form.investment_focus} onChange={e => set('investment_focus', e.currentTarget.value)} />
-          <Select label="Asset class" value={form.asset_class} data={[{ value: '', label: 'Unknown' }, { value: 'equity', label: 'Equity' }, { value: 'bond', label: 'Bond' }, { value: 'commodity', label: 'Commodity' }, { value: 'monetary', label: 'Monetary' }, { value: 'real_estate', label: 'Real estate' }, { value: 'crypto', label: 'Crypto' }, { value: 'mixed', label: 'Mixed' }, { value: 'other', label: 'Other' }]} onChange={value => set('asset_class', value ?? '')} />
-          <Select label="Strategy" value={form.strategy} data={[{ value: 'broad', label: 'Broad' }, { value: 'active', label: 'Active' }, { value: 'esg', label: 'ESG / screened' }, { value: 'dividend', label: 'Dividend' }, { value: 'factor', label: 'Factor' }]} onChange={value => set('strategy', value ?? 'broad')} />
-          <TextInput label="Domicile" maxLength={2} value={form.domicile} onChange={e => set('domicile', e.currentTarget.value.toUpperCase())} />
-          <Select label="Distribution" value={form.distribution} data={[{ value: 'accumulating', label: 'Accumulating' }, { value: 'distributing', label: 'Distributing' }]} onChange={value => set('distribution', (value ?? 'accumulating') as InstrumentDraft['distribution'])} />
-          <Select label="Replication" value={form.replication} data={[{ value: 'physical_full', label: 'Physical full' }, { value: 'physical_sampling', label: 'Physical sampling' }, { value: 'synthetic', label: 'Synthetic' }]} onChange={value => set('replication', (value ?? 'physical_full') as InstrumentDraft['replication'])} />
-          <TextInput label="Fund currency" maxLength={3} value={form.fund_currency} onChange={e => set('fund_currency', e.currentTarget.value.toUpperCase())} />
-          <NumberInput label="TER (%)" min={0} decimalScale={3} value={form.ter} onChange={value => set('ter', value)} />
-          <NumberInput label="Fund size (million)" min={0} value={form.size} onChange={value => set('size', value)} />
-          <TextInput type="date" label="Inception date" value={form.inception_date} onChange={e => set('inception_date', e.currentTarget.value)} />
-          <Checkbox label="UCITS compliant" checked={form.ucits} onChange={event => set('ucits', event.currentTarget.checked)} />
-          <Checkbox label="Currency hedged" checked={form.currency_hedged} onChange={event => set('currency_hedged', event.currentTarget.checked)} />
-          <NumberInput label="Tracking difference (%)" decimalScale={3} value={form.trackingDifference} onChange={value => set('trackingDifference', value)} />
-          <NumberInput label="Tracking error (%)" min={0} decimalScale={3} value={form.trackingError} onChange={value => set('trackingError', value)} />
-          <TextInput label="Source URL" type="url" value={form.source_url} onChange={e => set('source_url', e.currentTarget.value)} />
-        </SimpleGrid>
-        <Text size="xs" c="dimmed">Instrument type describes the legal wrapper; asset class describes what it invests in. The ISIN is the stable key.</Text>
-        <Group justify="end">
-          <Button onClick={() => void save()}>Save instrument</Button>
-        </Group>
-      </Stack>
-    </Modal>
   );
 }
