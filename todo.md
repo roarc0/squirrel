@@ -51,7 +51,7 @@ Reviewed 2026-09-04 across the Go services/store/domain, protobuf and Connect bo
 - [x] **Delete verified dead UI code and break the `App.tsx` import cycle.** Remove unused `SettingsModal`, `DraftPortfoliosModal`, alias views, dead types/wrappers, and obsolete panels; move only actually shared table/chart helpers out of `App.tsx` (roughly 700+ removable lines before CSS cleanup).
 - [x] **Remove `samber/lo`.** Replaced with standard idiomatic Go loops in diagnostics; dropped third-party dependency from `go.mod`.
 - [x] **Query instruments directly by ID/ISIN.** Replaced full-table catalog scans in `GetInstrumentByID` and `GetInstrumentByISIN` with direct indexed SQL queries and shared `scanInstrument` row scanner.
-- [ ] **Decompose `InvestmentsView.tsx` subtabs.** Extract `HoldingsSubtab`, `PACSubtab`, `RadarSubtab`, and `SandboxSubtab` out of the 1,300-line monolithic view.
+- [x] **Decompose `InvestmentsView.tsx` subtabs.** Extracted `HoldingModal`, `PACSubtab`, and `HoldingsSubtab`; reduced `InvestmentsView.tsx` from 1,307 lines down to 239 lines.
 - [ ] **Stop full-app reloads after every mutation.** Update the affected account/holding/snapshot slice and cache the shared instrument catalog; do not refetch thousands of instruments for an unrelated edit.
 - [ ] **Bring docs back to the code.** Update the architecture map (`internal/service`, not `internal/httpapi`), backup format, AI mutation policy, auth behavior, and offline/integration test commands.
 
@@ -62,6 +62,6 @@ Reviewed 2026-09-04 across the Go services/store/domain, protobuf and Connect bo
 - Do not add a state framework, repository layer, plugin system, or background queue unless measured complexity or scale requires one.
 
 Recommended next slices:
-1. **Remove `samber/lo` & query instruments directly by ID/ISIN** — immediate backend performance and dependency hygiene.
-2. **Decompose `InvestmentsView.tsx` subtabs** — finish decoupling the largest remaining frontend component.
+1. **Stop full-app reloads after every mutation** — cache shared catalog and perform granular cache updates.
+2. **Bring docs back to the code** — sync documentation with current architecture and interfaces.
 
