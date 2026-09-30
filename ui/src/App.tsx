@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   IconChartPie,
   IconBuildingBank,
@@ -64,10 +64,10 @@ import {
   Title,
   Tooltip,
   UnstyledButton,
-  useMantineColorScheme,
+  MantineProvider,
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { notifications } from '@mantine/notifications';
+import { notifications, Notifications } from '@mantine/notifications';
 import {
   getSummary,
   listAccounts,
@@ -117,57 +117,7 @@ import { flushProfile, loadProfile, resetProfile, updateProfile, useProfile } fr
 import { useContinuousRefresh } from './hooks/useContinuousRefresh';
 import { handleLinkClick } from './utils/navigation';
 import { Sidebar, type ThemeAccent, type ThemeScheme, ACCENT_HEX } from './components/Sidebar';
-import { resolveUserTheme, saveUserThemeLocally } from './utils/userTheme';
-
-const TEAL_VAR_KEYS = [
-  '--mantine-color-teal-0', '--mantine-color-teal-1', '--mantine-color-teal-2',
-  '--mantine-color-teal-3', '--mantine-color-teal-4', '--mantine-color-teal-5',
-  '--mantine-color-teal-6', '--mantine-color-teal-7', '--mantine-color-teal-8', '--mantine-color-teal-9',
-  '--mantine-color-teal-filled', '--mantine-color-teal-filled-hover',
-  '--mantine-color-teal-light', '--mantine-color-teal-light-hover', '--mantine-color-teal-light-color',
-  '--mantine-color-teal-outline', '--mantine-color-teal-outline-hover',
-];
-
-const ACCENT_VARS: Record<ThemeAccent, Record<string, string>> = {
-  teal: {},
-  amber: {
-    '--mantine-color-teal-0': '#fff7ed', '--mantine-color-teal-1': '#ffedd5', '--mantine-color-teal-2': '#fed7aa',
-    '--mantine-color-teal-3': '#fdba74', '--mantine-color-teal-4': '#fb923c', '--mantine-color-teal-5': '#f97316',
-    '--mantine-color-teal-6': '#ea580c', '--mantine-color-teal-7': '#c2410c', '--mantine-color-teal-8': '#9a3412', '--mantine-color-teal-9': '#7c2d12',
-    '--mantine-color-teal-filled': '#f97316', '--mantine-color-teal-filled-hover': '#ea580c',
-    '--mantine-color-teal-light': 'rgba(249,115,22,0.15)', '--mantine-color-teal-light-hover': 'rgba(249,115,22,0.20)',
-    '--mantine-color-teal-light-color': '#ea580c', '--mantine-color-teal-outline': '#f97316', '--mantine-color-teal-outline-hover': 'rgba(249,115,22,0.08)',
-  },
-  ocean: {
-    '--mantine-color-teal-0': '#e7f5ff', '--mantine-color-teal-1': '#d0ebff', '--mantine-color-teal-2': '#a5d8ff',
-    '--mantine-color-teal-3': '#74c0fc', '--mantine-color-teal-4': '#4dabf7', '--mantine-color-teal-5': '#339af0',
-    '--mantine-color-teal-6': '#228be6', '--mantine-color-teal-7': '#1c7ed6', '--mantine-color-teal-8': '#1971c2', '--mantine-color-teal-9': '#1864ab',
-    '--mantine-color-teal-filled': '#228be6', '--mantine-color-teal-filled-hover': '#1c7ed6',
-    '--mantine-color-teal-light': 'rgba(34,139,230,0.12)', '--mantine-color-teal-light-hover': 'rgba(34,139,230,0.15)',
-    '--mantine-color-teal-light-color': '#1c7ed6', '--mantine-color-teal-outline': '#228be6', '--mantine-color-teal-outline-hover': 'rgba(34,139,230,0.05)',
-  },
-  violet: {
-    '--mantine-color-teal-0': '#f3f0ff', '--mantine-color-teal-1': '#e5dbff', '--mantine-color-teal-2': '#d0bfff',
-    '--mantine-color-teal-3': '#b197fc', '--mantine-color-teal-4': '#9775fa', '--mantine-color-teal-5': '#845ef7',
-    '--mantine-color-teal-6': '#7950f2', '--mantine-color-teal-7': '#6741d9', '--mantine-color-teal-8': '#5f3dc4', '--mantine-color-teal-9': '#5c37b8',
-    '--mantine-color-teal-filled': '#7950f2', '--mantine-color-teal-filled-hover': '#6741d9',
-    '--mantine-color-teal-light': 'rgba(121,80,242,0.15)', '--mantine-color-teal-light-hover': 'rgba(121,80,242,0.18)',
-    '--mantine-color-teal-light-color': '#9775fa', '--mantine-color-teal-outline': '#7950f2', '--mantine-color-teal-outline-hover': 'rgba(121,80,242,0.07)',
-  },
-  rose: {
-    '--mantine-color-teal-0': '#fff0f6', '--mantine-color-teal-1': '#ffdeeb', '--mantine-color-teal-2': '#fcc2d7',
-    '--mantine-color-teal-3': '#faa2c1', '--mantine-color-teal-4': '#f783ac', '--mantine-color-teal-5': '#f06595',
-    '--mantine-color-teal-6': '#e64980', '--mantine-color-teal-7': '#d6336c', '--mantine-color-teal-8': '#c2255c', '--mantine-color-teal-9': '#a61e4d',
-    '--mantine-color-teal-filled': '#e64980', '--mantine-color-teal-filled-hover': '#d6336c',
-    '--mantine-color-teal-light': 'rgba(230,73,128,0.15)', '--mantine-color-teal-light-hover': 'rgba(230,73,128,0.18)',
-    '--mantine-color-teal-light-color': '#f06595', '--mantine-color-teal-outline': '#e64980', '--mantine-color-teal-outline-hover': 'rgba(230,73,128,0.07)',
-  },
-};
-
-function applyAccentVars(a: ThemeAccent) {
-  TEAL_VAR_KEYS.forEach(k => document.documentElement.style.removeProperty(k));
-  Object.entries(ACCENT_VARS[a]).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
-}
+import { resolveUserTheme, saveUserThemeLocally, buildMantineTheme, themeCssResolver } from './utils/userTheme';
 
 import { SquirrelIcon, SquirrelBrandLogo } from './components/SquirrelLogo';
 import { useBackendRows } from './hooks/useBackendRows';
@@ -380,7 +330,6 @@ export default function App() {
     setHideBalancesState(hideBalances);
   }, [hideBalances]);
 
-  const { setColorScheme } = useMantineColorScheme();
   const [scheme, setScheme] = useState<ThemeScheme>(() => {
     return resolveUserTheme(profile.theme, currentUser?.google_id).scheme;
   });
@@ -388,28 +337,30 @@ export default function App() {
     return resolveUserTheme(profile.theme, currentUser?.google_id).accent;
   });
 
+  const theme = useMemo(() => buildMantineTheme(accent), [accent]);
+
   useEffect(() => {
     const resolved = resolveUserTheme(profile.theme, currentUser?.google_id);
     setScheme(resolved.scheme);
     setAccent(resolved.accent);
     saveUserThemeLocally(currentUser?.google_id || 'guest', resolved.scheme, resolved.accent);
-    applyAccentVars(resolved.accent);
     document.documentElement.setAttribute('data-accent', resolved.accent);
-    setColorScheme(resolved.scheme);
-  }, [profile.theme, currentUser?.google_id, setColorScheme]);
+  }, [profile.theme, currentUser?.google_id]);
 
   const applyTheme = (s: ThemeScheme, a: ThemeAccent) => {
     const userKey = currentUser?.google_id || 'guest';
-    setScheme(s);
-    setAccent(a);
-    saveUserThemeLocally(userKey, s, a);
-    applyAccentVars(a);
-    document.documentElement.setAttribute('data-accent', a);
-    setProfileField({ theme: `${s}:${a}` });
+    const commit = () => {
+      setScheme(s);
+      setAccent(a);
+      saveUserThemeLocally(userKey, s, a);
+      document.documentElement.setAttribute('data-accent', a);
+      setProfileField({ theme: `${s}:${a}` });
+    };
+
     if ('startViewTransition' in document) {
-      (document as any).startViewTransition(() => setColorScheme(s));
+      (document as any).startViewTransition(commit);
     } else {
-      setColorScheme(s);
+      commit();
     }
   };
 
@@ -443,25 +394,35 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [profile.hide_balances, isMobile]);
 
-  if (needsLogin) return <LoginView />;
+  if (needsLogin) {
+    return (
+      <MantineProvider theme={theme} forceColorScheme={scheme} cssVariablesResolver={themeCssResolver}>
+        <Notifications position="top-right" />
+        <LoginView />
+      </MantineProvider>
+    );
+  }
   if (!data) {
     return (
-      <main className="shell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
-        {error ? (
-          <Paper withBorder p="xl" radius="lg" style={{ maxWidth: 460, textAlign: 'center', margin: '0 auto' }}>
-            <Stack align="center" gap="md">
-              <SquirrelIcon size={48} />
-              <Text fw={750} size="lg">Could Not Connect to Squirrel</Text>
-              <Text size="sm" c="dimmed">{error}</Text>
-              <Button leftSection={<IconRefresh size={16} />} color="teal" onClick={() => void load()}>
-                Retry Connection
-              </Button>
-            </Stack>
-          </Paper>
-        ) : (
-          <AppSkeleton />
-        )}
-      </main>
+      <MantineProvider theme={theme} forceColorScheme={scheme} cssVariablesResolver={themeCssResolver}>
+        <Notifications position="top-right" />
+        <main className="shell" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
+          {error ? (
+            <Paper withBorder p="xl" radius="lg" style={{ maxWidth: 460, textAlign: 'center', margin: '0 auto' }}>
+              <Stack align="center" gap="md">
+                <SquirrelIcon size={48} />
+                <Text fw={750} size="lg">Could Not Connect to Squirrel</Text>
+                <Text size="sm" c="dimmed">{error}</Text>
+                <Button leftSection={<IconRefresh size={16} />} color="teal" onClick={() => void load()}>
+                  Retry Connection
+                </Button>
+              </Stack>
+            </Paper>
+          ) : (
+            <AppSkeleton />
+          )}
+        </main>
+      </MantineProvider>
     );
   }
 
@@ -501,7 +462,9 @@ export default function App() {
   );
 
   return (
-    <div className="app-layout">
+    <MantineProvider theme={theme} forceColorScheme={scheme} cssVariablesResolver={themeCssResolver}>
+      <Notifications position="top-right" />
+      <div className="app-layout">
       {isMobile ? (
         <>
           {!mobileNavOpened && (
@@ -665,6 +628,7 @@ export default function App() {
         </footer>
       </div>
     </div>
+    </MantineProvider>
   );
 }
 

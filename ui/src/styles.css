@@ -47,8 +47,8 @@ body {
   flex-direction: column;
   flex-shrink: 0;
   z-index: 100;
-  background: color-mix(in srgb, var(--mantine-color-teal-0) 22%, #f8fafc);
-  border-right: 1px solid color-mix(in srgb, var(--mantine-color-teal-2) 18%, #e2e8f0);
+  background: color-mix(in srgb, var(--mantine-primary-color-0) 22%, #f8fafc);
+  border-right: 1px solid color-mix(in srgb, var(--mantine-primary-color-2) 18%, #e2e8f0);
   box-shadow: 1px 0 3px rgba(0, 0, 0, 0.02);
   transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), padding 0.22s cubic-bezier(0.4, 0, 0.2, 1);
   overflow-x: hidden;
@@ -79,7 +79,7 @@ body {
   display: flex;
   flex-direction: column;
   background:
-    radial-gradient(circle at 92% -8%, color-mix(in srgb, var(--mantine-color-teal-6) 16%, transparent), transparent 60rem),
+    radial-gradient(circle at 92% -8%, color-mix(in srgb, var(--mantine-primary-color-6) 16%, transparent), transparent 60rem),
     transparent;
   background-attachment: fixed;
 }
@@ -159,14 +159,14 @@ body {
 }
 
 .sidebar-nav-item.active {
-  background: var(--mantine-color-teal-filled);
+  background: var(--mantine-primary-color-filled);
   color: var(--mantine-color-white);
   font-weight: 650;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--mantine-color-teal-6) 32%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--mantine-primary-color-6) 32%, transparent);
 }
 
 .sidebar-nav-item.active:hover {
-  background: var(--mantine-color-teal-filled-hover);
+  background: var(--mantine-primary-color-filled-hover);
   color: var(--mantine-color-white);
 }
 
@@ -192,9 +192,9 @@ body {
 }
 
 .sidebar-nav-item-collapsed.active {
-  background: var(--mantine-color-teal-filled);
+  background: var(--mantine-primary-color-filled);
   color: var(--mantine-color-white);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--mantine-color-teal-6) 32%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--mantine-primary-color-6) 32%, transparent);
 }
 
 /* Sidebar search button */
@@ -364,7 +364,7 @@ body,
 .asset-card:hover,
 .stat-tile:hover,
 .asset-tile:hover {
-  border-color: var(--mantine-color-teal-5) !important;
+  border-color: var(--mantine-primary-color-5) !important;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05) !important;
 }
 
@@ -372,7 +372,7 @@ body,
 [data-mantine-color-scheme="dark"] .asset-card:hover,
 [data-mantine-color-scheme="dark"] .stat-tile:hover,
 [data-mantine-color-scheme="dark"] .asset-tile:hover {
-  border-color: var(--mantine-color-teal-6) !important;
+  border-color: var(--mantine-primary-color-6) !important;
 }
 
 .stat-tiles-grid {
@@ -647,60 +647,31 @@ body,
 }
 
 .header-btn--primary {
-  background: var(--mantine-color-teal-filled);
-  border-color: var(--mantine-color-teal-filled);
+  background: var(--mantine-primary-color-filled);
+  border-color: var(--mantine-primary-color-filled);
   color: var(--mantine-color-white);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15), 0 2px 6px color-mix(in srgb, var(--mantine-color-teal-6) 30%, transparent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15), 0 2px 6px color-mix(in srgb, var(--mantine-primary-color-6) 30%, transparent);
 }
 
 [data-mantine-color-scheme="dark"] .header-btn--primary {
-  background: var(--mantine-color-teal-filled);
-  border-color: var(--mantine-color-teal-filled);
+  background: var(--mantine-primary-color-filled);
+  border-color: var(--mantine-primary-color-filled);
   color: var(--mantine-color-white);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--mantine-color-teal-6) 40%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--mantine-primary-color-6) 40%, transparent);
 }
 
 .header-btn--primary:hover {
-  background: var(--mantine-color-teal-filled-hover);
-  border-color: var(--mantine-color-teal-filled-hover);
+  background: var(--mantine-primary-color-filled-hover);
+  border-color: var(--mantine-primary-color-filled-hover);
   color: var(--mantine-color-white);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--mantine-color-teal-6) 45%, transparent);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--mantine-primary-color-6) 45%, transparent);
 }
 
 [data-mantine-color-scheme="dark"] .header-btn--primary:hover {
-  background: var(--mantine-color-teal-filled-hover);
-  border-color: var(--mantine-color-teal-filled-hover);
+  background: var(--mantine-primary-color-filled-hover);
+  border-color: var(--mantine-primary-color-filled-hover);
   color: var(--mantine-color-white);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--mantine-color-teal-6) 55%, transparent);
-}
-
-/* Accent backgrounds — ambient glow positioned gracefully on the top-right of main content */
-[data-accent="amber"] .app-main-content {
-  background:
-    radial-gradient(circle at 92% -8%, color-mix(in srgb, var(--mantine-color-teal-6) 20%, transparent), transparent 60rem),
-    transparent;
-  background-attachment: fixed;
-}
-
-[data-accent="ocean"] .app-main-content {
-  background:
-    radial-gradient(circle at 92% -8%, color-mix(in srgb, var(--mantine-color-teal-5) 20%, transparent), transparent 58rem),
-    transparent;
-  background-attachment: fixed;
-}
-
-[data-accent="violet"] .app-main-content {
-  background:
-    radial-gradient(circle at 92% -8%, color-mix(in srgb, var(--mantine-color-teal-6) 26%, transparent), transparent 64rem),
-    transparent;
-  background-attachment: fixed;
-}
-
-[data-accent="rose"] .app-main-content {
-  background:
-    radial-gradient(circle at 92% -8%, color-mix(in srgb, var(--mantine-color-teal-6) 22%, transparent), transparent 60rem),
-    transparent;
-  background-attachment: fixed;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--mantine-primary-color-6) 55%, transparent);
 }
 
 /* Table actions row hover reveal */
