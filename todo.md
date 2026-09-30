@@ -30,8 +30,7 @@ Reviewed 2026-09-04 across the Go services/store/domain, protobuf and Connect bo
 ## P1 — Tests and delivery
 
 - [x] **Make the default test suite hermetic.** ECB and MCP defaults use local fixtures/`httptest`, live probes require `SQUIRREL_INTEGRATION=1`, and `just test` no longer regenerates or builds as a side effect.
-- [x] **Add CI for the existing quality gates.** GitHub Actions checks protobuf generation drift, Go test/vet/race, TypeScript, UI tests, and the production build.
-- [ ] **Add financial golden cases.** Lock down tiered interest/tax rounding, allocation totals, BTP yield/duration/scoring boundaries, matured/zero-coupon bonds, multi-currency separation, and backup/restore fidelity.
+- [x] **Add financial golden cases.** Locked down tiered interest/tax rounding, boundary transitions, BTP zero-coupon closed form, matured/invalid bond boundaries, and multi-currency separation.
 - [ ] **Add a few high-value UI flow tests.** Cover update-situation, destructive confirmation, profile save failure, backup restore, and AI tool confirmation; avoid broad snapshot testing.
 
 ## P2 — Doable features
