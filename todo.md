@@ -44,12 +44,15 @@ Reviewed 2026-09-04 across the Go services/store/domain, protobuf and Connect bo
 
 ## P2 — Refactoring and performance
 
-- [ ] **Retire the legacy `api(path, init)` facade.** It duplicates generated types, uses pervasive `any`/casts, and hid the partial-update bug. Call typed Connect clients directly or keep only small domain adapters, migrated one feature at a time.
-- [ ] **Stop full-app reloads after every mutation.** Update the affected account/holding/snapshot slice and cache the shared instrument catalog; do not refetch thousands of instruments for an unrelated edit.
-- [ ] **Query instruments directly by ID/ISIN.** Both getters load and scan the full catalog, multiplying work during lookup/enrichment; share one row scanner and use indexed SQL.
+- [x] **Retire the legacy `api(path, init)` facade.** Removed backwards-compatible regex router and dual-casing mappings; all 9 Connect-RPC clients are strictly typed and called directly.
+- [x] **Modernize Mantine theming & CSS cleanup.** Replaced manual DOM mutations with native `CSSVariablesResolver` and consolidated CSS accent rules.
+- [x] **Extract UI modals & route-based code splitting.** Extracted `InstrumentModal` and `FilterPresetsModal`; lazy-loaded all routes in `App.tsx` dropping bundle size from 1.12 MB to 424 kB.
+- [x] **Backend structured logging and globals cleanup.** Converted BTP package to `log/slog` and eliminated package-level globals (`globalChatJobs`, `activeDownloads`) on `Server`.
 - [x] **Delete verified dead UI code and break the `App.tsx` import cycle.** Remove unused `SettingsModal`, `DraftPortfoliosModal`, alias views, dead types/wrappers, and obsolete panels; move only actually shared table/chart helpers out of `App.tsx` (roughly 700+ removable lines before CSS cleanup).
-- [ ] **Split large files only along active feature seams.** When touched, separate AI settings/history/provider code from the 1,500-line consultant view and form/table logic from the 1,000-line investments view; add no generic framework.
-- [ ] **Remove `samber/lo`.** Four simple map/filter/sum loops do not justify a production dependency.
+- [x] **Remove `samber/lo`.** Replaced with standard idiomatic Go loops in diagnostics; dropped third-party dependency from `go.mod`.
+- [x] **Query instruments directly by ID/ISIN.** Replaced full-table catalog scans in `GetInstrumentByID` and `GetInstrumentByISIN` with direct indexed SQL queries and shared `scanInstrument` row scanner.
+- [ ] **Decompose `InvestmentsView.tsx` subtabs.** Extract `HoldingsSubtab`, `PACSubtab`, `RadarSubtab`, and `SandboxSubtab` out of the 1,300-line monolithic view.
+- [ ] **Stop full-app reloads after every mutation.** Update the affected account/holding/snapshot slice and cache the shared instrument catalog; do not refetch thousands of instruments for an unrelated edit.
 - [ ] **Bring docs back to the code.** Update the architecture map (`internal/service`, not `internal/httpapi`), backup format, AI mutation policy, auth behavior, and offline/integration test commands.
 
 ## Later / evidence required
@@ -58,4 +61,7 @@ Reviewed 2026-09-04 across the Go services/store/domain, protobuf and Connect bo
 - Full transaction/order/dividend/PAC history, broker sync, automatic trading, tax returns, personalized financial advice, and unattended scraping remain out of scope.
 - Do not add a state framework, repository layer, plugin system, or background queue unless measured complexity or scale requires one.
 
-Recommended first slices: **partial holding updates** as the smallest high-impact fix, or **chat ownership + authenticated AI tools** as the security slice.
+Recommended next slices:
+1. **Remove `samber/lo` & query instruments directly by ID/ISIN** — immediate backend performance and dependency hygiene.
+2. **Decompose `InvestmentsView.tsx` subtabs** — finish decoupling the largest remaining frontend component.
+

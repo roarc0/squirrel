@@ -12,31 +12,53 @@ import (
 
 var ErrNotFound = errors.New("record not found")
 
+const instrumentSelectColumns = `i.id, i.isin, i.name, i.ticker, i.instrument_type, i.provider, i.index_name, i.investment_focus, i.asset_class, i.strategy, i.currency_hedged,
+	CASE WHEN s.isin IS NOT NULL THEN 1 ELSE 0 END AS starred,
+	i.data_status, i.distribution, i.replication, i.domicile, i.fund_currency, i.ter_bps, i.fund_size_million, i.inception_date, i.tracking_difference_bps, i.tracking_error_bps, i.ucits, i.source_url, i.refreshed_at`
+
+type rowScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanInstrument(scanner rowScanner) (portfolio.Instrument, error) {
+	var instrument portfolio.Instrument
+	var trackingDifference, trackingError sql.NullInt64
+	if err := scanner.Scan(
+		&instrument.ID, &instrument.ISIN, &instrument.Name, &instrument.Ticker, &instrument.InstrumentType,
+		&instrument.Provider, &instrument.IndexName, &instrument.InvestmentFocus, &instrument.AssetClass,
+		&instrument.Strategy, &instrument.CurrencyHedged, &instrument.Starred, &instrument.DataStatus,
+		&instrument.Distribution, &instrument.Replication, &instrument.Domicile, &instrument.FundCurrency,
+		&instrument.TERBPS, &instrument.FundSizeMillion, &instrument.InceptionDate, &trackingDifference,
+		&trackingError, &instrument.UCITS, &instrument.SourceURL, &instrument.RefreshedAt,
+	); err != nil {
+		return portfolio.Instrument{}, err
+	}
+	if trackingDifference.Valid {
+		instrument.TrackingDifferenceBPS = &trackingDifference.Int64
+	}
+	if trackingError.Valid {
+		instrument.TrackingErrorBPS = &trackingError.Int64
+	}
+	instrument.InstrumentType = portfolio.ResolveInstrumentType(instrument.Name, instrument.InstrumentType)
+	return instrument, nil
+}
+
 func (s *Store) ListInstrumentsForUser(ctx context.Context, userID string) ([]portfolio.Instrument, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT i.id, i.isin, i.name, i.ticker, i.instrument_type, i.provider, i.index_name, i.investment_focus, i.asset_class, i.strategy, i.currency_hedged,
-		CASE WHEN s.isin IS NOT NULL THEN 1 ELSE 0 END AS starred,
-		i.data_status, i.distribution, i.replication, i.domicile, i.fund_currency, i.ter_bps, i.fund_size_million, i.inception_date, i.tracking_difference_bps, i.tracking_error_bps, i.ucits, i.source_url, i.refreshed_at
+	query := `SELECT ` + instrumentSelectColumns + `
 	FROM instruments i
 	LEFT JOIN instrument_starred s ON s.isin = i.isin AND s.user_id = ?
-	ORDER BY starred DESC, i.fund_size_million DESC, i.name, i.isin`, userID)
+	ORDER BY starred DESC, i.fund_size_million DESC, i.name, i.isin`
+	rows, err := s.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var instruments []portfolio.Instrument
 	for rows.Next() {
-		var instrument portfolio.Instrument
-		var trackingDifference, trackingError sql.NullInt64
-		if err := rows.Scan(&instrument.ID, &instrument.ISIN, &instrument.Name, &instrument.Ticker, &instrument.InstrumentType, &instrument.Provider, &instrument.IndexName, &instrument.InvestmentFocus, &instrument.AssetClass, &instrument.Strategy, &instrument.CurrencyHedged, &instrument.Starred, &instrument.DataStatus, &instrument.Distribution, &instrument.Replication, &instrument.Domicile, &instrument.FundCurrency, &instrument.TERBPS, &instrument.FundSizeMillion, &instrument.InceptionDate, &trackingDifference, &trackingError, &instrument.UCITS, &instrument.SourceURL, &instrument.RefreshedAt); err != nil {
+		instrument, err := scanInstrument(rows)
+		if err != nil {
 			return nil, err
 		}
-		if trackingDifference.Valid {
-			instrument.TrackingDifferenceBPS = &trackingDifference.Int64
-		}
-		if trackingError.Valid {
-			instrument.TrackingErrorBPS = &trackingError.Int64
-		}
-		instrument.InstrumentType = portfolio.ResolveInstrumentType(instrument.Name, instrument.InstrumentType)
 		instruments = append(instruments, instrument)
 	}
 	return instruments, rows.Err()
@@ -47,30 +69,38 @@ func (s *Store) ListInstruments(ctx context.Context) ([]portfolio.Instrument, er
 }
 
 func (s *Store) GetInstrumentByID(ctx context.Context, id int64) (portfolio.Instrument, error) {
-	instruments, err := s.ListInstruments(ctx)
-	if err != nil {
-		return portfolio.Instrument{}, err
+	return s.GetInstrumentByIDForUser(ctx, id, "")
+}
+
+func (s *Store) GetInstrumentByIDForUser(ctx context.Context, id int64, userID string) (portfolio.Instrument, error) {
+	query := `SELECT ` + instrumentSelectColumns + `
+	FROM instruments i
+	LEFT JOIN instrument_starred s ON s.isin = i.isin AND s.user_id = ?
+	WHERE i.id = ?`
+	row := s.db.QueryRowContext(ctx, query, userID, id)
+	instrument, err := scanInstrument(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return portfolio.Instrument{}, ErrNotFound
 	}
-	for _, inst := range instruments {
-		if inst.ID == id {
-			return inst, nil
-		}
-	}
-	return portfolio.Instrument{}, ErrNotFound
+	return instrument, err
 }
 
 func (s *Store) GetInstrumentByISIN(ctx context.Context, isin string) (portfolio.Instrument, error) {
+	return s.GetInstrumentByISINForUser(ctx, isin, "")
+}
+
+func (s *Store) GetInstrumentByISINForUser(ctx context.Context, isin string, userID string) (portfolio.Instrument, error) {
 	isin = strings.ToUpper(strings.TrimSpace(isin))
-	instruments, err := s.ListInstruments(ctx)
-	if err != nil {
-		return portfolio.Instrument{}, err
+	query := `SELECT ` + instrumentSelectColumns + `
+	FROM instruments i
+	LEFT JOIN instrument_starred s ON s.isin = i.isin AND s.user_id = ?
+	WHERE i.isin = ?`
+	row := s.db.QueryRowContext(ctx, query, userID, isin)
+	instrument, err := scanInstrument(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return portfolio.Instrument{}, ErrNotFound
 	}
-	for _, inst := range instruments {
-		if inst.ISIN == isin {
-			return inst, nil
-		}
-	}
-	return portfolio.Instrument{}, ErrNotFound
+	return instrument, err
 }
 
 func (s *Store) SaveInstrument(ctx context.Context, instrument *portfolio.Instrument) error {

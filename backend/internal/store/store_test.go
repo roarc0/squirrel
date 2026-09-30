@@ -523,3 +523,56 @@ func TestReclassifyInstruments(t *testing.T) {
 	}
 }
 
+func TestGetInstrumentByIDAndISIN(t *testing.T) {
+	s, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	ctx := context.Background()
+
+	inst := portfolio.Instrument{
+		ISIN:            "IE00B4L5Y983",
+		Name:            "iShares Core MSCI World UCITS ETF",
+		Ticker:          "SWDA",
+		Provider:        "iShares",
+		Distribution:    portfolio.DistributionAccumulating,
+		Replication:     portfolio.ReplicationPhysicalFull,
+		FundCurrency:    "USD",
+		TERBPS:          20,
+		FundSizeMillion: 75000,
+	}
+	if err := s.SaveInstrument(ctx, &inst); err != nil {
+		t.Fatal(err)
+	}
+	if inst.ID == 0 {
+		t.Fatalf("expected non-zero ID after SaveInstrument, got 0")
+	}
+
+	// 1. By ID
+	byID, err := s.GetInstrumentByID(ctx, inst.ID)
+	if err != nil {
+		t.Fatalf("GetInstrumentByID failed: %v", err)
+	}
+	if byID.ISIN != inst.ISIN || byID.Name != inst.Name {
+		t.Fatalf("unexpected instrument returned: %+v", byID)
+	}
+
+	// 2. By ISIN (case-insensitive and trimmed)
+	byISIN, err := s.GetInstrumentByISIN(ctx, "  ie00b4l5y983  ")
+	if err != nil {
+		t.Fatalf("GetInstrumentByISIN failed: %v", err)
+	}
+	if byISIN.ID != inst.ID || byISIN.Name != inst.Name {
+		t.Fatalf("unexpected instrument returned: %+v", byISIN)
+	}
+
+	// 3. Not found cases
+	if _, err := s.GetInstrumentByID(ctx, 999999); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected ErrNotFound for missing ID, got %v", err)
+	}
+	if _, err := s.GetInstrumentByISIN(ctx, "UNKNOWNISIN"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected ErrNotFound for missing ISIN, got %v", err)
+	}
+}
+

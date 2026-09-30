@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
-	"github.com/samber/lo"
 )
 
 type DiagnosticSeverity string
@@ -31,23 +29,24 @@ func EvaluateDiagnostics(accounts []Account, holdings []Holding, instruments []I
 	var results []Diagnostic
 	baseCurrency = strings.ToUpper(strings.TrimSpace(baseCurrency))
 
-	instByISIN := lo.SliceToMap(instruments, func(inst Instrument) (string, Instrument) {
-		return strings.ToUpper(inst.ISIN), inst
-	})
+	instByISIN := make(map[string]Instrument, len(instruments))
+	for _, inst := range instruments {
+		instByISIN[strings.ToUpper(inst.ISIN)] = inst
+	}
 
 	// 1. Emergency Reserve & Cash Diagnostic
-	activeAccounts := lo.Filter(accounts, func(acc Account, _ int) bool {
-		return !acc.Archived && strings.EqualFold(acc.Currency, baseCurrency)
-	})
-	totalCashMinor := lo.SumBy(activeAccounts, func(acc Account) int64 {
-		return acc.BalanceMinor
-	})
-	totalHoldingMinor := lo.SumBy(holdings, func(h Holding) int64 {
-		if !strings.EqualFold(h.Currency, baseCurrency) {
-			return 0
+	var totalCashMinor int64
+	for _, acc := range accounts {
+		if !acc.Archived && strings.EqualFold(acc.Currency, baseCurrency) {
+			totalCashMinor += acc.BalanceMinor
 		}
-		return h.ValueMinor
-	})
+	}
+	var totalHoldingMinor int64
+	for _, h := range holdings {
+		if strings.EqualFold(h.Currency, baseCurrency) {
+			totalHoldingMinor += h.ValueMinor
+		}
+	}
 	totalAssetsMinor := totalCashMinor + totalHoldingMinor
 
 	if targetCashMinor > 0 {
