@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   IconChartPie,
   IconBuildingBank,
@@ -125,27 +125,44 @@ export { useBackendRows } from './hooks/useBackendRows';
 export { PerformanceResult } from './components/PerformanceResult';
 export { AllocationBar } from './components/AllocationBar';
 
+export type ReloadOptions = {
+  refreshInstruments?: boolean;
+};
+
+export type ReloadFn = (opts?: ReloadOptions) => Promise<void>;
+
 export default function App() {
   const [needsLogin, setNeedsLogin] = useState(false);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [signedInUsers, setSignedInUsers] = useState<AuthUser[]>(listSignedInUsers);
   const [data, setData] = useState<Data>();
+  const dataRef = useRef<Data | undefined>(undefined);
+  dataRef.current = data;
   const [error, setError] = useState('');
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: ReloadOptions) => {
     captureTokenFromURL();
     try {
-      const [summary, accounts, rates, taxRates, instruments, holdings, snapshots, user] = await Promise.all([
+      const shouldFetchInstruments = !dataRef.current?.instruments?.length || Boolean(opts?.refreshInstruments);
+      const [summary, accounts, rates, taxRates, newInstruments, holdings, snapshots, user] = await Promise.all([
         getSummary(),
         listAccounts(),
         listReferenceRates(),
         listTaxRates(),
-        listInstruments(),
+        shouldFetchInstruments ? listInstruments() : Promise.resolve(null),
         listHoldings(),
         listSnapshots(),
         fetchMe(),
         loadProfile(),
       ]);
-      setData({ summary, accounts: accounts ?? [], rates: rates ?? [], taxRates: taxRates ?? [], instruments: instruments ?? [], holdings: holdings ?? [], snapshots: snapshots ?? [] });
+      setData(prev => ({
+        summary,
+        accounts: accounts ?? [],
+        rates: rates ?? [],
+        taxRates: taxRates ?? [],
+        instruments: newInstruments ?? prev?.instruments ?? [],
+        holdings: holdings ?? [],
+        snapshots: snapshots ?? [],
+      }));
       setNeedsLogin(false);
       setError('');
       setCurrentUser(user);

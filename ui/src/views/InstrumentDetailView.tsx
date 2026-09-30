@@ -297,7 +297,7 @@ export function InstrumentDetailView({
   instruments?: Instrument[];
   onBack: () => void;
   onOpenDetail?: (isin: string) => void;
-  reload?: () => Promise<void>;
+  reload?: (opts?: { refreshInstruments?: boolean }) => Promise<void>;
 }) {
   const [series, setSeries] = useState<PerfPoint[]>([]);
   const [fetchedAt, setFetchedAt] = useState('');
@@ -318,7 +318,7 @@ export function InstrumentDetailView({
     try {
       await lookupInstrument(isin);
       notifications.show({ color: 'teal', title: 'Instrument imported', message: `Successfully fetched ${isin} from justETF.` });
-      await reload?.();
+      await reload?.({ refreshInstruments: true });
     } catch (err) {
       setFetchError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -338,7 +338,7 @@ export function InstrumentDetailView({
     setInstrumentStarredInProfile(instrument.isin, next);
     try {
       await starInstrument(instrument.isin, next);
-      if (reload) void reload();
+      if (reload) void reload({ refreshInstruments: true });
     } catch (cause) {
       setStarred(!next);
       setInstrumentStarredInProfile(instrument.isin, !next);

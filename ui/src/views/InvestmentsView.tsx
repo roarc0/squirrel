@@ -46,7 +46,7 @@ export function InvestmentsView({
   accounts: Account[];
   instruments: Instrument[];
   taxRates: TaxRate[];
-  reload: () => Promise<void>;
+  reload: (opts?: { refreshInstruments?: boolean }) => Promise<void>;
   activeSubtab?: InvestmentsSubtab;
   onSubtabChange?: (subtab: InvestmentsSubtab) => void;
   onOpenDrafts?: () => void;
@@ -101,7 +101,7 @@ export function InvestmentsView({
     setRefreshingISIN(isin);
     try {
       await importInstruments([isin]);
-      await reload();
+      await reload({ refreshInstruments: true });
       notifications.show({ color: 'teal', message: `${isin} data refreshed` });
     } catch (cause) {
       notifications.show({ color: 'red', message: `Failed to refresh ${isin}: ${cause instanceof Error ? cause.message : String(cause)}` });

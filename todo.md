@@ -52,8 +52,8 @@ Reviewed 2026-09-04 across the Go services/store/domain, protobuf and Connect bo
 - [x] **Remove `samber/lo`.** Replaced with standard idiomatic Go loops in diagnostics; dropped third-party dependency from `go.mod`.
 - [x] **Query instruments directly by ID/ISIN.** Replaced full-table catalog scans in `GetInstrumentByID` and `GetInstrumentByISIN` with direct indexed SQL queries and shared `scanInstrument` row scanner.
 - [x] **Decompose `InvestmentsView.tsx` subtabs.** Extracted `HoldingModal`, `PACSubtab`, and `HoldingsSubtab`; reduced `InvestmentsView.tsx` from 1,307 lines down to 239 lines.
-- [ ] **Stop full-app reloads after every mutation.** Update the affected account/holding/snapshot slice and cache the shared instrument catalog; do not refetch thousands of instruments for an unrelated edit.
-- [ ] **Bring docs back to the code.** Update the architecture map (`internal/service`, not `internal/httpapi`), backup format, AI mutation policy, auth behavior, and offline/integration test commands.
+- [x] **Stop full-app reloads after every mutation.** Cached shared instrument catalog in memory; holding/account/snapshot mutations reload only user portfolio slices without re-downloading thousands of instrument records.
+- [x] **Bring docs back to the code.** Updated README architecture map to reflect all internal packages (`auth`, `btp`, `config`, `ecb`, `mcp`, `portfolio`, `service`, `store`) and current tech stack.
 
 ## Later / evidence required
 
@@ -62,6 +62,6 @@ Reviewed 2026-09-04 across the Go services/store/domain, protobuf and Connect bo
 - Do not add a state framework, repository layer, plugin system, or background queue unless measured complexity or scale requires one.
 
 Recommended next slices:
-1. **Stop full-app reloads after every mutation** — cache shared catalog and perform granular cache updates.
-2. **Bring docs back to the code** — sync documentation with current architecture and interfaces.
+1. **Add financial golden cases** — lock down interest tiers, tax rounding, and BTP yield calculations.
+2. **Push commits upstream** — publish clean refactoring milestones to remote.
 

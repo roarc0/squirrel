@@ -157,7 +157,7 @@ type CatalogRow = {
   similarity?: InstrumentAlternative;
 };
 
-export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { instruments: Instrument[]; reload: () => Promise<void>; onOpenDetail?: (isin: string) => void }) {
+export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { instruments: Instrument[]; reload: (opts?: { refreshInstruments?: boolean }) => Promise<void>; onOpenDetail?: (isin: string) => void }) {
   const [opened, setOpened] = useState(false);
   const [editing, setEditing] = useState<Instrument>();
   const [error, setError] = useState('');
@@ -311,7 +311,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
       const inst = await lookupInstrument(query);
       setLookupQuery('');
       setError('');
-      await reload();
+      await reload({ refreshInstruments: true });
       notifications.show({ color: 'teal', title: 'Profile refreshed', message: inst?.name ?? query });
     } catch (cause) {
       notifications.show({ color: 'red', title: 'Refresh failed', message: cause instanceof Error ? cause.message : String(cause) });
@@ -345,7 +345,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
       setSelected([]);
       setLookupQuery('');
       setError('');
-      await reload();
+      await reload({ refreshInstruments: true });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -359,7 +359,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
       const result = await syncInstrumentCatalog(4000);
       setNotice(`Saved ${result.saved.toLocaleString()} instruments from ${result.available.toLocaleString()} screener results.`);
       setError('');
-      await reload();
+      await reload({ refreshInstruments: true });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -373,7 +373,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
       const result = await enrichInstrumentCatalog(20);
       setNotice(`Refreshed ${result.enriched} product profiles${result.failed ? `; ${result.failed} failed and can be retried` : ''}.`);
       setError('');
-      await reload();
+      await reload({ refreshInstruments: true });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -387,7 +387,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
       const result = await reclassifyInstruments();
       setNotice(`Local refresh complete: ${result.updated.toLocaleString()} of ${result.total.toLocaleString()} instruments re-classified with updated strategies and providers.`);
       setError('');
-      await reload();
+      await reload({ refreshInstruments: true });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -421,14 +421,14 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
         if (latest?.error) setError(latest.error);
       }
       if (latest) setNotice(`Finished: ${latest.enriched} refreshed, ${latest.skipped} skipped, ${latest.failed} failed.`);
-      await reload();
+      await reload({ refreshInstruments: true });
     } catch (cause) {
       if (cause instanceof Error && (cause.name === 'AbortError' || cause.message.includes('canceled'))) {
         setNotice('Refresh stopped. Completed profiles were saved; the next run will resume from the remaining or oldest records.');
-        await reload();
+        await reload({ refreshInstruments: true });
       } else {
         setError(cause instanceof Error ? cause.message : String(cause));
-        await reload();
+        await reload({ refreshInstruments: true });
       }
     } finally {
       setStreamController(current => current === controller ? undefined : current);
@@ -466,7 +466,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
     confirmDelete('instrument', `${instrument.ticker || instrument.name} · ${instrument.isin}`, async () => {
       try {
         await deleteInstrument(instrument.id);
-        await reload();
+        await reload({ refreshInstruments: true });
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
       }
@@ -1628,7 +1628,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
         onDeletePreset={handleDeleteCustomPreset}
       />
 
-      <InstrumentModal key={editing?.id ?? 'new'} opened={opened} close={() => setOpened(false)} instrument={editing} saved={async () => { setOpened(false); await reload(); }} />
+      <InstrumentModal key={editing?.id ?? 'new'} opened={opened} close={() => setOpened(false)} instrument={editing} saved={async () => { setOpened(false); await reload({ refreshInstruments: true }); }} />
       <CompareModal
         opened={compareModalOpened}
         onClose={() => setCompareModalOpened(false)}

@@ -58,12 +58,16 @@ The AI consultant can inspect portfolio data through an explicit read-only MCP a
 ## Architecture
 
 - `backend/cmd/squirrel`: application entrypoint and process lifecycle.
-- `backend/internal/portfolio`: financial calculations, instrument validation, and ETF ranking.
+- `backend/internal/auth`: session authentication, cookie management, and Google OAuth provider.
+- `backend/internal/btp`: Italian BTP bond yield calculation, duration modeling, and web scraping.
+- `backend/internal/config`: YAML configuration parsing and environment overrides.
+- `backend/internal/ecb`: European Central Bank reference rate synchronization and caching.
 - `backend/internal/justetf`: user-triggered screener catalog sync, ticker/ISIN lookup, and profile parsing.
-- `backend/internal/store`: SQLite schema and queries. It is the only package that knows SQL.
-- `backend/internal/service`: Connect RPC boundary, auth-scoped orchestration, and embedded UI handler.
 - `backend/internal/mcp`: read-only AI tool schema and internal Connect bridge.
-- `ui`: React, TypeScript, Vite, and Mantine. Production assets in `ui/dist` are embedded by Go.
+- `backend/internal/portfolio`: financial calculations, instrument validation, diagnostics, and ETF ranking.
+- `backend/internal/service`: Connect RPC boundary, auth-scoped orchestration, and embedded UI handler.
+- `backend/internal/store`: SQLite schema, migrations, and queries. It is the only package that knows SQL.
+- `ui`: React 19, TypeScript, Vite, and Mantine v7. Production assets in `ui/dist` are embedded by Go.
 
 The bank projection applies each account's marginal interest tiers, then subtracts its configured flat tax estimate and annual fee. Different currencies remain separate until FX conversion is implemented.
 
