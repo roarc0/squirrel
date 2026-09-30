@@ -29,9 +29,12 @@ import {
   IconChevronUp,
   IconExternalLink,
   IconRefresh,
+  IconStar,
+  IconStarFilled,
   IconX,
 } from '@tabler/icons-react';
 import { api, instrumentClient, type Instrument, type InstrumentAlternative } from '../api';
+import { setInstrumentStarredInProfile } from '../hooks/useProfile';
 import { chartGeometry, nearestChartIndex } from '../visual';
 import { Chip, ISINBadge, ReplicationChip, TickerBadge } from '../Chip';
 import { instrumentLabels, label, relativeDate } from '../utils/format';
@@ -323,6 +326,33 @@ export function InstrumentDetailView({
     }
   };
 
+  const [starred, setStarred] = useState(() => Boolean(instrument?.starred));
+  useEffect(() => {
+    setStarred(Boolean(instrument?.starred));
+  }, [instrument?.starred]);
+
+  const toggleStar = async () => {
+    if (!instrument) return;
+    const next = !starred;
+    setStarred(next);
+    setInstrumentStarredInProfile(instrument.isin, next);
+    try {
+      await api(`/api/instruments/${encodeURIComponent(instrument.isin)}/star`, {
+        method: 'PUT',
+        body: JSON.stringify({ starred: next }),
+      });
+      if (reload) void reload();
+    } catch (cause) {
+      setStarred(!next);
+      setInstrumentStarredInProfile(instrument.isin, !next);
+      notifications.show({
+        color: 'red',
+        title: 'Failed to update star',
+        message: cause instanceof Error ? cause.message : String(cause),
+      });
+    }
+  };
+
   useEffect(() => {
     if (!instrument?.id || instrument.instrument_type !== 'etf' || !instrument.ucits) {
       setAlternatives([]);
@@ -495,6 +525,17 @@ export function InstrumentDetailView({
               </Button>
             </Tooltip>
           )}
+          <Tooltip label={starred ? 'Remove from starred' : 'Star this instrument'} withArrow>
+            <ActionIcon
+              variant={starred ? 'light' : 'default'}
+              color={starred ? 'yellow' : undefined}
+              size="md"
+              onClick={() => void toggleStar()}
+              aria-label={starred ? 'Remove from starred' : 'Star this instrument'}
+            >
+              {starred ? <IconStarFilled size={16} /> : <IconStar size={16} />}
+            </ActionIcon>
+          </Tooltip>
           <Tooltip label={status === 'refreshing' ? 'Refreshing performance…' : 'Refresh performance data'} withArrow>
             <ActionIcon
               variant="default"

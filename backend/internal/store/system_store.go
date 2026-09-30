@@ -22,8 +22,9 @@ type UserBackup struct {
 	Accounts   []BackupAccount  `json:"accounts"`
 	Snapshots  []BackupSnapshot `json:"snapshots"`
 	Profile    *BackupProfile   `json:"profile,omitempty"`
-	Chats      []BackupChat     `json:"chats,omitempty"`
-	BTPStarred []string         `json:"btp_starred,omitempty"`
+	Chats             []BackupChat     `json:"chats,omitempty"`
+	BTPStarred        []string         `json:"btp_starred,omitempty"`
+	InstrumentStarred []string         `json:"instrument_starred,omitempty"`
 }
 
 type BackupAccount struct {
@@ -313,6 +314,22 @@ func (s *Store) ExportBackup(ctx context.Context, userID string) ([]byte, string
 		return nil, "", fmt.Errorf("read starred BTPs: %w", err)
 	}
 
+	instStarRows, err := s.db.QueryContext(ctx, `SELECT isin FROM instrument_starred WHERE user_id=? ORDER BY isin`, userID)
+	if err != nil {
+		return nil, "", fmt.Errorf("list starred instruments: %w", err)
+	}
+	defer instStarRows.Close()
+	for instStarRows.Next() {
+		var isin string
+		if err := instStarRows.Scan(&isin); err != nil {
+			return nil, "", fmt.Errorf("read starred instrument: %w", err)
+		}
+		backup.InstrumentStarred = append(backup.InstrumentStarred, isin)
+	}
+	if err := instStarRows.Err(); err != nil {
+		return nil, "", fmt.Errorf("read starred instruments: %w", err)
+	}
+
 	data, err := json.MarshalIndent(backup, "", "  ")
 	if err != nil {
 		return nil, "", fmt.Errorf("marshal backup: %w", err)
@@ -373,6 +390,9 @@ func (s *Store) RestoreBackup(ctx context.Context, userID string, backupData []b
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM btp_starred WHERE user_id=?`, userID); err != nil {
 		return fmt.Errorf("delete starred BTPs: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM instrument_starred WHERE user_id=?`, userID); err != nil {
+		return fmt.Errorf("delete starred instruments: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM user_profiles WHERE user_id=?`, userID); err != nil {
 		return fmt.Errorf("delete profile: %w", err)
@@ -562,6 +582,15 @@ func (s *Store) RestoreBackup(ctx context.Context, userID string, backupData []b
 		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO btp_starred (user_id, isin, created_at) VALUES (?, ?, ?)`, userID, isin, now); err != nil {
 			return fmt.Errorf("restore starred BTP: %w", err)
+		}
+	}
+	for _, isin := range backup.InstrumentStarred {
+		isin = strings.ToUpper(strings.TrimSpace(isin))
+		if !portfolio.ValidISIN(isin) {
+			return errors.New("invalid starred instrument ISIN")
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO instrument_starred (user_id, isin, created_at) VALUES (?, ?, ?)`, userID, isin, now); err != nil {
+			return fmt.Errorf("restore starred instrument: %w", err)
 		}
 	}
 

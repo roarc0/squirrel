@@ -14,6 +14,7 @@ import (
 
 	"connectrpc.com/connect"
 
+	"github.com/roarc0/squirrel/backend/internal/auth"
 	"github.com/roarc0/squirrel/backend/internal/justetf"
 	"github.com/roarc0/squirrel/backend/internal/portfolio"
 	"github.com/roarc0/squirrel/backend/internal/store"
@@ -21,7 +22,8 @@ import (
 )
 
 func (s *Server) ListInstruments(ctx context.Context, req *connect.Request[portv1.ListInstrumentsRequest]) (*connect.Response[portv1.ListInstrumentsResponse], error) {
-	instruments, err := s.store.ListInstruments(ctx)
+	userID := auth.UserIDOrEmpty(ctx)
+	instruments, err := s.store.ListInstrumentsForUser(ctx, userID)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -319,10 +321,8 @@ func (s *Server) DeleteInstrument(ctx context.Context, req *connect.Request[port
 }
 
 func (s *Server) StarInstrument(ctx context.Context, req *connect.Request[portv1.StarInstrumentRequest]) (*connect.Response[portv1.StarInstrumentResponse], error) {
-	if err := s.requireAdmin(ctx); err != nil {
-		return nil, err
-	}
-	if err := s.store.SetInstrumentStarred(ctx, req.Msg.Isin, req.Msg.Starred); err != nil {
+	userID := auth.UserIDOrEmpty(ctx)
+	if err := s.store.SetInstrumentStarredForUser(ctx, userID, req.Msg.Isin, req.Msg.Starred); err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	return connect.NewResponse(&portv1.StarInstrumentResponse{}), nil

@@ -7,6 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
+
+	"github.com/roarc0/squirrel/backend/internal/portfolio"
 )
 
 type UserProfile struct {
@@ -24,6 +27,8 @@ type UserProfile struct {
 	AISettingsJSON        string
 	DraftPortfoliosJSON   string
 	UserDescription       string
+	StarredInstruments    []string
+	StarredBTPs           []string
 }
 
 func (s *Store) GetProfile(ctx context.Context, userID string) (UserProfile, error) {
@@ -32,9 +37,32 @@ func (s *Store) GetProfile(ctx context.Context, userID string) (UserProfile, err
 		`SELECT theme, preferred_currency, monthly_expenses_minor, reserve_months, hide_balances, emergency_goal_minor, fire_expenses_minor, instrument_columns_json, show_fire_calculator, enable_btp_ranks, active_tab, ai_settings_json, draft_portfolios_json, user_description FROM user_profiles WHERE user_id = ?`, userID,
 	).Scan(&p.Theme, &p.PreferredCurrency, &p.MonthlyExpensesMinor, &p.ReserveMonths, &p.HideBalances, &p.EmergencyGoalMinor, &p.FireExpensesMinor, &p.InstrumentColumnsJSON, &p.ShowFireCalculator, &p.EnableBtpRanks, &p.ActiveTab, &p.AISettingsJSON, &p.DraftPortfoliosJSON, &p.UserDescription)
 	if errors.Is(err, sql.ErrNoRows) {
-		return UserProfile{ReserveMonths: 6, ActiveTab: "overview"}, nil
+		p = UserProfile{ReserveMonths: 6, ActiveTab: "overview"}
+		err = nil
 	}
 	p.AISettingsJSON = stripAIAPIKey(p.AISettingsJSON)
+
+	starredInst, _ := s.ListStarredInstruments(ctx, userID)
+	p.StarredInstruments = starredInst
+	if p.StarredInstruments == nil {
+		p.StarredInstruments = []string{}
+	}
+
+	var starredBtps []string
+	if rows, qErr := s.db.QueryContext(ctx, `SELECT isin FROM btp_starred WHERE user_id = ? ORDER BY isin`, userID); qErr == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var isin string
+			if rows.Scan(&isin) == nil {
+				starredBtps = append(starredBtps, isin)
+			}
+		}
+	}
+	p.StarredBTPs = starredBtps
+	if p.StarredBTPs == nil {
+		p.StarredBTPs = []string{}
+	}
+
 	return p, err
 }
 
@@ -62,7 +90,34 @@ func (s *Store) SaveProfile(ctx context.Context, userID string, p UserProfile) e
 		   user_description=excluded.user_description`,
 		userID, p.Theme, p.PreferredCurrency, p.MonthlyExpensesMinor, p.ReserveMonths, p.HideBalances, p.EmergencyGoalMinor, p.FireExpensesMinor, p.InstrumentColumnsJSON, p.ShowFireCalculator, p.EnableBtpRanks, p.ActiveTab, p.AISettingsJSON, p.DraftPortfoliosJSON, p.UserDescription,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if p.StarredInstruments != nil {
+		if _, err := s.db.ExecContext(ctx, `DELETE FROM instrument_starred WHERE user_id=?`, userID); err != nil {
+			return err
+		}
+		now := time.Now().UTC().Format(time.RFC3339)
+		for _, isin := range p.StarredInstruments {
+			isin = strings.ToUpper(strings.TrimSpace(isin))
+			if portfolio.ValidISIN(isin) {
+				_, _ = s.db.ExecContext(ctx, `INSERT INTO instrument_starred (user_id, isin, created_at) VALUES (?, ?, ?) ON CONFLICT(user_id, isin) DO NOTHING`, userID, isin, now)
+			}
+		}
+	}
+	if p.StarredBTPs != nil {
+		if _, err := s.db.ExecContext(ctx, `DELETE FROM btp_starred WHERE user_id=?`, userID); err != nil {
+			return err
+		}
+		now := time.Now().UTC().Format(time.RFC3339)
+		for _, isin := range p.StarredBTPs {
+			isin = strings.ToUpper(strings.TrimSpace(isin))
+			if len(isin) == 12 {
+				_, _ = s.db.ExecContext(ctx, `INSERT INTO btp_starred (user_id, isin, created_at) VALUES (?, ?, ?) ON CONFLICT(user_id, isin) DO NOTHING`, userID, isin, now)
+			}
+		}
+	}
+	return nil
 }
 
 func normalizeProfile(p *UserProfile) error {

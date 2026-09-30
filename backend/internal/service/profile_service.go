@@ -91,6 +91,12 @@ func applyProfilePatch(p *store.UserProfile, patch *portv1.UserProfile) {
 	if patch.UserDescription != nil {
 		p.UserDescription = *patch.UserDescription
 	}
+	if patch.StarredInstruments != nil {
+		p.StarredInstruments = patch.StarredInstruments
+	}
+	if patch.StarredBtps != nil {
+		p.StarredBTPs = patch.StarredBtps
+	}
 }
 
 func profileToProto(p store.UserProfile) *portv1.UserProfile {
@@ -102,5 +108,7 @@ func profileToProto(p store.UserProfile) *portv1.UserProfile {
 		ShowFireCalculator: proto.Bool(p.ShowFireCalculator), EnableBtpRanks: proto.Bool(p.EnableBtpRanks),
 		ActiveTab: proto.String(p.ActiveTab), AiSettingsJson: proto.String(p.AISettingsJSON),
 		DraftPortfoliosJson: proto.String(p.DraftPortfoliosJSON), UserDescription: proto.String(p.UserDescription),
+		StarredInstruments: p.StarredInstruments,
+		StarredBtps:        p.StarredBTPs,
 	}
 }

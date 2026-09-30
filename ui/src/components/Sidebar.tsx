@@ -48,27 +48,21 @@ import {
 import type { AuthUser } from '../auth';
 import type { Diagnostic, RefreshTickData } from '../api';
 import { handleLinkClick } from '../utils/navigation';
+import {
+  type ThemeAccent,
+  type ThemeScheme,
+  ACCENT_HEX,
+  ACCENT_LABELS,
+  ACCENTS,
+} from '../utils/userTheme';
 
-export type ThemeAccent = 'teal' | 'amber' | 'ocean' | 'violet' | 'rose';
-export type ThemeScheme = 'light' | 'dark';
-
-export const ACCENT_HEX: Record<ThemeAccent, string> = {
-  teal: '#12b886',
-  amber: '#f97316',
-  ocean: '#228be6',
-  violet: '#7950f2',
-  rose: '#e64980',
+export {
+  type ThemeAccent,
+  type ThemeScheme,
+  ACCENT_HEX,
+  ACCENT_LABELS,
+  ACCENTS,
 };
-
-export const ACCENT_LABELS: Record<ThemeAccent, string> = {
-  teal: 'Teal',
-  amber: 'Orange',
-  ocean: 'Ocean',
-  violet: 'Violet',
-  rose: 'Rose',
-};
-
-export const ACCENTS = Object.keys(ACCENT_HEX) as ThemeAccent[];
 
 function NotificationBadge({ count, offsetBg = '#ffffff' }: { count: number; offsetBg?: string }) {
   if (count <= 0) return null;

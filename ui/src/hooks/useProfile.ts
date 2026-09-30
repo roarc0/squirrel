@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { notifications } from '@mantine/notifications';
 import { profileClient } from '../api';
 import { setHideBalancesState } from '../utils/format';
+import { getActiveUserKey } from '../auth';
+import { resolveUserTheme, saveUserThemeLocally } from '../utils/userTheme';
 
 export type UserProfile = {
   theme: string;
@@ -18,6 +20,8 @@ export type UserProfile = {
   ai_settings_json: string;
   draft_portfolios_json: string;
   user_description: string;
+  starred_instruments: string[];
+  starred_btps: string[];
 };
 
 const DEFAULTS: UserProfile = {
@@ -35,6 +39,8 @@ const DEFAULTS: UserProfile = {
   ai_settings_json: '',
   draft_portfolios_json: '',
   user_description: '',
+  starred_instruments: [],
+  starred_btps: [],
 };
 
 export type ProfileSyncStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -50,11 +56,14 @@ function notify() {
 }
 
 export async function loadProfile(): Promise<void> {
+  const userKey = getActiveUserKey();
   try {
     const res = await profileClient.getProfile({});
     const p = res.profile ?? {};
+    const resolvedTheme = resolveUserTheme(p.theme, userKey);
+    const themeStr = `${resolvedTheme.scheme}:${resolvedTheme.accent}`;
     _profile = {
-      theme: p.theme || `${localStorage.getItem('squirrel.scheme') || 'dark'}:${localStorage.getItem('squirrel.accent') || 'amber'}`,
+      theme: p.theme || themeStr,
       preferred_currency: p.preferredCurrency ?? '',
       monthly_expenses_minor: Number(p.monthlyExpensesMinor ?? 0),
       reserve_months: Number(p.reserveMonths ?? 6) || 6,
@@ -65,30 +74,35 @@ export async function loadProfile(): Promise<void> {
       show_fire_calculator: Boolean(p.showFireCalculator),
       enable_btp_ranks: Boolean(p.enableBtpRanks),
       active_tab: p.activeTab ?? 'overview',
-      ai_settings_json: p.aiSettingsJson || localStorage.getItem('squirrel.aiSettings') || '',
-      draft_portfolios_json: p.draftPortfoliosJson || localStorage.getItem('squirrel.draftPortfolios') || '',
+      ai_settings_json: p.aiSettingsJson || (typeof localStorage !== 'undefined' ? localStorage.getItem(`squirrel.aiSettings.${userKey}`) || localStorage.getItem('squirrel.aiSettings') || '' : ''),
+      draft_portfolios_json: p.draftPortfoliosJson || (typeof localStorage !== 'undefined' ? localStorage.getItem(`squirrel.draftPortfolios.${userKey}`) || localStorage.getItem('squirrel.draftPortfolios') || '' : ''),
       user_description: p.userDescription ?? '',
+      starred_instruments: p.starredInstruments ?? [],
+      starred_btps: p.starredBtps ?? [],
     };
+    saveUserThemeLocally(userKey, resolvedTheme.scheme, resolvedTheme.accent);
   } catch {
+    const fallbackTheme = resolveUserTheme(null, userKey);
     // Fall back to localStorage values already set before auth
     _profile = {
       ..._profile,
+      theme: `${fallbackTheme.scheme}:${fallbackTheme.accent}`,
       hide_balances: localStorage.getItem('squirrel.hideBalances') === 'true',
       emergency_goal_minor: Number(localStorage.getItem('squirrel.emergencyGoal.EUR') || 0) * 100 || 1_000_000,
       fire_expenses_minor: Number(localStorage.getItem('squirrel.fireExpenses.EUR') || 0) * 100 || 2_400_000,
       show_fire_calculator: localStorage.getItem('squirrel.showFireCalculator') === 'true',
       enable_btp_ranks: localStorage.getItem('squirrel.enableBtpRanks') === 'true',
       active_tab: localStorage.getItem('squirrel.activeTab') || 'overview',
-      ai_settings_json: localStorage.getItem('squirrel.aiSettings') || '',
-      draft_portfolios_json: localStorage.getItem('squirrel.draftPortfolios') || '',
+      ai_settings_json: (typeof localStorage !== 'undefined' ? localStorage.getItem(`squirrel.aiSettings.${userKey}`) || localStorage.getItem('squirrel.aiSettings') || '' : ''),
+      draft_portfolios_json: (typeof localStorage !== 'undefined' ? localStorage.getItem(`squirrel.draftPortfolios.${userKey}`) || localStorage.getItem('squirrel.draftPortfolios') || '' : ''),
     };
   }
   _loaded = true;
   _syncStatus = 'saved';
   localStorage.setItem('squirrel.hideBalances', String(_profile.hide_balances));
   localStorage.setItem('squirrel.activeTab', _profile.active_tab);
-  if (_profile.ai_settings_json) localStorage.setItem('squirrel.aiSettings', _profile.ai_settings_json);
-  if (_profile.draft_portfolios_json) localStorage.setItem('squirrel.draftPortfolios', _profile.draft_portfolios_json);
+  if (_profile.ai_settings_json) localStorage.setItem(`squirrel.aiSettings.${userKey}`, _profile.ai_settings_json);
+  if (_profile.draft_portfolios_json) localStorage.setItem(`squirrel.draftPortfolios.${userKey}`, _profile.draft_portfolios_json);
   setHideBalancesState(_profile.hide_balances);
   notify();
 }
@@ -116,6 +130,8 @@ export async function persistProfile(): Promise<void> {
         aiSettingsJson: _profile.ai_settings_json,
         draftPortfoliosJson: _profile.draft_portfolios_json,
         userDescription: _profile.user_description,
+        starredInstruments: _profile.starred_instruments,
+        starredBtps: _profile.starred_btps,
       },
     });
     _syncStatus = 'saved';
@@ -206,4 +222,30 @@ export function useProfileSyncStatus(): { status: ProfileSyncStatus; error: stri
     error: _syncError,
     retry: () => void persistProfile(),
   };
+}
+
+export function isInstrumentStarred(isin: string): boolean {
+  return _profile.starred_instruments.includes(isin.toUpperCase());
+}
+
+export function isBtpStarred(isin: string): boolean {
+  return _profile.starred_btps.includes(isin.toUpperCase());
+}
+
+export function setInstrumentStarredInProfile(isin: string, starred: boolean): void {
+  const norm = isin.toUpperCase();
+  const next = starred
+    ? Array.from(new Set([..._profile.starred_instruments, norm]))
+    : _profile.starred_instruments.filter(x => x !== norm);
+  _profile = { ..._profile, starred_instruments: next };
+  notify();
+}
+
+export function setBtpStarredInProfile(isin: string, starred: boolean): void {
+  const norm = isin.toUpperCase();
+  const next = starred
+    ? Array.from(new Set([..._profile.starred_btps, norm]))
+    : _profile.starred_btps.filter(x => x !== norm);
+  _profile = { ..._profile, starred_btps: next };
+  notify();
 }

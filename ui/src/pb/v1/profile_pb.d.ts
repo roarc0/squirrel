@@ -113,6 +113,20 @@ export declare type UserProfile = Message<"v1.UserProfile"> & {
    * @generated from field: optional string user_description = 14;
    */
   userDescription?: string | undefined;
+
+  /**
+   * List of starred instrument ISINs for the active user.
+   *
+   * @generated from field: repeated string starred_instruments = 15;
+   */
+  starredInstruments: string[];
+
+  /**
+   * List of starred BTP ISINs for the active user.
+   *
+   * @generated from field: repeated string starred_btps = 16;
+   */
+  starredBtps: string[];
 };
 
 /**

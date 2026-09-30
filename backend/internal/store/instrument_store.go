@@ -12,8 +12,13 @@ import (
 
 var ErrNotFound = errors.New("record not found")
 
-func (s *Store) ListInstruments(ctx context.Context) ([]portfolio.Instrument, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, isin, name, ticker, instrument_type, provider, index_name, investment_focus, asset_class, strategy, currency_hedged, starred, data_status, distribution, replication, domicile, fund_currency, ter_bps, fund_size_million, inception_date, tracking_difference_bps, tracking_error_bps, ucits, source_url, refreshed_at FROM instruments ORDER BY starred DESC, fund_size_million DESC, name, isin`)
+func (s *Store) ListInstrumentsForUser(ctx context.Context, userID string) ([]portfolio.Instrument, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT i.id, i.isin, i.name, i.ticker, i.instrument_type, i.provider, i.index_name, i.investment_focus, i.asset_class, i.strategy, i.currency_hedged,
+		CASE WHEN s.isin IS NOT NULL THEN 1 ELSE 0 END AS starred,
+		i.data_status, i.distribution, i.replication, i.domicile, i.fund_currency, i.ter_bps, i.fund_size_million, i.inception_date, i.tracking_difference_bps, i.tracking_error_bps, i.ucits, i.source_url, i.refreshed_at
+	FROM instruments i
+	LEFT JOIN instrument_starred s ON s.isin = i.isin AND s.user_id = ?
+	ORDER BY starred DESC, i.fund_size_million DESC, i.name, i.isin`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -35,6 +40,10 @@ func (s *Store) ListInstruments(ctx context.Context) ([]portfolio.Instrument, er
 		instruments = append(instruments, instrument)
 	}
 	return instruments, rows.Err()
+}
+
+func (s *Store) ListInstruments(ctx context.Context) ([]portfolio.Instrument, error) {
+	return s.ListInstrumentsForUser(ctx, "")
 }
 
 func (s *Store) GetInstrumentByID(ctx context.Context, id int64) (portfolio.Instrument, error) {
@@ -207,19 +216,46 @@ func (s *Store) ReclassifyInstruments(ctx context.Context) (int, int, error) {
 }
 
 
-func (s *Store) SetInstrumentStarred(ctx context.Context, isin string, starred bool) error {
+func (s *Store) SetInstrumentStarredForUser(ctx context.Context, userID, isin string, starred bool) error {
 	isin = strings.ToUpper(strings.TrimSpace(isin))
 	if !portfolio.ValidISIN(isin) {
 		return errors.New("ISIN is invalid")
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE instruments SET starred=?, updated_at=? WHERE isin=?`, starred, time.Now().UTC().Format(time.RFC3339), isin)
-	if err != nil {
+	var exists int
+	if err := s.db.QueryRowContext(ctx, `SELECT 1 FROM instruments WHERE isin=?`, isin).Scan(&exists); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("instrument not found")
+		}
 		return err
 	}
-	if changed, _ := result.RowsAffected(); changed == 0 {
-		return errors.New("instrument not found")
+	now := time.Now().UTC().Format(time.RFC3339)
+	if starred {
+		_, err := s.db.ExecContext(ctx, `INSERT INTO instrument_starred (user_id, isin, created_at) VALUES (?, ?, ?) ON CONFLICT(user_id, isin) DO NOTHING`, userID, isin, now)
+		return err
 	}
-	return nil
+	_, err := s.db.ExecContext(ctx, `DELETE FROM instrument_starred WHERE user_id=? AND isin=?`, userID, isin)
+	return err
+}
+
+func (s *Store) SetInstrumentStarred(ctx context.Context, isin string, starred bool) error {
+	return s.SetInstrumentStarredForUser(ctx, "", isin, starred)
+}
+
+func (s *Store) ListStarredInstruments(ctx context.Context, userID string) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT isin FROM instrument_starred WHERE user_id=? ORDER BY isin`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var isins []string
+	for rows.Next() {
+		var isin string
+		if err := rows.Scan(&isin); err != nil {
+			return nil, err
+		}
+		isins = append(isins, isin)
+	}
+	return isins, rows.Err()
 }
 
 func (s *Store) ListInstrumentExclusions(ctx context.Context) (map[string]bool, error) {

@@ -32,6 +32,7 @@ import {
 } from '@tabler/icons-react';
 
 import { listBtps, refreshBtps, toggleStarBtp, type BtpBond } from '../api';
+import { setBtpStarredInProfile } from '../hooks/useProfile';
 import { ISINBadge } from '../Chip';
 import { DataTable, type DataColumn } from '../DataTable';
 import { SectionHeader } from '../components/SectionHeader';
@@ -158,6 +159,7 @@ export function BtpRankView() {
   const handleToggleStar = async (isin: string, currentStarred: boolean) => {
     try {
       const nextStarred = await toggleStarBtp(isin, !currentStarred);
+      setBtpStarredInProfile(isin, nextStarred);
       setBtps(prev =>
         prev.map(b => (b.isin === isin ? { ...b, is_starred: nextStarred } : b))
       );

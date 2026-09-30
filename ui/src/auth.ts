@@ -55,6 +55,17 @@ export function isAuthenticated(): boolean {
   return getToken() !== null;
 }
 
+export function getActiveSession(): AuthSession | null {
+  const token = getToken();
+  if (!token) return null;
+  return readSessions().find(item => item.token === token) || null;
+}
+
+export function getActiveUserKey(): string {
+  const session = getActiveSession();
+  return session ? session.google_id : 'guest';
+}
+
 export function listSignedInUsers(): AuthUser[] {
   return readSessions().map(({ token: _, ...user }) => user);
 }

@@ -98,6 +98,7 @@ import { flushProfile, loadProfile, resetProfile, updateProfile, useProfile } fr
 import { useContinuousRefresh } from './hooks/useContinuousRefresh';
 import { handleLinkClick } from './utils/navigation';
 import { Sidebar, type ThemeAccent, type ThemeScheme, ACCENT_HEX } from './components/Sidebar';
+import { resolveUserTheme, saveUserThemeLocally } from './utils/userTheme';
 
 const TEAL_VAR_KEYS = [
   '--mantine-color-teal-0', '--mantine-color-teal-1', '--mantine-color-teal-2',
@@ -362,39 +363,27 @@ export default function App() {
 
   const { setColorScheme } = useMantineColorScheme();
   const [scheme, setScheme] = useState<ThemeScheme>(() => {
-    const s = localStorage.getItem('squirrel.scheme');
-    return s === 'light' ? 'light' : 'dark';
+    return resolveUserTheme(profile.theme, currentUser?.google_id).scheme;
   });
   const [accent, setAccent] = useState<ThemeAccent>(() => {
-    const a = localStorage.getItem('squirrel.accent') as ThemeAccent | null;
-    return a && a in ACCENT_HEX ? a : 'amber';
+    return resolveUserTheme(profile.theme, currentUser?.google_id).accent;
   });
 
   useEffect(() => {
-    applyAccentVars(accent);
-    document.documentElement.setAttribute('data-accent', accent);
-    setColorScheme(scheme);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    const [savedScheme, savedAccent] = profile.theme.split(':');
-    if ((savedScheme !== 'light' && savedScheme !== 'dark') || !(savedAccent in ACCENT_HEX)) return;
-    const nextAccent = savedAccent as ThemeAccent;
-    setScheme(savedScheme);
-    setAccent(nextAccent);
-    localStorage.setItem('squirrel.scheme', savedScheme);
-    localStorage.setItem('squirrel.accent', nextAccent);
-    applyAccentVars(nextAccent);
-    document.documentElement.setAttribute('data-accent', nextAccent);
-    setColorScheme(savedScheme);
-  }, [profile.theme, setColorScheme]);
+    const resolved = resolveUserTheme(profile.theme, currentUser?.google_id);
+    setScheme(resolved.scheme);
+    setAccent(resolved.accent);
+    saveUserThemeLocally(currentUser?.google_id || 'guest', resolved.scheme, resolved.accent);
+    applyAccentVars(resolved.accent);
+    document.documentElement.setAttribute('data-accent', resolved.accent);
+    setColorScheme(resolved.scheme);
+  }, [profile.theme, currentUser?.google_id, setColorScheme]);
 
   const applyTheme = (s: ThemeScheme, a: ThemeAccent) => {
+    const userKey = currentUser?.google_id || 'guest';
     setScheme(s);
     setAccent(a);
-    localStorage.setItem('squirrel.scheme', s);
-    localStorage.setItem('squirrel.accent', a);
+    saveUserThemeLocally(userKey, s, a);
     applyAccentVars(a);
     document.documentElement.setAttribute('data-accent', a);
     setProfileField({ theme: `${s}:${a}` });
@@ -581,6 +570,7 @@ export default function App() {
                     reload={load}
                   />
                 : <InstrumentFinderView
+                    key={currentUser?.google_id || 'guest'}
                     instruments={data.instruments}
                     reload={load}
                     onOpenDetail={isin => handleSubtabChange('instruments', isin)}
@@ -599,6 +589,7 @@ export default function App() {
             </Tabs.Panel>
             <Tabs.Panel value="consultant" className="tab-content">
               <AIConsultantView
+                key={currentUser?.google_id || 'guest'}
                 summary={data.summary}
                 accounts={data.accounts}
                 holdings={data.holdings}
@@ -607,6 +598,7 @@ export default function App() {
             </Tabs.Panel>
             <Tabs.Panel value="advisor" className="tab-content">
               <AIConsultantView
+                key={currentUser?.google_id || 'guest'}
                 summary={data.summary}
                 accounts={data.accounts}
                 holdings={data.holdings}
@@ -614,10 +606,16 @@ export default function App() {
               />
             </Tabs.Panel>
             <Tabs.Panel value="btp" className="tab-content">
-              <BtpRankView />
+              <BtpRankView key={currentUser?.google_id || 'guest'} />
             </Tabs.Panel>
             <Tabs.Panel value="settings" className="tab-content">
-              <SettingsView reload={load} />
+              <SettingsView
+                key={currentUser?.google_id || 'guest'}
+                reload={load}
+                scheme={scheme}
+                accent={accent}
+                onApplyTheme={applyTheme}
+              />
             </Tabs.Panel>
           </Tabs>
 

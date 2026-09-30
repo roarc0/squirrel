@@ -34,6 +34,10 @@ message UserProfile {
   optional string draft_portfolios_json = 13;
   // User description detailing investment objectives, risk exposure/tolerance, age, sex/gender, time horizon, etc.
   optional string user_description = 14;
+  // List of starred instrument ISINs for the active user.
+  repeated string starred_instruments = 15;
+  // List of starred BTP ISINs for the active user.
+  repeated string starred_btps = 16;
 }
 
 message GetProfileRequest {}

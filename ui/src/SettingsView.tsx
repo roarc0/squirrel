@@ -33,9 +33,12 @@ import {
   IconFileCertificate,
   IconFlame,
   IconInfoCircle,
+  IconMoon,
+  IconPalette,
   IconPlug,
   IconShieldCheck,
   IconSparkles,
+  IconSun,
   IconUpload,
   IconUserCheck,
 } from '@tabler/icons-react';
@@ -43,6 +46,7 @@ import {
 import { exportBackup, restoreBackup } from './api';
 import { useConfirmDelete } from './components/ConfirmDeleteModal';
 import { useProfile, isProfileLoaded, useProfileSyncStatus } from './hooks/useProfile';
+import { type ThemeAccent, type ThemeScheme, ACCENTS, ACCENT_HEX, ACCENT_LABELS } from './components/Sidebar';
 import { money, currencySymbol } from './utils/format';
 import { ViewShell } from './components/ViewShell';
 import { SectionHeader } from './components/SectionHeader';
@@ -59,10 +63,25 @@ const CURRENCY_OPTIONS = [
   { value: 'CUSTOM', label: '✍️ Custom Currency (Code / Symbol)' },
 ];
 
-export function SettingsView({ reload }: { reload: () => Promise<void> }) {
+export function SettingsView({
+  reload,
+  scheme,
+  accent,
+  onApplyTheme,
+}: {
+  reload: () => Promise<void>;
+  scheme?: ThemeScheme;
+  accent?: ThemeAccent;
+  onApplyTheme?: (scheme: ThemeScheme, accent: ThemeAccent) => void;
+}) {
   const [profile, setProfile] = useProfile();
   const loaded = isProfileLoaded();
   const { status: syncStatus, error: syncError, retry: retrySync } = useProfileSyncStatus();
+
+  const [profileScheme, profileAccent] = (profile.theme || '').split(':');
+  const currentScheme: ThemeScheme = scheme || (profileScheme === 'light' ? 'light' : 'dark');
+  const currentAccent: ThemeAccent = accent || (profileAccent in ACCENT_HEX ? profileAccent as ThemeAccent : 'teal');
+
   const currSymbol = `${currencySymbol(profile.preferred_currency || 'EUR')} `;
 
   const isKnownCurrency = CURRENCY_OPTIONS.some(c => c.value === profile.preferred_currency && c.value !== 'CUSTOM');
@@ -190,6 +209,81 @@ export function SettingsView({ reload }: { reload: () => Promise<void> }) {
                   <strong>Financial Advice Disclaimer:</strong> All suggestions and recommendations provided by the AI Consultant are for analytical purposes only and do NOT constitute formal financial advice. Always evaluate recommendations with a grain of salt and consult a certified financial advisor before investing.
                 </Text>
               </Alert>
+            </Stack>
+          </Paper>
+
+          {/* Section: Appearance & Highlight Accent */}
+          <Paper withBorder p="lg" radius="md">
+            <Group justify="space-between" align="center" mb="xs">
+              <Group gap="xs">
+                <IconPalette size={20} color="var(--mantine-color-teal-6)" />
+                <Text fw={700} size="md">
+                  Appearance & Highlight Color
+                </Text>
+              </Group>
+              <Badge variant="light" color="teal">
+                User Profile
+              </Badge>
+            </Group>
+            <Text size="xs" c="dimmed" mb="lg">
+              Theme mode and highlight colors are saved to your profile and automatically switch when you change accounts.
+            </Text>
+            <Stack gap="md">
+              <Box>
+                <Text size="sm" fw={600} mb={6}>
+                  Color Scheme
+                </Text>
+                <SegmentedControl
+                  value={currentScheme}
+                  onChange={val => {
+                    const nextScheme = val as ThemeScheme;
+                    if (onApplyTheme) onApplyTheme(nextScheme, currentAccent);
+                    else setProfile({ theme: `${nextScheme}:${currentAccent}` });
+                  }}
+                  data={[
+                    { value: 'dark', label: <Group gap={6} justify="center"><IconMoon size={14} /><span>Dark Mode</span></Group> },
+                    { value: 'light', label: <Group gap={6} justify="center"><IconSun size={14} /><span>Light Mode</span></Group> },
+                  ]}
+                  fullWidth
+                />
+              </Box>
+
+              <Box>
+                <Text size="sm" fw={600} mb={6}>
+                  Profile Highlight Accent
+                </Text>
+                <Group gap="xs">
+                  {ACCENTS.map(a => {
+                    const isSelected = a === currentAccent;
+                    return (
+                      <Button
+                        key={a}
+                        variant={isSelected ? 'filled' : 'subtle'}
+                        size="xs"
+                        radius="xl"
+                        color={a === 'amber' ? 'orange' : a === 'ocean' ? 'blue' : a}
+                        leftSection={
+                          <Box
+                            w={12}
+                            h={12}
+                            style={{
+                              borderRadius: '50%',
+                              backgroundColor: ACCENT_HEX[a],
+                              border: isSelected ? '1.5px solid #fff' : 'none',
+                            }}
+                          />
+                        }
+                        onClick={() => {
+                          if (onApplyTheme) onApplyTheme(currentScheme, a);
+                          else setProfile({ theme: `${currentScheme}:${a}` });
+                        }}
+                      >
+                        {ACCENT_LABELS[a]}
+                      </Button>
+                    );
+                  })}
+                </Group>
+              </Box>
             </Stack>
           </Paper>
 

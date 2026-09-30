@@ -52,6 +52,9 @@ func TestExportAndRestoreBackup(t *testing.T) {
 	if _, err := s1.DB().ExecContext(ctx, `INSERT INTO btp_starred (user_id, isin, created_at) VALUES (?, ?, ?)`, "testuser", "IT0000000001", "2026-09-04T12:00:00Z"); err != nil {
 		t.Fatalf("Star BTP: %v", err)
 	}
+	if err := s1.SetInstrumentStarredForUser(ctx, "testuser", instrument.ISIN, true); err != nil {
+		t.Fatalf("Star instrument: %v", err)
+	}
 
 	// Export backup
 	tarGzBytes, filename, err := s1.ExportBackup(ctx, "testuser")
@@ -109,6 +112,10 @@ func TestExportAndRestoreBackup(t *testing.T) {
 	var starred int
 	if err := s2.DB().QueryRowContext(ctx, `SELECT COUNT(*) FROM btp_starred WHERE user_id=? AND isin=?`, "testuser", "IT0000000001").Scan(&starred); err != nil || starred != 1 {
 		t.Fatalf("Unexpected restored starred BTP: err=%v count=%d", err, starred)
+	}
+	var instStarred int
+	if err := s2.DB().QueryRowContext(ctx, `SELECT COUNT(*) FROM instrument_starred WHERE user_id=? AND isin=?`, "testuser", "IE00B4L5Y983").Scan(&instStarred); err != nil || instStarred != 1 {
+		t.Fatalf("Unexpected restored starred instrument: err=%v count=%d", err, instStarred)
 	}
 }
 

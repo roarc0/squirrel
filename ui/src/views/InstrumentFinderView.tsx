@@ -56,7 +56,7 @@ import { DataTable, TableAction, TableActions, type DataColumn, type SortDirecti
 import { confirmDelete as legacyConfirmDelete, instrumentLabels, label, percent, relativeDate } from '../utils/format';
 import { pageBounds } from '../visual';
 import { useConfirmDelete } from '../components/ConfirmDeleteModal';
-import { useProfile, getProfile } from '../hooks/useProfile';
+import { useProfile, getProfile, setInstrumentStarredInProfile } from '../hooks/useProfile';
 import { useQueryParamInt } from '../hooks/useQueryParam';
 import { ViewShell } from '../components/ViewShell';
 import { SectionHeader } from '../components/SectionHeader';
@@ -123,9 +123,9 @@ const defaultInstrumentColumns: InstrumentColumn[] = [
 
 function savedInstrumentColumns(): InstrumentColumn[] {
   try {
-    const raw = (typeof localStorage !== 'undefined' ? localStorage.getItem('squirrel.instrumentColumns.v7') : null) ||
-                (typeof localStorage !== 'undefined' ? localStorage.getItem('squirrel.instrumentColumns.v6') : null) ||
-                getProfile().instrument_columns_json;
+    const raw = getProfile().instrument_columns_json ||
+                (typeof localStorage !== 'undefined' ? localStorage.getItem('squirrel.instrumentColumns.v7') : null) ||
+                (typeof localStorage !== 'undefined' ? localStorage.getItem('squirrel.instrumentColumns.v6') : null);
     if (!raw) return defaultInstrumentColumns;
     const saved = JSON.parse(raw) as string[];
     const valid = saved.filter((value): value is InstrumentColumn => instrumentColumns.some(column => column.value === value));
@@ -434,6 +434,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
       found.starred = nextStarred;
     }
     setStarVersion(v => v + 1);
+    setInstrumentStarredInProfile(instrument.isin, nextStarred);
 
     try {
       await api(`/api/instruments/${encodeURIComponent(instrument.isin)}/star`, {
@@ -445,6 +446,7 @@ export function InstrumentFinderView({ instruments, reload, onOpenDetail }: { in
         found.starred = !nextStarred;
       }
       setStarVersion(v => v + 1);
+      setInstrumentStarredInProfile(instrument.isin, !nextStarred);
       notifications.show({
         color: 'red',
         title: 'Failed to update star',
