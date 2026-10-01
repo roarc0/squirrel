@@ -318,7 +318,7 @@ export function InstrumentDetailView({
 
   const [alternatives, setAlternatives] = useState<InstrumentAlternative[]>([]);
   const [loadingAlts, setLoadingAlts] = useState(false);
-  const [altsExpanded, setAltsExpanded] = useState(true);
+  const [altsExpanded, setAltsExpanded] = useState(false);
 
   const score = instrument ? computeInstrumentScore(instrument) : null;
 

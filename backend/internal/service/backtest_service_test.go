@@ -79,6 +79,43 @@ func TestBacktestAPI(t *testing.T) {
 	if r.Combined.MonthlyVar95 == nil || r.Correlations[0].Observations != 799 {
 		t.Fatal("missing monthly/correlation analysis")
 	}
+	// Editable copies retain independent account simulation, even for shared ISINs.
+	drafts := []*portv1.BacktestDraftPlan{
+		{Id: "first", Name: "First", MonthlyMinor: 10000, Allocations: []*portv1.BacktestAllocation{{Isin: isin, WeightBps: 8000}}},
+		{Id: "second", Name: "Second", MonthlyMinor: 20000, Allocations: []*portv1.BacktestAllocation{{Isin: isin, WeightBps: 8000}}},
+	}
+	draftRequest := &portv1.RunBacktestRequest{DraftPlans: drafts, InitialMinor: 60000, Rebalance: "annually", RiskFreeRate: .02, TargetReturn: .01}
+	draftResult, err := client.RunBacktest(ctx, connect.NewRequest(draftRequest))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, day := range r.Combined.Series {
+		if day.Value != draftResult.Msg.Combined.Series[i].Value {
+			t.Fatal("editable copies changed combined simulation")
+		}
+	}
+	drafts[0].Allocations[0].WeightBps = 6000
+	edited, err := client.RunBacktest(ctx, connect.NewRequest(draftRequest))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if edited.Msg.Portfolios[0].Series[799].Value == r.Portfolios[0].Series[799].Value || edited.Msg.Portfolios[1].Series[799].Value != r.Portfolios[1].Series[799].Value {
+		t.Fatal("editing one draft must affect only that PAC")
+	}
+	saved, err := st.ListHoldings(ctx, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, holding := range saved {
+		if holding.PACBPS != 8000 {
+			t.Fatal("draft changed saved allocation")
+		}
+	}
+	drafts[0].MonthlyMinor, drafts[1].MonthlyMinor = 0, 0
+	lumpSum, err := client.RunBacktest(ctx, connect.NewRequest(draftRequest))
+	if err != nil || lumpSum.Msg.Plans[0].Initial != 300 || lumpSum.Msg.Plans[1].Initial != 300 {
+		t.Fatal("all-lump-sum drafts should split the initial investment equally", err)
+	}
 	// A custom portfolio can use the same saved instrument with a partial cash allocation.
 	custom, err := client.RunBacktest(ctx, connect.NewRequest(&portv1.RunBacktestRequest{Allocations: []*portv1.BacktestAllocation{{Isin: isin, WeightBps: 6000}}, InitialMinor: 10000, StartDate: "2022-01-01", EndDate: "2023-02-01"}))
 	if err != nil {
@@ -91,6 +128,9 @@ func TestBacktestAPI(t *testing.T) {
 		request *portv1.RunBacktestRequest
 		code    connect.Code
 	}{
+		{&portv1.RunBacktestRequest{DraftPlans: drafts}, connect.CodeInvalidArgument},
+		{&portv1.RunBacktestRequest{DraftPlans: drafts, AccountIds: ids[:1], InitialMinor: 100}, connect.CodeInvalidArgument},
+		{&portv1.RunBacktestRequest{DraftPlans: []*portv1.BacktestDraftPlan{drafts[0], drafts[0]}, InitialMinor: 100}, connect.CodeInvalidArgument},
 		{&portv1.RunBacktestRequest{AccountIds: ids[2:]}, connect.CodeNotFound},
 		{&portv1.RunBacktestRequest{AccountIds: []int64{999999}}, connect.CodeNotFound},
 		{&portv1.RunBacktestRequest{AccountIds: []int64{ids[0], ids[0]}}, connect.CodeInvalidArgument},

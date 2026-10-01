@@ -57,8 +57,17 @@ func (s *Server) RunBacktest(ctx context.Context, req *connect.Request[portv1.Ru
 	if r.InitialMinor < 0 || r.MonthlyMinor < 0 || r.InitialMinor > 1e12 || r.MonthlyMinor > 1e12 {
 		return invalid(errors.New("investment amounts must be between zero and 10 billion EUR"))
 	}
-	if len(r.AccountIds) > 50 || len(r.Allocations) > 50 || (len(r.AccountIds) == 0) == (len(r.Allocations) == 0) {
-		return invalid(errors.New("select PAC accounts or provide a custom allocation (maximum 50 each)"))
+	modes := 0
+	for _, count := range []int{len(r.AccountIds), len(r.Allocations), len(r.DraftPlans)} {
+		if count > 50 {
+			return invalid(errors.New("a backtest supports at most 50 accounts, drafts or allocations"))
+		}
+		if count > 0 {
+			modes++
+		}
+	}
+	if modes != 1 {
+		return invalid(errors.New("provide exactly one of PAC accounts, custom allocations or draft plans"))
 	}
 	plans, err := s.backtestPlans(ctx, r)
 	if err != nil {
@@ -128,6 +137,43 @@ func (s *Server) RunBacktest(ctx context.Context, req *connect.Request[portv1.Ru
 func (s *Server) backtestPlans(ctx context.Context, r *portv1.RunBacktestRequest) ([]backtest.Plan, error) {
 	invalid := func(message string) ([]backtest.Plan, error) {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New(message))
+	}
+	if len(r.DraftPlans) > 0 {
+		if r.MonthlyMinor != 0 {
+			return invalid("draft plans use their own monthly budgets")
+		}
+		var plans []backtest.Plan
+		var budget float64
+		seen := map[string]bool{}
+		for _, draft := range r.DraftPlans {
+			if draft.Id == "" || draft.Id == "combined" || len(draft.Id) > 128 || seen[draft.Id] || len(draft.Name) > 200 {
+				return invalid("draft plans need unique IDs and names of at most 200 characters")
+			}
+			seen[draft.Id] = true
+			if draft.MonthlyMinor < 0 || draft.MonthlyMinor > 1e12 || len(draft.Allocations) > 50 {
+				return invalid("draft budgets must be between zero and 10 billion EUR, with at most 50 allocations")
+			}
+			plan := backtest.Plan{ID: draft.Id, Name: strings.TrimSpace(draft.Name), Monthly: float64(draft.MonthlyMinor) / 100}
+			if plan.Name == "" {
+				plan.Name = "Backtest portfolio"
+			}
+			for _, a := range draft.Allocations {
+				plan.Allocations = append(plan.Allocations, backtest.Allocation{AssetID: strings.ToUpper(strings.TrimSpace(a.Isin)), Weight: float64(a.WeightBps) / 10000})
+			}
+			budget += plan.Monthly
+			plans = append(plans, plan)
+		}
+		for i := range plans {
+			share := 1 / float64(len(plans))
+			if budget > 0 {
+				share = plans[i].Monthly / budget
+			}
+			plans[i].Initial = float64(r.InitialMinor) / 100 * share
+			if plans[i].Initial+plans[i].Monthly <= 0 {
+				return invalid("each draft needs an initial investment or monthly contribution")
+			}
+		}
+		return plans, nil
 	}
 	if len(r.Allocations) > 0 {
 		if r.InitialMinor+r.MonthlyMinor == 0 {

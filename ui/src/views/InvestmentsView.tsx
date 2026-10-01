@@ -196,7 +196,7 @@ export function InvestmentsView({
       />
 
       {currentSubtab === 'backtest' ? (
-        <BacktestView accounts={accounts} holdings={holdings} instruments={instruments} />
+        <BacktestView accounts={accounts} holdings={holdings} instruments={instruments} reload={reload} />
       ) : currentSubtab === 'radar' ? (
         <Stack gap="md">
           <SectionHeader

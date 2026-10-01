@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 
@@ -23,7 +24,10 @@ func (s *Server) GetInstrumentPerformance(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	if errors.Is(err, store.ErrNotFound) {
+	fetchedAt, timestampErr := time.Parse(time.RFC3339, meta.FetchedAt)
+	// All consumers, including backtests, must eventually refresh saved charts.
+	// A failed refresh remains an error; never silently present old data as current.
+	if errors.Is(err, store.ErrNotFound) || timestampErr != nil || time.Since(fetchedAt) >= 24*time.Hour {
 		points, fetchErr := s.justETF.FetchPerformance(ctx, isin)
 		if fetchErr != nil {
 			return nil, justETFConnectError(ctx, isin, fetchErr)

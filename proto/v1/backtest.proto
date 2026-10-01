@@ -9,8 +9,16 @@ message BacktestAllocation {
   int32 weight_bps = 2;
 }
 
+// Unsaved simulation inputs; IDs are local labels, never database references.
+message BacktestDraftPlan {
+  string id = 1;
+  string name = 2;
+  int64 monthly_minor = 3;
+  repeated BacktestAllocation allocations = 4;
+}
+
 message RunBacktestRequest {
-  // Select owned, active EUR PAC accounts, OR supply a custom allocation.
+  // Select owned, active EUR PAC accounts, a custom allocation, or draft plans.
   repeated int64 account_ids = 1;
   repeated BacktestAllocation allocations = 2;
   string start_date = 3;
@@ -22,6 +30,8 @@ message RunBacktestRequest {
   string rebalance = 7; // none (default), monthly, annually
   double risk_free_rate = 8;
   double target_return = 9;
+  // Alternative to account_ids or allocations. Each draft remains a separate PAC.
+  repeated BacktestDraftPlan draft_plans = 10;
 }
 
 message BacktestObservation {
@@ -119,7 +129,7 @@ message RunBacktestResponse {
 }
 
 service BacktestService {
-  // Stateless historical replay of today's allocations. Resolves saved history
+  // Stateless historical replay of the selected allocations. Resolves saved history
   // (fetching on first use); never changes holdings, budgets or trades.
   rpc RunBacktest(RunBacktestRequest) returns (RunBacktestResponse);
 }

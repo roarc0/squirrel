@@ -94,24 +94,29 @@ also available. These are trailing-window coefficients, not rolling averages.
 
 ## Application boundary
 
-`BacktestService.RunBacktest` accepts either owned active PAC account IDs or
-custom catalog ISIN/weight allocations. Monetary request fields are EUR cents;
+`BacktestService.RunBacktest` accepts owned active PAC account IDs, custom
+catalog ISIN/weight allocations, or independent unsaved draft plans. Monetary request fields are EUR cents;
 response values are EUR. Current supported PAC frequency is monthly. Cached
 justETF EUR total-return history is reused through the existing instrument
-service, including its basis-point rounding. Histories model reinvested
+service, including its basis-point rounding. Histories fetched over 24 hours ago
+are refreshed before use; explicit refresh always fetches immediately. The editor
+rechecks coverage when the browser tab regains focus. Histories model reinvested
 distributions; do not substitute raw unadjusted prices for total-return analysis.
 No historical FX, inflation, additional trading fees, or personal taxes are
 modeled. There is no factor dataset, proxy backfill or factor regression.
 
 The API authenticates through the existing Connect middleware and checks account
-ownership before reading instrument history. Runs do not save portfolios or
+ownership when resolving saved accounts. Runs do not save portfolios or
 alter allocations. No schema migration or background worker is required.
 
-The UI can copy a saved PAC's monthly budget and allocation weights into a local
-editable draft, or start an empty draft. Instrument replacement preserves its
-weight and uses the replacement's real history for the whole simulation.
-Drafts call the custom-allocation endpoint, never account/holding update APIs;
-they are temporary and are not saved when leaving the page.
+The UI always shows an editable table for one or more selected PACs, or an empty
+custom portfolio. Each PAC keeps its own monthly budget and allocation weights;
+adding another PAC preserves edits to those already selected. Instrument
+replacement preserves its weight and uses the replacement's real history for
+the whole simulation. Draft plans run separately and together through the same
+endpoint, never account/holding update APIs. They are temporary and are not saved
+when leaving the page. Initial capital is split by monthly budgets, or equally
+when all budgets are zero.
 
 Run deterministic calculation and boundary tests with:
 

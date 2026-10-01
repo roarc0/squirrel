@@ -21,7 +21,7 @@ import { IconChartLine, IconPlayerPlay } from '@tabler/icons-react';
 import { backtestClient, type Account, type Holding, type Instrument } from '../../api';
 import type { RunBacktestResponse } from '../../pb/v1/backtest_pb';
 import { SectionHeader } from '../../components/SectionHeader';
-import { AllocationEditor, AllocationSummary, type AllocationRow } from './PortfolioAllocation';
+import { AllocationEditor, AllocationSummary } from './PortfolioAllocation';
 import { MetricsGrid } from './MetricsGrid';
 import { AnalysisChart } from './AnalysisChart';
 import { ReturnHeatmap } from './ReturnHeatmap';
@@ -30,7 +30,8 @@ import { Drawdowns } from './Drawdowns';
 import { HoldingPeriods } from './HoldingPeriods';
 import { CorrelationMatrix } from './CorrelationMatrix';
 import { colors, eur, pct } from './format';
-import { copyPAC } from './draft';
+import { copyPAC, selectPACs, type DraftPlan } from './draft';
+import { RefreshBacktestData } from './RefreshBacktestData';
 
 function AnalysisSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -47,25 +48,30 @@ export function BacktestView({
   accounts,
   holdings,
   instruments,
+  reload,
 }: {
   accounts: Account[];
   holdings: Holding[];
   instruments: Instrument[];
+  reload: (opts?: { refreshInstruments?: boolean }) => Promise<void>;
 }) {
   const eligible = accounts.filter(
     (a) =>
       !a.archived &&
       a.currency === 'EUR' &&
       (a.pac_amount_minor ?? 0) > 0 &&
-      holdings.some((h) => h.account_id === a.id && (h.pac_bps ?? 0) > 0),
+      holdings.some((h) => h.account_id === a.id && (h.pac_bps ?? 0) > 0) &&
+      holdings
+        .filter((h) => h.account_id === a.id && (h.pac_bps ?? 0) > 0)
+        .every((h) => h.instrument_isin && (!h.pac_frequency || h.pac_frequency === 'monthly')),
   );
-  const [mode, setMode] = useState('pac');
-  const [selected, setSelected] = useState<string[]>();
-  const accountIds = selected ?? eligible.map((a) => String(a.id));
-  const [allocations, setAllocations] = useState<AllocationRow[]>([]);
-  const [draftSource, setDraftSource] = useState('');
+  const [plans, setPlans] = useState<DraftPlan[]>(() =>
+    eligible.length
+      ? eligible.map((account) => copyPAC(account, holdings))
+      : [{ id: 'custom', name: 'Custom portfolio', monthly: 300, allocations: [] }],
+  );
+  const accountIds = plans.filter((plan) => plan.id !== 'custom').map((plan) => plan.id);
   const [initial, setInitial] = useState<number | string>(0);
-  const [monthly, setMonthly] = useState<number | string>(300);
   const [period, setPeriod] = useState('max');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
@@ -75,41 +81,50 @@ export function BacktestView({
   const [result, setResult] = useState<RunBacktestResponse>();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [dataVersion, setDataVersion] = useState(0);
   const [portfolioId, setPortfolioId] = useState('combined');
   const [chartMode, setChartMode] = useState('return');
   const [compareId, setCompareId] = useState<string | null>(null);
   const [runInputs, setRunInputs] = useState('');
   const controller = useRef<AbortController | null>(null);
   useEffect(() => () => controller.current?.abort(), []);
-  const editCopy = (id: string | null) => {
-    const account = eligible.find((a) => String(a.id) === id);
-    if (!account) return;
+  useEffect(() => {
+    // ETF history can be refreshed in another browser tab while this result stays mounted.
+    const recheck = () => {
+      if (document.visibilityState === 'visible') setRunInputs('');
+    };
+    window.addEventListener('focus', recheck);
+    document.addEventListener('visibilitychange', recheck);
+    return () => {
+      window.removeEventListener('focus', recheck);
+      document.removeEventListener('visibilitychange', recheck);
+    };
+  }, []);
+  const choosePACs = (ids: string[]) => {
     try {
-      const draft = copyPAC(account, holdings);
-      setAllocations(draft.allocations);
-      setMonthly(draft.monthly);
-      setDraftSource(draft.source);
-      setMode('custom');
+      setPlans(
+        ids.length
+          ? selectPACs(ids, plans, eligible, holdings)
+          : [{ id: 'custom', name: 'Custom portfolio', monthly: 300, allocations: [] }],
+      );
       setError('');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }
   };
   const inputKey = JSON.stringify({
-    mode,
-    accountIds,
-    allocations,
+    dataVersion,
+    plans,
     initial,
-    monthly,
     period,
     start: period === 'max' ? '' : start,
     end: period === 'max' ? '' : end,
     rebalance,
     riskFree,
     target,
-    budgets: eligible.map((a) => [a.id, a.pac_amount_minor]),
-    weights: holdings.filter((h) => (h.pac_bps ?? 0) > 0).map((h) => [h.id, h.pac_bps, h.pac_frequency]),
   });
+  const refreshIsins = [...new Set(plans.flatMap((plan) => plan.allocations.map((a) => a.isin)))];
 
   const run = async () => {
     controller.current?.abort();
@@ -120,15 +135,15 @@ export function BacktestView({
     try {
       const response = await backtestClient.runBacktest(
         {
-          accountIds: mode === 'pac' ? accountIds.map(BigInt) : [],
-          allocations:
-            mode === 'custom'
-              ? allocations
-                  .filter((a) => a.weight > 0)
-                  .map((a) => ({ isin: a.isin, weightBps: Math.round(a.weight * 100) }))
-              : [],
+          draftPlans: plans.map((plan) => ({
+            id: plan.id,
+            name: plan.name,
+            monthlyMinor: BigInt(Math.round(plan.monthly * 100)),
+            allocations: plan.allocations
+              .filter((a) => a.weight > 0)
+              .map((a) => ({ isin: a.isin, weightBps: Math.round(a.weight * 100) })),
+          })),
           initialMinor: BigInt(Math.round(Number(initial) * 100)),
-          monthlyMinor: mode === 'custom' ? BigInt(Math.round(Number(monthly) * 100)) : 0n,
           startDate: period === 'max' ? '' : start,
           endDate: period === 'max' ? '' : end,
           rebalance,
@@ -184,80 +199,29 @@ export function BacktestView({
       />
       <Card withBorder p="lg" radius="md">
         <Stack gap="md">
-          <Group justify="space-between">
-            <SegmentedControl
-              value={mode}
-              onChange={setMode}
-              data={[
-                { value: 'pac', label: 'Your PACs' },
-                { value: 'custom', label: 'Editable backtest' },
-              ]}
+          <Group align="end">
+            <MultiSelect
+              label="PACs to backtest"
+              placeholder="Choose one or more PACs, or build from scratch"
+              value={accountIds}
+              onChange={choosePACs}
+              data={eligible.map((a) => ({ value: String(a.id), label: a.name }))}
+              clearable
+              searchable
+              style={{ flex: 1, minWidth: 220 }}
             />
+            <Button variant="subtle" onClick={() => choosePACs([])}>
+              Start from scratch
+            </Button>
             <Badge color="gray" variant="light">
               EUR · Dividends reinvested
             </Badge>
           </Group>
-          <Group align="end">
-            <Select
-              label="Edit a copy of a saved PAC"
-              placeholder="Choose a PAC to copy"
-              searchable
-              value={null}
-              data={eligible.map((a) => ({ value: String(a.id), label: a.name }))}
-              onChange={editCopy}
-              style={{ flex: 1, minWidth: 200 }}
-            />
-            <Button
-              variant="light"
-              onClick={() => {
-                setAllocations([]);
-                setDraftSource('');
-                setInitial(0);
-                setMonthly(300);
-                setPeriod('max');
-                setMode('custom');
-                setError('');
-              }}
-            >
-              Start from scratch
-            </Button>
-          </Group>
-          {mode === 'pac' ? (
-            <>
-              <MultiSelect
-                label="PAC accounts"
-                placeholder="Choose one or more accounts"
-                value={accountIds}
-                onChange={setSelected}
-                data={eligible.map((a) => ({
-                  value: String(a.id),
-                  label: `${a.name} · ${eur((a.pac_amount_minor ?? 0) / 100)}/month`,
-                }))}
-                clearable
-                searchable
-              />
-              {eligible.length === 0 && (
-                <Alert color="gray">
-                  Add an EUR account with a monthly PAC budget and allocations, or build a custom portfolio.
-                </Alert>
-              )}
-              <Text size="xs" c="dimmed">
-                Each selected account runs separately; the combined result uses their actual simulated
-                capital. Today’s budgets and allocations are replayed throughout the period.
-              </Text>
-            </>
-          ) : (
-            <>
-              <Alert
-                color="blue"
-                title={draftSource ? `Backtest copy of ${draftSource}` : 'New backtest portfolio'}
-              >
-                Replace instruments using their dropdowns, edit weights, or add new ones. Changes apply only
-                to this backtest; your saved PAC stays unchanged. Replacements use their own real history.
-              </Alert>
-              <AllocationEditor rows={allocations} instruments={instruments} onChange={setAllocations} />
-            </>
-          )}
+          <Text size="xs" c="dimmed">
+            Replace instruments and edit weights directly below. Changes apply only to this backtest; saved
+            PACs stay unchanged.
+          </Text>
+          <AllocationEditor key={dataVersion} plans={plans} instruments={instruments} onChange={setPlans} />
           <Group justify="space-between">
             <div>
               <Text size="sm" fw={500}>
@@ -307,7 +271,9 @@ export function BacktestView({
             <NumberInput
               label="Initial investment (€)"
               description={
-                mode === 'pac' ? 'Split by monthly PAC budgets' : 'Added to the first monthly deposit'
+                plans.length > 1
+                  ? 'Split by monthly budgets, or equally if all are zero'
+                  : 'Added to the first monthly deposit'
               }
               value={initial}
               onChange={setInitial}
@@ -315,17 +281,6 @@ export function BacktestView({
               max={1e10}
               decimalScale={2}
             />
-            {mode === 'custom' && (
-              <NumberInput
-                label="Monthly contribution (€)"
-                description="Use 0 for a lump-sum test"
-                value={monthly}
-                onChange={setMonthly}
-                min={0}
-                max={1e10}
-                decimalScale={2}
-              />
-            )}
           </SimpleGrid>
           <SimpleGrid cols={{ base: 1, sm: 3 }}>
             <Select
@@ -356,6 +311,16 @@ export function BacktestView({
             />
           </SimpleGrid>
           <Divider />
+          <RefreshBacktestData
+            isins={refreshIsins}
+            disabled={busy}
+            busy={refreshing}
+            onBusyChange={setRefreshing}
+            onComplete={async () => {
+              setDataVersion((version) => version + 1);
+              await reload({ refreshInstruments: true });
+            }}
+          />
           <Group justify="space-between" align="center">
             <Text size="xs" c="dimmed" maw={650}>
               Real history only. The newest instrument sets the earliest shared start; missing internal dates
@@ -365,10 +330,12 @@ export function BacktestView({
               leftSection={<IconPlayerPlay size={16} />}
               loading={busy}
               disabled={
-                mode === 'pac'
-                  ? accountIds.length === 0
-                  : allocations.every((a) => a.weight <= 0) ||
-                    allocations.reduce((sum, a) => sum + Math.round(a.weight * 100), 0) > 10000
+                refreshing ||
+                plans.some(
+                  (plan) =>
+                    plan.allocations.every((a) => a.weight <= 0) ||
+                    plan.allocations.reduce((sum, a) => sum + Math.round(a.weight * 100), 0) > 10000,
+                )
               }
               onClick={() => void run()}
             >
@@ -416,8 +383,8 @@ export function BacktestView({
         <>
           {runInputs !== inputKey && (
             <Alert color="yellow">
-              Inputs have changed. Results below still show the last completed run; run the backtest again to
-              update them.
+              Results below show the last completed run. Run the backtest again to use the latest inputs and
+              instrument history.
             </Alert>
           )}
           <Group justify="space-between">
@@ -467,8 +434,8 @@ export function BacktestView({
                 ))}
               </SimpleGrid>
               <Text size="xs" c="dimmed">
-                Annualized return is the compounded yearly equivalent of the time-weighted return; it needs
-                at least one year of history. Duration uses elapsed calendar days ÷ 365.25.
+                Annualized return is the compounded yearly equivalent of the time-weighted return; it needs at
+                least one year of history. Duration uses elapsed calendar days ÷ 365.25.
               </Text>
               <Divider />
               <Group gap="xl">
@@ -620,7 +587,7 @@ export function BacktestView({
           <AnalysisSection title="Methodology & data">
             <Stack gap="sm">
               <Text size="sm">
-                This is a historical simulation of today’s allocations. The initial amount and first monthly
+                This is a historical simulation of the selected allocations. The initial amount and first monthly
                 contribution are invested at the first available close; later contributions are invested at
                 the first calendar-day close of each month. Rebalancing takes place after deposits,
                 independently within each account.

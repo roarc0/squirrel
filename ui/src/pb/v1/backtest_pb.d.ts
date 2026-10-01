@@ -33,11 +33,44 @@ export declare type BacktestAllocation = Message<"v1.BacktestAllocation"> & {
 export declare const BacktestAllocationSchema: GenMessage<BacktestAllocation>;
 
 /**
+ * Unsaved simulation inputs; IDs are local labels, never database references.
+ *
+ * @generated from message v1.BacktestDraftPlan
+ */
+export declare type BacktestDraftPlan = Message<"v1.BacktestDraftPlan"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * @generated from field: int64 monthly_minor = 3;
+   */
+  monthlyMinor: bigint;
+
+  /**
+   * @generated from field: repeated v1.BacktestAllocation allocations = 4;
+   */
+  allocations: BacktestAllocation[];
+};
+
+/**
+ * Describes the message v1.BacktestDraftPlan.
+ * Use `create(BacktestDraftPlanSchema)` to create a new message.
+ */
+export declare const BacktestDraftPlanSchema: GenMessage<BacktestDraftPlan>;
+
+/**
  * @generated from message v1.RunBacktestRequest
  */
 export declare type RunBacktestRequest = Message<"v1.RunBacktestRequest"> & {
   /**
-   * Select owned, active EUR PAC accounts, OR supply a custom allocation.
+   * Select owned, active EUR PAC accounts, a custom allocation, or draft plans.
    *
    * @generated from field: repeated int64 account_ids = 1;
    */
@@ -88,6 +121,13 @@ export declare type RunBacktestRequest = Message<"v1.RunBacktestRequest"> & {
    * @generated from field: double target_return = 9;
    */
   targetReturn: number;
+
+  /**
+   * Alternative to account_ids or allocations. Each draft remains a separate PAC.
+   *
+   * @generated from field: repeated v1.BacktestDraftPlan draft_plans = 10;
+   */
+  draftPlans: BacktestDraftPlan[];
 };
 
 /**
@@ -588,7 +628,7 @@ export declare const RunBacktestResponseSchema: GenMessage<RunBacktestResponse>;
  */
 export declare const BacktestService: GenService<{
   /**
-   * Stateless historical replay of today's allocations. Resolves saved history
+   * Stateless historical replay of the selected allocations. Resolves saved history
    * (fetching on first use); never changes holdings, budgets or trades.
    *
    * @generated from rpc v1.BacktestService.RunBacktest
