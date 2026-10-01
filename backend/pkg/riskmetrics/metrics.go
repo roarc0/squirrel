@@ -66,7 +66,7 @@ func Calculate(points []Point, options Options) (Metrics, error) {
 	if !finite(riskFree) || !finite(target) {
 		return result, errors.New("period rate is outside the numeric range")
 	}
-	var mean, m2, downsideSquares, drawdownSquares, peak float64
+	var mean, m2, downsideSquares float64
 	for i, p := range points {
 		if p.Time.IsZero() || !finite(p.Price) || p.Price <= 0 {
 			return Metrics{}, fmt.Errorf("invalid observation at index %d", i)
@@ -74,10 +74,6 @@ func Calculate(points []Point, options Options) (Metrics, error) {
 		if i > 0 && !p.Time.After(points[i-1].Time) {
 			return Metrics{}, errors.New("observation times must be strictly increasing")
 		}
-		peak = math.Max(peak, p.Price)
-		drawdown := 1 - p.Price/peak
-		result.MaxDrawdown = math.Max(result.MaxDrawdown, drawdown)
-		drawdownSquares += drawdown * drawdown
 		if i == 0 {
 			continue
 		}
@@ -90,27 +86,22 @@ func Calculate(points []Point, options Options) (Metrics, error) {
 		downsideSquares += shortfall * shortfall
 	}
 	n := float64(len(points) - 1)
-	stddev := math.Sqrt(math.Max(0, m2) / (n - 1))
+	stddev := sampleDeviation(m2, n)
 	downside := math.Sqrt(downsideSquares / n)
 	annualScale := math.Sqrt(options.PeriodsPerYear)
 	result.Volatility = stddev * annualScale
 	result.DownsideDeviation = downside * annualScale
-	result.UlcerIndex = math.Sqrt(drawdownSquares / float64(len(points)))
+	drawdowns := Drawdowns(points)
+	result.MaxDrawdown = maxDrawdown(drawdowns)
+	result.UlcerIndex = ulcerIndex(drawdowns)
 	result.TotalReturn = points[len(points)-1].Price/points[0].Price - 1
 	if !finite(mean) || !finite(result.TotalReturn) || !finite(result.Volatility) || !finite(result.DownsideDeviation) {
 		return Metrics{}, errors.New("returns are outside the numeric range")
 	}
-	if stddev > 0 {
-		result.Sharpe = number((mean - riskFree) / stddev * annualScale)
-	}
-	if downside > 0 {
-		result.Sortino = number((mean - target) / downside * annualScale)
-	}
-	years := points[len(points)-1].Time.Sub(points[0].Time).Hours() / (24 * DaysPerYear)
-	result.CAGR = number(math.Expm1((math.Log(points[len(points)-1].Price) - math.Log(points[0].Price)) / years))
-	if result.CAGR != nil && result.MaxDrawdown > 0 {
-		result.Calmar = number(*result.CAGR / result.MaxDrawdown)
-	}
+	result.Sharpe = sharpe(mean, riskFree, stddev, annualScale)
+	result.Sortino = sortino(mean, target, downside, annualScale)
+	result.CAGR = cagr(points)
+	result.Calmar = calmar(result.CAGR, result.MaxDrawdown)
 	return result, nil
 }
 

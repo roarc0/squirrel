@@ -75,15 +75,15 @@ func (s *Server) GetInstrumentRiskMetrics(ctx context.Context, req *connect.Requ
 		result.Note = "Risk metrics unavailable: " + err.Error() + "."
 		return connect.NewResponse(result), nil
 	}
-	result.Metrics = &portv1.InstrumentRiskMetrics{
-		TotalReturn: m.TotalReturn, Cagr: m.CAGR,
-		Volatility: m.Volatility, DownsideDeviation: m.DownsideDeviation,
-		MaxDrawdown: m.MaxDrawdown, UlcerIndex: m.UlcerIndex,
-		Sharpe: m.Sharpe, Sortino: m.Sortino, Calmar: m.Calmar,
-	}
+	result.Metrics = riskMetricsToProto(m)
 	if points[len(points)-1].Time.Sub(points[0].Time).Hours() < 24*riskmetrics.DaysPerYear {
 		result.Metrics.Cagr, result.Metrics.Calmar = nil, nil
 		result.Note = "Less than one year of history: annualized risk estimates are sensitive to this short window. CAGR and Calmar need at least one year."
 	}
 	return connect.NewResponse(result), nil
+}
+
+func riskMetricsToProto(m riskmetrics.Metrics) *portv1.InstrumentRiskMetrics {
+	return &portv1.InstrumentRiskMetrics{TotalReturn: m.TotalReturn, Cagr: m.CAGR, Volatility: m.Volatility, DownsideDeviation: m.DownsideDeviation,
+		MaxDrawdown: m.MaxDrawdown, UlcerIndex: m.UlcerIndex, Sharpe: m.Sharpe, Sortino: m.Sortino, Calmar: m.Calmar}
 }

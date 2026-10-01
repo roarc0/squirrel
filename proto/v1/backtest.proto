@@ -1,0 +1,125 @@
+syntax = "proto3";
+package v1;
+option go_package = "github.com/roarc0/squirrel/proto/gen/go/v1;portv1";
+
+import "v1/instrument.proto";
+
+message BacktestAllocation {
+  string isin = 1;
+  int32 weight_bps = 2;
+}
+
+message RunBacktestRequest {
+  // Select owned, active EUR PAC accounts, OR supply a custom allocation.
+  repeated int64 account_ids = 1;
+  repeated BacktestAllocation allocations = 2;
+  string start_date = 3;
+  string end_date = 4;
+  // EUR cents. For PACs the initial sum is split in proportion to monthly budgets.
+  int64 initial_minor = 5;
+  // Only for custom allocations; PACs use their saved account budgets.
+  int64 monthly_minor = 6;
+  string rebalance = 7; // none (default), monthly, annually
+  double risk_free_rate = 8;
+  double target_return = 9;
+}
+
+message BacktestObservation {
+  string date = 1;
+  double value = 2; // EUR, fractional index units, no cent rounding during simulation
+  double contributed = 3;
+  double index = 4; // unitized time-weighted level, starting at 1
+  double drawdown = 5; // positive fraction
+}
+message BacktestMonth {
+  int32 year = 1;
+  int32 month = 2;
+  double return_value = 3;
+  bool partial = 4;
+}
+message BacktestYear {
+  int32 year = 1;
+  double return_value = 2;
+  bool partial = 3;
+}
+message BacktestReturnPoint {
+  string date = 1;
+  double return_value = 2;
+}
+message BacktestRollingWindow {
+  int32 years = 1;
+  repeated BacktestReturnPoint points = 2;
+}
+message BacktestHoldingPeriod {
+  int32 years = 1;
+  int32 samples = 2;
+  optional double worst_return = 3;
+  optional double nonnegative_fraction = 4;
+}
+message BacktestPortfolio {
+  string id = 1;
+  string name = 2;
+  repeated BacktestObservation series = 3;
+  InstrumentRiskMetrics metrics = 4;
+  optional double xirr = 5;
+  repeated BacktestMonth months = 6;
+  repeated BacktestYear years = 7;
+  int32 complete_months = 8;
+  optional double positive_months = 9;
+  optional double monthly_var95 = 10;
+  optional double monthly_var99 = 11;
+  repeated BacktestRollingWindow rolling = 12;
+  repeated BacktestHoldingPeriod holding_periods = 13;
+  double average_drawdown = 14;
+  int32 longest_drawdown_days = 15;
+  string longest_drawdown_start = 16;
+  string longest_drawdown_end = 17;
+  bool longest_drawdown_unrecovered = 18;
+  repeated string notes = 19;
+  double max_drawdown = 20;
+  double duration_years = 21; // elapsed calendar days / 365.25, not observation count
+}
+message BacktestCoverage {
+  string isin = 1;
+  string name = 2;
+  string start_date = 3;
+  string end_date = 4;
+  string fetched_at = 5;
+}
+message BacktestCorrelation {
+  string left = 1;
+  string right = 2;
+  optional double value = 3;
+}
+message BacktestCorrelationWindow {
+  int32 years = 1; // zero = entire effective window
+  int32 observations = 2;
+  repeated BacktestCorrelation pairs = 3;
+}
+message BacktestPlan {
+  string id = 1;
+  string name = 2;
+  double initial = 3;
+  double monthly = 4;
+  repeated BacktestAllocation allocations = 5;
+}
+message RunBacktestResponse {
+  string start_date = 1;
+  string end_date = 2;
+  string currency = 3;
+  string rebalance = 4;
+  double risk_free_rate = 5;
+  double target_return = 6;
+  BacktestPortfolio combined = 7;
+  repeated BacktestPortfolio portfolios = 8;
+  repeated BacktestCoverage coverage = 9;
+  repeated BacktestCorrelationWindow correlations = 10;
+  repeated BacktestPlan plans = 11;
+  repeated string notes = 12;
+}
+
+service BacktestService {
+  // Stateless historical replay of today's allocations. Resolves saved history
+  // (fetching on first use); never changes holdings, budgets or trades.
+  rpc RunBacktest(RunBacktestRequest) returns (RunBacktestResponse);
+}

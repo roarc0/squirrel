@@ -6,6 +6,7 @@ import { createConnectTransport } from '@connectrpc/connect-web';
 import { AccountService } from './pb/v1/account_pb.js';
 import { HoldingService } from './pb/v1/holding_pb.js';
 import { InstrumentService } from './pb/v1/instrument_pb.js';
+import { BacktestService } from './pb/v1/backtest_pb.js';
 import { RateService } from './pb/v1/rate_pb.js';
 import { SnapshotService } from './pb/v1/snapshot_pb.js';
 import { SummaryService } from './pb/v1/summary_pb.js';
@@ -30,6 +31,7 @@ const transport = createConnectTransport({
 export const accountClient = createClient(AccountService, transport);
 export const holdingClient = createClient(HoldingService, transport);
 export const instrumentClient = createClient(InstrumentService, transport);
+export const backtestClient = createClient(BacktestService, transport);
 export const rateClient = createClient(RateService, transport);
 export const snapshotClient = createClient(SnapshotService, transport);
 export const summaryClient = createClient(SummaryService, transport);
@@ -1078,4 +1080,3 @@ export async function reclassifyInstruments(): Promise<{ updated: number; total:
   const res = await instrumentClient.reclassifyInstruments({});
   return { updated: res.updated, total: res.total };
 }
-

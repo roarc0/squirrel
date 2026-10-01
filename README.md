@@ -67,9 +67,13 @@ The AI consultant can inspect portfolio data through an explicit read-only MCP a
 - `backend/internal/portfolio`: financial calculations, instrument validation, diagnostics, and ETF ranking.
 - `backend/internal/service`: Connect RPC boundary, auth-scoped orchestration, and embedded UI handler.
 - `backend/internal/store`: SQLite schema, migrations, and queries. It is the only package that knows SQL.
+- `backend/pkg/riskmetrics`: standalone instrument/portfolio risk metrics, with separate calculation files.
+- `backend/pkg/backtest`: [historical portfolio simulation and analysis](backend/pkg/backtest/README.md), independent of storage and APIs.
 - `ui`: React 19, TypeScript, Vite, and Mantine v7. Production assets in `ui/dist` are embedded by Go.
 
 The bank projection applies each account's marginal interest tiers, then subtracts its configured flat tax estimate and annual fee. Different currencies remain separate until FX conversion is implemented.
+
+Investments → Backtest replays EUR monthly PACs individually or together, or a custom allocation. It provides cash-flow-neutral returns, investor XIRR, risk metrics, calendar heatmaps, rolling returns, drawdowns, holding-period outcomes and instrument correlations. The analysis uses only shared real history and reports the instrument limiting the start date; no proxy prices are invented. Simulation conventions and limitations are documented in the backtest package.
 
 ETF selection first applies hard filters such as index, distribution policy, replication, domicile, TER, size, and age. It then calculates an explainable weighted score from TER (35%), tracking difference (30%), tracking error (15%), fund size (15%), and age (5%). Missing tracking data scores zero for that component instead of being silently guessed.
 

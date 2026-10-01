@@ -130,6 +130,7 @@ func NewWithConfig(data *store.Store, cfg config.Config, configPath string, prof
 	mux.Handle(portv1connect.NewAccountServiceHandler(s, connectOpts...))
 	mux.Handle(portv1connect.NewSummaryServiceHandler(s, connectOpts...))
 	mux.Handle(portv1connect.NewInstrumentServiceHandler(s, connectOpts...))
+	mux.Handle(portv1connect.NewBacktestServiceHandler(s, connectOpts...))
 	mux.Handle(portv1connect.NewHoldingServiceHandler(s, connectOpts...))
 	mux.Handle(portv1connect.NewSnapshotServiceHandler(s, connectOpts...))
 	mux.Handle(portv1connect.NewSystemServiceHandler(s, connectOpts...))

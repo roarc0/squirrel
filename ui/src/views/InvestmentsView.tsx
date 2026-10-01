@@ -6,6 +6,7 @@ import {
   IconChartPie,
   IconFlask,
   IconGlobe,
+  IconChartLine,
 } from '@tabler/icons-react';
 import {
   listHoldings,
@@ -28,8 +29,9 @@ import { SectionHeader } from '../components/SectionHeader';
 import { HoldingModal } from '../components/HoldingModal';
 import { PACSubtab } from './investments/PACSubtab';
 import { HoldingsSubtab } from './investments/HoldingsSubtab';
+import { BacktestView } from './backtest/BacktestView';
 
-export type InvestmentsSubtab = 'holdings' | 'pac' | 'radar' | 'sandbox';
+export type InvestmentsSubtab = 'holdings' | 'pac' | 'radar' | 'sandbox' | 'backtest';
 
 export function InvestmentsView({
   holdings,
@@ -176,6 +178,11 @@ export function InvestmentsView({
             badgeColor: 'teal',
           },
           {
+            value: 'backtest',
+            label: 'Backtest',
+            icon: <IconChartLine size={16} />,
+          },
+          {
             value: 'radar',
             label: 'Geo & FX Radar',
             icon: <IconGlobe size={16} />,
@@ -188,7 +195,9 @@ export function InvestmentsView({
         ]}
       />
 
-      {currentSubtab === 'radar' ? (
+      {currentSubtab === 'backtest' ? (
+        <BacktestView accounts={accounts} holdings={holdings} instruments={instruments} />
+      ) : currentSubtab === 'radar' ? (
         <Stack gap="md">
           <SectionHeader
             title="Geo & FX Radar"

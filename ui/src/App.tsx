@@ -691,8 +691,8 @@ function Investments({
   instruments: Instrument[];
   taxRates: TaxRate[];
   reload: () => Promise<void>;
-  activeSubtab?: 'holdings' | 'pac' | 'radar' | 'sandbox';
-  onSubtabChange?: (subtab: 'holdings' | 'pac' | 'radar' | 'sandbox') => void;
+  activeSubtab?: 'holdings' | 'pac' | 'radar' | 'sandbox' | 'backtest';
+  onSubtabChange?: (subtab: 'holdings' | 'pac' | 'radar' | 'sandbox' | 'backtest') => void;
   onOpenDrafts?: () => void;
   onOpenDetail?: (isin: string) => void;
 }) {
