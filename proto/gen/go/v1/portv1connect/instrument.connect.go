@@ -81,6 +81,9 @@ const (
 	// InstrumentServiceRefreshInstrumentPerformanceProcedure is the fully-qualified name of the
 	// InstrumentService's RefreshInstrumentPerformance RPC.
 	InstrumentServiceRefreshInstrumentPerformanceProcedure = "/v1.InstrumentService/RefreshInstrumentPerformance"
+	// InstrumentServiceGetInstrumentRiskMetricsProcedure is the fully-qualified name of the
+	// InstrumentService's GetInstrumentRiskMetrics RPC.
+	InstrumentServiceGetInstrumentRiskMetricsProcedure = "/v1.InstrumentService/GetInstrumentRiskMetrics"
 	// InstrumentServiceReclassifyInstrumentsProcedure is the fully-qualified name of the
 	// InstrumentService's ReclassifyInstruments RPC.
 	InstrumentServiceReclassifyInstrumentsProcedure = "/v1.InstrumentService/ReclassifyInstruments"
@@ -120,6 +123,9 @@ type InstrumentServiceClient interface {
 	GetInstrumentPerformance(context.Context, *connect.Request[v1.GetInstrumentPerformanceRequest]) (*connect.Response[v1.GetInstrumentPerformanceResponse], error)
 	// Re-fetch and replace performance data from justETF for an instrument.
 	RefreshInstrumentPerformance(context.Context, *connect.Request[v1.RefreshInstrumentPerformanceRequest]) (*connect.Response[v1.RefreshInstrumentPerformanceResponse], error)
+	// Calculate historical risk from the saved EUR total-return series; fetches
+	// history on first use. No benchmarks or live risk-free rate are inferred.
+	GetInstrumentRiskMetrics(context.Context, *connect.Request[v1.GetInstrumentRiskMetricsRequest]) (*connect.Response[v1.GetInstrumentRiskMetricsResponse], error)
 	// Re-classify all instruments locally in the database (updates strategy, asset class, provider).
 	ReclassifyInstruments(context.Context, *connect.Request[v1.ReclassifyInstrumentsRequest]) (*connect.Response[v1.ReclassifyInstrumentsResponse], error)
 }
@@ -231,6 +237,12 @@ func NewInstrumentServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(instrumentServiceMethods.ByName("RefreshInstrumentPerformance")),
 			connect.WithClientOptions(opts...),
 		),
+		getInstrumentRiskMetrics: connect.NewClient[v1.GetInstrumentRiskMetricsRequest, v1.GetInstrumentRiskMetricsResponse](
+			httpClient,
+			baseURL+InstrumentServiceGetInstrumentRiskMetricsProcedure,
+			connect.WithSchema(instrumentServiceMethods.ByName("GetInstrumentRiskMetrics")),
+			connect.WithClientOptions(opts...),
+		),
 		reclassifyInstruments: connect.NewClient[v1.ReclassifyInstrumentsRequest, v1.ReclassifyInstrumentsResponse](
 			httpClient,
 			baseURL+InstrumentServiceReclassifyInstrumentsProcedure,
@@ -258,6 +270,7 @@ type instrumentServiceClient struct {
 	watchContinuousRefresh       *connect.Client[v1.WatchContinuousRefreshRequest, v1.RefreshTick]
 	getInstrumentPerformance     *connect.Client[v1.GetInstrumentPerformanceRequest, v1.GetInstrumentPerformanceResponse]
 	refreshInstrumentPerformance *connect.Client[v1.RefreshInstrumentPerformanceRequest, v1.RefreshInstrumentPerformanceResponse]
+	getInstrumentRiskMetrics     *connect.Client[v1.GetInstrumentRiskMetricsRequest, v1.GetInstrumentRiskMetricsResponse]
 	reclassifyInstruments        *connect.Client[v1.ReclassifyInstrumentsRequest, v1.ReclassifyInstrumentsResponse]
 }
 
@@ -341,6 +354,11 @@ func (c *instrumentServiceClient) RefreshInstrumentPerformance(ctx context.Conte
 	return c.refreshInstrumentPerformance.CallUnary(ctx, req)
 }
 
+// GetInstrumentRiskMetrics calls v1.InstrumentService.GetInstrumentRiskMetrics.
+func (c *instrumentServiceClient) GetInstrumentRiskMetrics(ctx context.Context, req *connect.Request[v1.GetInstrumentRiskMetricsRequest]) (*connect.Response[v1.GetInstrumentRiskMetricsResponse], error) {
+	return c.getInstrumentRiskMetrics.CallUnary(ctx, req)
+}
+
 // ReclassifyInstruments calls v1.InstrumentService.ReclassifyInstruments.
 func (c *instrumentServiceClient) ReclassifyInstruments(ctx context.Context, req *connect.Request[v1.ReclassifyInstrumentsRequest]) (*connect.Response[v1.ReclassifyInstrumentsResponse], error) {
 	return c.reclassifyInstruments.CallUnary(ctx, req)
@@ -380,6 +398,9 @@ type InstrumentServiceHandler interface {
 	GetInstrumentPerformance(context.Context, *connect.Request[v1.GetInstrumentPerformanceRequest]) (*connect.Response[v1.GetInstrumentPerformanceResponse], error)
 	// Re-fetch and replace performance data from justETF for an instrument.
 	RefreshInstrumentPerformance(context.Context, *connect.Request[v1.RefreshInstrumentPerformanceRequest]) (*connect.Response[v1.RefreshInstrumentPerformanceResponse], error)
+	// Calculate historical risk from the saved EUR total-return series; fetches
+	// history on first use. No benchmarks or live risk-free rate are inferred.
+	GetInstrumentRiskMetrics(context.Context, *connect.Request[v1.GetInstrumentRiskMetricsRequest]) (*connect.Response[v1.GetInstrumentRiskMetricsResponse], error)
 	// Re-classify all instruments locally in the database (updates strategy, asset class, provider).
 	ReclassifyInstruments(context.Context, *connect.Request[v1.ReclassifyInstrumentsRequest]) (*connect.Response[v1.ReclassifyInstrumentsResponse], error)
 }
@@ -487,6 +508,12 @@ func NewInstrumentServiceHandler(svc InstrumentServiceHandler, opts ...connect.H
 		connect.WithSchema(instrumentServiceMethods.ByName("RefreshInstrumentPerformance")),
 		connect.WithHandlerOptions(opts...),
 	)
+	instrumentServiceGetInstrumentRiskMetricsHandler := connect.NewUnaryHandler(
+		InstrumentServiceGetInstrumentRiskMetricsProcedure,
+		svc.GetInstrumentRiskMetrics,
+		connect.WithSchema(instrumentServiceMethods.ByName("GetInstrumentRiskMetrics")),
+		connect.WithHandlerOptions(opts...),
+	)
 	instrumentServiceReclassifyInstrumentsHandler := connect.NewUnaryHandler(
 		InstrumentServiceReclassifyInstrumentsProcedure,
 		svc.ReclassifyInstruments,
@@ -527,6 +554,8 @@ func NewInstrumentServiceHandler(svc InstrumentServiceHandler, opts ...connect.H
 			instrumentServiceGetInstrumentPerformanceHandler.ServeHTTP(w, r)
 		case InstrumentServiceRefreshInstrumentPerformanceProcedure:
 			instrumentServiceRefreshInstrumentPerformanceHandler.ServeHTTP(w, r)
+		case InstrumentServiceGetInstrumentRiskMetricsProcedure:
+			instrumentServiceGetInstrumentRiskMetricsHandler.ServeHTTP(w, r)
 		case InstrumentServiceReclassifyInstrumentsProcedure:
 			instrumentServiceReclassifyInstrumentsHandler.ServeHTTP(w, r)
 		default:
@@ -600,6 +629,10 @@ func (UnimplementedInstrumentServiceHandler) GetInstrumentPerformance(context.Co
 
 func (UnimplementedInstrumentServiceHandler) RefreshInstrumentPerformance(context.Context, *connect.Request[v1.RefreshInstrumentPerformanceRequest]) (*connect.Response[v1.RefreshInstrumentPerformanceResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.InstrumentService.RefreshInstrumentPerformance is not implemented"))
+}
+
+func (UnimplementedInstrumentServiceHandler) GetInstrumentRiskMetrics(context.Context, *connect.Request[v1.GetInstrumentRiskMetricsRequest]) (*connect.Response[v1.GetInstrumentRiskMetricsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("v1.InstrumentService.GetInstrumentRiskMetrics is not implemented"))
 }
 
 func (UnimplementedInstrumentServiceHandler) ReclassifyInstruments(context.Context, *connect.Request[v1.ReclassifyInstrumentsRequest]) (*connect.Response[v1.ReclassifyInstrumentsResponse], error) {

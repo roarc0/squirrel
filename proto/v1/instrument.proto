@@ -242,6 +242,46 @@ message RefreshInstrumentPerformanceResponse {
   int32 point_count = 3;
 }
 
+message GetInstrumentRiskMetricsRequest {
+  string isin = 1;
+  // Inclusive YYYY-MM-DD bounds; empty means all available history.
+  string start_date = 2;
+  string end_date = 3;
+  // Effective annual fractions (0.02 = 2%). Defaults to a 0% assumption.
+  double risk_free_rate = 4;
+  double target_return = 5;
+}
+
+// Return/risk values are fractions; ratios are dimensionless. Drawdowns are
+// positive loss magnitudes. Absent values are unavailable, never zero-filled.
+message InstrumentRiskMetrics {
+  double total_return = 1;
+  optional double cagr = 2;
+  double volatility = 3;
+  double downside_deviation = 4;
+  double max_drawdown = 5;
+  double ulcer_index = 6;
+  optional double sharpe = 7;
+  optional double sortino = 8;
+  optional double calmar = 9;
+}
+
+message GetInstrumentRiskMetricsResponse {
+  // Requires 30 consecutive calendar-day returns. CAGR/Calmar additionally
+  // require at least one year. Calmar uses the selected window, not a fixed 3Y.
+  InstrumentRiskMetrics metrics = 1;
+  string start_date = 2;
+  string end_date = 3;
+  int32 point_count = 4;
+  string fetched_at = 5;
+  string currency = 6;
+  double periods_per_year = 7;
+  double risk_free_rate = 8;
+  double target_return = 9;
+  // Explains missing metrics or limited history.
+  string note = 10;
+}
+
 message DeleteInstrumentRequest {
   int64 id = 1;
 }
@@ -312,6 +352,9 @@ service InstrumentService {
   rpc GetInstrumentPerformance(GetInstrumentPerformanceRequest) returns (GetInstrumentPerformanceResponse);
   // Re-fetch and replace performance data from justETF for an instrument.
   rpc RefreshInstrumentPerformance(RefreshInstrumentPerformanceRequest) returns (RefreshInstrumentPerformanceResponse);
+  // Calculate historical risk from the saved EUR total-return series; fetches
+  // history on first use. No benchmarks or live risk-free rate are inferred.
+  rpc GetInstrumentRiskMetrics(GetInstrumentRiskMetricsRequest) returns (GetInstrumentRiskMetricsResponse);
   // Re-classify all instruments locally in the database (updates strategy, asset class, provider).
   rpc ReclassifyInstruments(ReclassifyInstrumentsRequest) returns (ReclassifyInstrumentsResponse);
 }

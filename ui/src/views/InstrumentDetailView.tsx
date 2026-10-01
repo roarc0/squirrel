@@ -37,6 +37,7 @@ import { lookupInstrument, starInstrument, getInstrumentAlternatives, instrument
 import { setInstrumentStarredInProfile } from '../hooks/useProfile';
 import { chartGeometry, nearestChartIndex } from '../utils/visual';
 import { Chip, ISINBadge, ReplicationChip, TickerBadge } from '../components/Chip';
+import { InstrumentRiskMetrics } from '../components/InstrumentRiskMetrics';
 import { instrumentLabels, label, relativeDate } from '../utils/format';
 import { computeInstrumentScore, isESG, resolveInstrumentProvider } from '../utils/rankFilters';
 
@@ -92,7 +93,7 @@ function formatReturn(points: PerfPoint[], key: PeriodKey): string {
   return `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
 }
 
-function PerformanceChart({ points }: { points: PerfPoint[] }) {
+function PerformanceChart({ points, isin, fetchedAt }: { points: PerfPoint[]; isin: string; fetchedAt: string }) {
   const [period, setPeriod] = useState<PeriodKey>('max');
   const [customDate, setCustomDate] = useState('');
   const [hovered, setHovered] = useState<number | undefined>();
@@ -136,7 +137,7 @@ function PerformanceChart({ points }: { points: PerfPoint[] }) {
   return (
     <Stack gap="sm" ref={containerRef}>
       {/* Period buttons with return % underneath */}
-      <Group gap={6} align="flex-end" wrap="nowrap">
+      <Group gap={6} align="flex-end" wrap="wrap">
         {PERIODS.map(p => {
           const available = isPeriodAvailable(points, p.key);
           const ret = formatReturn(points, p.key);
@@ -170,6 +171,7 @@ function PerformanceChart({ points }: { points: PerfPoint[] }) {
             <TextInput
               size="xs"
               type="date"
+              aria-label="Chart start date"
               value={customDate}
               min={minDate}
               max={maxDate}
@@ -178,7 +180,7 @@ function PerformanceChart({ points }: { points: PerfPoint[] }) {
               styles={{ input: { width: 130, fontSize: 11, height: 24, minHeight: 24, padding: '0 6px' } }}
             />
             {customDate && (
-              <ActionIcon size="xs" variant="subtle" color="gray" onClick={() => setCustomDate('')}>
+              <ActionIcon size="xs" variant="subtle" color="gray" aria-label="Clear chart start date" onClick={() => setCustomDate('')}>
                 <IconX size={12} />
               </ActionIcon>
             )}
@@ -263,6 +265,14 @@ function PerformanceChart({ points }: { points: PerfPoint[] }) {
             </>
           )}
         </svg>
+      )}
+      {slice.length > 0 && (
+        <InstrumentRiskMetrics
+          key={`${isin}:${slice[0].date}:${maxDate}:${fetchedAt}`}
+          isin={isin}
+          startDate={slice[0].date}
+          endDate={maxDate}
+        />
       )}
     </Stack>
   );
@@ -854,7 +864,7 @@ export function InstrumentDetailView({
             <Button size="xs" variant="light" onClick={() => void load(false)}>Load data</Button>
           </Stack>
         ) : (
-          <PerformanceChart points={series} />
+          <PerformanceChart key={isin} points={series} isin={isin} fetchedAt={fetchedAt} />
         )}
         {fetchedAt && status !== 'loading' && series.length > 0 && (
           <Text size="xs" c="dimmed" mt="xs">

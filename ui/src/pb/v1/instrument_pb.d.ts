@@ -945,6 +945,171 @@ export declare type RefreshInstrumentPerformanceResponse = Message<"v1.RefreshIn
 export declare const RefreshInstrumentPerformanceResponseSchema: GenMessage<RefreshInstrumentPerformanceResponse>;
 
 /**
+ * @generated from message v1.GetInstrumentRiskMetricsRequest
+ */
+export declare type GetInstrumentRiskMetricsRequest = Message<"v1.GetInstrumentRiskMetricsRequest"> & {
+  /**
+   * @generated from field: string isin = 1;
+   */
+  isin: string;
+
+  /**
+   * Inclusive YYYY-MM-DD bounds; empty means all available history.
+   *
+   * @generated from field: string start_date = 2;
+   */
+  startDate: string;
+
+  /**
+   * @generated from field: string end_date = 3;
+   */
+  endDate: string;
+
+  /**
+   * Effective annual fractions (0.02 = 2%). Defaults to a 0% assumption.
+   *
+   * @generated from field: double risk_free_rate = 4;
+   */
+  riskFreeRate: number;
+
+  /**
+   * @generated from field: double target_return = 5;
+   */
+  targetReturn: number;
+};
+
+/**
+ * Describes the message v1.GetInstrumentRiskMetricsRequest.
+ * Use `create(GetInstrumentRiskMetricsRequestSchema)` to create a new message.
+ */
+export declare const GetInstrumentRiskMetricsRequestSchema: GenMessage<GetInstrumentRiskMetricsRequest>;
+
+/**
+ * Return/risk values are fractions; ratios are dimensionless. Drawdowns are
+ * positive loss magnitudes. Absent values are unavailable, never zero-filled.
+ *
+ * @generated from message v1.InstrumentRiskMetrics
+ */
+export declare type InstrumentRiskMetrics = Message<"v1.InstrumentRiskMetrics"> & {
+  /**
+   * @generated from field: double total_return = 1;
+   */
+  totalReturn: number;
+
+  /**
+   * @generated from field: optional double cagr = 2;
+   */
+  cagr?: number | undefined;
+
+  /**
+   * @generated from field: double volatility = 3;
+   */
+  volatility: number;
+
+  /**
+   * @generated from field: double downside_deviation = 4;
+   */
+  downsideDeviation: number;
+
+  /**
+   * @generated from field: double max_drawdown = 5;
+   */
+  maxDrawdown: number;
+
+  /**
+   * @generated from field: double ulcer_index = 6;
+   */
+  ulcerIndex: number;
+
+  /**
+   * @generated from field: optional double sharpe = 7;
+   */
+  sharpe?: number | undefined;
+
+  /**
+   * @generated from field: optional double sortino = 8;
+   */
+  sortino?: number | undefined;
+
+  /**
+   * @generated from field: optional double calmar = 9;
+   */
+  calmar?: number | undefined;
+};
+
+/**
+ * Describes the message v1.InstrumentRiskMetrics.
+ * Use `create(InstrumentRiskMetricsSchema)` to create a new message.
+ */
+export declare const InstrumentRiskMetricsSchema: GenMessage<InstrumentRiskMetrics>;
+
+/**
+ * @generated from message v1.GetInstrumentRiskMetricsResponse
+ */
+export declare type GetInstrumentRiskMetricsResponse = Message<"v1.GetInstrumentRiskMetricsResponse"> & {
+  /**
+   * Requires 30 consecutive calendar-day returns. CAGR/Calmar additionally
+   * require at least one year. Calmar uses the selected window, not a fixed 3Y.
+   *
+   * @generated from field: v1.InstrumentRiskMetrics metrics = 1;
+   */
+  metrics?: InstrumentRiskMetrics | undefined;
+
+  /**
+   * @generated from field: string start_date = 2;
+   */
+  startDate: string;
+
+  /**
+   * @generated from field: string end_date = 3;
+   */
+  endDate: string;
+
+  /**
+   * @generated from field: int32 point_count = 4;
+   */
+  pointCount: number;
+
+  /**
+   * @generated from field: string fetched_at = 5;
+   */
+  fetchedAt: string;
+
+  /**
+   * @generated from field: string currency = 6;
+   */
+  currency: string;
+
+  /**
+   * @generated from field: double periods_per_year = 7;
+   */
+  periodsPerYear: number;
+
+  /**
+   * @generated from field: double risk_free_rate = 8;
+   */
+  riskFreeRate: number;
+
+  /**
+   * @generated from field: double target_return = 9;
+   */
+  targetReturn: number;
+
+  /**
+   * Explains missing metrics or limited history.
+   *
+   * @generated from field: string note = 10;
+   */
+  note: string;
+};
+
+/**
+ * Describes the message v1.GetInstrumentRiskMetricsResponse.
+ * Use `create(GetInstrumentRiskMetricsResponseSchema)` to create a new message.
+ */
+export declare const GetInstrumentRiskMetricsResponseSchema: GenMessage<GetInstrumentRiskMetricsResponse>;
+
+/**
  * @generated from message v1.DeleteInstrumentRequest
  */
 export declare type DeleteInstrumentRequest = Message<"v1.DeleteInstrumentRequest"> & {
@@ -1267,6 +1432,17 @@ export declare const InstrumentService: GenService<{
     methodKind: "unary";
     input: typeof RefreshInstrumentPerformanceRequestSchema;
     output: typeof RefreshInstrumentPerformanceResponseSchema;
+  },
+  /**
+   * Calculate historical risk from the saved EUR total-return series; fetches
+   * history on first use. No benchmarks or live risk-free rate are inferred.
+   *
+   * @generated from rpc v1.InstrumentService.GetInstrumentRiskMetrics
+   */
+  getInstrumentRiskMetrics: {
+    methodKind: "unary";
+    input: typeof GetInstrumentRiskMetricsRequestSchema;
+    output: typeof GetInstrumentRiskMetricsResponseSchema;
   },
   /**
    * Re-classify all instruments locally in the database (updates strategy, asset class, provider).
